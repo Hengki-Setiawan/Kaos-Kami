@@ -1,0 +1,92 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root,
+[data-theme="obsidian"] {
+  --color-canvas: #121214;
+  --color-surface: rgba(26, 26, 30, 0.75);
+  --color-surface-elevated: rgba(38, 38, 44, 0.9);
+  --color-text-primary: #F5F5F7;
+  --color-text-muted: #8E8E93;
+  --color-brand-accent: #E65100;
+  --color-border-subtle: rgba(255, 255, 255, 0.08);
+  --color-border-strong: rgba(255, 255, 255, 0.2);
+}
+
+[data-theme="gallery"] {
+  --color-canvas: #F5F4F0;
+  --color-surface: rgba(255, 255, 255, 0.85);
+  --color-surface-elevated: rgba(255, 255, 255, 0.95);
+  --color-text-primary: #121214;
+  --color-text-muted: #64646E;
+  --color-brand-accent: #E65100;
+  --color-border-subtle: rgba(0, 0, 0, 0.08);
+  --color-border-strong: rgba(0, 0, 0, 0.2);
+}
+
+[data-theme="concrete"] {
+  --color-canvas: #222326;
+  --color-surface: rgba(42, 43, 48, 0.8);
+  --color-surface-elevated: rgba(54, 55, 62, 0.95);
+  --color-text-primary: #F0F0F2;
+  --color-text-muted: #A0A0AA;
+  --color-brand-accent: #E65100;
+  --color-border-subtle: rgba(255, 255, 255, 0.1);
+  --color-border-strong: rgba(255, 255, 255, 0.25);
+}
+
+body {
+  background-color: var(--color-canvas);
+  color: var(--color-text-primary);
+  font-family: var(--font-sans), sans-serif;
+  overflow-x: hidden;
+  transition: background-color 0.4s ease, color 0.4s ease;
+}
+
+/* 3D WebGL Canvas Fixed Layer */
+.webgl-canvas-container {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  z-index: 10;
+  pointer-events: none;
+}
+
+.webgl-canvas-container.interactive {
+  pointer-events: auto;
+}
+
+/* Glassmorphic Panel Styles */
+.glass-panel {
+  background: var(--color-surface);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid var(--color-border-subtle);
+  transition: background-color 0.3s ease, border-color 0.3s ease;
+}
+
+.glass-panel-elevated {
+  background: var(--color-surface-elevated);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  border: 1px solid var(--color-border-strong);
+  transition: background-color 0.3s ease, border-color 0.3s ease;
+}
+
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+}
+::-webkit-scrollbar-track {
+  background: var(--color-canvas);
+}
+::-webkit-scrollbar-thumb {
+  background: var(--color-border-strong);
+  border-radius: 9999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--color-brand-accent);
+}
