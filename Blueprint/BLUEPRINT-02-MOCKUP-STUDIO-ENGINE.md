@@ -78,8 +78,12 @@ Already exists and MUST be preserved/extended, not replaced:
     detection and non-3D fallback (foundation for BLUEPRINT-04's device
     tiering).
 
-This blueprint's job is to take this foundation from "landing-page
-configurator" to "production mockup engine," in six upgrade tracks below.
+Reference Repositories Available Locally (`.skills-sourced/3d-configurators/`):
+  - `starklord-tshirt/` — Drei `<Decal>` projection math, lightweight baked AO garment mesh (`shirt_baked.glb`), and reactive color mutation.
+  - `vihan-tshirt-designer/` — Fabric.js 2D Canvas Designer integration (custom typography, font selection, multi-object layers) with live 3D texture projection.
+  - `afilah-clothing-configurator/` — Multi-apparel geometry swapping, scale clamping, and responsive drawer controls (`shirt.glb`).
+
+This blueprint's job is to synthesize these proven open-source techniques with our production-grade 2026 architecture (real-world cm calibration, high-res Cloudflare R2 vaults, and Supabase order backend) across the tracks below.
 
 --------------------------------------------------------------------------------
 2. TRACK A — DIRECT-MANIPULATION DECAL GIZMO (the single biggest UX gap)
