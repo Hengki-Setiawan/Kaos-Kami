@@ -911,9 +911,32 @@ export const MAKASSAR_DELIVERY_OPTIONS: DeliveryOption[] = [
     costIdr: 25000,
   },
 ];
+
+// Production Lead-Time & Target Completion Engine
+export interface ProductionTurnaround {
+  tier: "STANDARD" | "EXPRESS_PRIORITY";
+  durationDays: number;
+  surchargeIdr: number;
+  label: string;
+}
+
+export const PRODUCTION_SLA = {
+  STANDARD: {
+    tier: "STANDARD",
+    durationDays: 3,
+    surchargeIdr: 0,
+    label: "Reguler (Estimasi Selesai 2–3 Hari Kerja)",
+  },
+  EXPRESS_PRIORITY: {
+    tier: "EXPRESS_PRIORITY",
+    durationDays: 1,
+    surchargeIdr: 25000,
+    label: "Express Kilat (Estimasi Selesai 24 Jam)",
+  },
+};
 ```
 
-This hyperlocal architecture eliminates API downtime risks, provides an intuitive checkout UX, and accurately mirrors real-world purchasing behavior in Kota Makassar.
+This hyperlocal architecture eliminates API downtime risks, provides an intuitive checkout UX with crystal-clear SLA expectation dates, and accurately mirrors real-world purchasing behavior in Kota Makassar.
 
 --------------------------------------------------------------------------------
 9. ORDER LIFECYCLE STATE MACHINE

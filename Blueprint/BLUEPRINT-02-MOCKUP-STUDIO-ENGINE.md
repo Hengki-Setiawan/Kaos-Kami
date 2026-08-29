@@ -253,6 +253,75 @@ export function computePhysicalPrintDimensions(
 3. **In Admin Dashboard:** Displays the exact centimeter dimensions for operator input into DTF RIP software.
 
 --------------------------------------------------------------------------------
+2.2 TRACK A.3 — PRINT RESOLUTION & DPI QUALITY ANALYZER
+--------------------------------------------------------------------------------
+
+A common customer mistake in web-to-print e-commerce is uploading a low-res
+web thumbnail or screenshot (e.g. 300×300 px) and stretching it across a 30cm
+chest, resulting in blurry, pixelated prints.
+
+**Real-Time DPI Calculation Engine:**
+As the user scales the decal on the 3D model, the system computes the
+*Effective Print DPI* dynamically:
+
+$$\text{Effective DPI} = \frac{\text{Image Pixel Width}}{\text{Print Width (cm)} / 2.54}$$
+
+```ts
+// src/lib/dpiAnalyzer.ts
+export type PrintQualityTier = "EXCELLENT" | "GOOD" | "POOR";
+
+export interface QualityReport {
+  dpi: number;
+  tier: PrintQualityTier;
+  badgeLabel: string;
+  badgeColor: string; // Tailwind color class
+  warningMessage?: string;
+  hasTransparency: boolean;
+}
+
+export function evaluatePrintQuality(
+  imagePixelWidth: number,
+  printWidthCm: number,
+  isPngWithAlpha: boolean = true
+): QualityReport {
+  const widthInches = printWidthCm / 2.54;
+  const dpi = Math.round(imagePixelWidth / widthInches);
+
+  if (dpi >= 300) {
+    return {
+      dpi,
+      tier: "EXCELLENT",
+      badgeLabel: `300+ DPI (Kualitas Cetak Tajam & HD ✅)`,
+      badgeColor: "text-emerald-400 bg-emerald-950/40 border-emerald-500/30",
+      hasTransparency: isPngWithAlpha,
+    };
+  } else if (dpi >= 150) {
+    return {
+      dpi,
+      tier: "GOOD",
+      badgeLabel: `${dpi} DPI (Kualitas Cukup Jelas ⚠️)`,
+      badgeColor: "text-amber-400 bg-amber-950/40 border-amber-500/30",
+      warningMessage: "Hasil cetak cukup baik, namun detail sangat kecil mungkin kurang tajam.",
+      hasTransparency: isPngWithAlpha,
+    };
+  } else {
+    return {
+      dpi,
+      tier: "POOR",
+      badgeLabel: `${dpi} DPI (Peringatan: Gambar Pecah/Blur ❌)`,
+      badgeColor: "text-rose-400 bg-rose-950/40 border-rose-500/30",
+      warningMessage: "Resolusi gambar terlalu rendah untuk ukuran cetak ini. Disarankan upload file lebih besar atau perkecil skala sablon.",
+      hasTransparency: isPngWithAlpha,
+    };
+  }
+}
+```
+
+**Background & Transparency Advisor:**
+- When an opaque JPG or solid-white PNG is uploaded, display an automated tip:  
+  *"Tips: Gunakan file PNG transparan jika Anda tidak ingin background putih ikut tercetak sablon."*
+
+--------------------------------------------------------------------------------
 3. TRACK B — MULTI-PART MATERIAL & COLOR SYSTEM (beat FitMockup's
    headline feature)
 --------------------------------------------------------------------------------
