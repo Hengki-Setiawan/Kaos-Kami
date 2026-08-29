@@ -500,19 +500,29 @@ enum ProductionStage {
 }
 
 model ProductionTask {
-  id            String          @id @default(cuid())
-  orderId       String
-  order         Order           @relation(fields: [orderId], references: [id], onDelete: Cascade)
-  orderItemId   String
-  stage         ProductionStage @default(DESIGN_PREP)
-  assignedToUserId String?      // PRODUCTION_STAFF user
-  priority      Int             @default(0)  // for manual queue reordering
-  dueDate       DateTime?
-  notes         String?
-  printFileUrl  String?         // separated/ready-to-print artwork
-  completedAt   DateTime?
-  createdAt     DateTime        @default(now())
-  updatedAt     DateTime        @updatedAt
+  id               String          @id @default(cuid())
+  orderId          String
+  order            Order           @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  orderItemId      String
+  stage            ProductionStage @default(DESIGN_PREP)
+  assignedToUserId String?         // PRODUCTION_STAFF user
+  priority         Int             @default(0)  // for manual queue reordering
+  dueDate          DateTime?
+  notes            String?
+
+  // --- Real-World Sablon Manufacturing Calibration ---
+  // Calibrated from 3D model geometry (Max width clamped to 30.0 cm / A3 DTF width)
+  printWidthCm     Float?          // Real physical print width in cm (e.g. 28.5)
+  printHeightCm    Float?          // Real physical print height in cm (e.g. 16.2)
+  placementSide    String?         // "front" | "back"
+  offsetFromCollarCm Float?        // Distance in cm from collar baseline
+  rawAssetUrl      String?         // High-res 300 DPI original user-uploaded PNG/SVG for DTF RIP software
+  mockupPreviewUrl String?         // 3D snapshot render for operator visual guide
+  printFileUrl     String?         // Color-separated / prepared film file
+
+  completedAt      DateTime?
+  createdAt        DateTime        @default(now())
+  updatedAt        DateTime        @updatedAt
 
   @@index([stage])
   @@index([assignedToUserId])

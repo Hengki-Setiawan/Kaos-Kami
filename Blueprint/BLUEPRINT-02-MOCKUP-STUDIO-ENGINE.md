@@ -187,6 +187,68 @@ the distance delta for scale and the angle delta for rotation, disable
 controls ref while `dragState.current.mode !== null`).
 
 --------------------------------------------------------------------------------
+2.1 TRACK A.2 — REAL-WORLD PHYSICAL SCALE CALIBRATION (3D-to-CM Mapping)
+--------------------------------------------------------------------------------
+
+A critical innovation of Kaos Kami is that the 3D canvas is **not just an
+approximate visualizer** — it is mathematically calibrated to real-world
+physical fabric dimensions. This bridges the customer's visual design directly
+to the workshop's DTF printing hardware.
+
+**Physical Calibration Standard:**
+- Garment chest reference (e.g. Size L Heavyweight Tee) = **54.0 cm physical chest width** (mapped to 1.0 UV/3D reference unit).
+- Maximum printable area per side = **30.0 cm maximum width** (clamped to match standard A3 / 30cm DTF printhead roll limits).
+- Scale clamp: Decal scale is constrained so `realWidthCm = decal.scale * 30.0 cm <= 30.0 cm`.
+
+```ts
+// src/lib/scaleCalibration.ts
+export const REAL_WORLD_PRINT_LIMITS = {
+  maxPrintWidthCm: 30.0, // Standard DTF 30cm roll width
+  maxPrintHeightCm: 42.0, // Standard A3+ height limit
+  chestWidthReferenceCm: {
+    tshirt: 54.0,
+    hoodie: 60.0,
+    jacket: 58.0,
+  },
+};
+
+export interface PhysicalPrintDimension {
+  widthCm: number;
+  heightCm: number;
+  offsetFromCollarCm: number;
+  isWithinProductionLimits: boolean;
+}
+
+export function computePhysicalPrintDimensions(
+  apparelType: "tshirt" | "hoodie" | "shirt",
+  decalScale: number,
+  decalY: number,
+  aspectRatio: number = 1.0
+): PhysicalPrintDimension {
+  // Clamp scale to maximum physical printhead width (30cm)
+  const rawWidth = decalScale * REAL_WORLD_PRINT_LIMITS.maxPrintWidthCm;
+  const widthCm = Math.min(REAL_WORLD_PRINT_LIMITS.maxPrintWidthCm, Math.round(rawWidth * 10) / 10);
+  const heightCm = Math.round((widthCm / aspectRatio) * 10) / 10;
+
+  // Convert UV offset Y to distance from collar baseline (cm)
+  const offsetFromCollarCm = Math.round((0.35 - decalY) * 35.0 * 10) / 10;
+
+  return {
+    widthCm,
+    heightCm,
+    offsetFromCollarCm,
+    isWithinProductionLimits: widthCm <= 30.0 && heightCm <= 42.0,
+  };
+}
+```
+
+**UI Output in Studio & Admin:**
+1. **In Studio Drawer / Gizmo:** Live floating badge displays exact physical dimensions:  
+   `📏 28.5 cm × 16.2 cm (Maks 30 cm)` so the customer has 100% confidence in scale.
+2. **In Database & Order Snapshot:** Saved directly into `ProductionTask.printWidthCm` and `ProductionTask.printHeightCm`.
+3. **In Admin Dashboard:** Displays the exact centimeter dimensions for operator input into DTF RIP software.
+
+--------------------------------------------------------------------------------
 3. TRACK B — MULTI-PART MATERIAL & COLOR SYSTEM (beat FitMockup's
    headline feature)
 --------------------------------------------------------------------------------

@@ -231,21 +231,31 @@ Sections:
   1. **Header**: order number, status badge (color-coded per
      `OrderStatus`), total, payment status, "Kirim Update ke Customer"
      quick-action (opens a WhatsApp template picker → §BLUEPRINT-01 §7).
-  2. **Items**: each `OrderItem` with its snapshot data + a link to the
-     matching `ProductionTask`'s current Kanban stage.
-  3. **Customer & Delivery Info**: name, phone (click-to-WhatsApp `wa.me` link
+  2. **Interactive 3D Garment Verification**:
+     - Embedded 360° `CanvasStage` showing the exact custom 3D model, fabric color,
+       and decal layers as positioned by the customer.
+     - Lets the production operator rotate and inspect the final expected outcome
+       before printing.
+  3. **Print-Ready Job Ticket & Physical Dimensions (CM)**:
+     - Real-world calibrated print dimensions: `printWidthCm` × `printHeightCm`
+       (e.g., "Lebar 28.5 cm × Tinggi 14.2 cm | Maks 30.0 cm").
+     - Placement parameters: `placementSide` (Front/Back) and `offsetFromCollarCm`
+       (e.g., "7.5 cm di bawah garis kerah").
+     - Fabric specifications: Apparel model, GSM weight, size (S/M/L/XL/XXL), and color code.
+  4. **High-Resolution Asset Download Center (For DTF Printing)**:
+     - `[ ⬇️ Download Raw High-Res Asset (300 DPI PNG/SVG) ]` — one-click download
+       of original transparent artwork for direct import into DTF RIP software
+       (AcroRIP / Cadlink / Photoprint).
+     - `[ ⬇️ Download 3D Render Snapshot (PNG) ]` — visual placement reference for heat press operator.
+     - `[ 🖨️ Print Production Job Ticket (PDF) ]` — physical paper slip to attach to the garment bundle.
+  5. **Customer & Delivery Info**: name, phone (click-to-WhatsApp `wa.me` link
      — extremely high-value for a support-heavy Indonesian UMKM), delivery
      method (`PICKUP` / `INSTANT_COURIER` / `FLAT_MAKASSAR` / `EXPEDITION_MANUAL`),
      address/courier notes, and tracking number / pickup verification toggle.
-  4. **Timeline**: renders `OrderStatusEvent[]` chronologically — this is
-     the audit log and the fastest way to answer "kenapa pesanan ini belum
-     dikirim" without digging through separate systems.
-  5. **Manual status override**: a dropdown + "Update Status" button for
-     the (rare, necessary) cases where the automatic state machine needs a
-     manual nudge (e.g., a courier issue requires reverting from `SHIPPED`
-     back to `READY_TO_SHIP`). Every manual override writes an
-     `OrderStatusEvent` with `actorUserId` set, distinguishing it from
-     system/webhook-driven transitions.
+  6. **Timeline & Audit Log**: renders `OrderStatusEvent[]` chronologically —
+     tracks when design was verified, printed, cured, and packed.
+  7. **Manual status override**: a dropdown + "Update Status" button for
+     manual overrides, logging every action with `actorUserId`.
 
 --------------------------------------------------------------------------------
 6. CATALOG MANAGEMENT (`/admin/catalog`)
