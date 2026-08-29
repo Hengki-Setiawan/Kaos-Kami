@@ -359,8 +359,18 @@ mirrors the mental model users already have from VirtualThreads, which
 lowers the learning curve for anyone who's used a competitor before.
 
 --------------------------------------------------------------------------------
-5. TRACK D — ASSET PIPELINE FIXES (mandatory, currently a real problem)
+5. TRACK D — ASSET PROVENANCE, INVENTORY & OPTIMIZATION PIPELINE
 --------------------------------------------------------------------------------
+
+**Current 3D Asset Inventory & Provenance:**
+
+| Model File | Location | Size | Provenance / Source | Optimization Status |
+|---|---|---|---|---|
+| `tshirt-heavyweight.glb` | `public/models/` | 1.0 MB | Open Apparel 3D Library (Drop-shoulder boxy tee) | ✅ Production Ready |
+| `hoodie.glb` | `public/models/` | 19.0 MB | Dense French Terry Fleece mesh | ⚠️ Needs Draco compression to < 2.0 MB |
+| `jacket.glb` | `public/models/` | 5.2 MB | Streetwear Coach Jacket canvas mesh | ⚠️ Needs Draco compression to < 1.5 MB |
+| `shirt_baked.glb` | `.skills-sourced/3d-configurators/starklord-tshirt/` | 1.0 MB | Starklord / Poimandres open repository | ✅ Pre-baked AO texture included |
+| `shirt.glb` | `.skills-sourced/3d-configurators/afilah-clothing-configurator/` | 1.1 MB | Afilah open clothing configurator | ✅ Clean UV mapped alternative |
 
 `hoodie.glb` is **19MB**. This alone will cause slow/failed loads on
 Indonesian mobile networks (a large % of the target audience is on 4G, not
