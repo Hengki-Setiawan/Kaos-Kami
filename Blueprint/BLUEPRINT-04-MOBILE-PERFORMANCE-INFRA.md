@@ -314,11 +314,31 @@ jobs:
         run: npx bundlesize
 ```
 
-Deploy flow: Vercel's native GitHub integration handles preview
-deployments per PR and production deploys on merge to `main` — no custom
-deploy scripting needed, this is one of Vercel's core value propositions
-and there is no reason to build a custom pipeline around it for this
-project's scale.
+Deploy flow: Cloudflare Pages / Vercel native GitHub integration handles
+deployments on merge to `main` — every `git push` automatically rebuilds
+and publishes the updated production app.
+
+--------------------------------------------------------------------------------
+8.1 DEVELOPER TOOLING, MCP INTEGRATION & AGENT PROTOCOLS
+--------------------------------------------------------------------------------
+
+To ensure 100% architectural adherence, type safety, and zero API hallucination,
+the project environment is governed by standard Model Context Protocols (MCP):
+
+1. **`codebase-memory-mcp` (Active Knowledge Graph):**
+   - Uses graph query tools (`search_graph`, `trace_path`, `get_code_snippet`, `get_architecture`)
+     to navigate TypeScript symbols, call hierarchies, and server actions.
+2. **Documentation Fetcher (`context7`):**
+   - Dynamically retrieves verified, up-to-date 2026 documentation for Next.js App Router,
+     `@react-three/fiber`, Prisma libSQL adapters, Better Auth, and Midtrans Snap.
+3. **Database Inspector (`sqlite-mcp` / `turso-inspector`):**
+   - Direct SQL inspection of `User`, `Order`, `OrderItem`, and `ProductionTask` rows during testing.
+4. **Browser Automation Subagent (Playwright):**
+   - Headless browser automated testing for 3D canvas mounting, decal dragging,
+     Midtrans popup triggers, and responsive layout snapshots.
+5. **Local Skills Suite (`.agents/skills/`):**
+   - 37 dedicated modules covering Three.js shaders, materials, lighting, GSAP timelines,
+     and Genjutsu UI/UX design tokens.
 
 Database migrations: run `npx prisma migrate deploy` as a Vercel Build
 Command hook (or a dedicated GitHub Action step gated to only run on
