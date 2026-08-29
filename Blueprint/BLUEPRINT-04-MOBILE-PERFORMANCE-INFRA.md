@@ -243,28 +243,50 @@ commitment since these do shift.
 
 | Layer | Service | Free tier | First paid tier | Notes |
 |---|---|---|---|---|
-| Frontend hosting/SSR | **Vercel** | 100GB bandwidth, 6,000 build min/mo, generous serverless execution | Pro ~$20/mo | Best-in-class Next.js fit; Hobby plan's 10s function timeout is fine for this app's route handlers (nothing here needs long-running compute except the render pipeline, which should run async/queued anyway) |
+| Frontend hosting/SSR | **Cloudflare Pages / Vercel** | **Unlimited Bandwidth** (Cloudflare Pages), 100% Commercial Permitted on Free Tier | Workers Paid $5/mo (if >100k req/day) | **Commercial Standard**: Cloudflare Pages via `@opennextjs/cloudflare` is 100% free for commercial use. Vercel Hobby is free for academic/thesis mode. |
 | Database | **Turso (libSQL Edge SQLite)** | **9GB Storage**, 500 DBs, 1B reads/mo, **24/7 Always-On (Zero Sleep/Pause)** | Pro $29/mo (Scales to millions) | 0ms cold start, never pauses on inactivity like Supabase free tier — eliminates demo failure risks |
 | Auth | **Better Auth** (self-hosted, uses the same Turso DB) | Free forever, no per-MAU cost | N/A (you host it) | Chosen specifically to avoid Clerk's per-MAU curve; full control, data stays in your own DB — see BLUEPRINT-01 §2 |
 | Object storage (decals, renders, GLBs) | **Cloudflare R2** | 10GB storage, 1M writes/mo, 10M reads/mo, **zero egress always** | ~$0.015/GB storage beyond free tier | Zero egress is the deciding factor here — this app re-serves mockup images constantly, and R2's no-egress-fee model directly protects margin as traffic grows |
-| CDN (images, static) | **Cloudflare** (in front of R2 + Vercel) | Free | Free tier is genuinely sufficient here | Also gives free image resizing via Cloudflare Images if wanted later |
+| CDN (images, static) | **Cloudflare Edge CDN** | Free (Included in Pages/R2) | Free tier is genuinely sufficient here | Automatic caching on 300+ edge PoPs (including Jakarta & Makassar) |
 | Payment gateway | **Midtrans** | No monthly fee, pay-per-transaction (QRIS 0.7% regulated, cards ~2.8-2.9%+Rp2.000, VA ~flat Rp4.000/txn) | N/A (transaction-based) | See BLUEPRINT-01 §6 for full rationale |
 | Shipping & Fulfillment | **Hyperlocal Delivery (Makassar Native)** | **Rp0 (Free)** — Self Pick-up / Instant Maxim COD / Flat Makassar | No external SaaS fees | Eliminates RajaOngkir rate-limits & API downtime; perfectly matches local buying habits in Makassar |
 | WhatsApp notifications | **Fonnte** (with Web/wa.me fail-safe) | 1,000 messages/mo, no attachments | ~Rp135.000-175.000/mo (quota or unlimited tiers) | Unofficial gateway — acceptable at UMKM scale; wrapped in try/catch with web receipt + manual wa.me link fallback so checkout never fails |
 | Transactional email (backup channel) | **Resend** | 3,000 emails/mo, 1 domain | $20/mo for 50k | Only used for receipts/backup — WhatsApp is primary per BLUEPRINT-01 §7 |
-| Background jobs / queue | **Upstash QStash** | 500 messages/day | Pay-per-use beyond | For render jobs, abandoned-cart reminders |
-| Rate limiting | **Upstash Redis + Ratelimit** | 10,000 commands/day | Pay-per-use beyond | Protects `/api/checkout`, auth routes |
-| Headless render (mockup screenshots) | **Playwright + `@sparticuz/chromium`** on Vercel serverless | Included in Vercel compute | Scales with Vercel plan | No separate SaaS bill — see BLUEPRINT-02 §6 |
 | Error monitoring | **Sentry** | 5,000 errors/mo, 1 project | $26/mo for more | Non-negotiable for a real payment-handling app — do not skip this even in v1 |
-| Uptime monitoring | **UptimeRobot** or **Better Stack** free tier | 50 monitors free | ~$18/mo if more needed | Cheap insurance, alerts to WhatsApp/email if the site or webhook endpoint goes down |
-| Analytics | **Vercel Analytics** (free, privacy-friendly) + **Plausible** or **PostHog** free tier if deeper funnels needed | Free tiers sufficient at this scale | — | Avoid Google Analytics unless there's a specific reason — GA's data model is overkill and its cookie/consent overhead isn't worth it for a lean UMKM site |
 
-**Realistic month-1 total cost (pre-revenue, low traffic): effectively
-Rp0-150.000/month** (mostly just Fonnte's paid tier once testing volume
-exceeds the free 1,000 messages — everything else comfortably fits free
-tiers at launch scale). This is a deliberately chosen stack to match a
-bootstrapped UMKM's actual budget reality, not a "assume VC funding"
-architecture.
+--------------------------------------------------------------------------------
+7.1 CLOUDFLARE PAGES & WORKERS FULL-STACK ARCHITECTURE (Commercial-Ready)
+--------------------------------------------------------------------------------
+
+To satisfy 100% legal commercial use without paying Vercel Pro ($20/mo), the app
+is structured to deploy cleanly onto **Cloudflare Pages** using `@opennextjs/cloudflare`:
+
+```
+                                CLOUDFLARE FULL-STACK RUNTIME
+                                               │
+     ┌─────────────────────────────────────────┴─────────────────────────────────────────┐
+     ▼                                                                                   ▼
+1. Cloudflare Pages (Static Assets CDN)                             2. Cloudflare Worker Function (Edge Compute)
+• HTML shells, CSS, icons, fonts                                    • Handles SSR, API routes, Server Actions
+• Client JS bundles (Three.js, R3F, GSAP)                           • Turso Database Queries (@libsql/client)
+• Unlimited total bandwidth & storage                               • Midtrans Payment Webhook & Better Auth
+• File size limit: up to 25 MB per static file                      • STRICT SIZE BOUNDARY: < 1.2 MB (Limit is 3 MB)
+```
+
+### Solving the Cloudflare 3 MB Worker Limit:
+Cloudflare Workers Free has a compressed script limit of **3 MB**. 3D web applications
+can easily breach this if Three.js or heavy libraries are accidentally bundled into the
+server runtime.
+
+**Strict Architectural Boundary:**
+1. **Client-Only 3D Modules:** All 3D rendering (`three`, `@react-three/fiber`, `@react-three/drei`, `gsap`, `lenis`) are tagged with `'use client'` and loaded via Next.js Dynamic Imports (`next/dynamic` with `ssr: false`). They are emitted **exclusively into Cloudflare Pages Static Assets (Unlimited CDN)** and are NEVER bundled into the Serverless Worker.
+2. **Lean Server Worker:** The Server Worker function contains only lightweight business logic:
+   - Turso HTTP Client (`@libsql/client/web` ~45 KB)
+   - Better Auth handlers & session JWT logic (~120 KB)
+   - Zod validation schemas & Pricing calculations (~30 KB)
+   - Total compressed Worker size: **~850 KB – 1.2 MB** (Well below the 3 MB ceiling!).
+3. **Asset Decoupling to Cloudflare R2:**
+   - 3D Garment Models (`.glb`) and customer high-res PNG/SVG uploads live in Cloudflare R2, accessed via direct public CDN URLs without touching the Worker CPU.
 
 --------------------------------------------------------------------------------
 8. CI/CD PIPELINE
