@@ -69,8 +69,12 @@ export const ApparelMeshRenderer: React.FC = () => {
     switch (activeApparel) {
       case "hoodie":
         return <HoodieModel />;
+      case "crewneck":
+        return <HoodieModel />;
       case "shirt":
         return <ShirtModel />;
+      case "longsleeve":
+        return <TshirtModel />;
       case "tshirt":
       default:
         return <TshirtModel />;

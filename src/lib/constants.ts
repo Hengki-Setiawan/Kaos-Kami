@@ -1,4 +1,4 @@
-export type ApparelType = "tshirt" | "hoodie" | "shirt";
+export type ApparelType = "tshirt" | "longsleeve" | "crewneck" | "hoodie" | "shirt";
 export type StudioTheme = "obsidian" | "gallery" | "concrete";
 export type MaterialFinish = "combed-cotton" | "french-terry" | "acid-wash" | "poplin";
 export type LightingPreset = "editorial" | "cyber" | "soft-daylight";
@@ -44,13 +44,33 @@ export interface ApparelOption {
 export const APPAREL_CATALOG: Record<ApparelType, ApparelOption> = {
   tshirt: {
     id: "tshirt",
-    name: "Heavyweight Boxy Tee",
+    name: "Heavyweight Boxy Tee (Lengan Pendek)",
     tagline: "240 & 280 GSM Long-Staple Combed Cotton",
     weightGsm: "240 / 280 GSM",
     basePriceIdr: 149000,
     formattedPrice: "IDR 149.000",
     sizes: ["S", "M", "L", "XL", "XXL"],
     description: "Architectural drop-shoulder silhouette with heavy ribbed 3.2cm collar binding.",
+  },
+  longsleeve: {
+    id: "longsleeve",
+    name: "Heavyweight Longsleeve Tee (Lengan Panjang)",
+    tagline: "240 & 280 GSM Combed Cotton with Ribbed Cuffs",
+    weightGsm: "240 / 280 GSM",
+    basePriceIdr: 169000,
+    formattedPrice: "IDR 169.000",
+    sizes: ["S", "M", "L", "XL", "XXL"],
+    description: "Drop-shoulder boxy longsleeve with 5cm ribbed sleeve cuffs and reinforced neckline.",
+  },
+  crewneck: {
+    id: "crewneck",
+    name: "Heavyweight Crewneck Sweater",
+    tagline: "330 & 380 GSM Premium Loopback French Terry",
+    weightGsm: "330 / 380 GSM",
+    basePriceIdr: 249000,
+    formattedPrice: "IDR 249.000",
+    sizes: ["M", "L", "XL", "XXL"],
+    description: "Classic relaxed streetwear sweater without hood, featuring dense ribbed collar, cuffs, and hem.",
   },
   hoodie: {
     id: "hoodie",

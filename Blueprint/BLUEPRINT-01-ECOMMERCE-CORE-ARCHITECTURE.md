@@ -957,23 +957,67 @@ pesanan" resolves 80% of "mana pesanan saya" WhatsApp messages without a
 human needing to dig through logs.
 
 --------------------------------------------------------------------------------
-10. PRICING ENGINE — EXTEND, DON'T REPLACE
+10. COMPREHENSIVE PRICING ENGINE — MULTI-VARIABLE COST CALCULATION
 --------------------------------------------------------------------------------
 
-`calculateCustomMockupPrice()` already exists in `constants.ts` and
-computes: base price + color surcharge + per-decal sablon cost bucketed
-into A6/A4/A3 sizes. Move the *data* (color surcharges, sablon method
-pricing tiers) into the `ColorOption` and `SablonMethod` tables from §3,
-but keep the *function signature and calculation logic* client-callable
-for instant on-canvas price updates as the user drags/resizes a decal —
-this instant feedback loop is a UX differentiator vs. competitors who
-often only show price after you click "generate."
+The pricing engine is modeled directly on the real-world operational costing
+standards of the Makassar custom apparel & DTF screen-printing industry. It
+calculates total garment cost dynamically across 6 distinct pricing variables:
 
-Add a server-side re-validation of the price at checkout time
-(`POST /api/checkout` recomputes from DB values, never trusts the
-client-sent total) to prevent price tampering — this is a standard and
-mandatory e-commerce security rule, doubly important since anyone can open
-devtools and edit a Zustand store value.
+```ts
+// src/lib/pricingEngine.ts
+
+export interface PricingFactors {
+  apparel: "tshirt" | "longsleeve" | "crewneck" | "hoodie" | "shirt";
+  fabricThickness: "30s" | "24s" | "20s" | "16s-heavyweight" | "french-terry-380";
+  sleeveType: "short" | "long-ribbed";
+  size: "S" | "M" | "L" | "XL" | "XXL" | "XXXL";
+  colorTreatment: "solid" | "special-pigment" | "acid-wash";
+  decals: Array<{
+    targetSide: "front" | "back" | "sleeve";
+    widthCm: number;
+    heightCm: number;
+  }>;
+  quantity: number;
+}
+```
+
+### 1. Fabric Thickness & Gramasi (GSM) Matrix:
+- **Cotton Combed 30s (140-150 GSM):** Lightweight, breathable everyday standard (`basePriceIdr`).
+- **Cotton Combed 24s (175-185 GSM):** Medium-heavy, most popular distro standard in Makassar (`+Rp 10.000`).
+- **Cotton Combed 20s (190-210 GSM):** Heavy cotton, structured drape (`+Rp 15.000`).
+- **Heavyweight 16s (240-280 GSM):** High-end streetwear drop-shoulder boxy cut (`+Rp 25.000`).
+- **Loopback French Terry (330-380 GSM):** For Crewneck Sweaters & Heavyweight Hoodies.
+
+### 2. Sleeve Type Variance:
+- **Short Sleeve (Lengan Pendek):** Standard (`+Rp 0`).
+- **Long Sleeve with 5cm Ribbed Cuffs (Lengan Panjang):** (`+Rp 20.000`).
+
+### 3. Print Area Tier Variance (Calibrated DTF Sablon, Max 30cm):`
+- **A6 Mini / Pocket Chest (≤ 10 × 10 cm):** `+Rp 10.000` per layer.
+- **A5 Medium Chest (≤ 15 × 20 cm):** `+Rp 15.000` per layer.
+- **A4 Standard Print (≤ 21 × 30 cm):** `+Rp 25.000` per layer.
+- **A3 Extra Large (≤ 30 × 42 cm - Max limit):** `+Rp 35.000` per layer.
+- *Multi-position support: Each front, back, and sleeve decal layer is priced independently based on its computed physical centimeter bounding box.*
+
+### 4. Size Surcharge Variance:
+- **S, M, L, XL:** Standard (`+Rp 0`).
+- **XXL:** `+Rp 10.000` (extra fabric consumption).
+- **XXXL (Jumbo):** `+Rp 20.000`.
+
+### 5. Color & Pigment Treatment:
+- **Solid Regular Colors:** (Obsidian Black, Chalk Ecru, Navy, Maroon, Sage) (`+Rp 0`).
+- **Acid Wash / Vintage Mineral Dye:** (`+Rp 30.000`).
+
+### 6. Volume Wholesale Tier Discounts (Grosir Komunitas & Event):
+- **1 – 5 pcs (Satuan Custom):** 100% (Normal price).
+- **6 – 12 pcs (Lusinan / Mini-Bulk):** 5% Discount.
+- **13 – 50 pcs (Komunitas / Kelas Kampus):** 12% Discount.
+- **> 50 pcs (Partai Besar / Event):** 20% Discount.
+
+`calculateCustomMockupPrice()` computes this instantly on the client side for
+real-time visual feedback, while `POST /api/checkout` validates the exact same
+calculation server-side against database pricing rules before opening Midtrans Snap.
 
 --------------------------------------------------------------------------------
 11. SECURITY & COMPLIANCE CHECKLIST
