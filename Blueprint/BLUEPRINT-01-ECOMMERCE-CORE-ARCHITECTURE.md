@@ -81,14 +81,8 @@ Keep:
   - GSAP + Lenis for the story scroll experience
 
 Add:
-  - **Database**: PostgreSQL via Supabase (see BLUEPRINT-04 for the
-    "why Supabase" cost/tradeoff writeup — free tier: 500MB DB, 1GB storage,
-    5GB egress, 50k MAU, which is more than enough for an early-stage UMKM
-    store).
-  - **ORM**: Prisma (or Drizzle — Drizzle is lighter and edge-friendly;
-    this blueprint writes examples in Prisma syntax for readability but the
-    schema translates 1:1 to Drizzle. Agent should pick ONE and be
-    consistent — do not mix ORMs in the same repo).
+  - **Database**: Turso (libSQL / Edge SQLite) — Free tier: **9 GB storage, 500 databases, 1B row reads/mo, 24/7 always-on (0ms cold start, NEVER auto-pauses/sleeps)**. Eliminates Supabase's 7-day inactivity pause risk while delivering ultra-fast 5-15ms Edge queries in Next.js Serverless runtime.
+  - **ORM**: Prisma with `@prisma/adapter-libsql` (or Drizzle ORM).
   - **Auth**: Phone Number (WhatsApp) + Password authentication (using Better Auth / custom credentials) with WhatsApp OTP verification via Fonnte on registration and password reset. Supports Guest Checkout so customers can purchase with just Name + WhatsApp without mandatory pre-registration.
   - **Payments**: Midtrans Snap as the primary gateway (see §6 for full rationale) with an abstraction layer so Xendit can be added later without touching business logic.
   - **Object storage**: Cloudflare R2 for user-uploaded artwork (PNG/SVG decals) and generated mockup renders. Zero egress fees matter a lot here because every product-page view re-serves a mockup image.
@@ -106,17 +100,18 @@ Create `prisma/schema.prisma`. This schema is designed to sit UNDER the
 existing `ApparelType`, `ProductColor`, `DecalLayer`, and
 `SavedMockupDesign` TypeScript types in `src/lib/constants.ts` — the shapes
 should be kept structurally compatible so the Zustand store can serialize
-directly into `Design.configSnapshot` (a JSONB column) without a mapping
+directly into `Design.configSnapshot` (a JSON string column) without a mapping
 layer.
 
 ```prisma
 // prisma/schema.prisma
 generator client {
-  provider = "prisma-client-js"
+  provider        = "prisma-client-js"
+  previewFeatures = ["driverAdapters"]
 }
 
 datasource db {
-  provider = "postgresql"
+  provider = "sqlite"
   url      = env("DATABASE_URL")
 }
 
@@ -1068,8 +1063,8 @@ calculation server-side against database pricing rules before opening Midtrans S
 12. IMPLEMENTATION ROADMAP (Phase 1 of the overall 4-blueprint build)
 --------------------------------------------------------------------------------
 
-1. `npm install prisma @prisma/client zod @tanstack/react-query better-auth`
-   and initialize Prisma against a fresh Supabase Postgres instance.
+1. `npm install prisma @prisma/client @prisma/adapter-libsql @libsql/client zod @tanstack/react-query better-auth`
+   and initialize Prisma against Turso libSQL (or local SQLite for dev).
 2. Author `prisma/schema.prisma` exactly as §3, run
    `npx prisma migrate dev --name init`.
 3. Seed the catalog (`prisma/seed.ts`) from the CURRENT

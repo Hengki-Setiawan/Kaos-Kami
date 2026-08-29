@@ -244,8 +244,8 @@ commitment since these do shift.
 | Layer | Service | Free tier | First paid tier | Notes |
 |---|---|---|---|---|
 | Frontend hosting/SSR | **Vercel** | 100GB bandwidth, 6,000 build min/mo, generous serverless execution | Pro ~$20/mo | Best-in-class Next.js fit; Hobby plan's 10s function timeout is fine for this app's route handlers (nothing here needs long-running compute except the render pipeline, which should run async/queued anyway) |
-| Database | **Supabase Postgres** | 500MB DB, 1GB storage, 5GB egress, 50k MAU, 2 projects | Pro $25/mo (8GB DB, 100k MAU) | Pause-after-7-days-inactivity on free tier — fine for active dev, watch for it if the project goes quiet pre-launch |
-| Auth | **Better Auth** (self-hosted, uses the same Postgres) | Free forever, no per-MAU cost | N/A (you host it) | Chosen specifically to avoid Clerk's per-MAU curve; full control, data stays in your own DB — see BLUEPRINT-01 §2 |
+| Database | **Turso (libSQL Edge SQLite)** | **9GB Storage**, 500 DBs, 1B reads/mo, **24/7 Always-On (Zero Sleep/Pause)** | Pro $29/mo (Scales to millions) | 0ms cold start, never pauses on inactivity like Supabase free tier — eliminates demo failure risks |
+| Auth | **Better Auth** (self-hosted, uses the same Turso DB) | Free forever, no per-MAU cost | N/A (you host it) | Chosen specifically to avoid Clerk's per-MAU curve; full control, data stays in your own DB — see BLUEPRINT-01 §2 |
 | Object storage (decals, renders, GLBs) | **Cloudflare R2** | 10GB storage, 1M writes/mo, 10M reads/mo, **zero egress always** | ~$0.015/GB storage beyond free tier | Zero egress is the deciding factor here — this app re-serves mockup images constantly, and R2's no-egress-fee model directly protects margin as traffic grows |
 | CDN (images, static) | **Cloudflare** (in front of R2 + Vercel) | Free | Free tier is genuinely sufficient here | Also gives free image resizing via Cloudflare Images if wanted later |
 | Payment gateway | **Midtrans** | No monthly fee, pay-per-transaction (QRIS 0.7% regulated, cards ~2.8-2.9%+Rp2.000, VA ~flat Rp4.000/txn) | N/A (transaction-based) | See BLUEPRINT-01 §6 for full rationale |
@@ -318,9 +318,9 @@ agent picking this up mid-project) onboarding onto the project:
 # --- App ---
 NEXT_PUBLIC_SITE_URL=https://kaoskami.com
 
-# --- Database ---
-DATABASE_URL=postgresql://...           # Supabase connection string
-DIRECT_URL=postgresql://...             # Supabase direct (non-pooled) connection, for migrations
+# --- Database (Turso libSQL / Edge SQLite) ---
+DATABASE_URL="libsql://your-db-name.turso.io"    # Turso cloud URL (or "file:local.db" for local dev)
+TURSO_AUTH_TOKEN="your-turso-auth-token"
 
 # --- Auth (Better Auth) ---
 BETTER_AUTH_SECRET=
