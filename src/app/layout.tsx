@@ -1,6 +1,8 @@
 import type { Metadata, Viewport } from "next";
 import { Syne, JetBrains_Mono, Plus_Jakarta_Sans } from "next/font/google";
 import { SmoothScrollProvider } from "@/components/providers/SmoothScrollProvider";
+import { QueryProvider } from "@/components/providers/QueryProvider";
+import Script from "next/script";
 import "./globals.css";
 
 const syne = Syne({
@@ -56,6 +58,7 @@ export const metadata: Metadata = {
     title: "kaos kami — Heavyweight 3D Apparel Experience",
     description: "Heavyweight Indonesian streetwear, engineered not printed.",
   },
+  manifest: "/manifest.json",
 };
 
 export const viewport: Viewport = {
@@ -72,7 +75,25 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       className={`${syne.variable} ${mono.variable} ${jakarta.variable} dark`}
     >
       <body className="bg-canvas text-text-primary selection:bg-brand-accent selection:text-canvas min-h-screen">
-        <SmoothScrollProvider>{children}</SmoothScrollProvider>
+        <Script
+          src="https://app.sandbox.midtrans.com/snap/snap.js"
+          data-client-key={process.env.NEXT_PUBLIC_MIDTRANS_CLIENT_KEY || "SB-Mid-client-mock"}
+          strategy="lazyOnload"
+        />
+        <Script id="sw-register" strategy="afterInteractive">
+          {`
+            if ('serviceWorker' in navigator) {
+              window.addEventListener('load', function() {
+                navigator.serviceWorker.register('/sw.js').catch(function(err) {
+                  console.log('SW registration skipped:', err);
+                });
+              });
+            }
+          `}
+        </Script>
+        <QueryProvider>
+          <SmoothScrollProvider>{children}</SmoothScrollProvider>
+        </QueryProvider>
       </body>
     </html>
   );

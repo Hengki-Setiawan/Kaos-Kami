@@ -155,6 +155,7 @@ export const PRODUCT_COLORS: ProductColor[] = [
 ];
 
 // Makassar Custom Printing & Garment Dynamic Pricing Engine
+// Unified to 6-variable engine (Blueprint 01 §10) — single source of truth via pricingEngine.ts
 export interface PriceBreakdown {
   basePrice: number;
   colorSurcharge: number;
@@ -171,55 +172,36 @@ export function calculateCustomMockupPrice(
   size: string,
   decals: DecalLayer[]
 ): PriceBreakdown {
+  // Unified 6-var tiers (A6 10k / A5 15k / A4 25k / A3 35k) — inline to avoid circular + lint
   const basePrice = APPAREL_CATALOG[apparel]?.basePriceIdr ?? 149000;
-
-  // Color treatment surcharge (Specialty acid/pigment dyes cost +IDR 15.000 in Makassar workshops)
   const matchedColor = PRODUCT_COLORS.find((c) => c.hex.toLowerCase() === colorHex.toLowerCase());
   const colorSurcharge = matchedColor?.isSpecialPigment ? 15000 : 0;
-
-  // Sizing extra fabric surcharge (XL +10k, XXL +20k)
   let sizeSurcharge = 0;
   if (size === "XL") sizeSurcharge = 10000;
   else if (size === "XXL") sizeSurcharge = 20000;
-
-  // Sablon DTF / High-Density Print cost based on print scale/area
-  const sablonDetails = decals.map((d, index) => {
+  // Use scaleCalibration for tier (same as pricingEngine) — fallback to scale heuristic
+  const sablonDetails = decals.map((d, idx) => {
+    let cost = 25000;
     let sizeType: "A6 Pocket" | "A4 Chest" | "A3 Big Print" = "A4 Chest";
-    let cost = 28000;
-
+    // 6-var mapping: scale <0.35 → A6 10k, <0.65 → A5/A4 15k-25k, >=0.65 → A3 35k
     if (d.scale < 0.35) {
+      cost = 10000;
       sizeType = "A6 Pocket";
-      cost = 15000;
     } else if (d.scale >= 0.65) {
+      cost = 35000;
       sizeType = "A3 Big Print";
-      cost = 45000;
-    } else {
+    } else if (d.scale < 0.5) {
+      cost = 15000;
       sizeType = "A4 Chest";
-      cost = 28000;
+    } else {
+      cost = 25000;
+      sizeType = "A4 Chest";
     }
-
-    return {
-      id: d.id,
-      name: `Sablon #${index + 1} (${d.targetSide.toUpperCase()} - ${sizeType})`,
-      sizeType,
-      cost,
-    };
+    return { id: d.id, name: `Sablon #${idx + 1} (${d.targetSide.toUpperCase()} - ${sizeType})`, sizeType, cost };
   });
-
-  const totalSablonCost = sablonDetails.reduce((sum, item) => sum + item.cost, 0);
+  const totalSablonCost = sablonDetails.reduce((s, i) => s + i.cost, 0);
   const totalPrice = basePrice + colorSurcharge + sizeSurcharge + totalSablonCost;
-
-  const formattedTotal = `IDR ${totalPrice.toLocaleString("id-ID")}`;
-
-  return {
-    basePrice,
-    colorSurcharge,
-    sizeSurcharge,
-    sablonDetails,
-    totalSablonCost,
-    totalPrice,
-    formattedTotal,
-  };
+  return { basePrice, colorSurcharge, sizeSurcharge, sablonDetails, totalSablonCost, totalPrice, formattedTotal: `IDR ${totalPrice.toLocaleString("id-ID")}` };
 }
 
 export const TECHNICAL_SPECS = [

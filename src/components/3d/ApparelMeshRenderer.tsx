@@ -8,8 +8,10 @@ import { TshirtModel } from "./TshirtModel";
 import { HoodieModel } from "./HoodieModel";
 import { ShirtModel } from "./ShirtModel";
 
+import { DecalGizmo } from "./DecalGizmo";
+
 export const ApparelMeshRenderer: React.FC = () => {
-  const { activeApparel, modelRotY, viewMode, activePhase } = useConfiguratorStore();
+  const { activeApparel, modelRotY, viewMode, activePhase, isMobile } = useConfiguratorStore();
   const groupRef = useRef<THREE.Group>(null);
 
   // Target coordinates for each Story Mode phase
@@ -58,10 +60,11 @@ export const ApparelMeshRenderer: React.FC = () => {
       const nextScale = THREE.MathUtils.lerp(currentScale, targetStoryScale.current, lerpFactor);
       groupRef.current.scale.set(nextScale, nextScale, nextScale);
     } else {
-      // Studio Sandbox Mode: full manual transforms
+      // Studio Sandbox Mode: full manual transforms — ariyan isMobile 6 vs 9
+      const mobileFactor = isMobile ? 0.85 : 1;
       groupRef.current.position.set(0, 0, 0);
       groupRef.current.rotation.set(0, (modelRotY * Math.PI) / 180, 0);
-      groupRef.current.scale.set(1, 1, 1);
+      groupRef.current.scale.set(mobileFactor, mobileFactor, mobileFactor);
     }
   });
 
@@ -84,6 +87,7 @@ export const ApparelMeshRenderer: React.FC = () => {
   return (
     <group ref={groupRef}>
       {renderModel()}
+      <DecalGizmo />
     </group>
   );
 };

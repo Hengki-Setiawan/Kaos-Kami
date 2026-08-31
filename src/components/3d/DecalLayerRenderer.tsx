@@ -22,20 +22,28 @@ const SingleDecalItem: React.FC<{
   const rotY = isBack ? Math.PI : 0;
   const rotZ = (decal.rotation * Math.PI) / 180;
 
+  // Starklord technique: anisotropy 16 + depth tuning for crisp decal at angle
+  if ((uploaded as any).anisotropy !== undefined) {
+    (uploaded as any).anisotropy = 16;
+    uploaded.needsUpdate = true;
+  }
+
   return (
     <Decal
       position={[decal.x, decal.y, zPos]}
       rotation={[0, rotY, rotZ]}
       scale={[decal.scale, decal.scale, 0.35]}
     >
-      <meshBasicMaterial
+      <meshStandardMaterial
         map={uploaded}
         transparent
         opacity={decal.opacity}
         polygonOffset
         polygonOffsetFactor={-10}
-        depthTest={true}
-        depthWrite={false}
+        depthTest={false}
+        depthWrite={true}
+        roughness={0.8}
+        metalness={0}
       />
     </Decal>
   );

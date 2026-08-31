@@ -8,6 +8,7 @@ import { ApparelMeshRenderer } from "./ApparelMeshRenderer";
 import { CameraRig } from "./CameraRig";
 import { Preloader } from "@/components/ui/Preloader";
 import { useConfiguratorStore } from "@/store/useConfiguratorStore";
+import { useDeviceTier } from "@/hooks/useDeviceTier";
 
 interface CanvasStageProps {
   camPos: THREE.Vector3;
@@ -16,6 +17,7 @@ interface CanvasStageProps {
 
 export const CanvasStage: React.FC<CanvasStageProps> = ({ camPos, lookAtPos }) => {
   const { viewMode, studioTheme, isHideWebsiteUI } = useConfiguratorStore();
+  const deviceTier = useDeviceTier();
 
   const themeBgHex =
     studioTheme === "gallery"
@@ -36,11 +38,11 @@ export const CanvasStage: React.FC<CanvasStageProps> = ({ camPos, lookAtPos }) =
         style={{ backgroundColor: themeBgHex }}
       >
         <Canvas
-          shadows
-          dpr={[1, 2]}
+          shadows={deviceTier.enableShadows}
+          dpr={[1, deviceTier.maxDpr]}
           camera={{ position: [0, 0, 3.4], fov: 40 }}
           gl={{
-            antialias: true,
+            antialias: deviceTier.tier !== "low",
             powerPreference: "high-performance",
             toneMapping: THREE.ACESFilmicToneMapping,
             toneMappingExposure: studioTheme === "gallery" ? 1.05 : 1.15,

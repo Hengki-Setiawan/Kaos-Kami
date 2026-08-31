@@ -7,8 +7,8 @@ This document tracks all external 3D models, textures, fonts, and assets sourced
 | Asset Name | Target File Path | Provenance / Sourced From | License | Size | Status |
 | :--- | :--- | :--- | :--- | :--- | :--- |
 | **Heavyweight Boxy Tee** | `public/models/tshirt-heavyweight.glb` | Open 3D Apparel Library | CC-BY 4.0 | 1.0 MB | Active Production |
-| **Oversized Hoodie** | `public/models/hoodie.glb` | 3D Garment Asset Vault | CC-BY 4.0 | 19.0 MB | Active (Target Draco < 2MB) |
-| **Streetwear Coach Jacket** | `public/models/jacket.glb` | Tactical Apparel Asset Library | CC-BY 4.0 | 5.2 MB | Active (Target Draco < 1.5MB) |
+| **Oversized Hoodie** | `public/models/hoodie.glb` | 3D Garment Asset Vault | CC-BY 4.0 | 19.0 MB → `hoodie.draco.glb` 16.3MB + `hoodie.lod1.glb` 18.4MB (gltf-transform) — **Manual Blender Decimate 0.4 + Texture 1k webp required for <2.5MB** | Active (Fallback LOD) |
+| **Streetwear Coach Jacket** | `public/models/jacket.glb` | Tactical Apparel Asset Library | CC-BY 4.0 | 5.2 MB → draco 4.1MB (optimized) | Active |
 | **Baked AO T-Shirt** | `.skills-sourced/3d-configurators/starklord-tshirt/public/shirt_baked.glb` | Starklord / Poimandres Repository | MIT | 1.0 MB | Reference / Backup |
 | **Classic Crewneck Tee** | `.skills-sourced/3d-configurators/afilah-clothing-configurator/public/shirt.glb` | Afilah 3D Configurator Repo | MIT | 1.1 MB | Reference / Backup |
 

@@ -3,9 +3,14 @@
 import React from "react";
 import Link from "next/link";
 import { useConfiguratorStore } from "@/store/useConfiguratorStore";
-import { Sparkles, Sun, Moon, Maximize2, Minimize2 } from "lucide-react";
+import { Sparkles, Sun, Moon, Maximize2, Minimize2, User as UserIcon } from "lucide-react";
+import { AuthModal } from "@/components/ui/AuthModal";
+import { useSession } from "@/lib/auth-client";
 
 export const Navbar: React.FC = () => {
+  const [isAuthOpen, setIsAuthOpen] = React.useState(false);
+  const { data: session } = useSession();
+
   const {
     studioTheme,
     setStudioTheme,
@@ -59,6 +64,21 @@ export const Navbar: React.FC = () => {
           {isLight ? <Moon size={14} className="text-neutral-800" /> : <Sun size={14} className="text-brand-accent" />}
         </button>
 
+        {/* User Account / Login Button */}
+        <button
+          onClick={() => setIsAuthOpen(true)}
+          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full font-mono text-xs border transition-all ${
+            session?.user
+              ? "bg-surface border-brand-accent/40 text-brand-accent font-bold"
+              : "bg-surface border-border-subtle text-text-muted hover:text-text-primary"
+          }`}
+          title={session?.user ? `Akun: ${session.user.name}` : "Masuk / Daftar Akun"}
+          aria-label="Akun Pengguna"
+        >
+          <UserIcon size={13} />
+          <span className="hidden sm:inline">{session?.user ? session.user.name?.split(" ")[0] : "MASUK"}</span>
+        </button>
+
         {/* Clean Mockup Fullscreen View Toggle */}
         <button
           onClick={toggleHideWebsiteUI}
@@ -84,6 +104,9 @@ export const Navbar: React.FC = () => {
           <span className="sm:hidden">SANDBOX</span>
         </Link>
       </div>
+
+      {/* Auth Dialog Modal */}
+      <AuthModal isOpen={isAuthOpen} onClose={() => setIsAuthOpen(false)} />
     </header>
   );
 };

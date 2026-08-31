@@ -1,0 +1,443 @@
+// prisma/schema.prisma
+generator client {
+  provider        = "prisma-client-js"
+  previewFeatures = ["driverAdapters"]
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// ------------------------------------------------------------------
+// IDENTITY & BETTER AUTH
+// ------------------------------------------------------------------
+
+enum UserRole {
+  CUSTOMER
+  ADMIN
+  PRODUCTION_STAFF   // Sablon operator, sees only assigned production tasks
+  SUPER_ADMIN
+}
+
+model User {
+  id            String    @id @default(cuid())
+  email         String?   @unique
+  phoneNumber   String?   @unique  // E.164 format, e.g. 081234567890 / +6281234567890
+  name          String?
+  emailVerified Boolean   @default(false)
+  image         String?
+  passwordHash  String?
+  role          UserRole  @default(CUSTOMER)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  addresses     Address[]
+  designs       Design[]
+  orders        Order[]
+  cart          Cart?
+  sessions      Session[]     // Better Auth session table
+  accounts      Account[]     // Better Auth OAuth / credentials linking
+
+  @@index([phoneNumber])
+}
+
+model Session {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  token     String   @unique
+  expiresAt DateTime
+  ipAddress String?
+  userAgent String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now()) @updatedAt
+}
+
+model Account {
+  id                    String    @id @default(cuid())
+  userId                String
+  user                  User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  accountId             String
+  providerId            String    // "credential", "google", "whatsapp-otp"
+  accessToken           String?
+  refreshToken          String?
+  idToken               String?
+  accessTokenExpiresAt  DateTime?
+  refreshTokenExpiresAt DateTime?
+  scope                 String?
+  password              String?
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @default(now()) @updatedAt
+
+  @@unique([providerId, accountId])
+}
+
+model Verification {
+  id         String    @id @default(cuid())
+  identifier String
+  value      String
+  expiresAt  DateTime
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @default(now()) @updatedAt
+
+  @@index([identifier])
+}
+
+enum DeliveryMethod {
+  PICKUP              // Ambil di workshop Kaos Kami Makassar (Rp 0)
+  INSTANT_COURIER     // Maxim / GoSend / Grab (Ongkir COD bayar ke driver)
+  FLAT_MAKASSAR       // Kurir Internal Flat Rate Makassar (Rp 15.000)
+  EXPEDITION_MANUAL   // Ekspedisi Luar Kota (JNE / J&T / SiCepat)
+}
+
+model Address {
+  id            String   @id @default(cuid())
+  userId        String
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  label         String   // "Rumah", "Kantor", "Workshop Pickup"
+  recipientName String
+  phoneNumber   String
+  province      String?  @default("Sulawesi Selatan")
+  city          String?  @default("Makassar")
+  district      String?  // Kecamatan: Tamalanrea, Rappocini, Panakkukang, dsb.
+  postalCode    String?
+  fullAddress   String   // Detail jalan, nomor rumah, RT/RW, patokan
+  notes         String?
+  isDefault     Boolean  @default(false)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @default(now()) @updatedAt
+
+  orders        Order[]
+}
+
+// ------------------------------------------------------------------
+// PRODUCT CATALOG
+// ------------------------------------------------------------------
+
+model ApparelCategory {
+  id                String    @id @default(cuid())
+  slug              String    @unique          // "tshirt" | "longsleeve" | "crewneck" | "hoodie" | "shirt"
+  name              String                     // "Heavyweight Boxy Tee (Lengan Pendek)"
+  tagline           String?
+  weightGsm         String?                    // "240 / 280 GSM"
+  description       String?
+  basePriceIdr      Int                        // Sesuai constants.ts
+  sizes             String                     // Serialized JSON array string: '["S","M","L","XL","XXL"]'
+  model3dPath       String                     // "/models/tshirt-heavyweight.glb"
+  fallbackComponent String                     // "TshirtModel"
+  decalNodes        String                     // Serialized JSON array: [{ id, label, side, anchor:[x,y,z] }]
+  isActive          Boolean   @default(true)
+  sortOrder         Int       @default(0)
+
+  variants          ProductVariant[]
+  designs           Design[]
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+}
+
+model ProductVariant {
+  id              String          @id @default(cuid())
+  categoryId      String
+  category        ApparelCategory @relation(fields: [categoryId], references: [id])
+  sku             String          @unique
+  name            String
+  colorHex        String
+  colorName       String
+  size            String
+  priceIdr        Int
+  stockQty        Int             @default(0)
+  images          String          // Serialized JSON array: '["https://..."]'
+  frontDecalUrl   String?
+  backDecalUrl    String?
+  isPreDesigned   Boolean         @default(false)
+  isActive        Boolean         @default(true)
+
+  cartItems       CartItem[]
+  orderItems      OrderItem[]
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+
+  @@index([categoryId])
+}
+
+model ColorOption {
+  id                String  @id @default(cuid())
+  slug              String  @unique
+  name              String
+  hex               String
+  isSpecialPigment  Boolean @default(false)
+  surchargeIdr      Int     @default(0)
+  description       String?
+  sortOrder         Int     @default(0)
+}
+
+model MaterialFinish {
+  id            String  @id @default(cuid())
+  slug          String  @unique   // "combed-cotton" | "french-terry" | "acid-wash"
+  name          String
+  surchargeIdr  Int     @default(0)
+  roughness     Float   @default(0.9)
+  sheen         Float   @default(0.5)
+}
+
+model SablonMethod {
+  id                String  @id @default(cuid())
+  slug              String  @unique  // "dtf" | "plastisol" | "sablon-manual" | "polyflex"
+  name              String
+  description       String?
+  pricingModel      String  // "PER_AREA" | "FLAT"
+  priceA6Idr        Int?    // Saku kecil / pocket
+  priceA5Idr        Int?    // Sedang
+  priceA4Idr        Int?    // Dada standar
+  priceA3Idr        Int?    // Cetak besar A3 (Maks 30 cm roll width)
+  flatPriceIdr      Int?
+  minTurnaroundDays Int     @default(2)
+  maxTurnaroundDays Int     @default(5)
+}
+
+// ------------------------------------------------------------------
+// DESIGN (3D STUDIO PERSISTENCE)
+// ------------------------------------------------------------------
+
+enum DesignStatus {
+  DRAFT           // Sedang diedit di Studio
+  SAVED           // Disimpan oleh pengguna ("Desain Tersimpan")
+  IN_CART         // Telah masuk keranjang
+  ORDERED         // Telah dipesan
+  ARCHIVED
+}
+
+model Design {
+  id                   String          @id @default(cuid())
+  userId               String?         // Nullable: Tamu dapat membuat desain sebelum login
+  user                 User?           @relation(fields: [userId], references: [id])
+  categoryId           String
+  category             ApparelCategory @relation(fields: [categoryId], references: [id])
+  title                String
+  colorHex             String
+  colorName            String
+  size                 String
+  materialFinishSlug   String?
+  sablonMethodSlug     String?
+
+  // Serialized DecalLayer[] JSON array
+  decals               String
+
+  studioTheme          String?         // "obsidian" | "gallery" | "concrete"
+  calculatedPriceIdr   Int
+  // Serialized PriceBreakdown JSON
+  priceBreakdown       String
+
+  previewImageFrontUrl String?
+  previewImageBackUrl  String?
+  previewImage360Url   String?
+
+  status               DesignStatus    @default(DRAFT)
+  cartItems            CartItem[]
+  orderItems           OrderItem[]
+
+  createdAt            DateTime        @default(now())
+  updatedAt            DateTime        @updatedAt
+
+  @@index([userId])
+}
+
+// ------------------------------------------------------------------
+// CART
+// ------------------------------------------------------------------
+
+model Cart {
+  id        String     @id @default(cuid())
+  userId    String     @unique
+  user      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  items     CartItem[]
+  updatedAt DateTime   @updatedAt
+}
+
+model CartItem {
+  id               String          @id @default(cuid())
+  cartId           String
+  cart             Cart            @relation(fields: [cartId], references: [id], onDelete: Cascade)
+  productVariantId String?
+  productVariant   ProductVariant? @relation(fields: [productVariantId], references: [id])
+  designId         String?
+  design           Design?         @relation(fields: [designId], references: [id])
+  quantity         Int             @default(1)
+  unitPriceIdr     Int
+  createdAt        DateTime        @default(now())
+}
+
+// ------------------------------------------------------------------
+// ORDER & PRODUCTION WORKFLOW
+// ------------------------------------------------------------------
+
+enum OrderStatus {
+  PENDING_PAYMENT
+  PAYMENT_CONFIRMED
+  IN_PRODUCTION_QUEUE   // Menunggu antrean sablon DTF
+  PRINTING              // Sedang dicetak film DTF / Press kaos
+  QUALITY_CHECK         // Tahap QC akhir & pembersihan benang
+  READY_TO_SHIP         // Siap diambil di workshop / dijemput kurir
+  SHIPPED               // Sedang diantar kurir / resi aktif
+  DELIVERED
+  COMPLETED
+  CANCELLED
+  REFUNDED
+}
+
+model Order {
+  id                String             @id @default(cuid())
+  orderNumber       String             @unique  // Format: KK-YYYYMMDD-XXXX (e.g. KK-20260831-0001)
+  userId            String
+  user              User               @relation(fields: [userId], references: [id])
+  status            OrderStatus        @default(PENDING_PAYMENT)
+  deliveryMethod    DeliveryMethod     @default(PICKUP)
+
+  items             OrderItem[]
+
+  subtotalIdr       Int
+  shippingCostIdr   Int                @default(0)
+  discountIdr       Int                @default(0)
+  totalIdr          Int
+
+  shippingAddressId String?
+  shippingAddress   Address?           @relation(fields: [shippingAddressId], references: [id])
+  courierNotes      String?            // e.g. "Titip di satpam Unhas" atau patokan rumah
+  trackingNumber    String?            // Nomor resi ekspedisi
+
+  payment           Payment?
+  productionTasks   ProductionTask[]
+  statusHistory     OrderStatusEvent[]
+
+  notes             String?
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
+
+  @@index([userId])
+  @@index([status])
+}
+
+model OrderItem {
+  id                String          @id @default(cuid())
+  orderId           String
+  order             Order           @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  productVariantId  String?
+  productVariant    ProductVariant? @relation(fields: [productVariantId], references: [id])
+  designId          String?
+  design            Design?         @relation(fields: [designId], references: [id])
+  quantity          Int
+  unitPriceIdr      Int
+  lineTotalIdr      Int
+
+  // Denormalized snapshot
+  snapshotName      String
+  snapshotImageUrl  String?
+  snapshotSize      String
+  snapshotColorName String
+}
+
+model OrderStatusEvent {
+  id          String      @id @default(cuid())
+  orderId     String
+  order       Order       @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  status      OrderStatus
+  note        String?
+  actorUserId String?
+  createdAt   DateTime    @default(now())
+}
+
+// ------------------------------------------------------------------
+// PAYMENT
+// ------------------------------------------------------------------
+
+enum PaymentStatus {
+  PENDING
+  SETTLEMENT
+  EXPIRED
+  DENIED
+  REFUNDED
+  FAILED
+}
+
+model Payment {
+  id                String        @id @default(cuid())
+  orderId           String        @unique
+  order             Order         @relation(fields: [orderId], references: [id])
+  provider          String        // "midtrans" | "xendit"
+  providerRef       String        // Midtrans order_id / transaction_id
+  method            String?       // "qris" | "gopay" | "bank_transfer" | "credit_card"
+  amountIdr         Int
+  status            PaymentStatus @default(PENDING)
+  rawWebhookPayload String?       // JSON serialized body
+  paidAt            DateTime?
+  expiresAt         DateTime?
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
+}
+
+// ------------------------------------------------------------------
+// PRODUCTION TASK (DTF SABLON MANUFACTURING KANBAN)
+// ------------------------------------------------------------------
+
+enum ProductionStage {
+  DESIGN_PREP         // Color separation / persiapkan file RIP DTF 300 DPI
+  SCREEN_PRINT_SETUP  // Siapkan roll film DTF & bubuk hotmelt adhesive
+  PRINTING            // Proses print mesin DTF & oven curing
+  PRESSING            // Heat press ke garmen (160°C, 15 detik)
+  QUALITY_CHECK       // Cek daya rekat sablon, elastisitas & gramasi
+  PACKAGING           // Packing polybag & label hangtag
+  DONE                // Selesai & siap kirim/ambil
+}
+
+model ProductionTask {
+  id                 String          @id @default(cuid())
+  orderId            String
+  order              Order           @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  orderItemId        String
+  stage              ProductionStage @default(DESIGN_PREP)
+  assignedToUserId   String?
+  priority           Int             @default(0)
+  dueDate            DateTime?
+  notes              String?
+
+  // --- Real-World Sablon Manufacturing Calibration ---
+  // Dikalibrasi dari geometri 3D (Batas maks lebar dijepit ke 30.0 cm / roll A3 DTF)
+  printWidthCm       Float?          // Dimensi fisik nyata (cm), misal: 28.5
+  printHeightCm      Float?          // Dimensi fisik nyata (cm), misal: 14.2
+  placementSide      String?         // "front" | "back"
+  offsetFromCollarCm Float?          // Jarak turun dari kerah (cm)
+  rawAssetUrl        String?         // Master asset 300 DPI PNG/SVG untuk AcroRIP
+  mockupPreviewUrl   String?         // Gambar panduan visual operator press
+  printFileUrl       String?
+
+  completedAt        DateTime?
+  createdAt          DateTime        @default(now())
+  updatedAt          DateTime        @updatedAt
+
+  @@index([stage])
+  @@index([assignedToUserId])
+}
+
+// ------------------------------------------------------------------
+// MARKETING & VOUCHER
+// ------------------------------------------------------------------
+
+model Coupon {
+  id            String    @id @default(cuid())
+  code          String    @unique
+  discountType  String    // "PERCENT" | "FIXED"
+  discountValue Int
+  minSpendIdr   Int       @default(0)
+  maxUses       Int?
+  usedCount     Int       @default(0)
+  expiresAt     DateTime?
+  isActive      Boolean   @default(true)
+}
+
+model AbandonedCartLog {
+  id             String    @id @default(cuid())
+  userId         String
+  reminderSentAt DateTime?
+  createdAt      DateTime  @default(now())
+}

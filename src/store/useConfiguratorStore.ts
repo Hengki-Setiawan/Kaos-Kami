@@ -16,6 +16,11 @@ export type ViewMode = "story" | "studio";
 export type InteractionTool = "rotate" | "pan";
 export type DrawerPosition = "right" | "left";
 
+// Ariyan preset (genP/genS) + Afilah multi-part hooks
+export const LOGO_POSITION_PRESETS = [-0.075, 0, 0.075] as const;
+export const LOGO_SCALE_PRESETS = [0.09, 0.12, 0.17] as const;
+export type LogoPresetIndex = 0 | 1 | 2;
+
 interface ConfiguratorState {
   // Navigation & Mockup Mode
   viewMode: ViewMode;
@@ -42,6 +47,15 @@ interface ConfiguratorState {
   // Multi-Decal Sandbox Layers
   decals: DecalLayer[];
   selectedDecalId: string | null;
+
+  // Multi-part coloring (Afilah) — body/sleeves/hood per-part
+  partColors: Record<string, string>;
+  activeColorMode: "single" | "multi-part";
+
+  // Ariyan mobile + preset indices
+  logoPresetPos: LogoPresetIndex;
+  logoPresetScale: LogoPresetIndex;
+  isMobile: boolean;
 
   // Saved Designs Suite
   savedDesigns: SavedMockupDesign[];
@@ -106,6 +120,15 @@ interface ConfiguratorState {
   setIsRotating: (rotating: boolean) => void;
   toggleRotating: () => void;
   setCameraPreset: (preset: CameraViewPreset | null) => void;
+
+  // Afilah multi-part + Ariyan preset
+  setPartColor: (partId: string, hex: string) => void;
+  setColorMode: (mode: "single" | "multi-part") => void;
+  resetPartColors: () => void;
+  setLogoPresetPos: (idx: LogoPresetIndex) => void;
+  setLogoPresetScale: (idx: LogoPresetIndex) => void;
+  setIsMobile: (v: boolean) => void;
+  applyLogoPreset: () => void;
 }
 
 const getInitialSavedDesigns = (): SavedMockupDesign[] => {
@@ -140,6 +163,12 @@ export const useConfiguratorStore = create<ConfiguratorState>((set, get) => ({
   decals: [],
   selectedDecalId: null,
   savedDesigns: getInitialSavedDesigns(),
+
+  partColors: {},
+  activeColorMode: "single",
+  logoPresetPos: 1 as LogoPresetIndex,
+  logoPresetScale: 1 as LogoPresetIndex,
+  isMobile: false,
 
   frontGraphicUrl: null,
   backGraphicUrl: null,
@@ -370,4 +399,23 @@ export const useConfiguratorStore = create<ConfiguratorState>((set, get) => ({
   setIsRotating: (rotating) => set({ isRotating: rotating }),
   toggleRotating: () => set((state) => ({ isRotating: !state.isRotating })),
   setCameraPreset: (preset) => set({ cameraPreset: preset }),
+
+  setPartColor: (partId, hex) =>
+    set((s) => ({ partColors: { ...s.partColors, [partId]: hex } })),
+  setColorMode: (mode) => set({ activeColorMode: mode }),
+  resetPartColors: () => set({ partColors: {} }),
+  setLogoPresetPos: (idx) => set({ logoPresetPos: idx }),
+  setLogoPresetScale: (idx) => set({ logoPresetScale: idx }),
+  setIsMobile: (v) => set({ isMobile: v }),
+  applyLogoPreset: () => {
+    const s = get();
+    const xMap = [-0.075, 0, 0.075] as const;
+    const scaleMap = [0.09, 0.12, 0.17] as const;
+    const active = s.decals.find((d) => d.id === s.selectedDecalId) ?? s.decals[0];
+    if (!active) return;
+    s.updateDecal(active.id, {
+      x: xMap[s.logoPresetPos] ?? 0,
+      scale: scaleMap[s.logoPresetScale] ?? 0.52,
+    });
+  },
 }));

@@ -243,7 +243,7 @@ commitment since these do shift.
 
 | Layer | Service | Free tier | First paid tier | Notes |
 |---|---|---|---|---|
-| Frontend hosting/SSR | **Cloudflare Pages / Vercel** | **Unlimited Bandwidth** (Cloudflare Pages), 100% Commercial Permitted on Free Tier | Workers Paid $5/mo (if >100k req/day) | **Commercial Standard**: Cloudflare Pages via `@opennextjs/cloudflare` is 100% free for commercial use. Vercel Hobby is free for academic/thesis mode. |
+| Frontend hosting/SSR | **Cloudflare Pages / Vercel** | **Unlimited Bandwidth** (Cloudflare Pages), 100% Commercial Permitted on Free Tier | Workers Paid $5/mo (if >100k req/day) | **Commercial Standard**: Cloudflare Pages via `@opennextjs/cloudflare` is 100% free for commercial use. |
 | Database | **Turso (libSQL Edge SQLite)** | **9GB Storage**, 500 DBs, 1B reads/mo, **24/7 Always-On (Zero Sleep/Pause)** | Pro $29/mo (Scales to millions) | 0ms cold start, never pauses on inactivity like Supabase free tier — eliminates demo failure risks |
 | Auth | **Better Auth** (self-hosted, uses the same Turso DB) | Free forever, no per-MAU cost | N/A (you host it) | Chosen specifically to avoid Clerk's per-MAU curve; full control, data stays in your own DB — see BLUEPRINT-01 §2 |
 | Object storage (decals, renders, GLBs) | **Cloudflare R2** | 10GB storage, 1M writes/mo, 10M reads/mo, **zero egress always** | ~$0.015/GB storage beyond free tier | Zero egress is the deciding factor here — this app re-serves mockup images constantly, and R2's no-egress-fee model directly protects margin as traffic grows |

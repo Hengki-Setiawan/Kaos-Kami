@@ -1,6 +1,6 @@
 # AGENTS.MD — AI AGENT OPERATIONAL INSTRUCTIONS & KNOWLEDGE BASE
 # Project: Kaos Kami — 3D Interactive Apparel E-Commerce & DTF Sablon Platform
-# Academic Context: Semester 7 Thesis / Skripsi (Kota Makassar)
+# Context: Commercial UMKM Platform — Kota Makassar, Sulawesi Selatan
 # Repository: https://github.com/Hengki-Setiawan/Kaos-Kami.git
 
 ---
