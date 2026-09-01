@@ -10,6 +10,33 @@ export interface SendWhatsAppResult {
   error?: string;
 }
 
+// Known dummy & test phone numbers that must NEVER be sent to live Fonnte API
+const DUMMY_PHONE_BLACKLIST = new Set([
+  "081234567890",
+  "6281234567890",
+  "081244556677",
+  "6281244556677",
+  "085299881122",
+  "6285299881122",
+  "081244002026",
+  "6281244002026",
+  "080000000000",
+  "628000000000",
+  "081111111111",
+  "628111111111",
+  "08123456789",
+  "628123456789",
+]);
+
+function isDummyPhoneNumber(phone: string): boolean {
+  if (!phone || phone.length < 10 || phone.length > 15) return true;
+  if (DUMMY_PHONE_BLACKLIST.has(phone)) return true;
+  // Repetitive fake numbers (e.g. 0811111111, 0800000000, 0812345678)
+  if (/^08(\d)\1{7,}$/.test(phone) || /^628(\d)\1{7,}$/.test(phone)) return true;
+  if (phone.includes("123456789") || phone.includes("987654321")) return true;
+  return false;
+}
+
 export async function sendWhatsAppNotification(
   targetPhone: string,
   message: string
@@ -18,6 +45,15 @@ export async function sendWhatsAppNotification(
 
   // Format phone to 08... or 628...
   const cleanPhone = targetPhone.replace(/[^0-9]/g, "");
+
+  // SAFETY GUARD: Never dispatch real WhatsApp messages to dummy/test numbers
+  if (isDummyPhoneNumber(cleanPhone) || process.env.WHATSAPP_FORCE_MOCK === "true") {
+    console.log(`🛡️ [Fonnte Guard: Test/Dummy Number Blocked] Target: ${cleanPhone}\n${message}`);
+    return {
+      success: true,
+      messageId: `mock-guard-${Date.now()}`,
+    };
+  }
 
   if (!token) {
     console.log(`[Fonnte Mock Log] To: ${cleanPhone}\n${message}`);
