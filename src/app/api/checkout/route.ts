@@ -6,6 +6,7 @@ import { sendWhatsAppNotification, buildOrderConfirmedMessage } from "@/lib/noti
 import { MAKASSAR_DELIVERY_OPTIONS, PRODUCTION_TURNAROUND_OPTIONS } from "@/lib/shipping/deliveryOptions";
 import { z } from "zod";
 import { DecalLayerSchema } from "@/lib/schemas/design";
+import { checkRateLimit, getClientIp } from "@/lib/security/rateLimiter";
 
 const CheckoutItemSchema = z.object({
   apparelSlug: z.enum(["tshirt", "longsleeve", "crewneck", "hoodie", "shirt"]),
@@ -32,6 +33,15 @@ const CheckoutPayloadSchema = z.object({
 
 export async function POST(req: NextRequest) {
   try {
+    const ip = getClientIp(req);
+    const limit = checkRateLimit(`checkout:ip:${ip}`, 5, 60); // Maks 5 checkout per menit per IP
+    if (limit.isLimited) {
+      return NextResponse.json(
+        { error: `Terlalu banyak permintaan transaksi. Silakan tunggu ${limit.resetSeconds} detik.` },
+        { status: 429 }
+      );
+    }
+
     const body = await req.json();
     const validation = CheckoutPayloadSchema.safeParse(body);
 
