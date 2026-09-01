@@ -38,18 +38,13 @@ export const Navbar: React.FC = () => {
         <div className="flex items-center space-x-3">
           <Link
             href="/"
-            className="flex items-center gap-2.5 font-display font-black text-xl sm:text-2xl tracking-tighter uppercase hover:opacity-90 transition-opacity text-left"
+            className="hover:opacity-85 transition-opacity flex items-center shrink-0"
           >
-            <div className="relative w-8 h-8 rounded-full overflow-hidden border border-brand-accent/40 bg-black/60 shadow-[0_0_12px_rgba(230,81,0,0.3)] shrink-0 flex items-center justify-center">
-              <img
-                src="/brand/mascot-cool.png"
-                alt="Kaos Kami Mascot"
-                className="w-full h-full object-cover"
-              />
-            </div>
-            <span>
-              kaos kami<span className="text-brand-accent">.</span>
-            </span>
+            <img
+              src={isLight ? "/brand/logo-black-clean.png" : "/brand/logo-white-clean.png"}
+              alt="Kaos Kami"
+              className="h-8 sm:h-9 w-auto object-contain"
+            />
           </Link>
         </div>
 

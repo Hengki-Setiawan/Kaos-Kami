@@ -63,9 +63,12 @@ export const metadata: Metadata = {
     description: "Heavyweight Indonesian streetwear, engineered not printed.",
   },
   icons: {
-    icon: "/brand/logo-emblem.png",
-    shortcut: "/brand/logo-emblem.png",
-    apple: "/brand/logo-emblem.png",
+    icon: [
+      { url: "/brand/favicon.png", type: "image/png" },
+      { url: "/favicon.ico", sizes: "any" },
+    ],
+    shortcut: "/favicon.ico",
+    apple: "/icons/icon-192.png",
   },
   manifest: "/manifest.json",
 };

@@ -52,14 +52,13 @@ export default function StudioPage() {
             <span>BACK TO STORY</span>
           </Link>
 
-          <div className="flex items-center gap-2">
-            <div className="relative w-6 h-6 rounded-full overflow-hidden border border-brand-accent/40 bg-black/60 shrink-0">
-              <img src="/brand/mascot-cool.png" alt="Kaos Kami" className="w-full h-full object-cover" />
-            </div>
-            <span className="font-display font-black text-lg tracking-tighter uppercase">
-              kaos kami<span className="text-brand-accent">.</span>
-            </span>
-          </div>
+          <Link href="/" className="hover:opacity-85 transition-opacity flex items-center shrink-0">
+            <img
+              src={isLight ? "/brand/logo-black-clean.png" : "/brand/logo-white-clean.png"}
+              alt="Kaos Kami"
+              className="h-7 sm:h-8 w-auto object-contain"
+            />
+          </Link>
 
           <span className="hidden md:inline-block px-2.5 py-0.5 rounded-full text-[10px] font-mono tracking-widest uppercase bg-surface border border-border-subtle text-text-muted font-bold">
             STUDIO KUSTOM MAKASSAR
