@@ -62,6 +62,11 @@ export const metadata: Metadata = {
     title: "kaos kami — Heavyweight 3D Apparel Experience | Makassar DTF Sablon",
     description: "Heavyweight Indonesian streetwear, engineered not printed.",
   },
+  icons: {
+    icon: "/brand/logo-emblem.png",
+    shortcut: "/brand/logo-emblem.png",
+    apple: "/brand/logo-emblem.png",
+  },
   manifest: "/manifest.json",
 };
 

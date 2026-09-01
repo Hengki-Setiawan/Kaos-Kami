@@ -772,48 +772,6 @@ export const CustomizerDrawer: React.FC = () => {
                     </button>
                   </div>
 
-                  {/* Official Kaos Kami Brand & Mascot Sticker Presets */}
-                  <div className="p-3 rounded-xl bg-surface/50 border border-white/10 space-y-2">
-                    <div className="flex items-center justify-between font-mono text-[10px] text-text-muted font-bold uppercase">
-                      <span>STIKER & MASKOT RESMI</span>
-                      <span className="text-brand-accent">1-KLIK TEMPEL 3D</span>
-                    </div>
-                    <div className="grid grid-cols-4 gap-2">
-                      {[
-                        { name: "Maskot Cool", url: "/brand/mascot-cool.png" },
-                        { name: "Maskot Sablon", url: "/brand/mascot-sablon.png" },
-                        { name: "Logo Putih", url: "/brand/logo-white.png" },
-                        { name: "Logo Emblem", url: "/brand/logo-emblem.png" },
-                      ].map((item, idx) => (
-                        <button
-                          key={idx}
-                          type="button"
-                          onClick={() => {
-                            const id = addDecal({
-                              name: item.name,
-                              url: item.url,
-                              targetSide: "front",
-                              x: 0,
-                              y: -0.05,
-                              scale: 0.45,
-                              rotation: 0,
-                              opacity: 1,
-                            });
-                            setSelectedDecalId(id);
-                          }}
-                          className="group flex flex-col items-center p-1.5 rounded-lg border border-white/10 bg-black/40 hover:border-brand-accent hover:bg-brand-accent/10 transition-all text-center"
-                        >
-                          <div className="w-10 h-10 rounded-md overflow-hidden bg-black/60 flex items-center justify-center p-1 mb-1">
-                            <img src={item.url} alt={item.name} className="w-full h-full object-contain group-hover:scale-110 transition-transform" />
-                          </div>
-                          <span className="text-[9px] font-mono text-text-muted group-hover:text-white truncate w-full">
-                            {item.name}
-                          </span>
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-
                   {/* Fabric.js Advanced Toggle (Vihan — lazy, code-split) */}
                   <button
                     type="button"
