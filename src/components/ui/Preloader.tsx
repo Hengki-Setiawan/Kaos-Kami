@@ -33,6 +33,13 @@ export const Preloader: React.FC = () => {
       aria-hidden={!visible}
     >
       <div className="flex flex-col items-center space-y-4">
+        <div className="relative w-16 h-16 rounded-2xl overflow-hidden border border-brand-accent/40 bg-black/60 shadow-[0_0_24px_rgba(230,81,0,0.4)] animate-pulse">
+          <img
+            src="/brand/mascot-cool.png"
+            alt="Kaos Kami Mascot"
+            className="w-full h-full object-cover"
+          />
+        </div>
         <span className="font-display font-black text-3xl uppercase tracking-tighter text-text-primary">
           kaos kami<span className="text-brand-accent">.</span>
         </span>

@@ -3,13 +3,17 @@
 import React from "react";
 import Link from "next/link";
 import { useConfiguratorStore } from "@/store/useConfiguratorStore";
-import { Sparkles, Sun, Moon, Maximize2, Minimize2, User as UserIcon } from "lucide-react";
+import { useCartStore } from "@/store/useCartStore";
+import { Sparkles, Sun, Moon, Maximize2, Minimize2, User as UserIcon, ShoppingBag } from "lucide-react";
 import { AuthModal } from "@/components/ui/AuthModal";
+import { CartDrawer } from "@/components/ui/CartDrawer";
 import { useSession } from "@/lib/auth-client";
 
 export const Navbar: React.FC = () => {
   const [isAuthOpen, setIsAuthOpen] = React.useState(false);
   const { data: session } = useSession();
+  const { getTotalCount, openCart } = useCartStore();
+  const cartCount = getTotalCount();
 
   const {
     studioTheme,
@@ -29,45 +33,74 @@ export const Navbar: React.FC = () => {
           : "bg-[#121214]/80 border-border-subtle text-text-primary"
       } ${isHideWebsiteUI ? "opacity-30 hover:opacity-100" : "opacity-100"}`}
     >
-      {/* Brand Wordmark */}
-      <div className="flex items-center space-x-3">
-        <Link
-          href="/"
-          className="font-display font-black text-xl sm:text-2xl tracking-tighter uppercase hover:opacity-80 transition-opacity text-left"
-        >
-          kaos kami<span className="text-brand-accent">.</span>
-        </Link>
-        <span className="hidden md:inline-block px-2 py-0.5 rounded text-[10px] font-mono tracking-widest uppercase bg-surface border border-border-subtle text-text-muted">
-          3D STUDIO v3.0
-        </span>
+      {/* Brand Wordmark & Nav Links */}
+      <div className="flex items-center space-x-6">
+        <div className="flex items-center space-x-3">
+          <Link
+            href="/"
+            className="flex items-center gap-2.5 font-display font-black text-xl sm:text-2xl tracking-tighter uppercase hover:opacity-90 transition-opacity text-left"
+          >
+            <div className="relative w-8 h-8 rounded-full overflow-hidden border border-brand-accent/40 bg-black/60 shadow-[0_0_12px_rgba(230,81,0,0.3)] shrink-0 flex items-center justify-center">
+              <img
+                src="/brand/mascot-cool.png"
+                alt="Kaos Kami Mascot"
+                className="w-full h-full object-cover"
+              />
+            </div>
+            <span>
+              kaos kami<span className="text-brand-accent">.</span>
+            </span>
+          </Link>
+        </div>
+
+        {/* E-Commerce Navigation Links */}
+        <nav className="hidden md:flex items-center space-x-5 text-xs font-mono">
+          <Link
+            href="/catalog"
+            className="text-text-muted hover:text-white transition-colors font-bold uppercase tracking-wider"
+          >
+            KATALOG PRODUK
+          </Link>
+          <Link
+            href="/studio"
+            className="text-text-muted hover:text-white transition-colors font-bold uppercase tracking-wider"
+          >
+            STUDIO 3D
+          </Link>
+        </nav>
       </div>
 
-      {/* Center Active Phase Callout (Hidden in Clean Mockup View) */}
-      {!isHideWebsiteUI && (
-        <div className="hidden lg:flex items-center space-x-2 font-mono text-xs text-text-muted">
-          <span className="w-2 h-2 rounded-full bg-brand-accent animate-pulse" />
-          <span className="tracking-widest uppercase">
-            {`STORY // PHASE 0${activePhase}`}
-          </span>
-        </div>
-      )}
-
-      {/* Right Control Bar */}
+      {/* Right Control Bar (Clean, Minimal, Non-Cluttered) */}
       <div className="flex items-center space-x-2 sm:space-x-3">
+        {/* Shopping Cart Button */}
+        <button
+          onClick={openCart}
+          className="relative p-2.5 rounded-full bg-surface border border-border-subtle text-text-muted hover:text-brand-accent hover:border-brand-accent/40 transition-all flex items-center justify-center"
+          title="Keranjang Belanja"
+          aria-label="Keranjang Belanja"
+        >
+          <ShoppingBag size={16} />
+          {cartCount > 0 && (
+            <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-brand-accent text-canvas text-[9px] font-mono font-bold flex items-center justify-center">
+              {cartCount}
+            </span>
+          )}
+        </button>
+
         {/* Light / Dark Mode Quick Toggle */}
         <button
           onClick={() => setStudioTheme(isLight ? "obsidian" : "gallery")}
-          className="p-2 rounded-full bg-surface border border-border-subtle text-text-muted hover:text-text-primary transition-all"
-          title={isLight ? "Switch to Obsidian Dark Mode" : "Switch to Gallery Light Mode"}
-          aria-label="Toggle Light/Dark Studio Mode"
+          className="p-2.5 rounded-full bg-surface border border-border-subtle text-text-muted hover:text-text-primary transition-all"
+          title={isLight ? "Mode Gelap (Obsidian)" : "Mode Terang (Gallery)"}
+          aria-label="Toggle Light/Dark Mode"
         >
-          {isLight ? <Moon size={14} className="text-neutral-800" /> : <Sun size={14} className="text-brand-accent" />}
+          {isLight ? <Moon size={15} className="text-neutral-800" /> : <Sun size={15} className="text-brand-accent" />}
         </button>
 
         {/* User Account / Login Button */}
         <button
           onClick={() => setIsAuthOpen(true)}
-          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full font-mono text-xs border transition-all ${
+          className={`flex items-center gap-1.5 px-3.5 py-2 rounded-full font-mono text-xs border transition-all ${
             session?.user
               ? "bg-surface border-brand-accent/40 text-brand-accent font-bold"
               : "bg-surface border-border-subtle text-text-muted hover:text-text-primary"
@@ -75,35 +108,23 @@ export const Navbar: React.FC = () => {
           title={session?.user ? `Akun: ${session.user.name}` : "Masuk / Daftar Akun"}
           aria-label="Akun Pengguna"
         >
-          <UserIcon size={13} />
-          <span className="hidden sm:inline">{session?.user ? session.user.name?.split(" ")[0] : "MASUK"}</span>
+          <UserIcon size={14} />
+          <span className="hidden sm:inline font-bold">{session?.user ? session.user.name?.split(" ")[0] : "MASUK"}</span>
         </button>
 
-        {/* Clean Mockup Fullscreen View Toggle */}
-        <button
-          onClick={toggleHideWebsiteUI}
-          className={`hidden sm:flex items-center space-x-1.5 px-3 py-1.5 rounded-full font-mono text-xs uppercase border transition-all ${
-            isHideWebsiteUI
-              ? "bg-brand-accent text-canvas border-brand-accent font-bold"
-              : "bg-surface border-border-subtle text-text-muted hover:text-text-primary"
-          }`}
-          title="Toggle Clean Mockup View"
-        >
-          {isHideWebsiteUI ? <Minimize2 size={12} /> : <Maximize2 size={12} />}
-          <span className="text-[11px]">{isHideWebsiteUI ? "EXIT CLEAN" : "CLEAN VIEW"}</span>
-        </button>
-
-        {/* Enter 3D Sandbox Dedicated Page */}
+        {/* Enter 3D Sandbox Dedicated Page (Clean CTA, No Sparkles) */}
         <Link
           href="/studio"
-          className="flex items-center space-x-2 px-3.5 sm:px-4 py-2 rounded-full font-mono text-xs uppercase tracking-wider bg-brand-accent text-canvas font-bold shadow-[0_0_16px_rgba(230,81,0,0.4)] hover:brightness-110 active:scale-95 transition-all"
+          className="px-4 py-2 rounded-full font-mono text-xs uppercase tracking-wider bg-brand-accent text-canvas font-bold shadow-[0_0_16px_rgba(230,81,0,0.3)] hover:brightness-110 active:scale-95 transition-all"
           aria-label="Enter 3D Studio"
         >
-          <Sparkles size={13} />
-          <span className="hidden sm:inline">ENTER 3D SANDBOX</span>
-          <span className="sm:hidden">SANDBOX</span>
+          <span className="hidden sm:inline">CUSTOM 3D</span>
+          <span className="sm:hidden">3D</span>
         </Link>
       </div>
+
+      {/* Cart Drawer */}
+      <CartDrawer />
 
       {/* Auth Dialog Modal */}
       <AuthModal isOpen={isAuthOpen} onClose={() => setIsAuthOpen(false)} />

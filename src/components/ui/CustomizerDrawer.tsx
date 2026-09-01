@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useRef, useState, useMemo } from "react";
+import React, { useRef, useState, useMemo, useEffect } from "react";
 import {
   Upload,
   RotateCcw,
@@ -30,6 +30,7 @@ import {
   X,
   Compass as AngleIcon,
   Info,
+  Video,
 } from "lucide-react";
 import {
   PRODUCT_COLORS,
@@ -47,7 +48,17 @@ import { removeSolidBackground } from "@/lib/enhancers/removeSolidBackground";
 import { compressImageClient } from "@/lib/enhancers/compressImage";
 import { Ruler, Wand2, Loader2, AlertTriangle, ShieldCheck, ShoppingCart, Type } from "lucide-react";
 import { CheckoutModal } from "@/components/ui/CheckoutModal";
+import { BottomSheet } from "@/components/ui/BottomSheet";
+import { useDeviceTier } from "@/hooks/useDeviceTier";
+import { AuthModal } from "@/components/ui/AuthModal";
+import { useSession } from "@/lib/auth-client";
+import dynamic from "next/dynamic";
 import { generateTextDecalDataUrl, FONT_PRESETS, type TextDecalOptions } from "@/lib/typography/textDecalGenerator";
+
+const FabricEditor = dynamic(() => import("./FabricEditor").then((m) => m.FabricEditor), {
+  ssr: false,
+  loading: () => <p className="text-xs font-mono text-text-muted p-2">Memuat Fabric editor…</p>,
+});
 
 type StudioTab = "apparel" | "decals" | "sandbox" | "saved" | "export";
 
@@ -58,6 +69,12 @@ export const CustomizerDrawer: React.FC = () => {
     selectedColor,
     activeColorName,
     setSelectedColor,
+    partColors,
+    setPartColor,
+    activeColorMode,
+    setColorMode,
+    setLogoPresetPos,
+    applyLogoPreset,
     selectedSize,
     setSelectedSize,
     modelPosX,
@@ -102,6 +119,12 @@ export const CustomizerDrawer: React.FC = () => {
     viewMode,
     setViewMode,
     setActivePhase,
+    animationPreset,
+    setAnimationPreset,
+    animationSpeed,
+    setAnimationSpeed,
+    isGizmoVisible,
+    toggleGizmoVisible,
   } = useConfiguratorStore();
 
   const [activeTab, setActiveTab] = useState<StudioTab>("apparel");
@@ -110,6 +133,7 @@ export const CustomizerDrawer: React.FC = () => {
   const [copiedLink, setCopiedLink] = useState(false);
   const [showPriceBreakdown, setShowPriceBreakdown] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const deviceTier = useDeviceTier();
 
   const [isEnhancingImage, setIsEnhancingImage] = useState(false);
   const [enhancementMessage, setEnhancementMessage] = useState<string | null>(null);
@@ -120,6 +144,10 @@ export const CustomizerDrawer: React.FC = () => {
   const [customTextString, setCustomTextString] = useState("");
   const [customTextFont, setCustomTextFont] = useState<TextDecalOptions["fontFamily"]>("streetwear-bold");
   const [customTextColor, setCustomTextColor] = useState("#FFFFFF");
+  const [activePartId, setActivePartId] = useState<string>("body");
+  const [showFabricEditor, setShowFabricEditor] = useState(false);
+  const [isAuthOpen, setIsAuthOpen] = useState(false);
+  const { data: session } = useSession();
 
   const handleAddTextDecal = () => {
     if (!customTextString.trim()) return;
@@ -150,17 +178,42 @@ export const CustomizerDrawer: React.FC = () => {
   const currentApparelInfo = APPAREL_CATALOG[activeApparel];
   const activeDecal = decals.find((d) => d.id === selectedDecalId) ?? decals[0];
 
-  // Physical Scale 1:1 CM Calibration Engine
+  // Real-Time DPI & Aspect Ratio Quality Analyzer — uses actual image naturalWidth and naturalHeight
+  const [decalPixelWidth, setDecalPixelWidth] = useState<number>(1200);
+  const [decalAspectRatio, setDecalAspectRatio] = useState<number>(1.0);
+
+  useEffect(() => {
+    if (!activeDecal?.url) return;
+    const img = new Image();
+    img.onload = () => {
+      const w = img.naturalWidth || img.width || 1200;
+      const h = img.naturalHeight || img.height || 1200;
+      setDecalPixelWidth(w);
+      setDecalAspectRatio(h > 0 ? w / h : 1.0);
+    };
+    img.onerror = () => {
+      setDecalPixelWidth(1200);
+      setDecalAspectRatio(1.0);
+    };
+    img.src = activeDecal.url;
+  }, [activeDecal?.url]);
+
+  // Physical Scale 1:1 CM Calibration Engine per Apparel Type
   const physicalDimensions = useMemo(() => {
     if (!activeDecal) return null;
-    return computePhysicalPrintDimensions(activeApparel, activeDecal.scale, activeDecal.y, 1.0);
-  }, [activeApparel, activeDecal]);
+    return computePhysicalPrintDimensions(
+      activeApparel,
+      activeDecal.scale,
+      activeDecal.y,
+      decalAspectRatio,
+      activeDecal.targetSide
+    );
+  }, [activeApparel, activeDecal, decalAspectRatio]);
 
-  // Real-Time DPI Quality Analyzer
   const qualityReport = useMemo(() => {
     if (!physicalDimensions) return null;
-    return evaluatePrintQuality(1500, physicalDimensions.widthCm);
-  }, [physicalDimensions]);
+    return evaluatePrintQuality(decalPixelWidth, physicalDimensions.widthCm);
+  }, [physicalDimensions, decalPixelWidth]);
 
   // Handler: 1-Click White Background Remover (<10ms Canvas Chroma-Key)
   const handleRemoveWhiteBg = async () => {
@@ -233,6 +286,76 @@ export const CustomizerDrawer: React.FC = () => {
       console.error("Gagal mengompres gambar:", err);
     } finally {
       setIsEnhancingImage(false);
+    }
+  };
+
+  const [isRecording360, setIsRecording360] = useState(false);
+  const [recordingProgress, setRecordingProgress] = useState(0);
+
+  const handleExport360Video = async () => {
+    const canvas = document.querySelector("canvas");
+    if (!canvas) return;
+
+    try {
+      setIsRecording360(true);
+      setRecordingProgress(0);
+
+      // Ensure rotation is enabled
+      const wasRotating = isRotating;
+      if (!wasRotating) toggleRotating();
+
+      // Capture 30fps video stream from Three.js canvas
+      const stream = (canvas as any).captureStream ? (canvas as any).captureStream(30) : null;
+      if (!stream) {
+        alert("Browser Anda tidak mendukung perekaman kanvas 3D langsung.");
+        setIsRecording360(false);
+        return;
+      }
+
+      // Check supported MIME type
+      const mimeType = MediaRecorder.isTypeSupported("video/webm;codecs=vp9")
+        ? "video/webm;codecs=vp9"
+        : MediaRecorder.isTypeSupported("video/webm")
+        ? "video/webm"
+        : "video/mp4";
+
+      const mediaRecorder = new MediaRecorder(stream, { mimeType, videoBitsPerSecond: 4000000 });
+      const chunks: Blob[] = [];
+
+      mediaRecorder.ondataavailable = (e) => {
+        if (e.data && e.data.size > 0) chunks.push(e.data);
+      };
+
+      mediaRecorder.onstop = () => {
+        const blob = new Blob(chunks, { type: mimeType });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = `kaos-kami-${activeApparel}-360-turntable.webm`;
+        a.click();
+        URL.revokeObjectURL(url);
+        setIsRecording360(false);
+        if (!wasRotating) toggleRotating();
+      };
+
+      mediaRecorder.start();
+
+      // 5-second 360-degree rotation recording with progress ticker
+      const totalMs = 5000;
+      const intervalMs = 100;
+      let elapsed = 0;
+
+      const timer = setInterval(() => {
+        elapsed += intervalMs;
+        setRecordingProgress(Math.min(Math.round((elapsed / totalMs) * 100), 100));
+        if (elapsed >= totalMs) {
+          clearInterval(timer);
+          mediaRecorder.stop();
+        }
+      }, intervalMs);
+    } catch (err) {
+      console.error("Gagal mengekspor video 360:", err);
+      setIsRecording360(false);
     }
   };
 
@@ -338,9 +461,9 @@ export const CustomizerDrawer: React.FC = () => {
         </div>
       )}
 
-      {/* Full Customizer Drawer */}
+      {/* Full Customizer Drawer — Desktop (md+) uses fixed drawer, Mobile uses BottomSheet */}
       <section
-        className={`fixed bottom-0 z-40 p-3 sm:p-6 md:p-8 max-w-xl w-full pointer-events-none transition-all duration-500 ease-out ${
+        className={`fixed bottom-0 z-40 p-3 sm:p-6 md:p-8 max-w-xl w-full pointer-events-none transition-all duration-500 ease-out hidden md:block ${
           drawerPosition === "left" ? "left-0" : "right-0"
         } ${
           isDrawerCollapsed
@@ -476,10 +599,55 @@ export const CustomizerDrawer: React.FC = () => {
                   </div>
                 </div>
 
-                {/* Colorway Picker */}
+                {/* Colorway Picker — sablon focus: single solid (multi-part hidden, tailor bukan fokus UMKM) */}
                 <div>
                   <div className="flex justify-between items-center text-xs font-mono mb-2">
-                    <span className="text-text-muted font-bold uppercase">COLORWAY PALETTE:</span>
+                    <span className="text-text-muted font-bold uppercase">WARNA GARMENT (SABLON FOCUS):</span>
+                    <span className="text-brand-accent font-bold text-[10px] uppercase">SOLID</span>
+                  </div>
+
+                  {/* Multi-Part Target Selector (Afilah) */}
+                  {activeColorMode === "multi-part" && (
+                    <div className="p-3 rounded-xl bg-surface/80 border border-brand-accent/30 mb-3 space-y-2 font-mono text-xs animate-fadeIn">
+                      <span className="block text-[10px] text-text-muted font-bold uppercase">
+                        PILIH BAGIAN YANG DIWARNAI:
+                      </span>
+                      <div className="grid grid-cols-3 gap-1.5">
+                        {[
+                          { id: "body", label: "👕 BODI" },
+                          { id: "sleeves", label: "💪 LENGAN" },
+                          { id: "collar", label: "⭕ KERAH" },
+                        ].map((part) => {
+                          const currentColor = partColors[part.id] || selectedColor;
+                          const isActive = activePartId === part.id;
+                          return (
+                            <button
+                              key={part.id}
+                              onClick={() => setActivePartId(part.id)}
+                              className={`py-1.5 px-1 rounded-lg border text-[10px] flex flex-col items-center justify-center space-y-1 transition-all ${
+                                isActive
+                                  ? "bg-brand-accent/20 border-brand-accent text-brand-accent"
+                                  : "bg-black/40 border-white/10 hover:border-brand-accent"
+                              }`}
+                            >
+                              <span className="font-bold">{part.label}</span>
+                              <span
+                                className="w-4 h-4 rounded-full border border-white/20"
+                                style={{ backgroundColor: currentColor }}
+                              />
+                            </button>
+                          );
+                        })}
+                      </div>
+                      <p className="text-[9px] text-text-muted leading-tight">
+                        *Pilih bagian di atas, lalu klik warna palet di bawah untuk mengubahnya. {activePartId.toUpperCase()} aktif.
+                      </p>
+                    </div>
+                  )}
+
+                  {/* Colorway Palette */}
+                  <div className="flex justify-between items-center text-xs font-mono mb-2">
+                    <span className="text-text-muted font-bold uppercase">PALET WARNA:</span>
                     <span className="text-text-primary font-bold">
                       {activeColorName} {pricing.colorSurcharge > 0 && "(+IDR 15k)"}
                     </span>
@@ -491,16 +659,23 @@ export const CustomizerDrawer: React.FC = () => {
                         onClick={() => {
                           setSelectedColor(c.hex, c.name);
                           setCustomHex(c.hex);
+                          if (activeColorMode === "multi-part") {
+                            setPartColor(activePartId, c.hex);
+                          }
                         }}
                         style={{ backgroundColor: c.hex }}
                         aria-label={c.name}
                         className={`w-8 h-8 rounded-full border-2 transition-all flex items-center justify-center relative ${
-                          selectedColor.toLowerCase() === c.hex.toLowerCase()
+                          (activeColorMode === "multi-part"
+                            ? (partColors[activePartId] || selectedColor).toLowerCase() === c.hex.toLowerCase()
+                            : selectedColor.toLowerCase() === c.hex.toLowerCase())
                             ? "border-brand-accent scale-110 shadow-[0_0_10px_rgba(230,81,0,0.6)]"
                             : "border-border-subtle hover:border-text-muted"
                         }`}
                       >
-                        {selectedColor.toLowerCase() === c.hex.toLowerCase() && (
+                        {(activeColorMode === "multi-part"
+                          ? (partColors[activePartId] || selectedColor).toLowerCase() === c.hex.toLowerCase()
+                          : selectedColor.toLowerCase() === c.hex.toLowerCase()) && (
                           <Check size={13} className={c.id === "chalk" ? "text-neutral-900 stroke-[3]" : "text-white stroke-[3]"} />
                         )}
                       </button>
@@ -596,6 +771,80 @@ export const CustomizerDrawer: React.FC = () => {
                       <span>+ TULIS TEKS 3D</span>
                     </button>
                   </div>
+
+                  {/* Official Kaos Kami Brand & Mascot Sticker Presets */}
+                  <div className="p-3 rounded-xl bg-surface/50 border border-white/10 space-y-2">
+                    <div className="flex items-center justify-between font-mono text-[10px] text-text-muted font-bold uppercase">
+                      <span>STIKER & MASKOT RESMI</span>
+                      <span className="text-brand-accent">1-KLIK TEMPEL 3D</span>
+                    </div>
+                    <div className="grid grid-cols-4 gap-2">
+                      {[
+                        { name: "Maskot Cool", url: "/brand/mascot-cool.png" },
+                        { name: "Maskot Sablon", url: "/brand/mascot-sablon.png" },
+                        { name: "Logo Putih", url: "/brand/logo-white.png" },
+                        { name: "Logo Emblem", url: "/brand/logo-emblem.png" },
+                      ].map((item, idx) => (
+                        <button
+                          key={idx}
+                          type="button"
+                          onClick={() => {
+                            const id = addDecal({
+                              name: item.name,
+                              url: item.url,
+                              targetSide: "front",
+                              x: 0,
+                              y: -0.05,
+                              scale: 0.45,
+                              rotation: 0,
+                              opacity: 1,
+                            });
+                            setSelectedDecalId(id);
+                          }}
+                          className="group flex flex-col items-center p-1.5 rounded-lg border border-white/10 bg-black/40 hover:border-brand-accent hover:bg-brand-accent/10 transition-all text-center"
+                        >
+                          <div className="w-10 h-10 rounded-md overflow-hidden bg-black/60 flex items-center justify-center p-1 mb-1">
+                            <img src={item.url} alt={item.name} className="w-full h-full object-contain group-hover:scale-110 transition-transform" />
+                          </div>
+                          <span className="text-[9px] font-mono text-text-muted group-hover:text-white truncate w-full">
+                            {item.name}
+                          </span>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Fabric.js Advanced Toggle (Vihan — lazy, code-split) */}
+                  <button
+                    type="button"
+                    onClick={() => setShowFabricEditor(!showFabricEditor)}
+                    className={`w-full flex items-center justify-center gap-1.5 py-2.5 rounded-xl border text-[11px] font-mono font-bold transition-all ${
+                      showFabricEditor
+                        ? "bg-brand-accent text-canvas border-brand-accent"
+                        : "bg-surface border-white/10 text-text-muted hover:text-brand-accent"
+                    }`}
+                  >
+                    <Layers size={13} />
+                    <span>{showFabricEditor ? "TUTUP FABRIC EDITOR" : "ADVANCED 2D FABRIC EDITOR (VIHAN)"}</span>
+                  </button>
+                  {showFabricEditor && (
+                    <FabricEditor
+                      onExport={(dataUrl) => {
+                        const id = addDecal({
+                          name: `Fabric ${decals.length + 1}`,
+                          url: dataUrl,
+                          targetSide: "front",
+                          x: 0,
+                          y: -0.05,
+                          scale: 0.52,
+                          rotation: 0,
+                          opacity: 1,
+                        });
+                        setSelectedDecalId(id);
+                        setShowFabricEditor(false);
+                      }}
+                    />
+                  )}
 
                   {/* Interactive Text Generator Drawer Input */}
                   {showTextInput && (
@@ -775,9 +1024,78 @@ export const CustomizerDrawer: React.FC = () => {
                             <span>🔍 PERTAJAM DTF</span>
                           </button>
                         </div>
+
+                        {/* Interactive Direct-Manipulation Gizmo Toggle Banner */}
+                        <div className="p-3 rounded-xl bg-surface border border-white/10 hover:border-brand-accent/40 flex items-center justify-between gap-2.5 text-xs font-mono transition-all">
+                          <div className="flex items-center gap-2.5">
+                            <div className={`w-8 h-8 rounded-lg ${isGizmoVisible ? "bg-brand-accent text-canvas" : "bg-neutral-800 text-neutral-400"} flex items-center justify-center shrink-0 shadow-md transition-all`}>
+                              <Move size={16} className={isGizmoVisible ? "animate-pulse" : ""} />
+                            </div>
+                            <div>
+                              <span className="font-bold text-white block">GIZMO KONTROL 3D</span>
+                              <span className="text-[10px] text-text-muted">
+                                {isGizmoVisible ? "Aktif di atas baju 3D" : "Disembunyikan (Mode Preview Bersih)"}
+                              </span>
+                            </div>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={toggleGizmoVisible}
+                            className={`py-1.5 px-3 rounded-lg font-mono text-[11px] font-bold transition-all ${
+                              isGizmoVisible
+                                ? "bg-brand-accent text-canvas shadow-[0_0_10px_rgba(230,81,0,0.3)] hover:brightness-110"
+                                : "bg-white/10 text-white hover:bg-white/20"
+                            }`}
+                          >
+                            {isGizmoVisible ? "SEMBUNYIKAN" : "TAMPILKAN"}
+                          </button>
+                        </div>
+
+                        {/* 3-Position Anatomical Logo Presets (Ariyan T-Designer) */}
+                        <div className="space-y-1.5 pt-1">
+                          <span className="block text-[10px] font-mono text-text-muted font-bold uppercase">
+                            PRESET POSISI LOGO CEPAT (STANDAR DISTRO):
+                          </span>
+                          <div className="grid grid-cols-3 gap-1.5 font-mono text-[10px]">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setLogoPresetPos(0);
+                                applyLogoPreset();
+                              }}
+                              className="py-2 px-1 rounded-xl bg-surface border border-white/10 hover:border-brand-accent hover:text-brand-accent text-white font-bold transition-all text-center"
+                              title="Posisikan logo di saku dada kiri"
+                            >
+                              📍 SAKU KIRI
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setLogoPresetPos(1);
+                                applyLogoPreset();
+                              }}
+                              className="py-2 px-1 rounded-xl bg-surface border border-white/10 hover:border-brand-accent hover:text-brand-accent text-white font-bold transition-all text-center"
+                              title="Posisikan logo di tengah dada"
+                            >
+                              📍 TENGAH
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setLogoPresetPos(2);
+                                applyLogoPreset();
+                              }}
+                              className="py-2 px-1 rounded-xl bg-surface border border-white/10 hover:border-brand-accent hover:text-brand-accent text-white font-bold transition-all text-center"
+                              title="Posisikan logo di saku dada kanan"
+                            >
+                              📍 SAKU KANAN
+                            </button>
+                          </div>
+                        </div>
+
                         <div>
                           <div className="flex justify-between text-[11px] font-mono text-text-muted mb-1">
-                            <span className="flex items-center space-x-1"><Move size={11} /> <span>HORIZONTAL (X)</span></span>
+                            <span className="flex items-center space-x-1"><Move size={11} /> <span>HORIZONTAL MANUAL (X)</span></span>
                             <span>{activeDecal.x.toFixed(2)}</span>
                           </div>
                           <input
@@ -1099,6 +1417,44 @@ export const CustomizerDrawer: React.FC = () => {
                   </div>
                 </div>
 
+                {/* Animation Presets (BLUEPRINT-02 §4 VirtualThreads benchmark) */}
+                <div>
+                  <span className="block text-xs font-mono text-text-muted mb-2 font-bold uppercase">ANIMATION PRESET (VIRTUALTHREADS BENCHMARK):</span>
+                  <div className="grid grid-cols-4 gap-1.5">
+                    {[
+                      { id: "static", label: "STATIC" },
+                      { id: "wind", label: "WIND" },
+                      { id: "walking", label: "WALK" },
+                      { id: "knit", label: "KNIT" },
+                    ].map(({ id, label }) => (
+                      <button
+                        key={id}
+                        onClick={() => setAnimationPreset(id as any)}
+                        className={`py-2 px-1 rounded-lg font-mono text-[10px] font-bold border transition-all ${
+                          animationPreset === id
+                            ? "bg-brand-accent text-canvas border-brand-accent shadow-md"
+                            : "bg-surface border-border-subtle text-text-muted hover:text-text-primary"
+                        }`}
+                      >
+                        {label}
+                      </button>
+                    ))}
+                  </div>
+                  <div className="flex items-center gap-2 mt-2">
+                    <span className="text-[10px] font-mono text-text-muted">SPEED</span>
+                    <input
+                      type="range"
+                      min="0.5"
+                      max="2"
+                      step="0.1"
+                      value={animationSpeed}
+                      onChange={(e) => setAnimationSpeed(parseFloat(e.target.value))}
+                      className="flex-1 accent-brand-accent"
+                    />
+                    <span className="text-[10px] font-mono text-brand-accent font-bold">{animationSpeed.toFixed(1)}x</span>
+                  </div>
+                </div>
+
                 {/* Technical Wireframe Mode */}
                 <div className="flex justify-between items-center p-3 rounded-xl bg-surface border border-border-subtle">
                   <span className="text-xs font-mono text-text-primary font-bold">WIREFRAME MESH TOPOLOGY</span>
@@ -1116,9 +1472,18 @@ export const CustomizerDrawer: React.FC = () => {
               </>
             )}
 
-            {/* TAB 4: SAVED DESIGNS (Preset Manager) */}
+            {/* TAB 4: SAVED DESIGNS (Preset Manager) — login gate: tamu localStorage, login → DB + Dashboard */}
             {activeTab === "saved" && (
               <div className="space-y-4">
+                {!session && (
+                  <div className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-400 text-xs font-mono flex flex-col gap-2">
+                    <span className="font-bold">🔒 Login untuk simpan permanen di Dashboard</span>
+                    <span>Sekarang desain cuma di HP ini (localStorage). Login pakai Google/Email biar tersimpan di akun & bisa dipesan nanti.</span>
+                    <button onClick={() => setIsAuthOpen(true)} className="px-3 py-1.5 rounded-xl bg-brand-accent text-canvas font-bold text-xs">
+                      LOGIN / DAFTAR SEKARANG
+                    </button>
+                  </div>
+                )}
                 {/* Save Current Design Box */}
                 <div className="p-4 rounded-xl glass-panel border border-border-subtle space-y-3">
                   <span className="text-xs font-mono font-bold text-text-primary block">
@@ -1229,6 +1594,20 @@ export const CustomizerDrawer: React.FC = () => {
                   >
                     DOWNLOAD CURRENT VIEW (HIGH-RES PNG)
                   </button>
+
+                  {/* 360° Turntable Video Exporter (VirtualThreads Benchmark) */}
+                  <button
+                    onClick={handleExport360Video}
+                    disabled={isRecording360}
+                    className="w-full py-3.5 px-4 rounded-xl bg-surface border border-brand-accent/50 hover:bg-brand-accent/10 text-brand-accent font-display font-black text-xs uppercase tracking-wider transition-all flex items-center justify-center space-x-2 disabled:opacity-50"
+                  >
+                    <Video size={16} className={isRecording360 ? "animate-pulse text-red-500" : ""} />
+                    <span>
+                      {isRecording360
+                        ? `MEREKAM VIDEO 360° (${recordingProgress}%)...`
+                        : "EKSPOR VIDEO 360° TURNTABLE (MEDSOS)"}
+                    </span>
+                  </button>
                 </div>
 
                 {/* 2. Share & Order Inquiry Suite */}
@@ -1330,6 +1709,48 @@ export const CustomizerDrawer: React.FC = () => {
         </div>
       </section>
 
+      {/* Mobile BottomSheet (vaul pattern) — active on <768px via deviceTier */}
+      {deviceTier.isMobile && !isDrawerCollapsed && (
+        <BottomSheet>
+          <div className="space-y-3 font-mono text-xs">
+            <div className="flex gap-1.5 overflow-x-auto pb-1">
+              {[
+                { id: "apparel", label: "APPAREL" },
+                { id: "decals", label: `SABLON (${decals.length})` },
+                { id: "sandbox", label: "SANDBOX" },
+                { id: "saved", label: `SAVED (${savedDesigns.length})` },
+                { id: "export", label: "EXPORT" },
+              ].map((t) => (
+                <button
+                  key={t.id}
+                  onClick={() => setActiveTab(t.id as any)}
+                  className={`px-3 py-1.5 rounded-full border text-[10px] font-bold whitespace-nowrap ${
+                    activeTab === t.id
+                      ? "bg-brand-accent text-canvas border-brand-accent"
+                      : "bg-surface border-white/10 text-text-muted"
+                  }`}
+                >
+                  {t.label}
+                </button>
+              ))}
+            </div>
+            <div className="p-3 rounded-xl bg-surface/60 border border-white/10 flex justify-between items-center">
+              <span className="text-[11px] text-text-muted">ESTIMASI</span>
+              <span className="font-bold text-brand-accent">{pricing.formattedTotal}</span>
+            </div>
+            <button
+              onClick={() => setIsCheckoutOpen(true)}
+              className="w-full py-3 rounded-xl bg-brand-accent text-canvas font-bold text-xs uppercase"
+            >
+              PESAN (MIDTRANS) — {pricing.formattedTotal}
+            </button>
+            <p className="text-[10px] text-text-muted text-center">Geser handle di atas untuk peek / half / full — vaul pattern aktif di mobile</p>
+          </div>
+        </BottomSheet>
+      )}
+
+      {/* Auth Modal for SAVED gate */}
+      <AuthModal isOpen={isAuthOpen} onClose={() => setIsAuthOpen(false)} />
       {/* Checkout Modal Dialog */}
       <CheckoutModal isOpen={isCheckoutOpen} onClose={() => setIsCheckoutOpen(false)} />
     </>

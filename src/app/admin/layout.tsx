@@ -15,6 +15,8 @@ import {
   ChevronRight,
 } from "lucide-react";
 
+export const dynamic = "force-dynamic";
+
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
   // RBAC — server-side gate (ADMIN/SUPER_ADMIN/PRODUCTION_STAFF)
   try {
@@ -37,9 +39,9 @@ export default async function AdminLayout({ children }: { children: React.ReactN
           {/* Brand Header */}
           <div className="p-5 border-b border-white/5 flex items-center justify-between">
             <Link href="/admin" className="flex items-center space-x-2.5">
-              <span className="w-8 h-8 rounded-lg bg-brand-accent text-canvas font-black font-display flex items-center justify-center text-base">
-                KK
-              </span>
+              <div className="w-8 h-8 rounded-lg overflow-hidden border border-brand-accent/40 bg-black/80 flex items-center justify-center shrink-0 shadow-sm">
+                <img src="/brand/logo-emblem.png" alt="Kaos Kami" className="w-full h-full object-cover" />
+              </div>
               <div>
                 <span className="font-display font-black text-sm uppercase tracking-tight text-white block">
                   WORKSHOP OPS
@@ -77,6 +79,38 @@ export default async function AdminLayout({ children }: { children: React.ReactN
               <span>DAFTAR PESANAN</span>
             </Link>
 
+            <Link
+              href="/admin/catalog"
+              className="flex items-center space-x-3 px-3 py-2.5 rounded-xl text-text-muted hover:text-white hover:bg-white/5 transition-all"
+            >
+              <Layers size={16} />
+              <span>KATALOG & STOK</span>
+            </Link>
+
+            <Link
+              href="/admin/customers"
+              className="flex items-center space-x-3 px-3 py-2.5 rounded-xl text-text-muted hover:text-white hover:bg-white/5 transition-all"
+            >
+              <Users size={16} />
+              <span>CUSTOMER DB</span>
+            </Link>
+
+            <Link
+              href="/admin/coupons"
+              className="flex items-center space-x-3 px-3 py-2.5 rounded-xl text-text-muted hover:text-white hover:bg-white/5 transition-all"
+            >
+              <Sparkles size={16} />
+              <span>VOUCHER</span>
+            </Link>
+
+            <Link
+              href="/admin/settings"
+              className="flex items-center space-x-3 px-3 py-2.5 rounded-xl text-text-muted hover:text-white hover:bg-white/5 transition-all"
+            >
+              <Settings size={16} />
+              <span>SETTINGS & WA TEMPLATE</span>
+            </Link>
+
             <div className="pt-4 pb-1 px-3">
               <span className="text-[10px] text-text-muted/60 uppercase font-bold tracking-wider">
                 PORTAL EKSTERNAL
@@ -89,7 +123,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
               className="flex items-center justify-between px-3 py-2.5 rounded-xl text-text-muted hover:text-brand-accent hover:bg-white/5 transition-all"
             >
               <div className="flex items-center space-x-3">
-                <Sparkles size={16} />
+                <Layers size={16} />
                 <span>3D MOCKUP STUDIO</span>
               </div>
               <ExternalLink size={12} />

@@ -2,7 +2,7 @@
 
 import React, { useEffect } from "react";
 import Link from "next/link";
-import { ArrowLeft, Sparkles, Sun, Moon, Maximize2, Minimize2 } from "lucide-react";
+import { ArrowLeft, Sparkles, Sun, Moon, Maximize2, Minimize2, Move } from "lucide-react";
 import { CanvasStage } from "@/components/3d/CanvasStage";
 import { CustomizerDrawer } from "@/components/ui/CustomizerDrawer";
 import { useConfiguratorStore } from "@/store/useConfiguratorStore";
@@ -17,6 +17,9 @@ export default function StudioPage() {
     isHideWebsiteUI,
     toggleHideWebsiteUI,
     activeApparel,
+    decals,
+    isGizmoVisible,
+    toggleGizmoVisible,
   } = useConfiguratorStore();
   const webglSupported = useWebglSupport();
 
@@ -49,13 +52,17 @@ export default function StudioPage() {
             <span>BACK TO STORY</span>
           </Link>
 
-          <span className="font-display font-black text-lg tracking-tighter uppercase">
-            kaos kami<span className="text-brand-accent">.</span>
-          </span>
+          <div className="flex items-center gap-2">
+            <div className="relative w-6 h-6 rounded-full overflow-hidden border border-brand-accent/40 bg-black/60 shrink-0">
+              <img src="/brand/mascot-cool.png" alt="Kaos Kami" className="w-full h-full object-cover" />
+            </div>
+            <span className="font-display font-black text-lg tracking-tighter uppercase">
+              kaos kami<span className="text-brand-accent">.</span>
+            </span>
+          </div>
 
-          <span className="hidden md:inline-flex items-center space-x-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-mono tracking-widest uppercase bg-brand-accent/20 border border-brand-accent/40 text-brand-accent font-bold">
-            <Sparkles size={11} />
-            <span>3D PRO STUDIO WORKSPACE</span>
+          <span className="hidden md:inline-block px-2.5 py-0.5 rounded-full text-[10px] font-mono tracking-widest uppercase bg-surface border border-border-subtle text-text-muted font-bold">
+            STUDIO KUSTOM MAKASSAR
           </span>
         </div>
 
@@ -69,6 +76,22 @@ export default function StudioPage() {
           >
             {isLight ? <Moon size={14} className="text-neutral-800" /> : <Sun size={14} className="text-brand-accent" />}
           </button>
+
+          {/* Quick Gizmo Toggle Button */}
+          {decals.length > 0 && (
+            <button
+              onClick={toggleGizmoVisible}
+              className={`flex items-center space-x-1.5 px-3 py-1.5 rounded-full font-mono text-xs uppercase border transition-all ${
+                isGizmoVisible
+                  ? "bg-surface border-brand-accent/60 text-brand-accent font-bold shadow-[0_0_8px_rgba(230,81,0,0.25)]"
+                  : "bg-surface border-border-subtle text-text-muted hover:text-text-primary"
+              }`}
+              title={isGizmoVisible ? "Sembunyikan Gizmo Kontrol 3D" : "Tampilkan Gizmo Kontrol 3D"}
+            >
+              <Move size={12} />
+              <span className="text-[11px] font-bold">{isGizmoVisible ? "GIZMO ON" : "GIZMO OFF"}</span>
+            </button>
+          )}
 
           {/* Clean Mockup View Toggle */}
           <button
