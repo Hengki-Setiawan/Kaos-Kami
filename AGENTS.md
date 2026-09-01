@@ -15,6 +15,7 @@ All design decisions, schemas, and API contracts are formally documented in the 
 - **`Blueprint/BLUEPRINT-02-MOCKUP-STUDIO-ENGINE.md`**: 3D React Three Fiber configurator, 1:1 cm scale calibration (max 30cm), real-time DPI analyzer, instant 1-click background remover, and multi-apparel lineup.
 - **`Blueprint/BLUEPRINT-03-ADMIN-USER-DASHBOARD.md`**: Workshop DTF Sablon Kanban production board, 360° order inspection, printable Job Ticket PDF, and 300 DPI master asset download center.
 - **`Blueprint/BLUEPRINT-04-MOBILE-PERFORMANCE-INFRA.md`**: Cloudflare Pages / Workers deployment (3MB limit rules), Cloudflare R2 zero-egress storage, Turso libSQL 24/7 always-on DB, and adaptive device tiering.
+- **`Blueprint/BLUEPRINT-05-ENTERPRISE-RESILIENCE-AND-SECURITY.md`**: 11 Pillars of Enterprise Production Hardening (Anti-IDOR RLS, Sliding Window Rate Limiter, VRAM GPU disposal, 1-Year Immutable CDN Cache, Duitku v2, Zero-Egress Cloud).
 - **`Blueprint/BUILD-PROGRESS-TRACKER.md`**: **MASTER EXECUTION CHECKLIST**. Whenever you complete a task, you MUST check off `[x]` the corresponding item in this tracker and update the daily worklog table!
 
 ---
