@@ -1,20 +1,21 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { calculate6VariablePrice } from "@/lib/pricingEngine";
-import { midtransProvider } from "@/lib/payments/midtrans";
+import { duitkuProvider } from "@/lib/payments/duitku";
 import { sendWhatsAppNotification, buildOrderConfirmedMessage } from "@/lib/notifications/whatsapp";
 import { MAKASSAR_DELIVERY_OPTIONS, PRODUCTION_TURNAROUND_OPTIONS } from "@/lib/shipping/deliveryOptions";
 import { z } from "zod";
+import { DecalLayerSchema } from "@/lib/schemas/design";
 
 const CheckoutItemSchema = z.object({
   apparelSlug: z.enum(["tshirt", "longsleeve", "crewneck", "hoodie", "shirt"]),
   fabricThicknessSlug: z.enum(["combed-30s", "combed-24s", "combed-20s", "combed-16s", "french-terry-380"]).optional(),
-  colorHex: z.string(),
-  colorName: z.string(),
-  size: z.string(),
-  quantity: z.number().int().positive(),
-  decals: z.array(z.any()),
-  title: z.string().optional(),
+  colorHex: z.string().regex(/^#([0-9A-Fa-f]{3,6})$/, "HEX invalid"),
+  colorName: z.string().min(1),
+  size: z.string().min(1),
+  quantity: z.number().int().positive().max(500),
+  decals: z.array(DecalLayerSchema).max(10).default([]),
+  title: z.string().max(80).optional(),
 });
 
 const CheckoutPayloadSchema = z.object({
@@ -153,8 +154,8 @@ export async function POST(req: NextRequest) {
       include: { items: true },
     });
 
-    // 7. Request Midtrans Snap Token
-    const chargeResult = await midtransProvider.createCharge({
+    // 7. Request Duitku Payment Token & Reference
+    const chargeResult = await duitkuProvider.createCharge({
       orderId: order.id,
       orderNumber: order.orderNumber,
       amountIdr: computedTotalIdr,
@@ -164,27 +165,20 @@ export async function POST(req: NextRequest) {
         email: email || `${cleanPhone}@kaoskami.customer`,
       },
       itemDetails: [
-        ...validatedItems.map((it, idx) => ({
-          id: `item-${idx + 1}`,
+        ...validatedItems.map((it) => ({
           name: it.title || `${it.apparelSlug.toUpperCase()} Sablon`,
           price: it.unitPriceIdr,
           quantity: it.quantity,
         })),
-        ...(shippingCostIdr > 0
-          ? [{ id: "shipping", name: "Ongkir Makassar", price: shippingCostIdr, quantity: 1 }]
-          : []),
-        ...(turnaroundSurchargeIdr > 0
-          ? [{ id: "sla-express", name: "Express 24 Jam", price: turnaroundSurchargeIdr, quantity: 1 }]
-          : []),
       ],
     });
 
-    // 8. Create Payment Record
+    // 8. Create Payment Record in Database
     await prisma.payment.create({
       data: {
         orderId: order.id,
-        provider: "midtrans",
-        providerRef: chargeResult.providerRef,
+        provider: "duitku",
+        providerRef: chargeResult.reference,
         amountIdr: computedTotalIdr,
         status: "PENDING",
       },
@@ -212,8 +206,8 @@ export async function POST(req: NextRequest) {
       success: true,
       orderId: order.id,
       orderNumber: order.orderNumber,
-      snapToken: chargeResult.snapToken,
-      redirectUrl: chargeResult.redirectUrl,
+      paymentUrl: chargeResult.paymentUrl,
+      reference: chargeResult.reference,
       invoiceUrl,
     });
   } catch (error: any) {

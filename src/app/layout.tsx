@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { Syne, JetBrains_Mono, Plus_Jakarta_Sans } from "next/font/google";
 import { SmoothScrollProvider } from "@/components/providers/SmoothScrollProvider";
 import { QueryProvider } from "@/components/providers/QueryProvider";
+import { DesignSyncProvider } from "@/components/providers/DesignSyncProvider";
 import Script from "next/script";
 import "./globals.css";
 
@@ -26,11 +27,13 @@ const jakarta = Plus_Jakarta_Sans({
   display: "swap",
 });
 
-const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://kaoskami.com";
+const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://kaos-kami-3d.hengkisetiawan461.workers.dev";
+const gaId = process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID;
+const cfAnalyticsToken = process.env.NEXT_PUBLIC_CF_WEB_ANALYTICS_TOKEN;
 
 export const metadata: Metadata = {
   metadataBase: new URL(siteUrl),
-  title: "kaos kami — Heavyweight 3D Apparel Experience",
+  title: "kaos kami — Heavyweight 3D Apparel Experience | Makassar DTF Sablon",
   description:
     "Engineered oversized streetwear. 240 & 280 GSM combed cotton knitwear, inspected and customized in real-time 3D.",
   keywords: [
@@ -41,12 +44,13 @@ export const metadata: Metadata = {
     "280 GSM",
     "3D apparel",
     "oversized t-shirt",
-    "Jakarta streetwear",
+    "Makassar streetwear",
+    "sablon DTF Makassar",
     "3D configurator",
   ],
   authors: [{ name: "Kaos Kami Studio" }],
   openGraph: {
-    title: "kaos kami — Heavyweight 3D Apparel Experience",
+    title: "kaos kami — Heavyweight 3D Apparel Experience | Makassar DTF Sablon",
     description: "Heavyweight Indonesian streetwear, engineered not printed.",
     url: siteUrl,
     siteName: "kaos kami",
@@ -55,7 +59,7 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: "summary_large_image",
-    title: "kaos kami — Heavyweight 3D Apparel Experience",
+    title: "kaos kami — Heavyweight 3D Apparel Experience | Makassar DTF Sablon",
     description: "Heavyweight Indonesian streetwear, engineered not printed.",
   },
   manifest: "/manifest.json",
@@ -76,9 +80,12 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     >
       <body className="bg-canvas text-text-primary selection:bg-brand-accent selection:text-canvas min-h-screen">
         <Script
-          src="https://app.sandbox.midtrans.com/snap/snap.js"
-          data-client-key={process.env.NEXT_PUBLIC_MIDTRANS_CLIENT_KEY || "SB-Mid-client-mock"}
-          strategy="lazyOnload"
+          src={
+            process.env.DUITKU_ENV === "production"
+              ? "https://app.duitku.com/lib/js/duitku.js"
+              : "https://app-sandbox.duitku.com/lib/js/duitku.js"
+          }
+          strategy="afterInteractive"
         />
         <Script id="sw-register" strategy="afterInteractive">
           {`
@@ -91,8 +98,41 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             }
           `}
         </Script>
+
+        {/* Google Analytics 4 (Free Tier) */}
+        {gaId && (
+          <>
+            <Script
+              src={`https://www.googletagmanager.com/gtag/js?id=${gaId}`}
+              strategy="afterInteractive"
+            />
+            <Script id="ga4-init" strategy="afterInteractive">
+              {`
+                window.dataLayer = window.dataLayer || [];
+                function gtag(){dataLayer.push(arguments);}
+                gtag('js', new Date());
+                gtag('config', '${gaId}', {
+                  page_path: window.location.pathname,
+                });
+              `}
+            </Script>
+          </>
+        )}
+
+        {/* Cloudflare Web Analytics (100% Free & Privacy-First) */}
+        {cfAnalyticsToken && (
+          <Script
+            defer
+            src="https://static.cloudflareinsights.com/beacon.min.js"
+            data-cf-beacon={`{"token": "${cfAnalyticsToken}"}`}
+            strategy="afterInteractive"
+          />
+        )}
+
         <QueryProvider>
-          <SmoothScrollProvider>{children}</SmoothScrollProvider>
+          <DesignSyncProvider>
+            <SmoothScrollProvider>{children}</SmoothScrollProvider>
+          </DesignSyncProvider>
         </QueryProvider>
       </body>
     </html>

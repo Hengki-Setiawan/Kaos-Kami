@@ -25,12 +25,19 @@ import {
   AlertCircle,
 } from "lucide-react";
 
+import { useCartStore } from "@/store/useCartStore";
+
 interface CheckoutModalProps {
   isOpen: boolean;
   onClose: () => void;
+  checkoutMode?: "custom-3d" | "cart";
 }
 
-export const CheckoutModal: React.FC<CheckoutModalProps> = ({ isOpen, onClose }) => {
+export const CheckoutModal: React.FC<CheckoutModalProps> = ({
+  isOpen,
+  onClose,
+  checkoutMode = "custom-3d",
+}) => {
   const {
     activeApparel,
     selectedColor,
@@ -39,6 +46,10 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({ isOpen, onClose })
     decals,
     materialFinish,
   } = useConfiguratorStore();
+
+  const { items: cartItems, getTotalPrice: getCartTotalPrice, clearCart } = useCartStore();
+
+  const isCartCheckout = checkoutMode === "cart" && cartItems.length > 0;
 
   const [quantity, setQuantity] = useState(1);
   const [useCustomSizeBreakdown, setUseCustomSizeBreakdown] = useState(false);
@@ -55,6 +66,11 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({ isOpen, onClose })
   const [phoneNumber, setPhoneNumber] = useState("");
   const [email, setEmail] = useState("");
   const [deliveryMethod, setDeliveryMethod] = useState<DeliveryMethod>("PICKUP");
+  const [otpSent, setOtpSent] = useState(false);
+  const [otpCode, setOtpCode] = useState("");
+  const [isPhoneVerified, setIsPhoneVerified] = useState(false);
+  const [isSendingOtp, setIsSendingOtp] = useState(false);
+  const [otpMsg, setOtpMsg] = useState<string | null>(null);
   const [district, setDistrict] = useState(MAKASSAR_SUBDISTRICTS[0] || "Tamalanrea");
   const [fullAddress, setFullAddress] = useState("");
   const [courierNotes, setCourierNotes] = useState("");
@@ -62,6 +78,52 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({ isOpen, onClose })
 
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
+  // WA OTP saat bayar (hemat Fonnte: cuma 1x per checkout, bukan per daftar)
+  const handleSendOtp = async () => {
+    if (!phoneNumber || phoneNumber.length < 9) {
+      setOtpMsg("Isi WA dulu");
+      return;
+    }
+    setIsSendingOtp(true);
+    setOtpMsg(null);
+    try {
+      const res = await fetch("/api/auth/send-otp", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ phoneNumber }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setOtpSent(true);
+        setOtpMsg(data.mock ? `Kode mock: ${data.code} (Fonnte mock)` : "Kode OTP terkirim ke WA");
+      } else setOtpMsg(data.error || "Gagal kirim OTP");
+    } catch {
+      setOtpMsg("Gagal kirim OTP");
+    } finally {
+      setIsSendingOtp(false);
+    }
+  };
+  const handleVerifyOtp = async () => {
+    if (!otpCode) {
+      setOtpMsg("Isi kode 6 digit");
+      return;
+    }
+    try {
+      const res = await fetch("/api/auth/verify-otp", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ phoneNumber, code: otpCode }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setIsPhoneVerified(true);
+        setOtpMsg("✅ WA terverifikasi");
+      } else setOtpMsg(data.error || "Kode salah");
+    } catch {
+      setOtpMsg("Gagal verifikasi");
+    }
+  };
 
   // Update total quantity when size distribution changes
   const handleSizeCountChange = (sizeKey: string, delta: number) => {
@@ -87,7 +149,8 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({ isOpen, onClose })
   const selectedTurnaround = PRODUCTION_TURNAROUND_OPTIONS.find((t) => t.tier === turnaroundTier);
   const turnaroundSurcharge = selectedTurnaround?.surchargeIdr || 0;
 
-  const grandTotal = pricing.totalPriceIdr + shippingCost + turnaroundSurcharge;
+  const effectiveSubtotal = isCartCheckout ? getCartTotalPrice() : pricing.totalPriceIdr;
+  const grandTotal = effectiveSubtotal + shippingCost + turnaroundSurcharge;
 
   if (!isOpen) return null;
 
@@ -111,6 +174,33 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({ isOpen, onClose })
     try {
       setIsLoading(true);
 
+      const itemsPayload = isCartCheckout
+        ? cartItems.map((item) => ({
+            apparelSlug: "tshirt" as const,
+            colorHex: item.colorHex || "#121214",
+            colorName: item.colorName || "Obsidian Black",
+            size: item.size || "L",
+            quantity: item.quantity,
+            decals: [],
+            title: item.name,
+          }))
+        : [
+            {
+              apparelSlug: activeApparel,
+              colorHex: selectedColor,
+              colorName: activeColorName,
+              size: useCustomSizeBreakdown
+                ? Object.entries(sizeDistribution)
+                    .filter(([_, qty]) => qty > 0)
+                    .map(([s, q]) => `${s}:${q}`)
+                    .join("/")
+                : selectedSize,
+              quantity,
+              decals,
+              title: `Custom ${activeApparel.toUpperCase()} Sablon DTF`,
+            },
+          ];
+
       const payload = {
         recipientName,
         phoneNumber,
@@ -125,22 +215,7 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({ isOpen, onClose })
               .map(([s, q]) => `${s}=${q}pcs`)
               .join(", ")}] ${courierNotes}`.trim()
           : courierNotes,
-        items: [
-          {
-            apparelSlug: activeApparel,
-            colorHex: selectedColor,
-            colorName: activeColorName,
-            size: useCustomSizeBreakdown
-              ? Object.entries(sizeDistribution)
-                  .filter(([_, qty]) => qty > 0)
-                  .map(([s, q]) => `${s}:${q}`)
-                  .join("/")
-              : selectedSize,
-            quantity,
-            decals,
-            title: `Custom ${activeApparel.toUpperCase()} Sablon DTF`,
-          },
-        ],
+        items: itemsPayload,
       };
 
       const res = await fetch("/api/checkout", {
@@ -157,26 +232,44 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({ isOpen, onClose })
         return;
       }
 
-      // Check for window.snap (Midtrans Snap Script)
-      if (typeof window !== "undefined" && (window as any).snap && data.snapToken) {
-        (window as any).snap.pay(data.snapToken, {
-          onSuccess: () => {
-            window.location.href = `/orders/${data.orderId}?status=success`;
-          },
-          onPending: () => {
-            window.location.href = `/orders/${data.orderId}?status=pending`;
-          },
-          onError: () => {
-            window.location.href = `/orders/${data.orderId}?status=error`;
-          },
-          onClose: () => {
-            window.location.href = data.invoiceUrl || `/orders/${data.orderId}`;
-          },
-        });
-      } else {
-        // Fallback directly to invoice receipt page
-        window.location.href = data.invoiceUrl || `/orders/${data.orderId}`;
+      if (isCartCheckout) {
+        clearCart();
       }
+
+      // Trigger Duitku Pop Modal or redirect to paymentUrl
+      const duitkuPay = () => {
+        if (typeof window !== "undefined" && (window as any).checkout && data.reference) {
+          try {
+            (window as any).checkout.process(data.reference, {
+              defaultLanguage: "id",
+              successEvent: function () {
+                window.location.href = `/orders/${data.orderId}?status=success`;
+              },
+              pendingEvent: function () {
+                window.location.href = `/orders/${data.orderId}?status=pending`;
+              },
+              errorEvent: function () {
+                window.location.href = `/orders/${data.orderId}?status=error`;
+              },
+              closeEvent: function () {
+                window.location.href = data.invoiceUrl || `/orders/${data.orderId}`;
+              },
+            });
+            return;
+          } catch (e) {
+            console.warn("Duitku pop error, fallback to URL:", e);
+          }
+        }
+
+        // Fallback: Direct redirect to Duitku paymentUrl or Invoice
+        if (data.paymentUrl && !data.paymentUrl.includes("mock")) {
+          window.location.href = data.paymentUrl;
+        } else {
+          window.location.href = data.invoiceUrl || `/orders/${data.orderId}`;
+        }
+      };
+
+      duitkuPay();
     } catch (err: any) {
       setErrorMessage(err?.message || "Terjadi kesalahan koneksi.");
       setIsLoading(false);
@@ -225,30 +318,52 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({ isOpen, onClose })
           {/* Section 1: Order Summary Card */}
           <div className="p-4 rounded-xl bg-surface/70 border border-white/5 space-y-3 font-mono text-xs">
             <div className="flex justify-between items-center pb-2 border-b border-white/5">
-              <span className="font-bold text-white uppercase">{activeApparel} (Sablon DTF)</span>
-              <span className="text-brand-accent font-bold">{pricing.formattedTotal}</span>
+              <span className="font-bold text-white uppercase">
+                {isCartCheckout ? `KERANJANG BELANJA (${cartItems.length} ITEM)` : `${activeApparel} (SABLON DTF)`}
+              </span>
+              <span className="text-brand-accent font-bold">
+                Rp {effectiveSubtotal.toLocaleString("id-ID")}
+              </span>
             </div>
 
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-[11px] text-text-muted">
-              <div>
-                <span className="block opacity-75">WARNA:</span>
-                <span className="text-white font-bold">{activeColorName}</span>
+            {isCartCheckout ? (
+              <div className="space-y-2 max-h-36 overflow-y-auto pr-1">
+                {cartItems.map((item) => (
+                  <div key={`${item.id}-${item.size}`} className="flex justify-between items-center text-[11px] border-b border-white/5 pb-1.5">
+                    <div className="flex items-center space-x-2 truncate max-w-[240px]">
+                      <span className="text-brand-accent font-bold">x{item.quantity}</span>
+                      <span className="text-white truncate">{item.name}</span>
+                      <span className="text-text-muted">({item.size})</span>
+                    </div>
+                    <span className="text-white font-bold shrink-0">
+                      Rp {(item.priceIdr * item.quantity).toLocaleString("id-ID")}
+                    </span>
+                  </div>
+                ))}
               </div>
-              <div>
-                <span className="block opacity-75">UKURAN:</span>
-                <span className="text-white font-bold">{selectedSize}</span>
+            ) : (
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-[11px] text-text-muted">
+                <div>
+                  <span className="block opacity-75">WARNA:</span>
+                  <span className="text-white font-bold">{activeColorName}</span>
+                </div>
+                <div>
+                  <span className="block opacity-75">UKURAN:</span>
+                  <span className="text-white font-bold">{selectedSize}</span>
+                </div>
+                <div>
+                  <span className="block opacity-75">SABLON:</span>
+                  <span className="text-white font-bold">{decals.length} Layer DTF</span>
+                </div>
+                <div>
+                  <span className="block opacity-75">FINISH:</span>
+                  <span className="text-white font-bold">{materialFinish.toUpperCase()}</span>
+                </div>
               </div>
-              <div>
-                <span className="block opacity-75">SABLON:</span>
-                <span className="text-white font-bold">{decals.length} Layer DTF</span>
-              </div>
-              <div>
-                <span className="block opacity-75">FINISH:</span>
-                <span className="text-white font-bold">{materialFinish.toUpperCase()}</span>
-              </div>
-            </div>
+            )}
 
-            {/* Quantity Selector & Bulk Size Breakdown Matrix */}
+            {/* Quantity Selector & Bulk Size Breakdown Matrix (Only for 3D single item) */}
+            {!isCartCheckout && (
             <div className="pt-2 border-t border-white/5 space-y-3">
               <div className="flex items-center justify-between">
                 <div className="flex items-center space-x-2">
@@ -329,6 +444,7 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({ isOpen, onClose })
                 </div>
               )}
             </div>
+            )}
           </div>
 
           {/* Section 2: Contact Information */}
@@ -355,16 +471,47 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({ isOpen, onClose })
 
               <div>
                 <label className="block font-mono text-[11px] text-text-muted uppercase mb-1">
-                  Nomor WhatsApp *
+                  Nomor WhatsApp * {isPhoneVerified && <span className="text-emerald-400">✅ terverifikasi</span>}
                 </label>
-                <input
-                  type="tel"
-                  required
-                  value={phoneNumber}
-                  onChange={(e) => setPhoneNumber(e.target.value)}
-                  placeholder="081234567890"
-                  className="w-full px-3.5 py-2.5 rounded-xl bg-surface border border-white/10 focus:border-brand-accent text-sm text-white font-mono focus:outline-none"
-                />
+                <div className="flex gap-2">
+                  <input
+                    type="tel"
+                    required
+                    value={phoneNumber}
+                    onChange={(e) => {
+                      setPhoneNumber(e.target.value);
+                      setIsPhoneVerified(false);
+                      setOtpSent(false);
+                    }}
+                    placeholder="081234567890"
+                    className="flex-1 px-3.5 py-2.5 rounded-xl bg-surface border border-white/10 focus:border-brand-accent text-sm text-white font-mono focus:outline-none"
+                  />
+                  <button
+                    type="button"
+                    onClick={handleSendOtp}
+                    disabled={isSendingOtp || !phoneNumber}
+                    className="px-3 py-2.5 rounded-xl bg-surface border border-brand-accent/40 text-brand-accent text-xs font-mono font-bold hover:bg-brand-accent hover:text-canvas disabled:opacity-40"
+                  >
+                    {isSendingOtp ? "..." : otpSent ? "KIRIM ULANG" : "KIRIM OTP"}
+                  </button>
+                </div>
+                {otpSent && !isPhoneVerified && (
+                  <div className="flex gap-2 mt-2">
+                    <input
+                      type="text"
+                      value={otpCode}
+                      onChange={(e) => setOtpCode(e.target.value)}
+                      placeholder="6 digit OTP"
+                      className="flex-1 px-3 py-2 rounded-xl bg-surface border border-white/10 text-sm text-white font-mono focus:outline-none"
+                      maxLength={6}
+                    />
+                    <button type="button" onClick={handleVerifyOtp} className="px-3 py-2 rounded-xl bg-brand-accent text-canvas text-xs font-bold">
+                      VERIFIKASI
+                    </button>
+                  </div>
+                )}
+                {otpMsg && <p className="text-[11px] font-mono mt-1 text-amber-400">{otpMsg}</p>}
+                <p className="text-[10px] font-mono text-text-muted mt-1">OTP cuma saat bayar (hemat Fonnte) — login Google/Email tanpa WA</p>
               </div>
             </div>
           </div>
@@ -409,22 +556,44 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({ isOpen, onClose })
             {deliveryMethod !== "PICKUP" && (
               <div className="pt-2 space-y-3 animate-fadeIn">
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <div>
-                    <label className="block font-mono text-[11px] text-text-muted uppercase mb-1">
-                      Kecamatan di Kota Makassar *
-                    </label>
-                    <select
-                      value={district}
-                      onChange={(e) => setDistrict(e.target.value)}
-                      className="w-full px-3 py-2.5 rounded-xl bg-surface border border-white/10 focus:border-brand-accent text-xs font-mono text-white focus:outline-none"
-                    >
-                      {MAKASSAR_SUBDISTRICTS.map((sub) => (
-                        <option key={sub} value={sub}>
-                          {sub}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
+              <div>
+                <label className="block font-mono text-[11px] text-text-muted uppercase mb-1">
+                  Kecamatan di Kota Makassar *
+                </label>
+                <select
+                  value={district}
+                  onChange={(e) => setDistrict(e.target.value)}
+                  className="w-full px-3 py-2.5 rounded-xl bg-surface border border-white/10 focus:border-brand-accent text-xs font-mono text-white focus:outline-none"
+                >
+                  {MAKASSAR_SUBDISTRICTS.map((sub) => (
+                    <option key={sub} value={sub}>
+                      {sub}
+                    </option>
+                  ))}
+                </select>
+                <button
+                  type="button"
+                  onClick={()=>{
+                    if(!navigator.geolocation){ setCourierNotes(courierNotes+" [GPS tidak didukung]"); return; }
+                    navigator.geolocation.getCurrentPosition(
+                      async (pos)=>{
+                        const lat=pos.coords.latitude.toFixed(6), lng=pos.coords.longitude.toFixed(6);
+                        setCourierNotes((prev)=> prev ? `${prev} [GPS ${lat},${lng}]` : `GPS ${lat},${lng}`);
+                        try{
+                          const r=await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&zoom=14`,{headers:{Accept:'application/json'}});
+                          const j=await r.json();
+                          const kec=j.address?.suburb||j.address?.city_district||"";
+                          if(kec && MAKASSAR_SUBDISTRICTS.includes(kec)) setDistrict(kec);
+                        }catch{}
+                      },
+                      ()=> setCourierNotes((p)=> p+" [GPS gagal]")
+                    );
+                  }}
+                  className="mt-1.5 w-full py-1.5 rounded-lg bg-surface border border-white/10 text-[11px] font-mono text-brand-accent hover:bg-brand-accent/10"
+                >
+                  📍 PAKAI LOKASI SAAT INI (GPS)
+                </button>
+              </div>
 
                   <div>
                     <label className="block font-mono text-[11px] text-text-muted uppercase mb-1">
