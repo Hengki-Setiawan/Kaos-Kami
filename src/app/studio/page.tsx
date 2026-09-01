@@ -7,7 +7,7 @@ import { CanvasStage } from "@/components/3d/CanvasStage";
 import { CustomizerDrawer } from "@/components/ui/CustomizerDrawer";
 import { useConfiguratorStore } from "@/store/useConfiguratorStore";
 import { useWebglSupport } from "@/hooks/useWebglSupport";
-import * as THREE from "three";
+import { Vector3 } from "three";
 
 export default function StudioPage() {
   const {
@@ -28,8 +28,8 @@ export default function StudioPage() {
   }, [setViewMode]);
 
   const isLight = studioTheme === "gallery";
-  const defaultCamPos = new THREE.Vector3(0, 0.05, 2.3);
-  const defaultLookAt = new THREE.Vector3(0, 0, 0);
+  const defaultCamPos = new Vector3(0, 0.05, 2.3);
+  const defaultLookAt = new Vector3(0, 0, 0);
 
   return (
     <main className="relative bg-canvas text-text-primary h-screen w-screen overflow-hidden select-none">
