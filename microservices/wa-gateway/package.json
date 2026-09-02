@@ -1,7 +1,7 @@
 {
   "name": "kaos-kami-wa-gateway",
-  "version": "1.0.0",
-  "description": "24/7 Free WhatsApp Gateway Microservice for Kaos Kami E-Commerce",
+  "version": "1.1.0",
+  "description": "24/7 WhatsApp Gateway & AI Customer Service Bot for Kaos Kami E-Commerce",
   "type": "module",
   "main": "index.js",
   "scripts": {
