@@ -19,15 +19,29 @@ export const revalidate = 0;
 export const dynamic = "force-dynamic";
 
 export default async function CustomerDashboardPage() {
-  // PII hardened — siap wiring session: jika ada session, filter by userId
-  // Untuk dev tanpa session, fallback take 5 (prod wajib session)
+  // PII hardened: session-based scoping — PRODUCTION_STAFF/ADMIN see all, CUSTOMER see own only
+  let sessionUserId: string | null = null;
+  let sessionRole: string | null = null;
+  try {
+    const { auth } = await import("@/lib/auth");
+    const { headers } = await import("next/headers");
+    const session = await auth.api.getSession({ headers: await headers() });
+    sessionUserId = (session?.user as any)?.id || null;
+    sessionRole = (session?.user as any)?.role || null;
+  } catch {}
+  const canSeeAll = sessionRole === "ADMIN" || sessionRole === "SUPER_ADMIN" || sessionRole === "PRODUCTION_STAFF";
+  const orderWhere = sessionUserId && !canSeeAll ? { userId: sessionUserId } : undefined;
+  const designWhere = sessionUserId && !canSeeAll ? { userId: sessionUserId } : undefined;
+
   const [recentOrders, savedDesigns] = await Promise.all([
     prisma.order.findMany({
+      where: orderWhere,
       take: 5,
       orderBy: { createdAt: "desc" },
       include: { items: true },
     }),
     prisma.design.findMany({
+      where: designWhere,
       take: 6,
       orderBy: { createdAt: "desc" },
       include: { category: true },
@@ -57,10 +71,9 @@ export default async function CustomerDashboardPage() {
 
           <Link
             href="/studio"
-            className="py-2.5 px-4 rounded-xl bg-brand-accent text-canvas font-mono font-bold text-xs uppercase tracking-wider hover:brightness-110 active:scale-95 transition-all flex items-center space-x-1.5 shadow-[0_0_16px_rgba(230,81,0,0.3)] w-fit"
+            className="py-2.5 px-4 rounded-xl bg-brand-accent text-canvas font-mono font-bold text-xs uppercase tracking-wider hover:brightness-110 active:scale-95 transition-all shadow-[0_0_16px_rgba(230,81,0,0.3)] w-fit"
           >
-            <Sparkles size={14} />
-            <span>BUKA 3D STUDIO</span>
+            <span>BUAT KUSTOM BARU</span>
           </Link>
         </div>
 

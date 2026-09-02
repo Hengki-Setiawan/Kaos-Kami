@@ -28,11 +28,26 @@ const SingleDecalItem: React.FC<{
     uploaded.needsUpdate = true;
   }
 
+  // Presisi Rasio Aspek Alami (Mencegah distorsi gepeng/stretching)
+  const imgWidth = (uploaded.image as any)?.width || 1;
+  const imgHeight = (uploaded.image as any)?.height || 1;
+  const aspect = imgWidth > 0 && imgHeight > 0 ? imgWidth / imgHeight : 1;
+
+  let scaleX = decal.scale;
+  let scaleY = decal.scale;
+  if (aspect >= 1) {
+    // Landscape atau Square: lebar dasar, tinggi proporsional
+    scaleY = decal.scale / aspect;
+  } else {
+    // Portrait: tinggi dasar, lebar proporsional
+    scaleX = decal.scale * aspect;
+  }
+
   return (
     <Decal
       position={[decal.x, decal.y, zPos]}
       rotation={[0, rotY, rotZ]}
-      scale={[decal.scale, decal.scale, 0.35]}
+      scale={[scaleX, scaleY, 0.35]}
     >
       <meshStandardMaterial
         map={uploaded}

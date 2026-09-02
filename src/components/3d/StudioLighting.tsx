@@ -47,16 +47,28 @@ export const StudioLighting: React.FC = () => {
         color={lightingPreset === "cyber" ? "#ff6a00" : "#f8fafc"}
       />
 
-      {/* 5. Rim Spotlight */}
-      <spotLight
-        position={[0, 5, -3.5]}
-        intensity={lightingPreset === "cyber" ? 2.8 : 1.4}
-        angle={0.8}
-        penumbra={1}
-        color={lightingPreset === "cyber" ? "#ff6a00" : "#ffffff"}
+      {/* 5. DUAL HIGH-CONTRAST SHOULDER RIM LIGHTS (Prevents black garment from blending into dark background) */}
+      <directionalLight
+        position={[-3, 4, -3]}
+        intensity={isLightMode ? 0.8 : 2.6}
+        color="#ffffff"
+      />
+      <directionalLight
+        position={[3, 4, -3]}
+        intensity={isLightMode ? 0.8 : 2.6}
+        color="#ffffff"
       />
 
-      {/* 6. Soft Bottom Bounce */}
+      {/* 6. Overhead Collar & Crease Sculpting Light */}
+      <spotLight
+        position={[0, 6, 1]}
+        intensity={isLightMode ? 1.0 : 1.8}
+        angle={0.6}
+        penumbra={0.8}
+        color="#ffffff"
+      />
+
+      {/* 7. Soft Bottom Bounce */}
       <pointLight
         position={[0, -2.5, 1.5]}
         intensity={0.4}

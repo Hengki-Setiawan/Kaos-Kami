@@ -267,6 +267,90 @@ async function main() {
   });
   console.log(`✅ Admin Workshop User berhasil disiapkan: ${adminUser.name} (${adminUser.phoneNumber}).`);
 
+  // 6. Seed Ready-To-Buy E-Commerce Product Variants (Blueprint 01 §3)
+  const tshirtCategory = await prisma.apparelCategory.findUnique({ where: { slug: "tshirt" } });
+  const hoodieCategory = await prisma.apparelCategory.findUnique({ where: { slug: "hoodie" } });
+  const jacketCategory = await prisma.apparelCategory.findUnique({ where: { slug: "shirt" } });
+
+  if (tshirtCategory && hoodieCategory) {
+    const readyProducts = [
+      {
+        sku: "TS-BLK-HEAVY-L",
+        categoryId: tshirtCategory.id,
+        name: "Heavyweight Boxy Tee — Obsidian Black (Polos)",
+        colorHex: "#121214",
+        colorName: "Obsidian Black",
+        size: "L",
+        priceIdr: 165000,
+        stockQty: 48,
+        images: JSON.stringify(["/lookbook/look-01.jpg"]),
+        isPreDesigned: false,
+        isActive: true,
+      },
+      {
+        sku: "TS-WHT-HEAVY-L",
+        categoryId: tshirtCategory.id,
+        name: "Heavyweight Boxy Tee — Chalk Ecru (Polos)",
+        colorHex: "#EFECE6",
+        colorName: "Chalk Ecru",
+        size: "L",
+        priceIdr: 165000,
+        stockQty: 35,
+        images: JSON.stringify(["/lookbook/look-02.jpg"]),
+        isPreDesigned: false,
+        isActive: true,
+      },
+      {
+        sku: "TS-TNG-LIMITED-M",
+        categoryId: tshirtCategory.id,
+        name: "Acid Tangerine Edition — Makassar Streetwear Drop",
+        colorHex: "#E65100",
+        colorName: "Signal Tangerine",
+        size: "M",
+        priceIdr: 195000,
+        stockQty: 20,
+        images: JSON.stringify(["/lookbook/look-03.jpg"]),
+        isPreDesigned: true,
+        isActive: true,
+      },
+      {
+        sku: "HD-BLK-FLEECE-XL",
+        categoryId: hoodieCategory.id,
+        name: "Fleece Heavyweight Oversized Hoodie — Obsidian Black",
+        colorHex: "#121214",
+        colorName: "Obsidian Black",
+        size: "XL",
+        priceIdr: 285000,
+        stockQty: 25,
+        images: JSON.stringify(["/lookbook/look-04.jpg"]),
+        isPreDesigned: false,
+        isActive: true,
+      },
+      {
+        sku: "JK-TAC-COACH-L",
+        categoryId: jacketCategory ? jacketCategory.id : tshirtCategory.id,
+        name: "Tactical Urban Coach Jacket — Military Olive",
+        colorHex: "#3B4435",
+        colorName: "Military Olive",
+        size: "L",
+        priceIdr: 320000,
+        stockQty: 18,
+        images: JSON.stringify(["/lookbook/look-01.jpg"]),
+        isPreDesigned: false,
+        isActive: true,
+      },
+    ];
+
+    for (const prod of readyProducts) {
+      await prisma.productVariant.upsert({
+        where: { sku: prod.sku },
+        update: prod,
+        create: prod,
+      });
+    }
+    console.log(`✅ ${readyProducts.length} Produk Siap Beli (E-Commerce Catalog) berhasil di-seed.`);
+  }
+
   console.log("🚀 Seeding database Kaos Kami selesai 100%!");
 }
 

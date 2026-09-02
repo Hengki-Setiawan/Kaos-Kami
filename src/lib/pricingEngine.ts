@@ -84,7 +84,7 @@ export function calculate6VariablePrice(input: CalculatePricingInput): PricingBr
 
   // 4. Per-Decal Print Area Tier (Calibrated to Max 30cm DTF standard)
   const decalLayers = decals.map((d, index) => {
-    const physical = computePhysicalPrintDimensions(apparelSlug, d.scale, d.y, 1.0);
+    const physical = computePhysicalPrintDimensions(apparelSlug, d.scale, d.y, 1.0, d.targetSide);
     const maxDimension = Math.max(physical.widthCm, physical.heightCm);
 
     let tier: "A6" | "A5" | "A4" | "A3" = "A4";

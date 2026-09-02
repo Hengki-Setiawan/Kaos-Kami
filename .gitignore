@@ -38,3 +38,16 @@ next-env.d.ts
 # agents / ide scratch
 .agents
 .skills-sourced
+
+# OpenNext
+.open-next
+
+# wrangler files
+.wrangler
+.dev.vars*
+!.dev.vars.example
+
+# secrets
+.env
+.env.local
+.dev.vars

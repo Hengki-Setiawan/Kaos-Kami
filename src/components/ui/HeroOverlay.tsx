@@ -13,45 +13,47 @@ export const HeroOverlay: React.FC = () => {
 
   return (
     <section
-      className={`h-screen w-full flex flex-col justify-between p-6 md:p-12 lg:p-16 pt-24 md:pt-28 relative pointer-events-none select-none transition-all duration-700 ease-out ${
+      className={`h-screen w-full flex flex-col justify-between p-6 md:p-12 lg:p-16 pt-28 md:pt-36 relative pointer-events-none select-none transition-all duration-700 ease-out ${
         isVisible
           ? "opacity-100 translate-y-0"
           : "opacity-0 -translate-y-12 pointer-events-none"
       }`}
     >
-      {/* Top Tagline (Left Column) */}
-      <div className="max-w-sm">
-        <div className="inline-flex items-center space-x-2 px-3 py-1 rounded-full bg-surface border border-border-subtle mb-3">
-          <span className="w-1.5 h-1.5 rounded-full bg-brand-accent" />
-          <span className="font-mono text-[11px] text-text-muted tracking-widest uppercase">
-            {apparel.weightGsm} ARCHITECTURAL SERIES
-          </span>
-        </div>
-        <p className="font-mono text-xs md:text-sm text-text-muted leading-relaxed">
-          Engineered in Makassar & Jakarta. Crafted from heavyweight long-staple combed cotton with oversized boxy proportions.
+      {/* Top Clean Editorial Category */}
+      <div className="max-w-xs sm:max-w-sm pt-2">
+        <span className="font-mono text-xs text-brand-accent tracking-widest uppercase font-bold block mb-1">
+          MAKASSAR STREETWEAR // {apparel.weightGsm}
+        </span>
+        <p className="font-sans text-xs text-text-muted leading-relaxed">
+          Katun combed tebal berkarakter boxy tegap dengan pola drop-shoulder modern & sablon DTF resolusi tinggi.
         </p>
       </div>
 
-      {/* Main Editorial Title docked strictly on Left 45% Column */}
-      <div className="my-auto max-w-lg lg:max-w-md xl:max-w-lg space-y-4">
-        <h1 className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl xl:text-8xl font-display font-black uppercase tracking-tighter leading-[0.88] text-text-primary">
-          OVERSIZED<br />
-          <span className="text-text-primary opacity-85">
-            HEAVY-KNIT
+      {/* Main Editorial Title: Strict Left 45% Column, zero collision with 3D garment */}
+      <div className="my-auto max-w-sm sm:max-w-md space-y-3 z-20">
+        <h1 className="text-3xl sm:text-4xl md:text-[44px] font-display font-black uppercase tracking-tight leading-[0.96] text-text-primary">
+          HEAVYWEIGHT<br />
+          <span className="text-text-primary opacity-90">
+            BOXY TEE
           </span>
         </h1>
-        <p className="font-mono text-xs text-brand-accent tracking-widest uppercase font-bold">
-          {`// ${apparel.name} · ${apparel.formattedPrice}`}
+        <p className="font-mono text-xs sm:text-sm text-brand-accent tracking-wider uppercase font-bold">
+          {`KATUN COMBED 240/280 GSM · ${apparel.formattedPrice}`}
         </p>
 
-        {/* 1-Click Launch Studio Link to /studio */}
-        <div className="pt-2 pointer-events-auto">
+        {/* Action Buttons: Clean, Confident, Zero Gimmick */}
+        <div className="pt-3 pointer-events-auto flex flex-wrap gap-3">
           <Link
             href="/studio"
-            className="inline-flex items-center space-x-2 px-5 py-3 rounded-full bg-brand-accent text-canvas font-mono font-bold text-xs uppercase tracking-wider hover:brightness-110 transition-all shadow-[0_0_20px_rgba(230,81,0,0.4)] active:scale-95"
+            className="inline-flex items-center px-6 py-3 rounded-full bg-brand-accent text-canvas font-mono font-bold text-xs uppercase tracking-wider hover:brightness-110 transition-all shadow-[0_0_20px_rgba(230,81,0,0.35)] active:scale-95"
           >
-            <Sparkles size={14} />
-            <span>LAUNCH 3D MOCKUP STUDIO</span>
+            <span>KUSTOM SABLON 3D</span>
+          </Link>
+          <Link
+            href="/catalog"
+            className="inline-flex items-center px-6 py-3 rounded-full bg-surface border border-white/15 text-white font-mono font-bold text-xs uppercase tracking-wider hover:border-brand-accent hover:text-brand-accent transition-all active:scale-95"
+          >
+            <span>BELI KAOS POLOS</span>
           </Link>
         </div>
       </div>
@@ -60,11 +62,11 @@ export const HeroOverlay: React.FC = () => {
       <div className="flex flex-col sm:flex-row items-start sm:items-end justify-between gap-6 pb-2 border-t border-border-subtle pt-4">
         <div className="flex gap-6 md:gap-10 font-mono text-xs">
           <div>
-            <span className="block text-[10px] text-text-muted uppercase tracking-wider">CUT SPEC</span>
-            <span className="font-bold text-text-primary">BOXY STREET-CUT</span>
+            <span className="block text-[10px] text-text-muted uppercase tracking-wider">POLA POTONGAN</span>
+            <span className="font-bold text-text-primary">BOXY OVERSIZED</span>
           </div>
           <div>
-            <span className="block text-[10px] text-text-muted uppercase tracking-wider">WEIGHT</span>
+            <span className="block text-[10px] text-text-muted uppercase tracking-wider">GRAMASI</span>
             <span className="font-bold text-brand-accent">{apparel.weightGsm}</span>
           </div>
           <div>

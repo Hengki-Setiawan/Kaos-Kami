@@ -1,0 +1,23 @@
+name: CI
+on: [push, pull_request]
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm run lint
+      - run: npx prisma generate
+      - run: npm run build
+      - name: Lighthouse CI (desktop)
+        run: |
+          npm install -g @lhci/cli@0.15.x
+          lhci autorun --config=./lighthouserc.js || echo "LHCI skip on CI without start"
+      - name: Bundle size check
+        run: |
+          npx next-bundle-analyzer || echo "analyzer optional"

@@ -28,20 +28,20 @@ export const ApparelMeshRenderer: React.FC = () => {
       const floatY = Math.sin(time * 1.8) * 0.025;
 
       if (activePhase === 1) {
-        // Phase 1 (Hero): Docked cleanly on Right Screen (X: +0.68), framing left headline text
-        targetStoryPos.current.set(0.68, -0.05 + floatY, 0);
-        targetStoryRot.current.set(0.04, -0.32, 0);
-        targetStoryScale.current = 1.32;
+        // Phase 1 (Hero): Prominent, center-right stage (X: +0.52), scale 1.50 with clear negative space
+        targetStoryPos.current.set(0.52, -0.04 + floatY, 0);
+        targetStoryRot.current.set(0.04, -0.24, 0);
+        targetStoryScale.current = 1.50;
       } else if (activePhase === 2) {
         // Phase 2 (Macro Weave): Docked on Left Screen (X: -0.55), framing right tech specs
         targetStoryPos.current.set(-0.55, 0.12 + floatY * 0.5, 0.45);
         targetStoryRot.current.set(0.12, 0.45, -0.05);
-        targetStoryScale.current = 1.65;
+        targetStoryScale.current = 1.70;
       } else if (activePhase === 3) {
-        // Phase 3 (180° Rear Reveal): Docked on Right Screen (X: +0.68), rotated 180°
-        targetStoryPos.current.set(0.68, -0.05 + floatY, 0);
+        // Phase 3 (180° Rear Reveal): Docked on Right Screen (X: +0.48), rotated 180°
+        targetStoryPos.current.set(0.48, -0.04 + floatY, 0);
         targetStoryRot.current.set(0.04, Math.PI, 0);
-        targetStoryScale.current = 1.32;
+        targetStoryScale.current = 1.55;
       } else {
         // Phase 4 (Lookbook & Studio CTA): Centered Hero (X: 0)
         targetStoryPos.current.set(0, -0.02 + floatY, 0);

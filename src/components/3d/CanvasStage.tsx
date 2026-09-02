@@ -1,14 +1,22 @@
 "use client";
 
-import React, { Suspense } from "react";
+import React, { Suspense, useEffect } from "react";
 import { Canvas } from "@react-three/fiber";
 import * as THREE from "three";
+import { useGLTF } from "@react-three/drei";
 import { StudioLighting } from "./StudioLighting";
 import { ApparelMeshRenderer } from "./ApparelMeshRenderer";
 import { CameraRig } from "./CameraRig";
 import { Preloader } from "@/components/ui/Preloader";
 import { useConfiguratorStore } from "@/store/useConfiguratorStore";
 import { useDeviceTier } from "@/hooks/useDeviceTier";
+
+// Draco decoder path for KHR_draco_mesh_compression (hoodie/jacket optimized glbs)
+if (typeof window !== "undefined") {
+  try {
+    (useGLTF as any).setDecoderPath?.("/decoders/draco/");
+  } catch {}
+}
 
 interface CanvasStageProps {
   camPos: THREE.Vector3;

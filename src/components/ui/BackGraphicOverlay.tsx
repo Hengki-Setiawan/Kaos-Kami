@@ -18,29 +18,29 @@ export const BackGraphicOverlay: React.FC = () => {
       <div className="max-w-lg space-y-6 text-left md:text-right">
         <div>
           <span className="font-mono text-xs text-brand-accent tracking-widest uppercase">
-            {"// PHASE 03 — REAR ARCHITECTURE"}
+            AREA CETAK SABLON PUNGGUNG
           </span>
           <h2 className="text-3xl sm:text-5xl md:text-6xl font-display font-black uppercase tracking-tight text-text-primary mt-2">
-            180° REAR<br />SABLON CANVAS
+            AREA SABLON<br />BESAR HINGGA A3+
           </h2>
           <p className="text-sm font-mono text-text-muted mt-3 leading-relaxed">
-            Expansive back real-estate calibrated for high-density discharge and high-mesh screen prints with zero cracking under tension.
+            Bidang punggung luas terkalibrasi khusus untuk cetak sablon DTF resolusi tinggi 300 DPI. Tinta merekat lentur dan anti-retak saat ditarik.
           </p>
         </div>
 
         {/* Back Print Specs Box */}
         <div className="p-5 rounded-2xl glass-panel border border-border-subtle space-y-4 inline-block text-left w-full">
           <div className="flex justify-between items-center border-b border-border-subtle pb-2">
-            <span className="text-xs font-mono text-text-muted">PRINT REAL-ESTATE:</span>
-            <span className="text-xs font-mono font-bold text-text-primary">38cm × 48cm MAX</span>
+            <span className="text-xs font-mono text-text-muted">AREA CETAK MAKSIMAL:</span>
+            <span className="text-xs font-mono font-bold text-text-primary">30 cm × 42 cm (A3+)</span>
           </div>
           <div className="flex justify-between items-center border-b border-border-subtle pb-2">
-            <span className="text-xs font-mono text-text-muted">CURING TECHNIQUE:</span>
-            <span className="text-xs font-mono font-bold text-brand-accent">HYBRID PLASTISOL / DISCHARGE</span>
+            <span className="text-xs font-mono text-text-muted">TEKNIK PRODUKSI:</span>
+            <span className="text-xs font-mono font-bold text-brand-accent">SABLON DIGITAL DTF PREMIUM</span>
           </div>
           <div className="flex justify-between items-center">
-            <span className="text-xs font-mono text-text-muted">SEAM STRENGTH:</span>
-            <span className="text-xs font-mono font-bold text-text-primary">FOUR-THREAD OVERLOCK</span>
+            <span className="text-xs font-mono text-text-muted">JAHITAN PUNDAK & LEHER:</span>
+            <span className="text-xs font-mono font-bold text-text-primary">JAHIT RANTAI STANDAR DISTRO</span>
           </div>
         </div>
       </div>

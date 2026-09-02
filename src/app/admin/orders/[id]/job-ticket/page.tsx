@@ -3,6 +3,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/db";
 import { Printer, ArrowLeft } from "lucide-react";
+import { PrintButton } from "@/components/ui/PrintButton";
 
 interface JobTicketPageProps {
   params: { id: string };
@@ -17,6 +18,7 @@ export default async function JobTicketPage({ params }: JobTicketPageProps) {
       items: true,
       user: true,
       shippingAddress: true,
+      productionTasks: true,
     },
   });
 
@@ -35,13 +37,7 @@ export default async function JobTicketPage({ params }: JobTicketPageProps) {
           <ArrowLeft size={14} />
           <span>Kembali ke Detail Order</span>
         </Link>
-        <button
-          onClick={() => {}}
-          className="py-2 px-4 bg-black text-white rounded font-bold hover:bg-gray-800 flex items-center gap-1.5"
-        >
-          <Printer size={14} />
-          <span>Cetak Dokumen (Ctrl + P)</span>
-        </button>
+        <PrintButton />
       </div>
 
       {/* Printable Job Ticket Sheet */}
@@ -102,21 +98,24 @@ export default async function JobTicketPage({ params }: JobTicketPageProps) {
               </tr>
             </thead>
             <tbody>
-              {order.items.map((item, idx) => (
-                <tr key={item.id} className="border-b border-black">
-                  <td className="p-2 border border-black font-bold">
-                    #{idx + 1}. {item.snapshotName} ({item.snapshotColorName})
-                  </td>
-                  <td className="p-2 border border-black font-bold text-center">{item.snapshotSize}</td>
-                  <td className="p-2 border border-black font-bold text-center">{item.quantity} pcs</td>
-                  <td className="p-2 border border-black font-bold">
-                    Maks 28.5 cm (Roll DTF A3)
-                  </td>
-                  <td className="p-2 border border-black">
-                    Dada Depan (~7.5 cm dari rib)
-                  </td>
-                </tr>
-              ))}
+              {order.items.map((item, idx) => {
+                const task = (order.productionTasks as any[]).find((t) => t.orderItemId === item.id) || (order.productionTasks as any[])[idx];
+                return (
+                  <tr key={item.id} className="border-b border-black">
+                    <td className="p-2 border border-black font-bold">
+                      #{idx + 1}. {item.snapshotName} ({item.snapshotColorName})
+                    </td>
+                    <td className="p-2 border border-black font-bold text-center">{item.snapshotSize}</td>
+                    <td className="p-2 border border-black font-bold text-center">{item.quantity} pcs</td>
+                    <td className="p-2 border border-black font-bold">
+                      {(task?.printWidthCm || 28.5).toFixed(1)} × {(task?.printHeightCm || 16).toFixed(1)} cm (Maks 30cm)
+                    </td>
+                    <td className="p-2 border border-black">
+                      {(task?.placementSide || "front") === "back" ? "Punggung" : "Dada Depan"} (~{(task?.offsetFromCollarCm || 7.5).toFixed(1)} cm dari rib)
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>

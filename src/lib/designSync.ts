@@ -56,15 +56,40 @@ export async function claimGuestDesigns() {
 }
 
 export function hydrateFromServer() {
-  // Called on mount if authenticated — GET /api/designs?userId=me
   return fetch("/api/designs")
     .then((r) => r.json())
     .then((data) => {
-      if (data.designs && Array.isArray(data.designs)) {
+      if (data.designs && Array.isArray(data.designs) && data.designs.length > 0) {
         const store = useConfiguratorStore.getState();
-        // Merge server designs into local savedDesigns (dedupe by id)
-        // For now just log — full hydration handled in dashboard
-        console.log("Hydrated", data.designs.length, "server designs");
+        try {
+          const serverDesigns = data.designs.map((d: any) => ({
+            id: d.id,
+            title: d.title,
+            apparel: d.category?.slug || "tshirt",
+            colorHex: d.colorHex,
+            colorName: d.colorName,
+            size: d.size,
+            theme: d.studioTheme || "obsidian",
+            materialFinish: d.materialFinishSlug || "combed-cotton",
+            decals: typeof d.decals === "string" ? JSON.parse(d.decals) : d.decals || [],
+            savedAt: new Date(d.createdAt).toLocaleDateString("id-ID", { day: "numeric", month: "short" }),
+            calculatedPriceIdr: d.calculatedPriceIdr,
+          }));
+          // Merge dedupe by id
+          const existingIds = new Set(store.savedDesigns.map((s) => s.id));
+          const newOnes = serverDesigns.filter((s: any) => !existingIds.has(s.id));
+          if (newOnes.length > 0) {
+            const merged = [...newOnes, ...store.savedDesigns];
+            // Directly set via localStorage + store internal: we re-use save logic by setting state manually
+            (store as any).savedDesigns = merged;
+            try {
+              localStorage.setItem("kaoskami_saved_designs", JSON.stringify(merged));
+            } catch {}
+            console.log("Hydrated", newOnes.length, "server designs into local");
+          }
+        } catch (e) {
+          console.warn("Hydrate parse failed", e);
+        }
       }
     })
     .catch(() => {});

@@ -19,13 +19,13 @@ export const TechSpecsOverlay: React.FC = () => {
       <div className="max-w-xl space-y-6">
         <div>
           <span className="font-mono text-xs text-brand-accent tracking-widest uppercase">
-            {"// PHASE 02 — MATERIAL INTEGRITY"}
+            FAKTOR KUALITAS & MATERIAL
           </span>
           <h2 className="text-3xl sm:text-5xl md:text-6xl font-display font-black uppercase tracking-tight text-text-primary mt-2">
-            ENGINEERED<br />COTTON WEAVE
+            KATUN COMBED<br />HEAVYWEIGHT 16S
           </h2>
           <p className="text-sm font-mono text-text-muted mt-3 leading-relaxed">
-            High-density 16s ring-spun yarn knit with double-needle construction. Built for structural silhouette retention after 100+ wash cycles.
+            Serat benang katun combed pilihan dengan gramasi tebal 240 & 280 GSM. Siluet jatuh tegap, jahitan ganda rapi, dan tahan cuci tanpa melar.
           </p>
         </div>
 

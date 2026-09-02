@@ -3,7 +3,7 @@
 import React, { useState } from "react";
 import { useSession, signIn, signUp, signOut } from "@/lib/auth-client";
 import { RegisterPhoneSchema, LoginPhoneSchema } from "@/lib/schemas/auth";
-import { X, User, Phone, Lock, Mail, ArrowRight, Loader2, CheckCircle2, LogOut, ShieldCheck } from "lucide-react";
+import { X, User, Phone, Lock, Mail, ArrowRight, Loader2, CheckCircle2, LogOut, ShieldCheck, Chrome } from "lucide-react";
 
 interface AuthModalProps {
   isOpen: boolean;
@@ -113,16 +113,16 @@ export const AuthModal: React.FC<AuthModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/70 backdrop-blur-md animate-fadeIn">
+    <div className="fixed inset-0 z-[100] overflow-y-auto bg-black/80 backdrop-blur-md animate-fadeIn flex min-h-full items-center justify-center p-4 sm:p-6">
       {/* Modal Dialog */}
-      <div className="relative w-full max-w-md bg-[#161619] border border-white/10 rounded-2xl p-6 sm:p-8 shadow-2xl text-text-primary overflow-hidden">
+      <div className="relative w-full max-w-md bg-[#161619] border border-white/10 rounded-2xl p-5 sm:p-7 shadow-2xl text-text-primary my-auto">
         {/* Decorative Top Accent Glow */}
         <div className="absolute top-0 left-1/2 -translate-x-1/2 w-48 h-1 bg-gradient-to-r from-transparent via-brand-accent to-transparent" />
 
         {/* Close Button */}
         <button
           onClick={onClose}
-          className="absolute top-4 right-4 p-2 rounded-full text-text-muted hover:text-white hover:bg-white/5 transition-all"
+          className="absolute top-4 right-4 p-2 rounded-full text-text-muted hover:text-white hover:bg-white/5 transition-all z-10"
           aria-label="Tutup modal"
         >
           <X size={18} />
@@ -178,29 +178,53 @@ export const AuthModal: React.FC<AuthModalProps> = ({
           // Auth Tabs & Form
           <>
             {/* Header & Brand */}
-            <div className="mb-6 text-left">
-              <div className="inline-flex items-center gap-2 px-2.5 py-1 rounded-md bg-brand-accent/10 border border-brand-accent/20 text-brand-accent text-[11px] font-mono tracking-wider uppercase mb-2">
+            <div className="mb-4 text-left">
+              <div className="inline-flex items-center gap-2 px-2 py-0.5 rounded-md bg-brand-accent/10 border border-brand-accent/20 text-brand-accent text-[10px] font-mono tracking-wider uppercase mb-1.5">
                 <span>Makassar DTF Sablon</span>
               </div>
-              <h2 className="font-display text-2xl font-black tracking-tight text-white uppercase">
+              <h2 className="font-display text-xl sm:text-2xl font-black tracking-tight text-white uppercase">
                 {mode === "login" ? "Masuk Akun" : "Daftar Akun Baru"}
               </h2>
-              <p className="font-sans text-xs text-text-muted mt-1">
+              <p className="font-sans text-xs text-text-muted mt-0.5">
                 {mode === "login"
                   ? "Akses desain tersimpan dan pantau status antrean produksi sablon Anda."
                   : "Buat akun untuk menyimpan rancangan 3D dan riwayat pemesanan."}
               </p>
             </div>
 
+            {/* Google OAuth — 1-klik, verifikasi via Google (tanpa OTP WA) */}
+            <button
+              type="button"
+              onClick={async () => {
+                try {
+                  setLoading(true);
+                  await signIn.social({ provider: "google", callbackURL: "/" });
+                } catch (e: any) {
+                  setErrorMessage(e?.message || "Google login gagal — cek GOOGLE_CLIENT_ID");
+                } finally {
+                  setLoading(false);
+                }
+              }}
+              className="w-full mb-3 py-2.5 sm:py-3 rounded-xl bg-white text-black font-mono font-bold text-xs flex items-center justify-center gap-2 hover:bg-zinc-100 active:scale-[0.99] transition-all shadow-md"
+            >
+              <Chrome size={16} className="text-[#4285F4]" />
+              <span>LANJUT DENGAN GOOGLE</span>
+            </button>
+            <div className="flex items-center gap-3 mb-3">
+              <div className="h-px flex-1 bg-white/10" />
+              <span className="text-[10px] font-mono text-text-muted">ATAU EMAIL / NO. WA</span>
+              <div className="h-px flex-1 bg-white/10" />
+            </div>
+
             {/* Mode Switcher */}
-            <div className="flex p-1 bg-surface rounded-xl border border-white/5 mb-5 font-mono text-xs">
+            <div className="flex p-1 bg-surface rounded-xl border border-white/5 mb-4 font-mono text-xs">
               <button
                 type="button"
                 onClick={() => {
                   setMode("login");
                   resetForm();
                 }}
-                className={`flex-1 py-2 rounded-lg font-bold transition-all ${
+                className={`flex-1 py-1.5 sm:py-2 rounded-lg font-bold transition-all ${
                   mode === "login"
                     ? "bg-brand-accent text-canvas shadow"
                     : "text-text-muted hover:text-white"
@@ -214,7 +238,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                   setMode("register");
                   resetForm();
                 }}
-                className={`flex-1 py-2 rounded-lg font-bold transition-all ${
+                className={`flex-1 py-1.5 sm:py-2 rounded-lg font-bold transition-all ${
                   mode === "register"
                     ? "bg-brand-accent text-canvas shadow"
                     : "text-text-muted hover:text-white"

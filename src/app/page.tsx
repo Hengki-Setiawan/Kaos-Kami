@@ -11,6 +11,7 @@ import { BackGraphicOverlay } from "@/components/ui/BackGraphicOverlay";
 import { CustomizerDrawer } from "@/components/ui/CustomizerDrawer";
 import { StaticShowcase } from "@/components/ui/StaticShowcase";
 import { EditorialLookbook } from "@/components/ui/EditorialLookbook";
+import { HomeCatalogSection } from "@/components/ui/HomeCatalogSection";
 import { useScrollPhases } from "@/hooks/useScrollPhases";
 import { useWebglSupport } from "@/hooks/useWebglSupport";
 import { useDeviceTier } from "@/hooks/useDeviceTier";
@@ -89,21 +90,10 @@ export default function Home() {
       {/* Floating 3D Sandbox Studio Drawer */}
       <CustomizerDrawer />
 
-      {/* Floating Quick 1-Click 3D Studio CTA (For mobile & fast buyers) */}
-      {!isHideWebsiteUI && (
-        <div className="fixed bottom-6 right-6 z-40 animate-bounce">
-          <Link
-            href="/studio"
-            className="flex items-center space-x-2 py-3 px-5 rounded-full bg-brand-accent text-canvas font-mono font-bold text-xs uppercase tracking-wider shadow-[0_0_25px_rgba(230,81,0,0.6)] hover:brightness-110 active:scale-95 transition-all"
-          >
-            <span>👕 BUKA 3D STUDIO LENGKAP</span>
-          </Link>
-        </div>
-      )}
-
-      {/* Static Visual Sections & Footer (Hidden in Clean Mockup Mode) */}
+      {/* Static Visual Sections, E-Commerce Showcase & Footer (Hidden in Clean Mockup Mode) */}
       {!isHideWebsiteUI && (
         <>
+          <HomeCatalogSection />
           <EditorialLookbook />
           <Footer />
         </>

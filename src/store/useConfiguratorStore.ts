@@ -129,6 +129,15 @@ interface ConfiguratorState {
   setLogoPresetScale: (idx: LogoPresetIndex) => void;
   setIsMobile: (v: boolean) => void;
   applyLogoPreset: () => void;
+  isGizmoDragging: boolean;
+  setGizmoDragging: (v: boolean) => void;
+  isGizmoVisible: boolean;
+  setIsGizmoVisible: (v: boolean) => void;
+  toggleGizmoVisible: () => void;
+  animationPreset: "static" | "wind" | "walking" | "knit";
+  animationSpeed: number;
+  setAnimationPreset: (p: "static" | "wind" | "walking" | "knit") => void;
+  setAnimationSpeed: (s: number) => void;
 }
 
 const getInitialSavedDesigns = (): SavedMockupDesign[] => {
@@ -169,6 +178,10 @@ export const useConfiguratorStore = create<ConfiguratorState>((set, get) => ({
   logoPresetPos: 1 as LogoPresetIndex,
   logoPresetScale: 1 as LogoPresetIndex,
   isMobile: false,
+  isGizmoDragging: false,
+  isGizmoVisible: true,
+  animationPreset: "static" as const,
+  animationSpeed: 1.0,
 
   frontGraphicUrl: null,
   backGraphicUrl: null,
@@ -351,6 +364,26 @@ export const useConfiguratorStore = create<ConfiguratorState>((set, get) => ({
     } catch (e) {
       console.warn("LocalStorage save error", e);
     }
+    // Backend sync: POST /api/designs (fire-and-forget, non-blocking)
+    try {
+      const cat = state.activeApparel;
+      fetch("/api/designs", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          title: newDesign.title,
+          apparelSlug: cat,
+          colorHex: newDesign.colorHex,
+          colorName: newDesign.colorName,
+          size: newDesign.size,
+          materialFinishSlug: newDesign.materialFinish,
+          decals: newDesign.decals,
+          studioTheme: newDesign.theme,
+          calculatedPriceIdr: newDesign.calculatedPriceIdr,
+          priceBreakdown: { totalPrice: pricing.totalPrice },
+        }),
+      }).catch(() => {});
+    } catch {}
     return id;
   },
 
@@ -407,6 +440,11 @@ export const useConfiguratorStore = create<ConfiguratorState>((set, get) => ({
   setLogoPresetPos: (idx) => set({ logoPresetPos: idx }),
   setLogoPresetScale: (idx) => set({ logoPresetScale: idx }),
   setIsMobile: (v) => set({ isMobile: v }),
+  setGizmoDragging: (v) => set({ isGizmoDragging: v }),
+  setIsGizmoVisible: (v) => set({ isGizmoVisible: v }),
+  toggleGizmoVisible: () => set((state) => ({ isGizmoVisible: !state.isGizmoVisible })),
+  setAnimationPreset: (p) => set({ animationPreset: p }),
+  setAnimationSpeed: (s) => set({ animationSpeed: s }),
   applyLogoPreset: () => {
     const s = get();
     const xMap = [-0.075, 0, 0.075] as const;

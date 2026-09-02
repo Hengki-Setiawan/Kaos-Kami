@@ -206,24 +206,24 @@ export function calculateCustomMockupPrice(
 
 export const TECHNICAL_SPECS = [
   {
-    label: "FABRIC WEIGHT",
+    label: "BERAT KAIN (GSM)",
     value: "240 & 280 GSM",
-    detail: "Heavyweight premium combed cotton engineered to hold a structured boxy drape without sagging.",
+    detail: "Katun combed tebal berkualitas tinggi, jatuh tegap berkarakter boxy, tidak terawang dan tetap sejuk.",
   },
   {
-    label: "YARN ARCHITECTURE",
-    value: "16s Ring-Spun",
-    detail: "Zero-twist combed long-staple cotton yarn offering maximum surface smoothness and durability.",
+    label: "SPESIFIKASI BENANG",
+    value: "16s Ring-Spun Combed",
+    detail: "Serat katun combed panjang dengan permukaan rapat dan halus, hasil penyerapan tinta sablon lebih tajam.",
   },
   {
-    label: "COLLAR STRUCTURE",
-    value: "3.2cm Ribbed Binding",
-    detail: "High-density 1x1 ribbed neckband with twin-needle reinforcement to prevent bacon neck after washes.",
+    label: "KONSTRUKSI KERAH",
+    value: "Rib Tebal 3.2cm",
+    detail: "Kerah rajut ganda dengan jahitan rantai pundak ekstra kuat, anti-melar meski dicuci berkali-kali.",
   },
   {
-    label: "SILHOUETTE CUT",
-    value: "Boxy Drop-Shoulder",
-    detail: "Architectural proportions with lengthened sleeve cuffs and relaxed body circumference.",
+    label: "POLA POTONGAN",
+    value: "Oversized Boxy Cut",
+    detail: "Siluet drop-shoulder modern khas streetwear dengan bukaan lengan lebar dan potongan badan proporsional.",
   },
 ];
 
@@ -231,13 +231,13 @@ export const SIZES = ["S", "M", "L", "XL", "XXL"] as const;
 export type ProductSize = (typeof SIZES)[number];
 
 export const PRODUCT_DETAILS = {
-  name: "kaos kami — Heavyweight 3D Apparel Experience",
-  productTitle: "OVERSIZED HEAVY-KNIT",
+  name: "Kaos Kami — Platform Sablon DTF & Streetwear Makassar",
+  productTitle: "HEAVYWEIGHT BOXY TEE",
   sku: "KK-HW-240-01",
   priceIdr: 149000,
-  formattedPrice: "IDR 149.000",
+  formattedPrice: "Rp 149.000",
   currency: "IDR",
-  brand: "kaos kami",
+  brand: "Kaos Kami",
   availability: "InStock",
-  origin: "Makassar / Jakarta, Indonesia",
+  origin: "Kota Makassar, Sulawesi Selatan",
 };

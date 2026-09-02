@@ -15,7 +15,11 @@ import {
   Ruler,
   AlertCircle,
   Eye,
+  Layers,
 } from "lucide-react";
+import dynamic from "next/dynamic";
+
+const OrderInspector3D = dynamic(() => import("@/components/admin/OrderInspector3D"), { ssr: false });
 
 interface AdminOrderDetailPageProps {
   params: { id: string };
@@ -98,6 +102,23 @@ export default async function AdminOrderDetailPage({ params }: AdminOrderDetailP
         </div>
       </div>
 
+      {/* 360° 3D Inspector (BLUEPRINT-03 §5) — Orbit untuk verifikasi visual operator */}
+      <div className="rounded-2xl bg-[#141416] border border-white/5 p-4 space-y-3">
+        <h2 className="text-xs font-bold uppercase tracking-wider text-text-muted flex items-center gap-2">
+          <Eye size={14} className="text-brand-accent" />
+          <span>INSPEKSI VISUAL 360° — VERIFIKASI MODEL 3D PESANAN</span>
+        </h2>
+        <div className="h-[420px] rounded-xl overflow-hidden border border-white/10 bg-[#0E0E10] relative">
+          <OrderInspector3D />
+          <div className="absolute bottom-2 left-2 px-2 py-1 rounded bg-black/70 text-[10px] font-mono text-white border border-white/10">
+            Drag untuk rotasi 360° • Scroll untuk zoom • Cocokkan dengan Job Ticket dimensi
+          </div>
+        </div>
+        <p className="text-[11px] font-mono text-text-muted">
+          Menampilkan prediktif mockup 3D sesuai warna & ukuran pesanan. Gunakan untuk konfirmasi penempatan sablon sebelum film DTF dicetak.
+        </p>
+      </div>
+
       {/* Main Grid: Workshop Specs & Customer Info */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Left 2 Cols: Production Specs & High-Res Vault */}
@@ -132,31 +153,58 @@ export default async function AdminOrderDetailPage({ params }: AdminOrderDetailP
                     </span>
                   </div>
 
-                  {/* Physical DTF Calibration Limits */}
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 p-3 rounded-lg bg-black/50 border border-white/5 text-[11px]">
-                    <div>
-                      <span className="block text-text-muted">LEBAR CETAK (MAX 30CM):</span>
-                      <span className="font-bold text-emerald-400">📏 28.5 cm (A3 DTF)</span>
-                    </div>
-                    <div>
-                      <span className="block text-text-muted">TINGGI CETAK:</span>
-                      <span className="font-bold text-emerald-400">📏 16.0 cm</span>
-                    </div>
-                    <div>
-                      <span className="block text-text-muted">JARAK DARI KERAH:</span>
-                      <span className="font-bold text-white">~7.5 cm di bawah rib</span>
-                    </div>
-                  </div>
+                  {/* Physical DTF Calibration Limits — now from ProductionTask real dims */}
+                  {(() => {
+                    const task = order.productionTasks.find((t: any) => t.orderItemId === item.id) || order.productionTasks[idx];
+                    return (
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 p-3 rounded-lg bg-black/50 border border-white/5 text-[11px]">
+                        <div>
+                          <span className="block text-text-muted">LEBAR CETAK (MAX 30CM):</span>
+                          <span className="font-bold text-emerald-400">
+                            📏 {(task?.printWidthCm || 28.5).toFixed(1)} cm (A3 DTF)
+                          </span>
+                        </div>
+                        <div>
+                          <span className="block text-text-muted">TINGGI CETAK:</span>
+                          <span className="font-bold text-emerald-400">📏 {(task?.printHeightCm || 16.0).toFixed(1)} cm</span>
+                        </div>
+                        <div>
+                          <span className="block text-text-muted">JARAK DARI KERAH:</span>
+                          <span className="font-bold text-white">~{(task?.offsetFromCollarCm || 7.5).toFixed(1)} cm di bawah rib</span>
+                        </div>
+                      </div>
+                    );
+                  })()}
 
-                  {/* High-Res Asset Download for AcroRIP */}
+                  {/* High-Res Asset Download for AcroRIP — R2 rawAssetUrl or 3D snapshot */}
                   <div className="pt-2 flex flex-wrap gap-2">
+                    {(() => {
+                      const task = order.productionTasks.find((t: any) => t.orderItemId === item.id) || order.productionTasks[idx];
+                      const rawUrl = (task as any)?.rawAssetUrl || (task as any)?.mockupPreviewUrl || (task as any)?.printFileUrl;
+                      return rawUrl ? (
+                        <a
+                          href={rawUrl}
+                          target="_blank"
+                          download={`master-${order.orderNumber}-${idx + 1}.png`}
+                          className="py-2 px-3 rounded-lg bg-brand-accent/20 border border-brand-accent/40 text-brand-accent hover:bg-brand-accent hover:text-canvas transition-all font-bold text-[11px] flex items-center gap-1.5"
+                        >
+                          <Download size={13} />
+                          <span>DOWNLOAD ASET MASTER RAW (300 DPI)</span>
+                        </a>
+                      ) : (
+                        <span className="py-2 px-3 rounded-lg bg-surface border border-white/10 text-text-muted text-[11px] flex items-center gap-1.5">
+                          <Download size={13} />
+                          <span>Master 300 DPI: Menunggu upload operator (R2)</span>
+                        </span>
+                      );
+                    })()}
                     <a
-                      href="/api/enhance-image"
-                      download={`master-decal-${order.orderNumber}.png`}
-                      className="py-2 px-3 rounded-lg bg-brand-accent/20 border border-brand-accent/40 text-brand-accent hover:bg-brand-accent hover:text-canvas transition-all font-bold text-[11px] flex items-center gap-1.5"
+                      href={`/admin/orders/${order.id}/job-ticket`}
+                      target="_blank"
+                      className="py-2 px-3 rounded-lg bg-surface border border-white/10 hover:border-brand-accent text-white font-bold text-[11px] flex items-center gap-1.5"
                     >
-                      <Download size={13} />
-                      <span>DOWNLOAD ASET MASTER RAW (300 DPI)</span>
+                      <FileText size={13} className="text-brand-accent" />
+                      <span>JOB TICKET PDF</span>
                     </a>
                   </div>
                 </div>

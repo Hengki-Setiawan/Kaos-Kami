@@ -16,14 +16,14 @@ export const EditorialLookbook: React.FC = () => {
       <div className="flex flex-col md:flex-row md:items-end justify-between mb-12 gap-6">
         <div>
           <span className="block text-[11px] font-mono text-brand-accent uppercase tracking-widest mb-2">
-            {"// VISUAL ARCHIVE / EDITION 2026"}
+            ARSIP VISUAL & LOOKBOOK 2026
           </span>
           <h2 className="text-4xl sm:text-6xl font-display font-black uppercase text-text-primary">
-            FIELD NOTES
+            KATALOG FISIK
           </h2>
         </div>
         <p className="max-w-md text-xs font-mono text-text-muted leading-relaxed">
-          High-contrast editorial photography captured on 35mm film across industrial and brutalist architectural locations in Jakarta.
+          Dokumentasi visual produk kaos dan apparel Kaos Kami. Potongan boxy streetwear tegap dengan karakter warna pekat dan detail jahitan rapi.
         </p>
       </div>
 

@@ -6,7 +6,11 @@ const nextConfig = {
     formats: ["image/avif", "image/webp"],
   },
   experimental: {
+    optimizePackageImports: ["lucide-react", "clsx", "tailwind-merge", "framer-motion"],
     serverComponentsExternalPackages: ["@libsql/client", "@prisma/adapter-libsql"],
+  },
+  compiler: {
+    removeConsole: process.env.NODE_ENV === "production" ? { exclude: ["error", "warn"] } : false,
   },
   async headers() {
     return [

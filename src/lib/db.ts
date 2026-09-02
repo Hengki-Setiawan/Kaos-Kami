@@ -22,14 +22,18 @@ function getDatabaseUrl(): string {
   return `file:${dbPath}`;
 }
 
+import { createClient } from "@libsql/client/http";
+
 function createPrismaClient() {
   const url = getDatabaseUrl();
   const authToken = process.env.TURSO_AUTH_TOKEN;
 
-  const adapter = new (PrismaLibSQL as any)({
+  const client = createClient({
     url,
     authToken,
   });
+
+  const adapter = new PrismaLibSQL(client as any);
 
   return new PrismaClient({
     adapter,

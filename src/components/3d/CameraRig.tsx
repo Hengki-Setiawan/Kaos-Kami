@@ -21,6 +21,7 @@ export const CameraRig: React.FC<CameraRigProps> = ({ targetPosition, targetLook
     isDrawerCollapsed,
     drawerPosition,
     interactionTool,
+    isGizmoDragging,
   } = useConfiguratorStore();
 
   const { camera } = useThree();
@@ -73,12 +74,13 @@ export const CameraRig: React.FC<CameraRigProps> = ({ targetPosition, targetLook
     return (
       <OrbitControls
         ref={controlsRef}
+        enabled={!isGizmoDragging}
         enableDamping
         dampingFactor={0.06}
         rotateSpeed={0.75}
         zoomSpeed={0.85}
         panSpeed={0.8}
-        enablePan={true}
+        enablePan={!isGizmoDragging}
         mouseButtons={{
           LEFT: isPanMode ? THREE.MOUSE.PAN : THREE.MOUSE.ROTATE,
           MIDDLE: THREE.MOUSE.DOLLY,
