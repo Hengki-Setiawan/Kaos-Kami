@@ -52,6 +52,7 @@ import {
 import { AdminMobileDashboard } from '@/components/admin';
 import { SavedDesignsGallery } from '@/components/offline';
 import { BiometricLockPrompt } from '@/components/security';
+import { DynamicIslandPreview } from '@/components/native';
 import { optimizeDecalImageForMobile } from '@/lib/enhancers/imageOptimizerMobile';
 import { useSavedDesignsStore } from '@/lib/offline/savedDesignsStore';
 
@@ -464,6 +465,19 @@ export default function MobileApp() {
               <Badge variant="production">Live Tracking</Badge>
             </div>
 
+            {/* Dynamic Island Live Activity Simulation */}
+            <div className="py-1">
+              <p className="text-[10px] text-zinc-500 text-center mb-1.5 uppercase font-mono tracking-wider">
+                Simulasi iOS Dynamic Island & Lock Screen
+              </p>
+              <DynamicIslandPreview
+                status={activeOrder.status}
+                orderNumber={activeOrder.orderNumber}
+                apparelTitle={activeOrder.apparelTitle}
+              />
+            </div>
+
+            {/* Live Order Tracker Component */}
             <UserOrderTracker
               order={activeOrder}
               onPayNow={() => {
