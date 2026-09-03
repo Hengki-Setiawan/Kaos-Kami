@@ -6,3 +6,5 @@ export * from './camera';
 export * from './share';
 export * from './network';
 export * from './push';
+export * from './scanner';
+export * from './browser';

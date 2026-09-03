@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { ApparelType } from './useMobileStudioStore';
 import { haptic } from '@/lib/bridge/haptics';
+import { preferencesJsonStorage } from '@/lib/offline/preferencesStorage';
 
 export interface CartItem {
   id: string;
@@ -33,24 +34,7 @@ export interface MobileCartState {
 export const useMobileCartStore = create<MobileCartState>()(
   persist(
     (set, get) => ({
-      items: [
-        {
-          id: 'demo-item-1',
-          apparelType: 'tshirt',
-          apparelTitle: 'Kaos Heavyweight 280 GSM',
-          colorHex: '#0E0E10',
-          colorName: 'Obsidian Black',
-          size: 'L',
-          quantity: 1,
-          basePrice: 125000,
-          sablonPrice: 35000,
-          totalPrice: 160000,
-          decalUrl: null,
-          printWidthCm: 28.5,
-          printHeightCm: 22.0,
-          createdAt: new Date().toISOString(),
-        },
-      ],
+      items: [],
 
       addItem: (newItem) => {
         haptic.addToCart();
@@ -105,6 +89,7 @@ export const useMobileCartStore = create<MobileCartState>()(
     }),
     {
       name: 'kaoskami_mobile_cart',
+      storage: preferencesJsonStorage(),
     }
   )
 );

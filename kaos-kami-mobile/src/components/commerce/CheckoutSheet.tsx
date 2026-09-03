@@ -5,15 +5,24 @@ import { Check, ShieldCheck, MapPin, QrCode, CreditCard, Truck, ChevronRight } f
 import { BottomSheet, HapticButton, Badge } from '@/components/ui';
 import { useMobileCartStore } from '@/store/useMobileCartStore';
 import { MAKASSAR_DELIVERY_OPTIONS, DeliveryOption } from '@/lib/shipping/deliveryOptionsMobile';
+import { mobileApiClient } from '@/lib/api/mobileApiClient';
+import { openDuitkuPaymentModal } from '@/lib/payments/duitkuMobile';
 import { haptic } from '@/lib/bridge/haptics';
 
 export interface CheckoutSheetProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onOrderSuccess: (orderId: string) => void;
+  onOrderSuccess: (orderId: string, paymentUrl?: string) => void;
+  onNotify?: (msg: string) => void;
 }
 
-export function CheckoutSheet({ open, onOpenChange, onOrderSuccess }: CheckoutSheetProps) {
+const DELIVERY_TO_SERVER: Record<string, 'PICKUP' | 'INSTANT_COURIER' | 'FLAT_MAKASSAR'> = {
+  WORKSHOP_PICKUP: 'PICKUP',
+  MAXIM_COD: 'INSTANT_COURIER',
+  FLAT_RATE_MAKASSAR: 'FLAT_MAKASSAR',
+};
+
+export function CheckoutSheet({ open, onOpenChange, onOrderSuccess, onNotify }: CheckoutSheetProps) {
   const { items, getSubtotal, clearCart } = useMobileCartStore();
   const [step, setStep] = useState<1 | 2 | 3>(1);
 
@@ -24,23 +33,86 @@ export function CheckoutSheet({ open, onOpenChange, onOrderSuccess }: CheckoutSh
   const [selectedDelivery, setSelectedDelivery] = useState<DeliveryOption>(MAKASSAR_DELIVERY_OPTIONS[0]);
   const [selectedPayment, setSelectedPayment] = useState<'QRIS' | 'VA_BCA' | 'MAXIM_COD'>('QRIS');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [formError, setFormError] = useState<string | null>(null);
 
   const subtotal = getSubtotal();
   const deliveryFee = selectedDelivery.price;
   const grandTotal = subtotal + deliveryFee;
 
-  const handlePlaceOrder = () => {
+  const handlePlaceOrder = async () => {
+    setFormError(null);
+    if (customerName.trim().length < 2) return setFormError('Nama penerima minimal 2 karakter.');
+    if (customerPhone.replace(/[^0-9]/g, '').length < 10) return setFormError('Nomor WhatsApp minimal 10 digit.');
+    if (customerAddress.trim().length < 5) return setFormError('Alamat pengiriman minimal 5 karakter.');
+    if (items.length === 0) return setFormError('Keranjang masih kosong.');
+
     setIsSubmitting(true);
     haptic.tapHeavy();
+    try {
+      const isCod = selectedPayment === 'MAXIM_COD';
+      const res = await mobileApiClient.checkout({
+        recipientName: customerName.trim(),
+        phoneNumber: customerPhone.trim(),
+        deliveryMethod: DELIVERY_TO_SERVER[selectedDelivery.id],
+        fullAddress: customerAddress.trim(),
+        district: 'Makassar',
+        paymentMethod: selectedPayment,
+        cod: isCod,
+        items: items.map((it) => ({
+          apparelSlug: it.apparelType,
+          colorHex: it.colorHex,
+          colorName: it.colorName,
+          size: it.size,
+          quantity: it.quantity,
+          title: it.apparelTitle,
+          decals: it.decalUrl
+            ? [{
+                id: `decal-${it.id}`,
+                url: it.decalUrl,
+                name: 'Depan',
+                targetSide: 'front',
+                x: 0,
+                y: -0.05,
+                scale: 0.11,
+                rotation: 0,
+                opacity: 1,
+              }]
+            : [],
+        })),
+      });
 
-    setTimeout(() => {
-      const newOrderId = `KK-${new Date().getFullYear()}-${Math.floor(100 + Math.random() * 900)}`;
-      setIsSubmitting(false);
+      if (!res.success) {
+        // 502 fail-closed: order tetap tersimpan PENDING di server.
+        if (res.orderId) {
+          clearCart();
+          onOpenChange(false);
+          onOrderSuccess(res.orderId);
+          onNotify?.('Pesanan tersimpan (PENDING). Buka tab Pesanan untuk lanjutkan pembayaran.');
+        } else {
+          setFormError(res.error || 'Checkout gagal. Periksa koneksi lalu coba lagi.');
+        }
+        return;
+      }
+
+      if (res.userId && typeof window !== 'undefined') {
+        try { localStorage.setItem('kaoskami_user_id', res.userId); } catch {}
+      }
       clearCart();
       haptic.success();
       onOpenChange(false);
-      onOrderSuccess(newOrderId);
-    }, 1200);
+      onOrderSuccess(res.orderId!, isCod ? undefined : res.paymentUrl);
+      if (!isCod && res.paymentUrl) {
+        openDuitkuPaymentModal(res.paymentUrl, () => {
+          onNotify?.('Browser pembayaran ditutup. Status pesanan diperbarui otomatis.');
+        });
+      } else {
+        onNotify?.('Pesanan COD tersimpan! Bayar tunai ke kurir saat tiba.');
+      }
+    } catch (e: any) {
+      setFormError(e?.message || 'Checkout gagal. Coba lagi.');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -48,7 +120,7 @@ export function CheckoutSheet({ open, onOpenChange, onOrderSuccess }: CheckoutSh
       open={open}
       onOpenChange={onOpenChange}
       title={step === 1 ? 'Data Penerima' : step === 2 ? 'Pengiriman Makassar' : 'Metode Pembayaran'}
-      description="Pesanan akan diverifikasi oleh Admin Workshop sebelum pembayaran dibuka."
+      description="Harga dihitung ulang di server. COD bayar tunai ke kurir."
     >
       <div className="space-y-4 py-2 pb-6">
         {/* Step Indicator Tabs */}
@@ -242,6 +314,11 @@ export function CheckoutSheet({ open, onOpenChange, onOrderSuccess }: CheckoutSh
             </div>
 
             {/* Submit Button */}
+            {formError && (
+              <div className="p-3 rounded-xl bg-rose-500/10 border border-rose-500/30 text-[11px] text-rose-300">
+                {formError}
+              </div>
+            )}
             <HapticButton
               variant="primary"
               hapticStyle="success"

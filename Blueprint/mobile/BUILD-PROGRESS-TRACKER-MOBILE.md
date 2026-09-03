@@ -114,6 +114,35 @@
 
 ---
 
+## 🔧 PHASE 11: MAKSIMALISASI 100% — WIRING NYATA & ANTI-MOCK (04 Sep 2026)
+Status: SELESAI DI KODE — audit gap M1–M10 (skor realita ±45% → ±90%) + wiring backend + hapus mock.
+
+### Hasil audit jujur per fase (sebelum → sesudah Phase 11)
+- M1 ±85% → ±95%: tambah `POST_NOTIFICATIONS`, QS Tile Kotlin, `google-services.json` tetap manual.
+- M2 ±90% → ±98%: OKLCH tokens, safe-area globals + header, keyboard listener.
+- M3 ±55% → ±90%: `DecalGizmoMobile` drag/pinch/rotate + snap + warning 30cm, `disposeScene`, DPI badge real, `clothPhysicalMaterial` 4 arketipe, LOD low-tier, ekspor HD 1080p + turntable WebM + watermark, tombol walking.
+- M4 ±20% → ±90%: checkout → `/api/mobile/orders/checkout` (termasuk COD), tracker polling 10 dtk, admin GET/PATCH asli + badge mode demo, hapus order/keranjang demo.
+- M5 ±50% → ±85%: persist Preferences, syncQueue init + replay `designs/sync`, biometrik tanpa bypass, MLKit scanner asli + tombol scan admin.
+- M6 ±55% → ±80%: CI trigger tag + job AAB, ProGuard MLKit/Sentry, `/privacy` web.
+- M7 ±55% → ±85%: PoseLandmarker `@mediapipe/tasks-vision` asli (fallback siluet), shutter komposit 1080x1920 + share file.
+- M8 ±25% → ±70%: watermark free-tier aktif, TechPack label jujur, abstraksi billing/ads + label simulasi.
+- M9 ±10% → ±40%: handler `appUrlOpen`, QS Tile Kotlin + manifest (belum uji device).
+- M10 ±10% → ±95%: 5 endpoint `/api/mobile/*` + `UserDevice` + client di-wire ke app.
+
+### [x] Yang dikerjakan Phase 11
+- [x] Server: `UserDevice`, `/api/mobile/catalog|orders/checkout|orders/[id]/status|designs/sync|notifications/register` (Zod semua).
+- [x] Mobile: checkout/tracker/admin/push/sync ter-wire ke backend; Preferences; scanner; gizmo; dispose; DPI; material; LOD; ekspor; shutter; MediaPipe; watermark; tile; deeplink; keyboard; OKLCH; CI AAB; privacy.
+- [x] Verifikasi: `tsc --noEmit` web 0 error, mobile 0 error, `next build` 91.9 kB / 180 kB first load, `cap sync android` sukses, seed lokal OK.
+
+### [ ] Sisa MANUAL (butuh akun/perangkat, tidak bisa dari kode)
+- [ ] Isi secrets Duitku Cloudflare (`wrangler secret put DUITKU_*`) → lalu uji checkout sandbox end-to-end.
+- [ ] `google-services.json` dari Firebase Console (FCM + pushPanel) + uji notifikasi di HP fisik.
+- [ ] AdMob App ID + Play Billing product Rp29.000 → ganti `Simulated*Provider` dengan SDK asli.
+- [ ] Build AAB di CI + uji instal di minimal 1 HP Android fisik (gizmo pinch, shutter, scan, tile).
+- [ ] Folder `ios/` (`npx cap add ios` di Mac) + Swift Live Activities + App Store submission.
+
+---
+
 ## 📝 WORKLOG HARIAN
 
 | Tanggal | Fase | Tugas yang Diselesaikan | Kendala / Catatan | Status |
@@ -130,4 +159,5 @@
 | **03 Sep 2026** | **Phase 9 (M9)** | Dynamic Island Live Activities, Lock Screen Widget & Material You Theme Support | Integrasi preview dan deep link selesai | 🟢 Selesai |
 | **03 Sep 2026** | **Phase 10 (M10)** | Kontrak API Mobile, ETag Caching 304, Lean Order Polling & FCM Push Registration | Seluruh 10 Fase Mobile tuntas 100% tanpa error | 🏁 MASTER COMPLETED |
 | **03 Sep 2026** | **AI & Physics** | Integrasi Fisika Inersia Kain (`clothInertiaPhysics.ts`) & MediaPipe AI Pose Tracking (`mediaPipePoseTracker.ts`) | Build static 174kB lolos 0 error, sync Android sukses | 🚀 Upgraded |
+| **04 Sep 2026** | **Phase 11 (M1-M10)** | Maksimalisasi: audit gap (±45%), 5 endpoint `/api/mobile/*` + `UserDevice`, wiring checkout/tracker/admin/push/sync, Preferences, MLKit scanner, gizmo+dispose+DPI+material+LOD+ekspor, MediaPipe asli, shutter komposit, watermark, tile+deeplink, CI AAB, privacy | typecheck web+mobile 0 error, build 91.9kB/180kB, cap sync sukses, seed OK. Sisa manual: secrets Duitku, google-services.json, AdMob/Billing, uji HP fisik, ios/ | 🟢 Selesai (kode) |
 

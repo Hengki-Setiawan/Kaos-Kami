@@ -36,9 +36,19 @@ export class DuitkuPaymentProvider {
   private isProduction: boolean;
 
   constructor() {
-    this.merchantCode = process.env.DUITKU_MERCHANT_CODE || "DS28521";
-    this.apiKey = process.env.DUITKU_API_KEY || "ea279c7a1381333794d265d70b55693a";
+    // Secrets wajib via env / wrangler secret — JANGAN hardcode di source.
+    // Lihat .env.example + `wrangler secret put DUITKU_MERCHANT_CODE / DUITKU_API_KEY`.
+    this.merchantCode = (process.env.DUITKU_MERCHANT_CODE || "").trim();
+    this.apiKey = (process.env.DUITKU_API_KEY || "").trim();
     this.isProduction = process.env.DUITKU_ENV === "production";
+  }
+
+  private assertConfigured(): void {
+    if (!this.merchantCode || !this.apiKey) {
+      throw new Error(
+        "Duitku belum dikonfigurasi: set DUITKU_MERCHANT_CODE & DUITKU_API_KEY via env / wrangler secret."
+      );
+    }
   }
 
   private getInquiryUrl(): string {
@@ -75,6 +85,7 @@ export class DuitkuPaymentProvider {
    * Request Duitku Payment URL & Reference
    */
   public async createCharge(params: CreateDuitkuChargeParams): Promise<DuitkuChargeResult> {
+    this.assertConfigured();
     const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
     const callbackUrl = `${siteUrl}/api/webhooks/duitku`;
     const returnUrl = `${siteUrl}/orders/${params.orderId}`;
@@ -121,6 +132,10 @@ export class DuitkuPaymentProvider {
         throw new Error(data.statusMessage || `Duitku Error: ${data.statusCode}`);
       }
 
+      if (!data.reference && !data.paymentUrl) {
+        throw new Error("Duitku response tidak valid: reference/paymentUrl kosong");
+      }
+
       return {
         reference: data.reference || `DUITKU-${params.orderNumber}`,
         paymentUrl: data.paymentUrl || `https://sandbox.duitku.com/topup/topupdirectv2.aspx?ref=${data.reference}`,
@@ -130,13 +145,10 @@ export class DuitkuPaymentProvider {
         statusMessage: data.statusMessage || "SUCCESS",
       };
     } catch (err: any) {
+      // FAIL-CLOSED: jangan pernah return SUCCESS palsu. Caller (checkout) akan
+      // mengubahnya jadi 502 + Sentry, order tetap PENDING_PAYMENT dan bisa retry.
       console.error("Duitku createCharge error:", err);
-      return {
-        reference: `MOCK-DUITKU-${Date.now()}`,
-        paymentUrl: `https://sandbox.duitku.com/topup/topupdirectv2.aspx`,
-        statusCode: "00",
-        statusMessage: "SUCCESS_FALLBACK",
-      };
+      throw new Error(`Duitku charge gagal: ${err?.message || "unknown error"}`);
     }
   }
 }

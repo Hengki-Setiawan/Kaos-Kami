@@ -3,6 +3,8 @@
 import React, { useRef, useState, useEffect, useMemo } from 'react';
 import { Canvas } from '@react-three/fiber';
 import { Camera, FlipHorizontal, X, Share2, Sparkles, Bot } from 'lucide-react';
+import { Filesystem, Directory } from '@capacitor/filesystem';
+import { Share } from '@capacitor/share';
 import { haptic } from '@/lib/bridge/haptics';
 import { shareCustomDesign } from '@/lib/bridge/share';
 import { computeAverageLuminance } from '@/lib/3d/lightingEstimation';
@@ -10,7 +12,7 @@ import { MediaPipePoseTracker, PoseTransform3D } from '@/lib/3d/mediaPipePoseTra
 import { MobileApparelMeshRenderer } from './MobileApparelMeshRenderer';
 import { useMobileStudioStore } from '@/store/useMobileStudioStore';
 
-export function ARPreviewStage({ onClose }: { onClose: () => void }) {
+export function ARPreviewStage({ onClose, onNotify }: { onClose: () => void; onNotify?: (msg: string) => void }) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const [facingMode, setFacingMode] = useState<'user' | 'environment'>('user');
   const [stream, setStream] = useState<MediaStream | null>(null);
@@ -105,14 +107,68 @@ export function ARPreviewStage({ onClose }: { onClose: () => void }) {
     setFacingMode((prev) => (prev === 'user' ? 'environment' : 'user'));
   };
 
-  const handleTakeSnapshot = () => {
+  const handleTakeSnapshot = async () => {
     haptic.tapHeavy();
     setSnapshotTaken(true);
-    setTimeout(() => {
-      setSnapshotTaken(false);
+    try {
+      const video = videoRef.current;
+      const glCanvas = document.querySelector('#kk-ar-stage canvas');
+      if (!video || video.readyState < 2 || !glCanvas) throw new Error('Kamera/3D belum siap');
+
+      // Komposit 1080x1920: video cover-fit + overlay 3D + watermark.
+      const W = 1080;
+      const H = 1920;
+      const out = document.createElement('canvas');
+      out.width = W;
+      out.height = H;
+      const ctx = out.getContext('2d');
+      if (!ctx) throw new Error('Canvas tidak didukung');
+
+      const vw = video.videoWidth;
+      const vh = video.videoHeight;
+      const cover = Math.max(W / vw, H / vh);
+      const dw = vw * cover;
+      const dh = vh * cover;
+      ctx.save();
+      if (facingMode === 'user') {
+        ctx.translate(W, 0);
+        ctx.scale(-1, 1); // un-mirror agar logo terbaca normal
+      }
+      ctx.drawImage(video, (W - dw) / 2, (H - dh) / 2, dw, dh);
+      ctx.restore();
+
+      const gw = (glCanvas as HTMLCanvasElement).width;
+      const gh = (glCanvas as HTMLCanvasElement).height;
+      const fit = Math.min(W / gw, H / gh);
+      ctx.drawImage(glCanvas as HTMLCanvasElement, (W - gw * fit) / 2, (H - gh * fit) / 2, gw * fit, gh * fit);
+
+      ctx.font = '700 30px Syne, sans-serif';
+      ctx.fillStyle = 'rgba(255,255,255,0.8)';
+      ctx.strokeStyle = 'rgba(0,0,0,0.6)';
+      ctx.lineWidth = 4;
+      ctx.strokeText('KAOS KAMI MAKASSAR • AR TRY-ON', 40, H - 48);
+      ctx.fillText('KAOS KAMI MAKASSAR • AR TRY-ON', 40, H - 48);
+
+      const base64 = out.toDataURL('image/jpeg', 0.92).split(',')[1] ?? '';
+      const fileName = `kaoskami-ar-${Date.now()}.jpg`;
+      const native = typeof window !== 'undefined' && (window as any).Capacitor?.isNativePlatform?.() === true;
+      if (native) {
+        const saved = await Filesystem.writeFile({ path: fileName, data: base64, directory: Directory.Cache });
+        await Share.share({ title: 'AR Try-On Kaos Kami', url: saved.uri, dialogTitle: 'Bagikan ke WhatsApp Status' });
+      } else {
+        const a = document.createElement('a');
+        a.href = `data:image/jpeg;base64,${base64}`;
+        a.download = fileName;
+        a.click();
+      }
       haptic.success();
+      onNotify?.('Foto AR 1080x1920 tersimpan & siap dibagikan!');
+    } catch (e: any) {
+      onNotify?.(e?.message || 'Snapshot gagal. Coba lagi.');
       shareCustomDesign('ar-snapshot', `Hasil AR Virtual Try-On Kaos Kami (${apparelType.toUpperCase()})`);
-    }, 400);
+    } finally {
+      setTimeout(() => setSnapshotTaken(false), 400);
+    }
   };
 
   return (
@@ -142,7 +198,7 @@ export function ARPreviewStage({ onClose }: { onClose: () => void }) {
       )}
 
       {/* 3D Model Transparent Overlay with MediaPipe Transform */}
-      <div className="absolute inset-0 z-20 pointer-events-none">
+      <div id="kk-ar-stage" className="absolute inset-0 z-20 pointer-events-none">
         <Canvas
           camera={{ position: [0, 0, 2.3], fov: 45 }}
           gl={{ alpha: true, preserveDrawingBuffer: true }}

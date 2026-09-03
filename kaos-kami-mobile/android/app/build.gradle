@@ -19,9 +19,12 @@ android {
     signingConfigs {
         release {
             storeFile file('kaoskami-release.keystore')
-            storePassword 'KaosKamiMakassar2026!'
-            keyAlias 'kaoskami'
-            keyPassword 'KaosKamiMakassar2026!'
+            // Password dari CI secrets / env (aman). Fallback lokal hanya untuk beta.
+            // PENTING: password ini pernah ter-commit — saat rilis Play Store,
+            // generate keystore BARU dan jangan commit (beta keystore = sideload saja).
+            storePassword System.getenv('KAOSKAMI_STORE_PASSWORD') ?: 'KaosKamiMakassar2026!'
+            keyAlias System.getenv('KAOSKAMI_KEY_ALIAS') ?: 'kaoskami'
+            keyPassword System.getenv('KAOSKAMI_KEY_PASSWORD') ?: 'KaosKamiMakassar2026!'
         }
     }
     buildTypes {

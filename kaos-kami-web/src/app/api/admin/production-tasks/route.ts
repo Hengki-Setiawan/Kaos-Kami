@@ -2,24 +2,14 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { sendWhatsAppNotification, buildProductionStatusMessage } from "@/lib/notifications/whatsapp";
 import { headers } from "next/headers";
-
-// Simple in-memory rate limiter (30 req/min per IP) — Upstash Redis ideal for prod, this is dev fallback
-const rateMap = new Map<string, { count: number; reset: number }>();
-function isRateLimited(ip: string, limit = 30): boolean {
-  const now = Date.now();
-  const entry = rateMap.get(ip);
-  if (!entry || now > entry.reset) {
-    rateMap.set(ip, { count: 1, reset: now + 60_000 });
-    return false;
-  }
-  entry.count++;
-  return entry.count > limit;
-}
+import { checkRateLimitAsync, getClientIp, rateLimitHeaders } from "@/lib/security/rateLimiter";
 
 export async function GET(req: NextRequest) {
   try {
-    const ip = req.headers.get("x-forwarded-for") || "local";
-    if (isRateLimited(ip)) return NextResponse.json({ error: "Rate limited" }, { status: 429 });
+    const ip = getClientIp(req);
+    const rl = await checkRateLimitAsync(`admin-tasks:ip:${ip}`, 30, 60);
+    if (rl.isLimited)
+      return NextResponse.json({ error: "Rate limited" }, { status: 429, headers: rateLimitHeaders(rl, 30) });
 
     // RBAC: PRODUCTION_STAFF only sees assigned/unassigned, ADMIN sees all
     let staffUserId: string | null = null;
@@ -116,8 +106,10 @@ export async function GET(req: NextRequest) {
 
 export async function PATCH(req: NextRequest) {
   try {
-    const ip = req.headers.get("x-forwarded-for") || "local";
-    if (isRateLimited(ip)) return NextResponse.json({ error: "Rate limited" }, { status: 429 });
+    const ip = getClientIp(req);
+    const rl = await checkRateLimitAsync(`admin-tasks:ip:${ip}`, 30, 60);
+    if (rl.isLimited)
+      return NextResponse.json({ error: "Rate limited" }, { status: 429, headers: rateLimitHeaders(rl, 30) });
 
     // RBAC check on mutating side as well
     try {

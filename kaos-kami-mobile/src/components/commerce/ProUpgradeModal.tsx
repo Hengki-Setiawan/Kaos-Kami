@@ -3,6 +3,8 @@
 import React, { useState } from 'react';
 import { Crown, Sparkles, Check, PlayCircle, X } from 'lucide-react';
 import { GlassCard, HapticButton, Badge } from '@/components/ui';
+import { billingProvider } from '@/lib/monetization/billing';
+import { adsProvider } from '@/lib/monetization/ads';
 import { haptic } from '@/lib/bridge/haptics';
 
 export function ProUpgradeModal({
@@ -16,27 +18,43 @@ export function ProUpgradeModal({
 }) {
   const [adWatching, setAdWatching] = useState(false);
   const [adProgress, setAdProgress] = useState(0);
+  const [busy, setBusy] = useState(false);
 
   if (!open) return null;
 
-  const handleWatchRewardedAd = () => {
+  const handleSubscribe = async () => {
+    if (busy) return;
+    setBusy(true);
+    haptic.tapHeavy();
+    try {
+      const res = await billingProvider.purchaseProMonthly();
+      if (res.ok) {
+        haptic.success();
+        onUnlockPro();
+        onClose();
+      }
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const handleWatchRewardedAd = async () => {
     haptic.tapMedium();
     setAdWatching(true);
     setAdProgress(0);
-
-    const interval = setInterval(() => {
-      setAdProgress((prev) => {
-        if (prev >= 100) {
-          clearInterval(interval);
-          setAdWatching(false);
-          haptic.success();
-          onUnlockPro();
-          onClose();
-          return 100;
-        }
-        return prev + 25;
+    const tick = setInterval(() => {
+      setAdProgress((prev) => Math.min(95, prev + 12));
+    }, 200);
+    try {
+      await adsProvider.showRewarded(() => {
+        haptic.success();
+        onUnlockPro();
+        onClose();
       });
-    }, 400);
+    } finally {
+      clearInterval(tick);
+      setAdWatching(false);
+    }
   };
 
   return (
@@ -81,14 +99,17 @@ export function ProUpgradeModal({
           <HapticButton
             variant="primary"
             hapticStyle="tapHeavy"
-            onClick={() => {
-              onUnlockPro();
-              onClose();
-            }}
+            loading={busy}
+            onClick={handleSubscribe}
             className="w-full py-3.5 font-bold shadow-lg shadow-orange-600/40"
           >
             Langganan Pro • Rp 29.000 / Bulan
           </HapticButton>
+          {!billingProvider.isLive && (
+            <p className="text-[10px] text-zinc-500 text-center">
+              Mode simulasi — pembayaran asli aktif setelah rilis Play Store.
+            </p>
+          )}
 
           {/* Rewarded Ads Free Option */}
           <div className="pt-2 border-t border-zinc-800 text-center">
@@ -103,14 +124,21 @@ export function ProUpgradeModal({
                 </div>
               </div>
             ) : (
-              <HapticButton
-                variant="glass"
-                icon={<PlayCircle className="w-4 h-4 text-amber-400" />}
-                onClick={handleWatchRewardedAd}
-                className="w-full text-xs text-zinc-300"
-              >
-                Tonton Video 15 Detik (Buka 1x Ekspor HD)
-              </HapticButton>
+              <>
+                <HapticButton
+                  variant="glass"
+                  icon={<PlayCircle className="w-4 h-4 text-amber-400" />}
+                  onClick={handleWatchRewardedAd}
+                  className="w-full text-xs text-zinc-300"
+                >
+                  Tonton Video 15 Detik (Buka 1x Ekspor HD)
+                </HapticButton>
+                {!adsProvider.isLive && (
+                  <p className="text-[10px] text-zinc-500 text-center mt-1">
+                    Slot iklan simulasi — AdMob aktif setelah App ID terdaftar.
+                  </p>
+                )}
+              </>
             )}
           </div>
         </div>

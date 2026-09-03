@@ -20,6 +20,16 @@ interface OrderReceiptPageProps {
 }
 
 export default async function OrderReceiptPage({ params, searchParams }: OrderReceiptPageProps) {
+  // Anti-IDOR: invoice publik via link WA, tapi PII dimask untuk non-pemilik.
+  let sessionUserId: string | null = null;
+  let sessionRole: string | null = null;
+  try {
+    const { auth } = await import("@/lib/auth");
+    const { headers } = await import("next/headers");
+    const session = await auth.api.getSession({ headers: await headers() });
+    sessionUserId = (session?.user as any)?.id || null;
+    sessionRole = (session?.user as any)?.role || null;
+  } catch {}
   const order = await prisma.order.findUnique({
     where: { id: params.id },
     include: {
@@ -36,6 +46,19 @@ export default async function OrderReceiptPage({ params, searchParams }: OrderRe
   if (!order) {
     notFound();
   }
+
+  const isPrivileged =
+    sessionRole === "ADMIN" || sessionRole === "SUPER_ADMIN" || sessionRole === "PRODUCTION_STAFF";
+  const isOwner = !!sessionUserId && order.userId === sessionUserId;
+  const canSeePII = isOwner || isPrivileged;
+  const maskPhone = (p?: string | null) =>
+    !p ? "-" : canSeePII ? p : `${p.slice(0, 4)}****${p.slice(-2)}`;
+  const maskEmail = (e?: string | null) => {
+    if (!e) return "-";
+    if (canSeePII) return e;
+    const [u, d] = e.split("@");
+    return `${(u || "").slice(0, 2)}***@${d || "***"}`;
+  };
 
   const isSuccess =
     searchParams.status === "success" ||
@@ -86,14 +109,16 @@ export default async function OrderReceiptPage({ params, searchParams }: OrderRe
           <div className="p-4 rounded-xl bg-surface/50 border border-white/5 space-y-1.5">
             <span className="block text-[11px] text-text-muted uppercase">Penerima & Kontak</span>
             <p className="font-bold text-white text-sm">{order.shippingAddress?.recipientName || order.user.name}</p>
-            <p className="text-text-muted">{order.user.phoneNumber || order.shippingAddress?.phoneNumber}</p>
-            <p className="text-text-muted truncate">{order.user.email}</p>
+            <p className="text-text-muted">{maskPhone(order.user.phoneNumber || order.shippingAddress?.phoneNumber)}</p>
+            <p className="text-text-muted truncate">{maskEmail(order.user.email)}</p>
           </div>
 
           <div className="p-4 rounded-xl bg-surface/50 border border-white/5 space-y-1.5">
             <span className="block text-[11px] text-text-muted uppercase">Pengiriman Makassar</span>
             <p className="font-bold text-brand-accent text-sm">{order.deliveryMethod}</p>
-            <p className="text-text-muted text-[11px]">{order.shippingAddress?.fullAddress}</p>
+            <p className="text-text-muted text-[11px]">
+              {canSeePII ? order.shippingAddress?.fullAddress : "Alamat disembunyikan untuk privasi pemilik"}
+            </p>
             {order.courierNotes && <p className="text-amber-400 text-[10px]">Catatan: {order.courierNotes}</p>}
           </div>
         </div>

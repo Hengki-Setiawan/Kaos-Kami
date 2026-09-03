@@ -157,12 +157,14 @@ export const PRODUCT_COLORS: ProductColor[] = [
 ];
 
 // Makassar Custom Printing & Garment Dynamic Pricing Engine
-// Unified to 6-variable engine (Blueprint 01 §10) — single source of truth via pricingEngine.ts
+// Tier SSOT: lib/printTiers.ts (dipakai pricingEngine by-cm & fungsi legacy ini by-scale).
+// Untuk total akurat (aspek gambar + diskon volume), pakai calculate6VariablePrice().
+import { classifyPrintTierByScale, printTierCost, PRINT_TIER_LABEL } from "./printTiers";
 export interface PriceBreakdown {
   basePrice: number;
   colorSurcharge: number;
   sizeSurcharge: number;
-  sablonDetails: { id: string; name: string; sizeType: "A6 Pocket" | "A4 Chest" | "A3 Big Print"; cost: number }[];
+  sablonDetails: { id: string; name: string; sizeType: "A6 Pocket" | "A5 Sedang" | "A4 Chest" | "A3 Big Print"; cost: number }[];
   totalSablonCost: number;
   totalPrice: number;
   formattedTotal: string;
@@ -183,22 +185,9 @@ export function calculateCustomMockupPrice(
   else if (size === "XXL") sizeSurcharge = 20000;
   // Use scaleCalibration for tier (same as pricingEngine) — fallback to scale heuristic
   const sablonDetails = decals.map((d, idx) => {
-    let cost = 25000;
-    let sizeType: "A6 Pocket" | "A4 Chest" | "A3 Big Print" = "A4 Chest";
-    // Calibrated 3D scale thresholds: <0.065 → A6 10k, <0.095 → A5 15k, <0.135 → A4 25k, >=0.135 → A3 35k
-    if (d.scale < 0.065) {
-      cost = 10000;
-      sizeType = "A6 Pocket";
-    } else if (d.scale >= 0.135) {
-      cost = 35000;
-      sizeType = "A3 Big Print";
-    } else if (d.scale < 0.095) {
-      cost = 15000;
-      sizeType = "A4 Chest";
-    } else {
-      cost = 25000;
-      sizeType = "A4 Chest";
-    }
+    const tier = classifyPrintTierByScale(d.scale);
+    const cost = printTierCost(tier);
+    const sizeType = PRINT_TIER_LABEL[tier];
     return { id: d.id, name: `Sablon #${idx + 1} (${d.targetSide.toUpperCase()} - ${sizeType})`, sizeType, cost };
   });
   const totalSablonCost = sablonDetails.reduce((s, i) => s + i.cost, 0);

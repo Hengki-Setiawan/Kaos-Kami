@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { SaveDesignSchema } from "@/lib/schemas/design";
 import { uploadBase64ToR2 } from "@/lib/r2";
+import { getAuthenticatedUser } from "@/lib/security/authGuard";
 
 export async function POST(req: NextRequest) {
   try {
@@ -66,6 +67,7 @@ export async function POST(req: NextRequest) {
     const design = await prisma.design.create({
       data: {
         title,
+        userId: (await getAuthenticatedUser().catch(() => null))?.id ?? undefined,
         categoryId: category.id,
         colorHex,
         colorName,
@@ -91,7 +93,15 @@ export async function POST(req: NextRequest) {
 
 export async function GET(req: NextRequest) {
   try {
+    // Anti-IDOR: non-admin hanya melihat desain miliknya sendiri.
+    const viewer = await getAuthenticatedUser().catch(() => null);
+    const isAdmin =
+      !!viewer && ["ADMIN", "SUPER_ADMIN", "PRODUCTION_STAFF"].includes(viewer.role);
+    if (!viewer) {
+      return NextResponse.json({ error: "Unauthorized: silakan login" }, { status: 401 });
+    }
     const designs = await prisma.design.findMany({
+      where: isAdmin ? undefined : { userId: viewer.id },
       take: 20,
       orderBy: { createdAt: "desc" },
       include: { category: true },

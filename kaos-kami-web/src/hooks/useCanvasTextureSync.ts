@@ -25,7 +25,8 @@ export function useCanvasTextureSync(options: Options) {
       const { canvas, setter } = canvasMap[view]!;
       if (!canvas) return;
       try {
-        const hasObjects = (canvas as any).getObjects().length > 0;
+        const getObjects = (canvas as any).getObjects;
+        const hasObjects = typeof getObjects === "function" ? getObjects.call(canvas).length > 0 : true;
         if (!hasObjects) return;
         const texture =
           selectedView === view

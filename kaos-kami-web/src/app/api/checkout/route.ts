@@ -6,7 +6,7 @@ import { sendWhatsAppNotification, buildOrderConfirmedMessage } from "@/lib/noti
 import { MAKASSAR_DELIVERY_OPTIONS, PRODUCTION_TURNAROUND_OPTIONS } from "@/lib/shipping/deliveryOptions";
 import { z } from "zod";
 import { DecalLayerSchema } from "@/lib/schemas/design";
-import { checkRateLimit, getClientIp } from "@/lib/security/rateLimiter";
+import { checkRateLimitAsync, getClientIp, rateLimitHeaders } from "@/lib/security/rateLimiter";
 
 const CheckoutItemSchema = z.object({
   apparelSlug: z.enum(["tshirt", "longsleeve", "crewneck", "hoodie", "shirt"]),
@@ -34,11 +34,11 @@ const CheckoutPayloadSchema = z.object({
 export async function POST(req: NextRequest) {
   try {
     const ip = getClientIp(req);
-    const limit = checkRateLimit(`checkout:ip:${ip}`, 5, 60); // Maks 5 checkout per menit per IP
+    const limit = await checkRateLimitAsync(`checkout:ip:${ip}`, 5, 60); // Maks 5 checkout per menit per IP
     if (limit.isLimited) {
       return NextResponse.json(
         { error: `Terlalu banyak permintaan transaksi. Silakan tunggu ${limit.resetSeconds} detik.` },
-        { status: 429 }
+        { status: 429, headers: rateLimitHeaders(limit, 5) }
       );
     }
 
@@ -164,30 +164,50 @@ export async function POST(req: NextRequest) {
       include: { items: true },
     });
 
-    // 7. Request Duitku Payment Token & Reference
-    const chargeResult = await duitkuProvider.createCharge({
-      orderId: order.id,
-      orderNumber: order.orderNumber,
-      amountIdr: computedTotalIdr,
-      customer: {
-        name: recipientName,
-        phone: cleanPhone,
-        email: email || `${cleanPhone}@kaoskami.customer`,
-      },
-      itemDetails: [
-        ...validatedItems.map((it) => ({
-          name: it.title || `${it.apparelSlug.toUpperCase()} Sablon`,
-          price: it.unitPriceIdr,
-          quantity: it.quantity,
-        })),
-      ],
-    });
+    // 7. Request Duitku Payment Token & Reference (fail-closed: lempar 502, order tetap PENDING)
+    let chargeResult;
+    try {
+      chargeResult = await duitkuProvider.createCharge({
+        orderId: order.id,
+        orderNumber: order.orderNumber,
+        amountIdr: computedTotalIdr,
+        customer: {
+          name: recipientName,
+          phone: cleanPhone,
+          email: email || `${cleanPhone}@kaoskami.customer`,
+        },
+        itemDetails: [
+          ...validatedItems.map((it) => ({
+            name: it.title || `${it.apparelSlug.toUpperCase()} Sablon`,
+            price: it.unitPriceIdr,
+            quantity: it.quantity,
+          })),
+        ],
+      });
+    } catch (chargeErr: any) {
+      console.error("Duitku charge gagal, order tetap PENDING_PAYMENT:", chargeErr?.message);
+      try {
+        const { captureException } = await import("@sentry/nextjs").catch(() => ({ captureException: null as any }));
+        captureException?.(chargeErr, { extra: { orderId: order.id, orderNumber } });
+      } catch {}
+      return NextResponse.json(
+        {
+          success: false,
+          orderId: order.id,
+          orderNumber: order.orderNumber,
+          invoiceUrl: `${process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000"}/orders/${order.id}`,
+          error: "Pembayaran Duitku gagal dibuat. Pesanan tersimpan PENDING — silakan retry checkout.",
+          detail: chargeErr?.message,
+        },
+        { status: 502 }
+      );
+    }
 
     // 8. Create Payment Record in Database
     await prisma.payment.create({
       data: {
         orderId: order.id,
-        provider: "duitku",
+        provider: "DUITKU",
         providerRef: chargeResult.reference,
         amountIdr: computedTotalIdr,
         status: "PENDING",

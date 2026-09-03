@@ -19,6 +19,7 @@ export function TouchOrbitControls() {
   const controlsRef = useRef<OrbitControlsImpl>(null);
   const { camera } = useThree();
   const cameraAngle = useMobileStudioStore((s) => s.cameraAngle);
+  const isGizmoDragging = useMobileStudioStore((s) => s.isGizmoDragging);
   const targetPosRef = useRef<THREE.Vector3 | null>(null);
 
   useEffect(() => {
@@ -43,6 +44,7 @@ export function TouchOrbitControls() {
   return (
     <DreiOrbitControls
       ref={controlsRef}
+      enabled={!isGizmoDragging}
       enablePan={false}
       enableZoom={true}
       rotateSpeed={0.75}

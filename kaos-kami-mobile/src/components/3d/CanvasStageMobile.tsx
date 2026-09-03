@@ -1,10 +1,11 @@
 "use client";
 
 import React, { Suspense, useEffect, useState } from 'react';
-import { Canvas } from '@react-three/fiber';
+import { Canvas, useThree } from '@react-three/fiber';
 import { useMobileDeviceTier } from '@/hooks/useMobileDeviceTier';
 import { useMobileStudioStore } from '@/store/useMobileStudioStore';
 import { enableScreenKeepAwake, disableScreenKeepAwake } from '@/lib/bridge/keepAwake';
+import { disposeSceneHierarchy } from '@/lib/3d/disposeScene';
 import { TouchOrbitControls } from './TouchOrbitControls';
 import { AnimationController } from './AnimationController';
 import { MobileApparelMeshRenderer } from './MobileApparelMeshRenderer';
@@ -17,6 +18,19 @@ function StudioLoader() {
       <p className="text-xs font-semibold text-zinc-400 font-['Syne']">Memuat Model 3D...</p>
     </div>
   );
+}
+
+/** Melepas VRAM (geometri/material/tekstur) saat studio unmount/ganti tab. */
+function SceneDisposer() {
+  const scene = useThree((s) => s.scene);
+  useEffect(() => {
+    return () => {
+      try {
+        disposeSceneHierarchy(scene);
+      } catch {}
+    };
+  }, [scene]);
+  return null;
 }
 
 export function CanvasStageMobile() {
@@ -56,7 +70,7 @@ export function CanvasStageMobile() {
   }
 
   return (
-    <div className="relative w-full h-full select-none touch-none overflow-hidden rounded-3xl bg-[#0E0E10]">
+    <div id="kk-studio" className="relative w-full h-full select-none touch-none overflow-hidden rounded-3xl bg-[#0E0E10]">
       <Suspense fallback={<StudioLoader />}>
         <Canvas
           camera={{ position: [0, 0, 2.5], fov: 45 }}
@@ -81,6 +95,7 @@ export function CanvasStageMobile() {
             canvas.addEventListener('webglcontextrestored', handleContextRestored, false);
           }}
         >
+          <SceneDisposer />
           <MobileStudioLighting />
           <TouchOrbitControls />
           <AnimationController>

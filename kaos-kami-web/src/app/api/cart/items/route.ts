@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
 import { z } from 'zod';
+import { assertResourceOwnerOrAdmin } from '@/lib/security/authGuard';
 const AddItemSchema = z.object({
   userId: z.string(),
   productVariantId: z.string().optional(),
@@ -15,6 +16,13 @@ export async function POST(req: NextRequest) {
     if (!parsed.success) return NextResponse.json({ error: parsed.error.errors[0]?.message || 'Invalid' }, { status: 400 });
     const { userId, productVariantId, designId, quantity, unitPriceIdr } = parsed.data;
     if (!productVariantId && !designId) return NextResponse.json({ error: 'Need productVariantId or designId' }, { status: 400 });
+    try {
+      await assertResourceOwnerOrAdmin(userId);
+    } catch (e: any) {
+      const msg = e?.message || 'Forbidden';
+      const status = msg.startsWith('Unauthorized') ? 401 : 403;
+      return NextResponse.json({ error: msg }, { status });
+    }
     let cart = await prisma.cart.findUnique({ where: { userId } });
     if (!cart) cart = await prisma.cart.create({ data: { userId } });
     const item = await prisma.cartItem.create({
@@ -28,6 +36,18 @@ export async function DELETE(req: NextRequest) {
     const { searchParams } = new URL(req.url);
     const itemId = searchParams.get('itemId');
     if (!itemId) return NextResponse.json({ error: 'Missing itemId' }, { status: 400 });
+    const existing = await prisma.cartItem.findUnique({
+      where: { id: itemId },
+      include: { cart: true },
+    });
+    if (!existing) return NextResponse.json({ error: 'Item not found' }, { status: 404 });
+    try {
+      await assertResourceOwnerOrAdmin(existing.cart.userId);
+    } catch (e: any) {
+      const msg = e?.message || 'Forbidden';
+      const status = msg.startsWith('Unauthorized') ? 401 : 403;
+      return NextResponse.json({ error: msg }, { status });
+    }
     await prisma.cartItem.delete({ where: { id: itemId } });
     return NextResponse.json({ success: true });
   } catch(e:any){ return NextResponse.json({ error: e.message }, { status: 500 }); }
@@ -39,6 +59,18 @@ export async function PATCH(req: NextRequest) {
     const { itemId, quantity } = body;
     if (!itemId || !quantity || quantity < 1) return NextResponse.json({ error: 'Invalid itemId/quantity' }, { status: 400 });
     if (quantity > 100) return NextResponse.json({ error: 'Max 100 per item' }, { status: 400 });
+    const existing = await prisma.cartItem.findUnique({
+      where: { id: itemId },
+      include: { cart: true },
+    });
+    if (!existing) return NextResponse.json({ error: 'Item not found' }, { status: 404 });
+    try {
+      await assertResourceOwnerOrAdmin(existing.cart.userId);
+    } catch (e: any) {
+      const msg = e?.message || 'Forbidden';
+      const status = msg.startsWith('Unauthorized') ? 401 : 403;
+      return NextResponse.json({ error: msg }, { status });
+    }
     const updated = await prisma.cartItem.update({ where: { id: itemId }, data: { quantity } });
     return NextResponse.json({ success: true, item: updated });
   } catch(e:any){ return NextResponse.json({ error: e.message }, { status: 500 }); }

@@ -1,6 +1,6 @@
 "use client";
 
-import React from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
 import {
   Clock,
@@ -14,6 +14,7 @@ import {
 } from 'lucide-react';
 import { GlassCard, Badge, HapticButton } from '@/components/ui';
 import { openDuitkuPaymentModal } from '@/lib/payments/duitkuMobile';
+import { mobileApiClient, MobileOrderStatus } from '@/lib/api/mobileApiClient';
 import { haptic } from '@/lib/bridge/haptics';
 
 export type OrderStatus =
@@ -40,6 +41,8 @@ export interface OrderItemData {
   paymentMethod: string;
   deliveryMethod: string;
   createdAt: string;
+  /** ID ProductionTask server (jika data dari /api/admin/production-tasks). */
+  taskId?: string;
 }
 
 const STATUS_STEPS: { key: OrderStatus; label: string; icon: React.ComponentType<{ className?: string }> }[] = [
@@ -76,7 +79,6 @@ export function UserOrderTracker({
       openDuitkuPaymentModal('https://sandbox.duitku.com/webapi/qris/demo');
     }
   };
-
   return (
     <GlassCard className="p-4 space-y-4">
       {/* Header Info Order */}
@@ -199,5 +201,94 @@ export function UserOrderTracker({
         </HapticButton>
       </div>
     </GlassCard>
+  );
+}
+
+const SERVER_TO_TRACKER: Record<string, OrderStatus> = {
+  PENDING_PAYMENT: 'PENDING_PAYMENT',
+  PAYMENT_CONFIRMED: 'PRINTING_DTF',
+  IN_PRODUCTION_QUEUE: 'PRINTING_DTF',
+  PRINTING: 'PRINTING_DTF',
+  QUALITY_CHECK: 'CURING_PRESS',
+  READY_TO_SHIP: 'SHIPPED',
+  SHIPPED: 'SHIPPED',
+  DELIVERED: 'COMPLETED',
+  COMPLETED: 'COMPLETED',
+};
+
+/**
+ * Kontainer live: polling GET /api/mobile/orders/:id/status tiap 10 detik.
+ * Menggantikan mock saat orderId server (cuid) tersedia.
+ */
+export function UserOrderTrackerLive({
+  orderId,
+  paymentUrl,
+  onNotify,
+}: {
+  orderId: string;
+  paymentUrl?: string;
+  onNotify?: (msg: string) => void;
+}) {
+  const [remote, setRemote] = useState<MobileOrderStatus | null>(null);
+  const [offline, setOffline] = useState(false);
+
+  const poll = useCallback(async () => {
+    const s = await mobileApiClient.pollOrderStatus(orderId);
+    if (s) {
+      setRemote(s);
+      setOffline(false);
+    } else {
+      setOffline(true);
+    }
+  }, [orderId]);
+
+  useEffect(() => {
+    poll();
+    const t = setInterval(poll, 10000);
+    return () => clearInterval(t);
+  }, [poll]);
+
+  if (!remote) {
+    return (
+      <GlassCard className="p-4 text-xs text-zinc-400">
+        {offline ? 'Menunggu koneksi untuk memuat status pesanan…' : 'Memuat status pesanan…'}
+      </GlassCard>
+    );
+  }
+
+  const mapped = SERVER_TO_TRACKER[remote.status] ?? 'PENDING_PAYMENT';
+  const order: OrderItemData = {
+    id: remote.id,
+    orderNumber: remote.orderNumber,
+    apparelTitle: 'Pesanan Sablon DTF',
+    colorName: '-',
+    size: '-',
+    quantity: 1,
+    printWidthCm: 0,
+    printHeightCm: 0,
+    status: mapped,
+    totalAmount: 0,
+    paymentMethod: paymentUrl ? 'Duitku' : '-',
+    deliveryMethod: 'Makassar',
+    createdAt: remote.updatedAt,
+  };
+
+  return (
+    <div className="space-y-2">
+      {offline && (
+        <p className="text-[10px] text-amber-400 text-center">Offline — menampilkan status terakhir.</p>
+      )}
+      {!SERVER_TO_TRACKER[remote.status] && (
+        <p className="text-[10px] text-zinc-400 text-center">Status server: {remote.status}</p>
+      )}
+      <UserOrderTracker
+        order={order}
+        onPayNow={
+          mapped === 'PENDING_PAYMENT' && paymentUrl
+            ? () => openDuitkuPaymentModal(paymentUrl, () => poll())
+            : undefined
+        }
+      />
+    </div>
   );
 }

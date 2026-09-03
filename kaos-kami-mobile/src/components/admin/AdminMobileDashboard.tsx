@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   ShieldCheck,
   CheckCircle2,
@@ -13,10 +13,30 @@ import {
   Search,
   SlidersHorizontal,
   ChevronDown,
+  ScanLine,
 } from 'lucide-react';
 import { GlassCard, Badge, HapticButton, BottomSheet } from '@/components/ui';
 import { OrderItemData, OrderStatus } from '@/components/commerce/UserOrderTracker';
+import { mobileApiClient } from '@/lib/api/mobileApiClient';
+import { scanJobTicketOrQris } from '@/lib/bridge/scanner';
 import { haptic } from '@/lib/bridge/haptics';
+
+const STAGE_TO_STATUS: Record<string, OrderStatus> = {
+  DESIGN_PREP: 'PENDING_DESIGN_APPROVAL',
+  SCREEN_PRINT_SETUP: 'PENDING_DESIGN_APPROVAL',
+  PRINTING: 'PRINTING_DTF',
+  PRESSING: 'CURING_PRESS',
+  QUALITY_CHECK: 'CURING_PRESS',
+  PACKAGING: 'SHIPPED',
+  DONE: 'COMPLETED',
+};
+
+const STATUS_TO_STAGE: Partial<Record<OrderStatus, string>> = {
+  PENDING_PAYMENT: 'PRINTING',
+  PRINTING_DTF: 'PRESSING',
+  CURING_PRESS: 'PACKAGING',
+  SHIPPED: 'DONE',
+};
 
 const INITIAL_ADMIN_ORDERS: OrderItemData[] = [
   {
@@ -77,6 +97,54 @@ export function AdminMobileDashboard({
   const [filter, setFilter] = useState<'ALL' | 'PENDING' | 'PRODUCTION' | 'COMPLETED'>('ALL');
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedOrder, setSelectedOrder] = useState<OrderItemData | null>(null);
+  const [liveMode, setLiveMode] = useState(false);
+  const [loadingLive, setLoadingLive] = useState(false);
+
+  // Coba tarik antrean produksi asli dari server (butuh sesi admin).
+  // Gagal/403 → tetap pakai data demo lokal + badge mode demo.
+  const loadLiveTasks = async () => {
+    setLoadingLive(true);
+    try {
+      const tasks = await mobileApiClient.getProductionTasks();
+      if (tasks.length > 0) {
+        setOrders(
+          tasks.map((t: any) => {
+            const first = t.order?.items?.[0];
+            const total = (t.order?.items || []).reduce(
+              (s: number, it: any) => s + (it.lineTotalIdr || 0),
+              0
+            );
+            return {
+              id: t.orderId || t.id,
+              taskId: t.id,
+              orderNumber: t.order?.orderNumber || t.orderId,
+              apparelTitle: first?.snapshotName || 'Pesanan Sablon DTF',
+              colorName: first?.snapshotColorName || '-',
+              size: first?.snapshotSize || '-',
+              quantity: first?.quantity || 1,
+              printWidthCm: t.printWidthCm ?? 0,
+              printHeightCm: t.printHeightCm ?? 0,
+              status: STAGE_TO_STATUS[t.stage] ?? 'PENDING_DESIGN_APPROVAL',
+              totalAmount: total,
+              paymentMethod: '-',
+              deliveryMethod: t.order?.deliveryMethod || '-',
+              createdAt: t.createdAt || '',
+            } as OrderItemData;
+          })
+        );
+        setLiveMode(true);
+      }
+    } catch {
+      /* fallback demo */
+    } finally {
+      setLoadingLive(false);
+    }
+  };
+
+  useEffect(() => {
+    loadLiveTasks();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const filteredOrders = orders.filter((o) => {
     const matchSearch =
@@ -90,8 +158,17 @@ export function AdminMobileDashboard({
     return true;
   });
 
-  const updateOrderStatus = (orderId: string, newStatus: OrderStatus) => {
+  const updateOrderStatus = async (orderId: string, newStatus: OrderStatus) => {
     haptic.success();
+    const target = orders.find((o) => o.id === orderId);
+    const serverStage = STATUS_TO_STAGE[newStatus];
+    // ACC 1-klik asli: PATCH ke server jika taskId tersedia.
+    if (target?.taskId && serverStage) {
+      const ok = await mobileApiClient.advanceProductionTask(target.taskId, serverStage);
+      if (!ok) {
+        onNotify?.('Server tak merespons (butuh login admin) — status diubah lokal.');
+      }
+    }
     setOrders((prev) =>
       prev.map((ord) => (ord.id === orderId ? { ...ord, status: newStatus } : ord))
     );
@@ -117,6 +194,15 @@ export function AdminMobileDashboard({
             <div>
               <h2 className="text-sm font-bold text-white font-['Syne']">Admin Mobile Workshop</h2>
               <p className="text-[11px] text-zinc-400">Pusat Moderasi Desain & Sablon DTF</p>
+              <p className="text-[10px] mt-0.5 font-mono">
+                {loadingLive ? (
+                  <span className="text-zinc-500">Menghubungi server…</span>
+                ) : liveMode ? (
+                  <span className="text-emerald-400">● Live tersambung ke server</span>
+                ) : (
+                  <span className="text-amber-400">● Mode demo lokal (offline / tanpa sesi admin)</span>
+                )}
+              </p>
             </div>
           </div>
           {pendingApprovalCount > 0 && (
@@ -129,15 +215,30 @@ export function AdminMobileDashboard({
 
       {/* Search and Quick Filters */}
       <div className="space-y-2">
-        <div className="relative">
-          <Search className="w-4 h-4 text-zinc-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
-          <input
-            type="text"
-            placeholder="Cari ID pesanan, nama baju..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-9 pr-4 py-2.5 rounded-2xl bg-zinc-900 border border-zinc-700/80 text-xs text-white outline-none focus:border-[#FF6B35]"
-          />
+        <div className="relative flex items-center gap-2">
+          <div className="relative flex-1">
+            <Search className="w-4 h-4 text-zinc-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
+            <input
+              type="text"
+              placeholder="Cari ID pesanan, nama baju..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full pl-9 pr-4 py-2.5 rounded-2xl bg-zinc-900 border border-zinc-700/80 text-xs text-white outline-none focus:border-[#FF6B35]"
+            />
+          </div>
+          <button
+            title="Scan Job Ticket / QR pesanan"
+            onClick={async () => {
+              const code = await scanJobTicketOrQris();
+              if (code) {
+                setSearchQuery(code);
+                onNotify?.(`Hasil scan: ${code}`);
+              }
+            }}
+            className="w-10 h-10 shrink-0 rounded-2xl bg-zinc-900 border border-zinc-700/80 flex items-center justify-center text-[#FF6B35]"
+          >
+            <ScanLine className="w-5 h-5" />
+          </button>
         </div>
 
         {/* Filter Pills */}

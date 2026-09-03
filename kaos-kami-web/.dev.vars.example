@@ -1,0 +1,8 @@
+# Salin ke `.dev.vars` (JANGAN commit) untuk `wrangler dev` / OpenNext lokal.
+# Prod WAJIB via: npx wrangler secret put <KEY>
+TURSO_AUTH_TOKEN=""
+DUITKU_MERCHANT_CODE=""
+DUITKU_API_KEY=""
+CLOUDFLARE_API_TOKEN=""
+BETTER_AUTH_SECRET="isi-minimal-32-char-random"
+FONNTE_TOKEN=""

@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { ApparelType } from '@/store/useMobileStudioStore';
 import { haptic } from '@/lib/bridge/haptics';
+import { preferencesJsonStorage } from '@/lib/offline/preferencesStorage';
 
 export interface SavedDesign {
   id: string;
@@ -66,6 +67,7 @@ export const useSavedDesignsStore = create<SavedDesignsState>()(
     }),
     {
       name: 'kaoskami_saved_designs_offline',
+      storage: preferencesJsonStorage(),
     }
   )
 );

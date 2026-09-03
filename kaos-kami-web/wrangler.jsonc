@@ -30,6 +30,10 @@
 			"bucket_name": "kaos-kami-3d-opennext-cache"
 		}
 	],
+	// OPTIONAL — aktifkan untuk rate-limit lintas-isolate (KV fixed-window):
+	// 1) npx wrangler kv namespace create RATE_LIMIT_KV
+	// 2) uncomment blok di bawah + isi id:
+	// "kv_namespaces": [{ "binding": "RATE_LIMIT_KV", "id": "PASTE_KV_NAMESPACE_ID" }],
 	"images": {
 		// Enable image optimization
 		// see https://opennext.js.org/cloudflare/howtos/image
@@ -44,5 +48,15 @@
 		"CLOUDFLARE_ACCOUNT_ID": "6c660b71ad4e72f3bc343252a7c5e825",
 		"R2_BUCKET_NAME": "kaos-kami-assets",
 		"R2_PUBLIC_URL": "https://pub-5746f36a46904edc8425ecd721b0bfdc.r2.dev"
+	},
+	"secrets": {
+		"required": [
+			"TURSO_AUTH_TOKEN",
+			"DUITKU_MERCHANT_CODE",
+			"DUITKU_API_KEY",
+			"CLOUDFLARE_API_TOKEN",
+			"BETTER_AUTH_SECRET",
+			"FONNTE_TOKEN"
+		]
 	}
 }

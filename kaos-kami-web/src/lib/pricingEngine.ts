@@ -1,5 +1,6 @@
 import { APPAREL_CATALOG, type ApparelType, type DecalLayer } from "./constants";
 import { computePhysicalPrintDimensions } from "./scaleCalibration";
+import { classifyPrintTierByCm, printTierCost } from "./printTiers";
 
 export interface PricingBreakdown6Var {
   // 1. Base apparel
@@ -82,27 +83,13 @@ export function calculate6VariablePrice(input: CalculatePricingInput): PricingBr
   const isLongsleeve = apparelSlug === "longsleeve";
   const sleeveSurchargeIdr = isLongsleeve ? 20000 : 0;
 
-  // 4. Per-Decal Print Area Tier (Calibrated to Max 30cm DTF standard)
+  // 4. Per-Decal Print Area Tier (SSOT printTiers.ts, terkalibrasi Maks 30cm DTF)
   const decalLayers = decals.map((d, index) => {
     const physical = computePhysicalPrintDimensions(apparelSlug, d.scale, d.y, 1.0, d.targetSide);
     const maxDimension = Math.max(physical.widthCm, physical.heightCm);
 
-    let tier: "A6" | "A5" | "A4" | "A3" = "A4";
-    let costIdr = 25000;
-
-    if (maxDimension <= 10.0) {
-      tier = "A6";
-      costIdr = 10000;
-    } else if (maxDimension <= 20.0) {
-      tier = "A5";
-      costIdr = 15000;
-    } else if (maxDimension <= 30.0) {
-      tier = "A4";
-      costIdr = 25000;
-    } else {
-      tier = "A3";
-      costIdr = 35000;
-    }
+    const tier = classifyPrintTierByCm(maxDimension);
+    const costIdr = printTierCost(tier);
 
     return {
       id: d.id,

@@ -5,15 +5,19 @@ import * as THREE from 'three';
 import { useGLTF } from '@react-three/drei';
 import { useFrame } from '@react-three/fiber';
 import { useMobileStudioStore } from '@/store/useMobileStudioStore';
-import { createMobileClothMaterial } from '@/lib/materials/clothMaterialMobile';
+import { useMobileDeviceTier } from '@/hooks/useMobileDeviceTier';
+import { apparelToArchetype, createClothPhysicalMaterial } from '@/lib/materials/clothPhysicalMaterial';
 import { ClothInertiaSimulator } from '@/lib/3d/clothInertiaPhysics';
 import { MobileDecalLayerRenderer } from './MobileDecalLayerRenderer';
+import { DecalGizmoMobile } from './DecalGizmoMobile';
 
 // Preload mobile models
 useGLTF.preload('/models/tshirt-heavyweight.glb');
 useGLTF.preload('/models/hoodie.optimized.glb');
 useGLTF.preload('/models/jacket.optimized.glb');
 useGLTF.preload('/models/longsleeve.glb');
+useGLTF.preload('/models/hoodie.lod1.glb');
+useGLTF.preload('/models/jacket.lod1.glb');
 
 export function MobileApparelMeshRenderer({
   externalTransform,
@@ -27,32 +31,34 @@ export function MobileApparelMeshRenderer({
   const groupRef = useRef<THREE.Group>(null);
   const apparelType = useMobileStudioStore((s) => s.apparelType);
   const color = useMobileStudioStore((s) => s.color);
+  const { tier } = useMobileDeviceTier();
 
   // Initialize rotational cloth inertia simulator
   const clothPhysics = useMemo(() => new ClothInertiaSimulator({ stiffness: 38.0, damping: 7.2 }), []);
   const lastYRotation = useRef<number>(0);
 
-  // Model path selection
+  // Model path selection — tier low memakai varian LOD ringan (hemat VRAM/RAM).
   const modelPath = useMemo(() => {
+    const low = tier === 'low';
     switch (apparelType) {
       case 'hoodie':
-        return '/models/hoodie.optimized.glb';
+        return low ? '/models/hoodie.lod1.glb' : '/models/hoodie.optimized.glb';
       case 'jacket':
-        return '/models/jacket.optimized.glb';
+        return low ? '/models/jacket.lod1.glb' : '/models/jacket.optimized.glb';
       case 'longsleeve':
         return '/models/longsleeve.glb';
       case 'tshirt':
       default:
         return '/models/tshirt-heavyweight.glb';
     }
-  }, [apparelType]);
+  }, [apparelType, tier]);
 
   const { scene } = useGLTF(modelPath);
 
   // Clone scene & apply PBR cloth materials
   const clonedScene = useMemo(() => {
     const cloned = scene.clone();
-    const material = createMobileClothMaterial(color);
+    const material = createClothPhysicalMaterial(color, apparelToArchetype(apparelType));
 
     cloned.traverse((child) => {
       if ((child as THREE.Mesh).isMesh) {
@@ -64,7 +70,7 @@ export function MobileApparelMeshRenderer({
     });
 
     return cloned;
-  }, [scene, color]);
+  }, [scene, color, apparelType]);
 
   // Inertial physics simulation step per frame
   useFrame((state, delta) => {
@@ -98,6 +104,7 @@ export function MobileApparelMeshRenderer({
     <group ref={groupRef} scale={[1.4, 1.4, 1.4]} position={[0, -0.15, 0]}>
       <primitive object={clonedScene} />
       <MobileDecalLayerRenderer />
+      <DecalGizmoMobile />
     </group>
   );
 }

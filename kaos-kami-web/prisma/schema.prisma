@@ -36,6 +36,7 @@ model User {
   designs       Design[]
   orders        Order[]
   cart          Cart?
+  devices       UserDevice[]
   sessions      Session[]     // Better Auth session table
   accounts      Account[]     // Better Auth OAuth / credentials linking
 
@@ -360,12 +361,18 @@ enum PaymentStatus {
   FAILED
 }
 
+enum PaymentProvider {
+  MIDTRANS
+  DUITKU
+  XENDIT
+}
+
 model Payment {
-  id                String        @id @default(cuid())
-  orderId           String        @unique
-  order             Order         @relation(fields: [orderId], references: [id])
-  provider          String        // "midtrans" | "xendit"
-  providerRef       String        // Midtrans order_id / transaction_id
+  id                String          @id @default(cuid())
+  orderId           String          @unique
+  order             Order           @relation(fields: [orderId], references: [id])
+  provider          PaymentProvider @default(DUITKU)
+  providerRef       String        // Duitku reference / Midtrans order_id / transaction_id
   method            String?       // "qris" | "gopay" | "bank_transfer" | "credit_card"
   amountIdr         Int
   status            PaymentStatus @default(PENDING)
@@ -440,4 +447,20 @@ model AbandonedCartLog {
   userId         String
   reminderSentAt DateTime?
   createdAt      DateTime  @default(now())
+}
+
+// ------------------------------------------------------------------
+// MOBILE PUSH DEVICES (Blueprint M10 — registerPushToken)
+// ------------------------------------------------------------------
+
+model UserDevice {
+  id        String    @id @default(cuid())
+  userId    String?
+  user      User?     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  pushToken String    @unique // FCM/APNs device token (kredensial perangkat)
+  platform  String    @default("android") // "android" | "ios" | "web"
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  @@index([userId])
 }

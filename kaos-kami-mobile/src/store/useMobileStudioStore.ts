@@ -26,6 +26,10 @@ export interface MobileStudioState {
   cameraAngle: CameraAngle;
   activeFace: 'front' | 'back';
 
+  // Gizmo & quality
+  isGizmoDragging: boolean;
+  decalDpi: number | null;
+
   // Actions
   setApparelType: (type: ApparelType) => void;
   setColor: (hex: string) => void;
@@ -42,6 +46,8 @@ export interface MobileStudioState {
   setActiveAnimation: (anim: AnimationPreset) => void;
   setCameraAngle: (angle: CameraAngle) => void;
   setActiveFace: (face: 'front' | 'back') => void;
+  setGizmoDragging: (v: boolean) => void;
+  setDecalDpi: (dpi: number | null) => void;
   resetStudio: () => void;
 }
 
@@ -63,6 +69,9 @@ export const useMobileStudioStore = create<MobileStudioState>((set) => ({
   activeAnimation: 'idle',
   cameraAngle: 'perspective',
   activeFace: 'front',
+
+  isGizmoDragging: false,
+  decalDpi: null,
 
   setApparelType: (apparelType) => set({ apparelType }),
   setColor: (color) => set({ color }),
@@ -95,6 +104,8 @@ export const useMobileStudioStore = create<MobileStudioState>((set) => ({
       cameraAngle: activeFace === 'front' ? 'front' : 'back',
       decalPosition: activeFace === 'front' ? [0, 0.04, 0.15] : [0, 0.04, -0.15],
     }),
+  setGizmoDragging: (isGizmoDragging) => set({ isGizmoDragging }),
+  setDecalDpi: (decalDpi) => set({ decalDpi }),
 
   resetStudio: () =>
     set({

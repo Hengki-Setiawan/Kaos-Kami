@@ -27,3 +27,11 @@
 -dontwarn com.google.android.gms.**
 -dontwarn okhttp3.**
 -dontwarn okio.**
+
+# 6. MLKit Barcode Scanning
+-keep class com.google.mlkit.** { *; }
+-dontwarn com.google.mlkit.**
+
+# 7. Sentry (aktif saat @sentry/capacitor + DSN dipasang — siapkan Data Safety)
+-keep class io.sentry.** { *; }
+-dontwarn io.sentry.**

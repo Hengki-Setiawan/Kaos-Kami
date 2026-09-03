@@ -32,9 +32,12 @@ export function BiometricLockPrompt({
       haptic.success();
       onSuccess();
     } else {
+      // JANGAN bypass: gagal = tetap terkunci. Fallback = PIN/password HP
+      // (pengguna dapat mengulang pindai atau menekan Batal).
       haptic.error();
-      // Allow demo unlock in web preview mode
-      onSuccess();
+      setErrorMsg(
+        'Verifikasi gagal atau dibatalkan. Coba lagi, atau buka kunci HP dengan PIN/password lalu ulangi.'
+      );
     }
   };
 

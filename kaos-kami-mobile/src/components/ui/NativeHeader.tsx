@@ -32,7 +32,7 @@ export function NativeHeader({
 
   return (
     <header
-      className={`sticky top-0 z-40 bg-[#0E0E10]/85 backdrop-blur-2xl border-b border-zinc-800/80 px-4 h-14 flex items-center justify-between transition-colors ${className}`}
+      className={`sticky top-0 z-40 bg-[#0E0E10]/85 backdrop-blur-2xl border-b border-zinc-800/80 px-4 pt-[env(safe-area-inset-top)] min-h-14 flex items-center justify-between transition-colors ${className}`}
     >
       <div className="flex items-center gap-3 min-w-0">
         {showBack && (

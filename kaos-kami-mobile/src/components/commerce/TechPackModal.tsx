@@ -73,8 +73,11 @@ export function TechPackModal({
           onClick={handlePrintOrDownload}
           className="w-full py-4 text-sm font-bold shadow-xl shadow-orange-600/40"
         >
-          Cetak / Download PDF Tech Pack
+          Cetak / Simpan PDF (Dialog Sistem)
         </HapticButton>
+        <p className="text-[10px] text-zinc-500 text-center">
+          Di Android pilih “Simpan sebagai PDF”; di workshop colok printer thermal/inkjet.
+        </p>
       </div>
     </BottomSheet>
   );

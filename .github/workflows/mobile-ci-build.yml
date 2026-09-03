@@ -7,12 +7,18 @@ on:
     paths:
       - 'kaos-kami-mobile/**'
       - 'scripts/**'
+    tags:
+      - 'v*'
   workflow_dispatch:
 
 jobs:
   build-android:
     name: Build Android APK
     runs-on: ubuntu-latest
+    env:
+      KAOSKAMI_STORE_PASSWORD: ${{ secrets.KAOSKAMI_STORE_PASSWORD }}
+      KAOSKAMI_KEY_ALIAS: ${{ secrets.KAOSKAMI_KEY_ALIAS }}
+      KAOSKAMI_KEY_PASSWORD: ${{ secrets.KAOSKAMI_KEY_PASSWORD }}
 
     steps:
       - name: Checkout Repository
@@ -56,3 +62,15 @@ jobs:
           name: kaos-kami-release-apk
           path: kaos-kami-mobile/android/app/build/outputs/apk/release/*.apk
           retention-days: 14
+
+      - name: Build Android Release AAB (Play Store)
+        run: |
+          cd kaos-kami-mobile/android
+          ./gradlew bundleRelease --no-daemon
+
+      - name: Upload Release AAB Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: kaos-kami-release-aab
+          path: kaos-kami-mobile/android/app/build/outputs/bundle/release/*.aab
+          retention-days: 30
