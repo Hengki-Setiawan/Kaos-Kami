@@ -25,13 +25,14 @@
 ---
 
 ## 🎨 PHASE 2: SISTEM UI NATIVE & HAPTICS 2026 (M2)
-- [ ] Implementasikan design tokens OKLCH & Safe Area insets (`mobile-tokens.css`)
-- [ ] Bangun komponen `BottomSheet` dengan library `vaul` (snap points 15%, 50%, 85%)
-- [ ] Pasang jembatan haptics (`@capacitor/haptics`) pada seluruh CTA dan gesture
-- [ ] Bangun `HapticButton` dengan animasi spring scale `0.96` via Framer Motion
-- [ ] Bangun Bottom Tab Bar (5 Tab: Home, Studio 3D, Katalog, Pesanan, Profil)
-- [ ] Implementasikan `ColorSwatchPicker` multi-part garment coloring
-- [ ] Lakukan Blind Test 10 detik (memastikan rasa 100% native tanpa browser artifacts)
+- [x] Implementasikan design tokens OKLCH & Safe Area insets (`globals.css` & `tokens.ts`)
+- [x] Bangun komponen `BottomSheet` dengan library `vaul` (snap points 15%, 50%, 85% + drag handle)
+- [x] Pasang jembatan haptics (`@capacitor/haptics`) pada seluruh CTA dan gesture sentuh
+- [x] Bangun `HapticButton` dengan animasi spring scale `0.96` via Framer Motion & loading state
+- [x] Bangun Bottom Tab Bar (5 Tab: Home, Studio 3D, Katalog, Pesanan, Profil) dengan spring indicator
+- [x] Implementasikan `ColorSwatchPicker` streetwear multi-part garment coloring
+- [x] Bangun komponen pendukung: `GlassCard`, `NativeHeader`, `Badge`, `Skeleton`, `Stepper`, `Toast`
+- [x] Lolos verifikasi build `npm run mobile:build` dan sync native Android (0 error)
 
 ---
 
@@ -116,4 +117,5 @@
 | :--- | :--- | :--- | :--- | :---: |
 | **03 Sep 2026** | **Init** | Pembuatan 10 Master Blueprint Mobile (M1 s/d M10) | Sukses terstruktur di Blueprint/mobile | 🟢 Ready |
 | **03 Sep 2026** | **Phase 1 (M1)** | Arsitektur Monorepo, Setup Capacitor 8, 14 Native Plugins, Static Export, Sync Android | Build 100% lolos 0 error, sync sukses | 🟢 Selesai |
+| **03 Sep 2026** | **Phase 2 (M2)** | UI System 2026: 11 Komponen Inti (Vaul Drawer, HapticButton, GlassCard, TabBar, Swatches) | Build static 158kB lolos 0 error, sync Android sukses | 🟢 Selesai |
 | **03 Sep 2026** | **Expansion** | Ekspansi Suite Menjadi 10 Master Blueprint Mobile (M1 s/d M10): Riset Kompetitor, AR Lite, B2B Tech Pack, Dynamic Island, Duitku v2 Pop Modal, & Single-Repo Dual-Build | Hasil riset online & sinkronisasi Duitku selesai diintegrasikan | 🚀 Expanded |

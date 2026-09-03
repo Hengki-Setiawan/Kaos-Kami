@@ -3,15 +3,26 @@
 @tailwind utilities;
 
 :root {
-  --color-primary: #FF6B35;
-  --color-obsidian: #0E0E10;
-  --color-surface: #18181B;
-  --color-border: #27272A;
+  /* OKLCH Streetwear Colors */
+  --color-primary: oklch(0.65 0.18 45);        /* #FF6B35 */
+  --color-primary-dark: oklch(0.55 0.18 45);   /* #E65100 */
+  --color-primary-light: oklch(0.75 0.15 45);  /* #FFA06D */
+  --color-primary-glow: rgba(255, 107, 53, 0.35);
+
+  --color-obsidian: oklch(0.12 0.01 280);      /* #0E0E10 */
+  --color-surface: oklch(0.16 0.01 280);       /* #18181B */
+  --color-surface-subtle: oklch(0.22 0.01 280);/* #27272A */
+  --color-border: oklch(0.28 0.01 280);        /* #3F3F46 */
+
+  --glass-bg: rgba(24, 24, 27, 0.85);
+  --glass-border: rgba(255, 255, 255, 0.08);
+  --glass-shadow: 0 12px 32px 0 rgba(0, 0, 0, 0.45);
 }
 
 * {
   box-sizing: border-box;
   -webkit-tap-highlight-color: transparent;
+  outline: none;
 }
 
 html,
@@ -25,6 +36,15 @@ body {
   -webkit-user-select: none;
   overflow-x: hidden;
   height: 100%;
+}
+
+/* Glassmorphism card utilities */
+.glass-panel {
+  background: var(--glass-bg);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid var(--glass-border);
+  box-shadow: var(--glass-shadow);
 }
 
 /* Hide scrollbars for app-like native feel */
