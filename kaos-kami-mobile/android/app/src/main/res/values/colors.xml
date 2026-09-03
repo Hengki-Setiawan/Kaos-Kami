@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Kaos Kami Signature Brand Colors -->
+    <color name="colorPrimary">#FF6B35</color>
+    <color name="colorPrimaryDark">#0E0E10</color>
+    <color name="colorAccent">#FF8A5C</color>
+</resources>

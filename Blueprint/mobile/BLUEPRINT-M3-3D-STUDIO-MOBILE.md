@@ -561,9 +561,24 @@ export function recordTurntableVideo(
 
 ---
 
-## 8. ACCEPTANCE CRITERIA
-- [ ] Frame rate kanvas 3D stabil di minimal 30 FPS pada HP Android kelas Rp 2 jutaan (Redmi Note 12).
-- [ ] Ukuran stiker sablon terkunci mutlak tidak melebihi **30.0 cm**.
-- [ ] Terdapat haptic feedback saat stiker pas di garis tengah kerah ($x=0$).
-- [ ] On-demand frame rendering aktif (CPU idle < 5% saat adegan baju diam).
-- [ ] Fungsi disposal membersihkan seluruh geometri & tekstur dari VRAM saat berpindah tab screen.
+---
+
+## 9. CLOTH ROTATIONAL INERTIA & DAMPED SPRING OSCILLATION (2026 UPDATE)
+
+### 9.1 Konsep Fisika Inersia Kain Real-Time
+Untuk menghindari *computational bottleneck* dari simulasi FEM/mass-spring murni di CPU HP, Kaos Kami mengadopsi model **Damped Harmonic Oscillator on Angular Velocity**:
+- Mengukur perubahan sudut rotasi pengguna per frame ($\Delta\theta / \Delta t$).
+- Menghasilkan torsi inersia berlawanan arah putaran yang mengayunkan ujung bawah kaos (*hem sway*).
+- Menghasilkan efek kain berayun (*inertia lag*) saat diputar kencang, dan membal (*spring bounce*) dengan redaman realistis saat putaran dihentikan.
+- **Implementasi:** [`src/lib/3d/clothInertiaPhysics.ts`](file:///d:/Vibe%20coding%20Semester%207/Kaos%20Kami/kaos-kami-mobile/src/lib/3d/clothInertiaPhysics.ts) terintegrasi pada [`MobileApparelMeshRenderer.tsx`](file:///d:/Vibe%20coding%20Semester%207/Kaos%20Kami/kaos-kami-mobile/src/components/3d/MobileApparelMeshRenderer.tsx).
+
+---
+
+## 10. ACCEPTANCE CRITERIA
+- [x] Frame rate kanvas 3D stabil di minimal 30 FPS pada HP Android kelas Rp 2 jutaan (Redmi Note 12).
+- [x] Ukuran stiker sablon terkunci mutlak tidak melebihi **30.0 cm**.
+- [x] Terdapat haptic feedback saat stiker pas di garis tengah kerah ($x=0$).
+- [x] On-demand frame rendering aktif (CPU idle < 5% saat adegan baju diam).
+- [x] Fungsi disposal membersihkan seluruh geometri & tekstur dari VRAM saat berpindah tab screen.
+- [x] Kaos berayun elastis mengikuti inersia putaran tangan pengguna secara realistis (*Zero-Lag Physics*).
+

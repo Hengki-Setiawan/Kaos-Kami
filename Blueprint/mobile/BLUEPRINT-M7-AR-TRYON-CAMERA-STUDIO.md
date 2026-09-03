@@ -270,8 +270,30 @@ export function ARPreviewStage({
 
 ---
 
-## 4. ACCEPTANCE CRITERIA
-- [ ] Kamera HP terbuka instan (< 500 ms) tanpa distorsi rasio aspek.
-- [ ] Model 3D terproyeksikan secara transparan di atas tubuh pengguna.
-- [ ] Estimasi pencahayaan otomatis menyesuaikan lampu Three.js saat ruangan terang/gelap.
-- [ ] Tombol shutter menghasilkan foto komposit 1080x1920 dan membuka sheet berbagi native ke WhatsApp Status.
+---
+
+## 4. GOOGLE MEDIAPIPE POSE LANDMARK DETECTION & TORSO TRACKING (2026 UPDATE)
+
+### 4.1 Arsitektur Pelacakan Bahu & Torso
+Untuk memberikan pengalaman Virtual Try-On yang mengunci otomatis ke tubuh pengguna, Kaos Kami mengintegrasikan Google MediaPipe Pose Landmark Detection:
+- **Titik Landmark Utama:**
+  - `11`: Bahu Kiri (*Left Shoulder*)
+  - `12`: Bahu Kanan (*Right Shoulder*)
+  - `23`: Pinggul Kiri (*Left Hip*)
+  - `24`: Pinggul Kanan (*Right Hip*)
+- **Perhitungan Transformasi 3D:**
+  - Jarak titik 11 ke 12 menentukan skala lebar baju 3D secara otomatis (*Dynamic Fitting*).
+  - Sudut kemiringan bahu menentukan rotasi Roll ($\theta_z$) dan Yaw ($\theta_y$).
+  - Titik tengah bahu menjadi titik jangkar (*origin anchor*) leher kaos 3D.
+- **Strategi Efisiensi Baterai HP:** Inferensi dijalankan pada frekuensi **15 FPS**, lalu dihaluskan dengan *Linear Interpolation (Lerp)* ke **60 FPS** di loop render Three.js.
+- **Implementasi:** [`src/lib/3d/mediaPipePoseTracker.ts`](file:///d:/Vibe%20coding%20Semester%207/Kaos%20Kami/kaos-kami-mobile/src/lib/3d/mediaPipePoseTracker.ts) terintegrasi pada [`ARPreviewStage.tsx`](file:///d:/Vibe%20coding%20Semester%207/Kaos%20Kami/kaos-kami-mobile/src/components/3d/ARPreviewStage.tsx) dengan tombol toggle instan.
+
+---
+
+## 5. ACCEPTANCE CRITERIA
+- [x] Kamera HP terbuka instan (< 500 ms) tanpa distorsi rasio aspek.
+- [x] Model 3D terproyeksikan secara transparan di atas tubuh pengguna.
+- [x] Estimasi pencahayaan otomatis menyesuaikan lampu Three.js saat ruangan terang/gelap.
+- [x] Tombol shutter menghasilkan foto komposit 1080x1920 dan membuka sheet berbagi native ke WhatsApp Status.
+- [x] MediaPipe AI Pose Tracking mendeteksi bahu dan mengunci model baju 3D secara presisi ke badan pengguna.
+
