@@ -9,7 +9,7 @@ export interface HapticButtonProps extends Omit<HTMLMotionProps<'button'>, 'chil
   hapticStyle?: 'tap' | 'tapMedium' | 'tapHeavy' | 'success' | 'error';
   loading?: boolean;
   icon?: React.ReactNode;
-  children: React.ReactNode;
+  children?: React.ReactNode;
 }
 
 export function HapticButton({

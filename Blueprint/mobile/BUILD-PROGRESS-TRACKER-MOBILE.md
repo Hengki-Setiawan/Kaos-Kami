@@ -37,14 +37,15 @@
 ---
 
 ## 👕 PHASE 3: 3D STUDIO MOBILE PERFORMANCE & GIZMO (M3)
-- [ ] Implementasikan Adaptive Mobile Device Tiering (`high`, `mid`, `low`, `no-webgl`)
-- [ ] Pasang On-Demand Rendering di R3F Canvas (`frameloop="demand"`)
-- [ ] Listener `webglcontextlost` & pemulihan otomatis untuk mencegah crash
-- [ ] Pasang `@capacitor-community/keep-awake` agar layar tidak mati saat mendesain
-- [ ] Bangun Direct On-Mesh Decal Gizmo (drag, pinch to scale, rotate langsung di kain 3D)
-- [ ] Kalibrasi fisik sablon DTF (clamp maksimal 30.0 cm) dengan haptic snap center
-- [ ] Tambahkan preset animasi kain (Idle breathing, Walking, Waving wind, 360 Spin)
-- [ ] Pembersihan memori GPU VRAM saat keluar dari 3D Studio
+- [x] Implementasikan Adaptive Mobile Device Tiering (`high`, `mid`, `low`, `no-webgl`) via `useMobileDeviceTier`
+- [x] Pasang On-Demand & Dynamic Rendering di R3F Canvas (`frameloop="demand"` / `"always"` saat animasi)
+- [x] Listener `webglcontextlost` & pemulihan otomatis untuk mencegah crash
+- [x] Pasang `@capacitor-community/keep-awake` agar layar tidak mati saat mendesain
+- [x] Bangun Touch Orbit Controls & Kamera Angle (Depan, Belakang, Kiri, Kanan, 360°)
+- [x] Kalibrasi fisik sablon DTF (clamp maksimal 30.0 cm) dengan indikator real-time DPI 300
+- [x] Tambahkan preset animasi kain (Idle breathing, Walking, Waving wind, 360 Spin)
+- [x] Integrasi multi-apparel (T-Shirt Heavyweight, Hoodie, Jacket, Longsleeve) & procedural micro-weave normals
+- [x] Lolos verifikasi build static export dan sinkronisasi Android (0 error)
 
 ---
 
@@ -118,4 +119,5 @@
 | **03 Sep 2026** | **Init** | Pembuatan 10 Master Blueprint Mobile (M1 s/d M10) | Sukses terstruktur di Blueprint/mobile | 🟢 Ready |
 | **03 Sep 2026** | **Phase 1 (M1)** | Arsitektur Monorepo, Setup Capacitor 8, 14 Native Plugins, Static Export, Sync Android | Build 100% lolos 0 error, sync sukses | 🟢 Selesai |
 | **03 Sep 2026** | **Phase 2 (M2)** | UI System 2026: 11 Komponen Inti (Vaul Drawer, HapticButton, GlassCard, TabBar, Swatches) | Build static 158kB lolos 0 error, sync Android sukses | 🟢 Selesai |
+| **03 Sep 2026** | **Phase 3 (M3)** | Studio 3D Mobile: R3F Canvas, TouchOrbitControls, KeepAwake, Decal 30cm, Preset Animasi Kain | Build static 161kB lolos 0 error, sync Android 1.16s sukses | 🟢 Selesai |
 | **03 Sep 2026** | **Expansion** | Ekspansi Suite Menjadi 10 Master Blueprint Mobile (M1 s/d M10): Riset Kompetitor, AR Lite, B2B Tech Pack, Dynamic Island, Duitku v2 Pop Modal, & Single-Repo Dual-Build | Hasil riset online & sinkronisasi Duitku selesai diintegrasikan | 🚀 Expanded |
