@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Kaos Kami</string>
+    <string name="title_activity_main">Kaos Kami</string>
+    <string name="package_name">id.makassar.kaoskami</string>
+    <string name="custom_url_scheme">id.makassar.kaoskami</string>
+</resources>

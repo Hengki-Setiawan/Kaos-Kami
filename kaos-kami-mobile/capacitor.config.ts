@@ -4,7 +4,6 @@ const config: CapacitorConfig = {
   appId: 'id.makassar.kaoskami',
   appName: 'Kaos Kami',
   webDir: 'out',
-  bundledWebRuntime: false,
   server: {
     androidScheme: 'https',
     iosScheme: 'capacitor',

@@ -7,11 +7,15 @@
 /coverage
 
 # next.js
-/.next/
-/out/
+.next/
+out/
 
-# production
-/build
+# mobile & native build artifacts
+**/android/.gradle/
+**/android/app/build/
+**/android/build/
+**/ios/App/build/
+**/ios/App/Pods/
 
 # misc
 .DS_Store
