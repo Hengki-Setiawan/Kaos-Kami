@@ -15,6 +15,8 @@ import {
   RotateCcw,
   Sliders,
   Check,
+  ShoppingBag as CartIcon,
+  Plus,
 } from 'lucide-react';
 import {
   NativeHeader,
@@ -29,11 +31,21 @@ import {
 } from '@/components/ui';
 import { initEdgeToEdgeStatusBar, haptic, pickOrCaptureDecalImage } from '@/lib/bridge';
 import { useMobileStudioStore, ApparelType } from '@/store/useMobileStudioStore';
+import { useMobileCartStore } from '@/store/useMobileCartStore';
+import { CheckoutSheet, UserOrderTracker, OrderItemData } from '@/components/commerce';
+import { AdminMobileDashboard } from '@/components/admin';
 
 // Dynamic import for R3F Canvas to ensure zero SSR execution
 const CanvasStageMobile = dynamic(
   () => import('@/components/3d/CanvasStageMobile').then((m) => m.CanvasStageMobile),
-  { ssr: false, loading: () => <div className="w-full h-full bg-[#0E0E10] flex items-center justify-center text-xs text-zinc-500">Memuat Engine 3D...</div> }
+  {
+    ssr: false,
+    loading: () => (
+      <div className="w-full h-full bg-[#0E0E10] flex items-center justify-center text-xs text-zinc-500">
+        Memuat Engine 3D...
+      </div>
+    ),
+  }
 );
 
 const StudioControlOverlay = dynamic(
@@ -44,7 +56,29 @@ const StudioControlOverlay = dynamic(
 export default function MobileApp() {
   const [activeTab, setActiveTab] = useState<TabKey>('home');
   const [sheetOpen, setSheetOpen] = useState(false);
+  const [checkoutOpen, setCheckoutOpen] = useState(false);
+  const [adminModeOpen, setAdminModeOpen] = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
+
+  // Cart store
+  const { items, addItem, getItemCount, getSubtotal } = useMobileCartStore();
+
+  // Active User Order State (Simulated live DTF order)
+  const [activeOrder, setActiveOrder] = useState<OrderItemData>({
+    id: 'demo-order-active',
+    orderNumber: '#KK-2026-089',
+    apparelTitle: 'Kaos Heavyweight 280 GSM',
+    colorName: 'Obsidian Black',
+    size: 'L',
+    quantity: 1,
+    printWidthCm: 28.5,
+    printHeightCm: 22.0,
+    status: 'PENDING_DESIGN_APPROVAL',
+    totalAmount: 160000,
+    paymentMethod: 'QRIS Instant',
+    deliveryMethod: 'Maxim Instant COD Makassar',
+    createdAt: 'Baru saja',
+  });
 
   const {
     apparelType,
@@ -76,23 +110,64 @@ export default function MobileApp() {
     }
   };
 
-  const apparelOptions: { key: ApparelType; label: string; gsm: string }[] = [
-    { key: 'tshirt', label: 'T-Shirt Heavyweight', gsm: '240 GSM' },
-    { key: 'hoodie', label: 'Streetwear Hoodie', gsm: '330 GSM' },
-    { key: 'jacket', label: 'Coach Jacket', gsm: 'Waterproof' },
-    { key: 'longsleeve', label: 'Longsleeve Shirt', gsm: '280 GSM' },
+  const apparelOptions: { key: ApparelType; label: string; gsm: string; price: number }[] = [
+    { key: 'tshirt', label: 'T-Shirt Heavyweight', gsm: '240 GSM', price: 125000 },
+    { key: 'hoodie', label: 'Streetwear Hoodie', gsm: '330 GSM', price: 210000 },
+    { key: 'jacket', label: 'Coach Jacket', gsm: 'Waterproof', price: 220000 },
+    { key: 'longsleeve', label: 'Longsleeve Shirt', gsm: '280 GSM', price: 145000 },
   ];
+
+  const handleSaveToCart = () => {
+    const selected = apparelOptions.find((a) => a.key === apparelType) || apparelOptions[0];
+    addItem({
+      apparelType,
+      apparelTitle: selected.label,
+      colorHex: color,
+      colorName: 'Custom Color',
+      size: 'L',
+      quantity: 1,
+      basePrice: selected.price,
+      sablonPrice: 35000,
+      decalUrl,
+      printWidthCm,
+      printHeightCm,
+    });
+    setSheetOpen(false);
+    triggerToast('Desain disimpan ke keranjang!');
+  };
 
   return (
     <div className="flex-1 flex flex-col min-h-screen bg-[#0E0E10] text-white select-none">
       {/* Native Header */}
       <NativeHeader
         title="KAOS KAMI"
-        subtitle={activeTab === 'studio' ? '3D Configurator Studio' : 'Makassar Streetwear & DTF'}
+        subtitle={
+          adminModeOpen
+            ? 'Workshop Admin Portal'
+            : activeTab === 'studio'
+            ? '3D Configurator Studio'
+            : 'Makassar Streetwear & DTF'
+        }
         actions={
-          <Badge variant="success" pulse>
-            Workshop Live
-          </Badge>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => {
+                haptic.tap();
+                setCheckoutOpen(true);
+              }}
+              className="relative w-8 h-8 rounded-xl bg-zinc-850 bg-[#18181B] border border-zinc-700/60 flex items-center justify-center text-white"
+            >
+              <CartIcon className="w-4 h-4 text-[#FF6B35]" />
+              {getItemCount() > 0 && (
+                <span className="absolute -top-1 -right-1 min-w-[14px] h-3.5 px-1 rounded-full bg-[#FF6B35] text-white text-[8px] font-bold flex items-center justify-center">
+                  {getItemCount()}
+                </span>
+              )}
+            </button>
+            <Badge variant="success" pulse>
+              Workshop Live
+            </Badge>
+          </div>
         }
       />
 
@@ -137,9 +212,7 @@ export default function MobileApp() {
                   variant="primary"
                   hapticStyle="tapHeavy"
                   icon={<Palette className="w-4 h-4" />}
-                  onClick={() => {
-                    setActiveTab('studio');
-                  }}
+                  onClick={() => setActiveTab('studio')}
                   className="flex-1"
                 >
                   Buka Studio 3D
@@ -190,7 +263,7 @@ export default function MobileApp() {
               </GlassCard>
             </div>
 
-            {/* Admin Workshop Quick Access Card */}
+            {/* Admin Workshop Access Card */}
             <GlassCard className="p-4 bg-gradient-to-r from-zinc-900 to-zinc-800/90 border-zinc-700/60 flex items-center justify-between">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-2xl bg-emerald-500/15 flex items-center justify-center text-emerald-400">
@@ -198,23 +271,23 @@ export default function MobileApp() {
                 </div>
                 <div>
                   <h4 className="text-xs font-bold text-white font-['Syne']">Admin Mobile Workshop</h4>
-                  <p className="text-[10px] text-zinc-400">ACC desain & pantau sablon dari HP</p>
+                  <p className="text-[10px] text-zinc-400">ACC desain & moderasi sablon dari HP</p>
                 </div>
               </div>
               <HapticButton
                 variant="secondary"
                 hapticStyle="tap"
-                onClick={() => triggerToast('Mode Admin Aktif: Cek daftar order & tombol ACC!')}
+                onClick={() => setAdminModeOpen(true)}
                 className="px-3.5 py-2 text-xs"
               >
-                Buka
+                Buka Portal
               </HapticButton>
             </GlassCard>
           </div>
         )}
 
         {/* ========================================================= */}
-        {/* TAB 2: STUDIO 3D CONFIGURATOR (PHASE 3 ACTIVE) */}
+        {/* TAB 2: STUDIO 3D CONFIGURATOR */}
         {/* ========================================================= */}
         {activeTab === 'studio' && (
           <div className="flex-1 flex flex-col h-[calc(100vh-140px)] relative">
@@ -236,12 +309,11 @@ export default function MobileApp() {
               </HapticButton>
 
               <HapticButton
-                variant="glass"
-                icon={<Camera className="w-4 h-4" />}
-                onClick={handleUploadDecal}
-                className="px-3 text-xs"
+                variant="primary"
+                onClick={handleSaveToCart}
+                className="px-4 text-xs font-bold"
               >
-                {decalUrl ? 'Ganti Logo' : 'Upload Logo'}
+                Simpan
               </HapticButton>
 
               <HapticButton
@@ -280,7 +352,9 @@ export default function MobileApp() {
                   </div>
                   <h4 className="text-xs font-bold text-white truncate font-['Syne']">{item.label}</h4>
                   <p className="text-[11px] text-zinc-400">{item.gsm}</p>
-                  <p className="text-[11px] text-[#FF6B35] font-semibold mt-1">Rp 125.000</p>
+                  <p className="text-[11px] text-[#FF6B35] font-semibold mt-1">
+                    Rp {item.price.toLocaleString('id-ID')}
+                  </p>
                 </GlassCard>
               ))}
             </div>
@@ -288,46 +362,40 @@ export default function MobileApp() {
         )}
 
         {/* ========================================================= */}
-        {/* TAB 4: PESANAN */}
+        {/* TAB 4: PESANAN (PHASE 4 USER ORDER TRACKER) */}
         {/* ========================================================= */}
         {activeTab === 'orders' && (
           <div className="space-y-3">
             <div className="flex items-center justify-between">
-              <h2 className="text-lg font-bold font-['Syne']">Pesanan Sablon DTF</h2>
-              <Badge variant="production">1 Aktif</Badge>
+              <h2 className="text-lg font-bold font-['Syne']">Status Sablon DTF</h2>
+              <Badge variant="production">Live Tracking</Badge>
             </div>
 
-            <GlassCard className="p-4 space-y-3">
-              <div className="flex items-center justify-between border-b border-zinc-800 pb-2.5">
+            {/* Live Order Tracker Component */}
+            <UserOrderTracker
+              order={activeOrder}
+              onPayNow={() => {
+                setActiveOrder((prev) => ({ ...prev, status: 'PRINTING_DTF' }));
+                triggerToast('Pembayaran QRIS Berhasil! Baju masuk ke antrean cetak DTF.');
+              }}
+            />
+
+            {/* Checkout Shortcut if cart has items */}
+            {items.length > 0 && (
+              <GlassCard className="p-4 bg-orange-500/10 border-orange-500/30 flex items-center justify-between">
                 <div>
-                  <span className="text-xs font-bold text-white font-mono">#KK-2026-089</span>
-                  <p className="text-[10px] text-zinc-400">1x Kaos Heavyweight 280 GSM • Hitam</p>
+                  <h4 className="text-xs font-bold text-white">Ada {items.length} Kaos di Keranjang</h4>
+                  <p className="text-[10px] text-zinc-400">Total: Rp {getSubtotal().toLocaleString('id-ID')}</p>
                 </div>
-                <Badge variant="production" pulse>
-                  Cetak DTF
-                </Badge>
-              </div>
-
-              <div className="space-y-1.5 text-xs text-zinc-400">
-                <div className="flex justify-between">
-                  <span>Sablon Depan:</span>
-                  <span className="text-white font-medium">Lebar 28.5 cm (A4+)</span>
-                </div>
-                <div className="flex justify-between">
-                  <span>Pengiriman:</span>
-                  <span className="text-white font-medium">Maxim Instant COD Makassar</span>
-                </div>
-              </div>
-
-              <HapticButton
-                variant="secondary"
-                hapticStyle="tap"
-                onClick={() => triggerToast('Status: Kaos sedang dipress 160°C di Tamalanrea!')}
-                className="w-full py-2 text-xs mt-2"
-              >
-                Lihat Progres Sablon
-              </HapticButton>
-            </GlassCard>
+                <HapticButton
+                  variant="primary"
+                  onClick={() => setCheckoutOpen(true)}
+                  className="px-3.5 py-1.5 text-xs font-bold"
+                >
+                  Checkout
+                </HapticButton>
+              </GlassCard>
+            )}
           </div>
         )}
 
@@ -351,12 +419,21 @@ export default function MobileApp() {
               >
                 Aktifkan Face ID / Sidik Jari
               </HapticButton>
+              <HapticButton
+                variant="secondary"
+                onClick={() => setAdminModeOpen(true)}
+                className="w-full"
+              >
+                Masuk ke Admin Workshop
+              </HapticButton>
             </div>
           </div>
         )}
       </main>
 
-      {/* Customizer Vaul Bottom Sheet */}
+      {/* ========================================================= */}
+      {/* CUSTOMIZER DRAWER BOTTOM SHEET */}
+      {/* ========================================================= */}
       <BottomSheet
         open={sheetOpen}
         onOpenChange={setSheetOpen}
@@ -427,16 +504,54 @@ export default function MobileApp() {
           <HapticButton
             variant="primary"
             hapticStyle="success"
-            onClick={() => {
-              setSheetOpen(false);
-              haptic.addToCart();
-              triggerToast('Desain disimpan! Siap masuk ke keranjang belanja.');
-            }}
+            onClick={handleSaveToCart}
             className="w-full py-4 text-base"
           >
             Simpan Desain Kaos
           </HapticButton>
         </div>
+      </BottomSheet>
+
+      {/* ========================================================= */}
+      {/* CHECKOUT BOTTOM SHEET */}
+      {/* ========================================================= */}
+      <CheckoutSheet
+        open={checkoutOpen}
+        onOpenChange={setCheckoutOpen}
+        onOrderSuccess={(newId) => {
+          setActiveOrder({
+            id: `ord-${Date.now()}`,
+            orderNumber: `#${newId}`,
+            apparelTitle: 'Kaos Heavyweight 280 GSM',
+            colorName: 'Obsidian Black',
+            size: 'L',
+            quantity: 1,
+            printWidthCm: 28.5,
+            printHeightCm: 22.0,
+            status: 'PENDING_DESIGN_APPROVAL',
+            totalAmount: 160000,
+            paymentMethod: 'QRIS Instant',
+            deliveryMethod: 'Maxim Instant COD Makassar',
+            createdAt: 'Baru saja',
+          });
+          setActiveTab('orders');
+          triggerToast(`Pesanan #${newId} diajukan! Menunggu ACC Desain Admin.`);
+        }}
+      />
+
+      {/* ========================================================= */}
+      {/* ADMIN MOBILE WORKSHOP DRAWER */}
+      {/* ========================================================= */}
+      <BottomSheet
+        open={adminModeOpen}
+        onOpenChange={setAdminModeOpen}
+        title="Admin Mobile Workshop"
+        description="ACC Desain & Kontrol Antrean Sablon DTF"
+      >
+        <AdminMobileDashboard
+          onClose={() => setAdminModeOpen(false)}
+          onNotify={(msg) => triggerToast(msg)}
+        />
       </BottomSheet>
 
       {/* Floating Native Toast */}
@@ -447,7 +562,11 @@ export default function MobileApp() {
       />
 
       {/* Bottom Tab Bar */}
-      <TabBar activeTab={activeTab} onTabChange={setActiveTab} orderBadgeCount={1} />
+      <TabBar
+        activeTab={activeTab}
+        onTabChange={setActiveTab}
+        orderBadgeCount={items.length > 0 ? items.length : 1}
+      />
     </div>
   );
 }

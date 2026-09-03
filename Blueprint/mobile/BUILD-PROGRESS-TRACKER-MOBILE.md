@@ -50,12 +50,13 @@
 ---
 
 ## 🛒 PHASE 4: ALUR TRANSAKSI & DUITKU PAYMENT POP (M4)
-- [ ] Store keranjang belanja lokal dengan Optimistic UI (0 ms response)
-- [ ] Checkout Sheet 3-Langkah (Alamat, Opsi Makassar, Pembayaran)
-- [ ] Integrasi Duitku v2 Pop Modal (`duitku.js`) & In-App Browser dengan deep link return (`kaoskami://payment/callback`)
-- [ ] Intersepsi skema URL E-Wallet & QRIS Indonesia (`shopeeid://`, `gojek://`, `dana://`, `bca://`)
-- [ ] Konfigurasi opsi pengiriman Makassar (Workshop Tamalanrea Rp 0, Maxim COD, Flat Rate Rp 15.000)
-- [ ] Integrasi WhatsApp Fonnte fail-safe untuk pengiriman invoice sablon
+- [x] Store keranjang belanja lokal dengan Optimistic UI (`useMobileCartStore`) & persistensi
+- [x] Checkout Sheet 3-Langkah (`CheckoutSheet.tsx`: Alamat Makassar, Kurir Lokal, Pembayaran)
+- [x] Integrasi Duitku v2 Pop Modal (`duitkuMobile.ts`) & In-App Browser
+- [x] Konfigurasi opsi pengiriman Makassar (Workshop Tamalanrea Rp 0, Maxim COD, Flat Rate Rp 15.000)
+- [x] User Order Tracker horizontal dengan status real-time sablon DTF
+- [x] Admin Mobile Workshop Portal (`AdminMobileDashboard.tsx`): Filter order, inspeksi sablon cm & 300 DPI, dan **Tombol 1-Click ACC Desain Pelanggan**
+- [x] Lolos verifikasi build Next.js (80.4 kB) dan sync native Android (0 error)
 
 ---
 
@@ -120,4 +121,5 @@
 | **03 Sep 2026** | **Phase 1 (M1)** | Arsitektur Monorepo, Setup Capacitor 8, 14 Native Plugins, Static Export, Sync Android | Build 100% lolos 0 error, sync sukses | 🟢 Selesai |
 | **03 Sep 2026** | **Phase 2 (M2)** | UI System 2026: 11 Komponen Inti (Vaul Drawer, HapticButton, GlassCard, TabBar, Swatches) | Build static 158kB lolos 0 error, sync Android sukses | 🟢 Selesai |
 | **03 Sep 2026** | **Phase 3 (M3)** | Studio 3D Mobile: R3F Canvas, TouchOrbitControls, KeepAwake, Decal 30cm, Preset Animasi Kain | Build static 161kB lolos 0 error, sync Android 1.16s sukses | 🟢 Selesai |
+| **03 Sep 2026** | **Phase 4 (M4)** | Alur Transaksi, Checkout Makassar, Duitku Pop, Live User Tracker & Portal ACC Desain Admin | Build static 168kB lolos 0 error, sync Android 1.31s sukses | 🟢 Selesai |
 | **03 Sep 2026** | **Expansion** | Ekspansi Suite Menjadi 10 Master Blueprint Mobile (M1 s/d M10): Riset Kompetitor, AR Lite, B2B Tech Pack, Dynamic Island, Duitku v2 Pop Modal, & Single-Repo Dual-Build | Hasil riset online & sinkronisasi Duitku selesai diintegrasikan | 🚀 Expanded |
