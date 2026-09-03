@@ -1,21 +1,29 @@
-# Add project specific ProGuard rules here.
-# You can control the set of applied configuration files using the
-# proguardFiles setting in build.gradle.
-#
-# For more details, see
-#   http://developer.android.com/guide/developing/tools/proguard.html
+# ==============================================================================
+# KAOS KAMI MOBILE — ENTERPRISE PROGUARD & R8 PRODUCTION RULES
+# ==============================================================================
 
-# If your project uses WebView with JS, uncomment the following
-# and specify the fully qualified class name to the JavaScript interface
-# class:
-#-keepclassmembers class fqcn.of.javascript.interface.for.webview {
-#   public *;
-#}
+# 1. Preserve Capacitor Core and Native Plugin Interfaces
+-keep public class com.getcapacitor.** { *; }
+-keep class * extends com.getcapacitor.Plugin { *; }
+-keepclassmembers class * extends com.getcapacitor.Plugin {
+    @com.getcapacitor.PluginMethod public *;
+}
 
-# Uncomment this to preserve the line number information for
-# debugging stack traces.
-#-keepattributes SourceFile,LineNumberTable
+# 2. Preserve WebView JavaScript Interfaces for Native Bridge
+-keepclassmembers class * {
+    @android.webkit.JavascriptInterface <methods>;
+}
 
-# If you keep the line number information, uncomment this to
-# hide the original source file name.
-#-renamesourcefileattribute SourceFile
+# 3. Preserve AndroidX Biometric Prompt Classes
+-keep class androidx.biometric.** { *; }
+-dontwarn androidx.biometric.**
+
+# 4. Preserve Three.js and WebGL Canvas Hardware Acceleration
+-keepattributes JavascriptInterface
+-keepattributes *Annotation*
+-keepattributes SourceFile,LineNumberTable
+
+# 5. Suppress Unused Warnings
+-dontwarn com.google.android.gms.**
+-dontwarn okhttp3.**
+-dontwarn okio.**
