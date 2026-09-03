@@ -16,7 +16,8 @@ import {
   Sliders,
   Check,
   ShoppingBag as CartIcon,
-  Plus,
+  WifiOff,
+  Share2,
 } from 'lucide-react';
 import {
   NativeHeader,
@@ -29,11 +30,21 @@ import {
   BottomSheet,
   Toast,
 } from '@/components/ui';
-import { initEdgeToEdgeStatusBar, haptic, pickOrCaptureDecalImage } from '@/lib/bridge';
+import {
+  initEdgeToEdgeStatusBar,
+  haptic,
+  pickOrCaptureDecalImage,
+  listenNetworkStatus,
+  shareCustomDesign,
+} from '@/lib/bridge';
 import { useMobileStudioStore, ApparelType } from '@/store/useMobileStudioStore';
 import { useMobileCartStore } from '@/store/useMobileCartStore';
 import { CheckoutSheet, UserOrderTracker, OrderItemData } from '@/components/commerce';
 import { AdminMobileDashboard } from '@/components/admin';
+import { SavedDesignsGallery } from '@/components/offline';
+import { BiometricLockPrompt } from '@/components/security';
+import { optimizeDecalImageForMobile } from '@/lib/enhancers/imageOptimizerMobile';
+import { useSavedDesignsStore } from '@/lib/offline/savedDesignsStore';
 
 // Dynamic import for R3F Canvas to ensure zero SSR execution
 const CanvasStageMobile = dynamic(
@@ -58,12 +69,15 @@ export default function MobileApp() {
   const [sheetOpen, setSheetOpen] = useState(false);
   const [checkoutOpen, setCheckoutOpen] = useState(false);
   const [adminModeOpen, setAdminModeOpen] = useState(false);
+  const [biometricPromptOpen, setBiometricPromptOpen] = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const [isOnline, setIsOnline] = useState(true);
 
-  // Cart store
+  // Cart & Offline Stores
   const { items, addItem, getItemCount, getSubtotal } = useMobileCartStore();
+  const { saveDesign } = useSavedDesignsStore();
 
-  // Active User Order State (Simulated live DTF order)
+  // Active User Order State
   const [activeOrder, setActiveOrder] = useState<OrderItemData>({
     id: 'demo-order-active',
     orderNumber: '#KK-2026-089',
@@ -94,6 +108,15 @@ export default function MobileApp() {
 
   useEffect(() => {
     initEdgeToEdgeStatusBar();
+    const cleanupNet = listenNetworkStatus((status) => {
+      setIsOnline(status.connected);
+      if (!status.connected) {
+        setToastMessage('Mode Offline: Data tersimpan di memori HP.');
+      }
+    });
+    return () => {
+      cleanupNet();
+    };
   }, []);
 
   const triggerToast = (msg: string) => {
@@ -102,11 +125,17 @@ export default function MobileApp() {
 
   const handleUploadDecal = async () => {
     haptic.tapMedium();
-    const dataUrl = await pickOrCaptureDecalImage();
-    if (dataUrl) {
-      setDecalUrl(dataUrl);
-      haptic.success();
-      triggerToast('Logo sablon berhasil diproyeksikan (300 DPI)!');
+    const rawDataUrl = await pickOrCaptureDecalImage();
+    if (rawDataUrl) {
+      try {
+        const { optimizedUrl, dpi } = await optimizeDecalImageForMobile(rawDataUrl);
+        setDecalUrl(optimizedUrl);
+        haptic.success();
+        triggerToast(`Logo sablon siap (${dpi} DPI terverifikasi)!`);
+      } catch {
+        setDecalUrl(rawDataUrl);
+        triggerToast('Logo sablon berhasil diproyeksikan!');
+      }
     }
   };
 
@@ -132,12 +161,37 @@ export default function MobileApp() {
       printWidthCm,
       printHeightCm,
     });
+
+    // Also persist to local offline gallery
+    saveDesign({
+      title: `${selected.label} Custom`,
+      apparelType,
+      colorHex: color,
+      colorName: 'Custom Color',
+      decalDataUrl: decalUrl,
+      printWidthCm,
+      printHeightCm,
+    });
+
     setSheetOpen(false);
-    triggerToast('Desain disimpan ke keranjang!');
+    triggerToast('Desain disimpan ke keranjang & galeri offline!');
+  };
+
+  const handleShareCurrentDesign = () => {
+    haptic.tap();
+    shareCustomDesign('studio-live', `Kaos Kami 3D - ${apparelType.toUpperCase()}`);
   };
 
   return (
     <div className="flex-1 flex flex-col min-h-screen bg-[#0E0E10] text-white select-none">
+      {/* Offline Alert Strip if Network Drops */}
+      {!isOnline && (
+        <div className="bg-amber-600/90 text-black px-4 py-1.5 text-[11px] font-bold flex items-center justify-center gap-1.5 z-50">
+          <WifiOff className="w-3.5 h-3.5" />
+          <span>Mode Offline: Desain & keranjang tersimpan di HP Anda</span>
+        </div>
+      )}
+
       {/* Native Header */}
       <NativeHeader
         title="KAOS KAMI"
@@ -164,8 +218,8 @@ export default function MobileApp() {
                 </span>
               )}
             </button>
-            <Badge variant="success" pulse>
-              Workshop Live
+            <Badge variant="success" pulse={isOnline}>
+              {isOnline ? 'Workshop Live' : 'Offline'}
             </Badge>
           </div>
         }
@@ -263,7 +317,7 @@ export default function MobileApp() {
               </GlassCard>
             </div>
 
-            {/* Admin Workshop Access Card */}
+            {/* Admin Workshop Biometric Access Card */}
             <GlassCard className="p-4 bg-gradient-to-r from-zinc-900 to-zinc-800/90 border-zinc-700/60 flex items-center justify-between">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-2xl bg-emerald-500/15 flex items-center justify-center text-emerald-400">
@@ -277,7 +331,7 @@ export default function MobileApp() {
               <HapticButton
                 variant="secondary"
                 hapticStyle="tap"
-                onClick={() => setAdminModeOpen(true)}
+                onClick={() => setBiometricPromptOpen(true)}
                 className="px-3.5 py-2 text-xs"
               >
                 Buka Portal
@@ -305,8 +359,15 @@ export default function MobileApp() {
                 onClick={() => setSheetOpen(true)}
                 className="flex-1 text-xs"
               >
-                Panel Kustomisasi
+                Kustomisasi
               </HapticButton>
+
+              <HapticButton
+                variant="glass"
+                icon={<Share2 className="w-4 h-4" />}
+                onClick={handleShareCurrentDesign}
+                className="px-3 text-xs"
+              />
 
               <HapticButton
                 variant="primary"
@@ -362,7 +423,7 @@ export default function MobileApp() {
         )}
 
         {/* ========================================================= */}
-        {/* TAB 4: PESANAN (PHASE 4 USER ORDER TRACKER) */}
+        {/* TAB 4: PESANAN */}
         {/* ========================================================= */}
         {activeTab === 'orders' && (
           <div className="space-y-3">
@@ -371,7 +432,6 @@ export default function MobileApp() {
               <Badge variant="production">Live Tracking</Badge>
             </div>
 
-            {/* Live Order Tracker Component */}
             <UserOrderTracker
               order={activeOrder}
               onPayNow={() => {
@@ -380,7 +440,6 @@ export default function MobileApp() {
               }}
             />
 
-            {/* Checkout Shortcut if cart has items */}
             {items.length > 0 && (
               <GlassCard className="p-4 bg-orange-500/10 border-orange-500/30 flex items-center justify-between">
                 <div>
@@ -400,39 +459,46 @@ export default function MobileApp() {
         )}
 
         {/* ========================================================= */}
-        {/* TAB 5: PROFIL */}
+        {/* TAB 5: PROFIL (PHASE 5 OFFLINE DESIGNS GALLERY) */}
         {/* ========================================================= */}
         {activeTab === 'profile' && (
-          <div className="space-y-4 text-center py-6">
-            <div className="w-20 h-20 rounded-full bg-gradient-to-tr from-[#FF6B35] to-orange-400 mx-auto flex items-center justify-center text-white text-2xl font-bold font-['Syne'] shadow-xl shadow-orange-500/25">
-              H
-            </div>
-            <div>
-              <h3 className="text-base font-bold text-white font-['Syne']">Hengki Setiawan</h3>
-              <p className="text-xs text-zinc-400">0882-0206-85076 • Tamalanrea, Makassar</p>
-            </div>
-            <div className="pt-4 max-w-xs mx-auto space-y-2">
-              <HapticButton
-                variant="glass"
-                onClick={() => triggerToast('Login Biometrik Sidik Jari Aktif!')}
-                className="w-full"
-              >
-                Aktifkan Face ID / Sidik Jari
-              </HapticButton>
-              <HapticButton
-                variant="secondary"
-                onClick={() => setAdminModeOpen(true)}
-                className="w-full"
-              >
-                Masuk ke Admin Workshop
-              </HapticButton>
-            </div>
+          <div className="space-y-4 py-2">
+            {/* User Profile Card */}
+            <GlassCard className="p-4 flex items-center gap-3">
+              <div className="w-14 h-14 rounded-2xl bg-gradient-to-tr from-[#FF6B35] to-orange-400 flex items-center justify-center text-white text-xl font-bold font-['Syne'] shadow-lg shadow-orange-500/25">
+                H
+              </div>
+              <div>
+                <h3 className="text-sm font-bold text-white font-['Syne']">Hengki Setiawan</h3>
+                <p className="text-[11px] text-zinc-400">0882-0206-85076 • Tamalanrea, Makassar</p>
+                <div className="flex gap-2 mt-1.5">
+                  <Badge variant="success">Face ID Aktif</Badge>
+                </div>
+              </div>
+            </GlassCard>
+
+            {/* Offline Saved Designs Gallery */}
+            <SavedDesignsGallery
+              onSelectDesign={() => setActiveTab('studio')}
+              onNewDesign={() => {
+                resetStudio();
+                setActiveTab('studio');
+              }}
+            />
+
+            <HapticButton
+              variant="secondary"
+              onClick={() => setBiometricPromptOpen(true)}
+              className="w-full"
+            >
+              Masuk ke Admin Workshop
+            </HapticButton>
           </div>
         )}
       </main>
 
       {/* ========================================================= */}
-      {/* CUSTOMIZER DRAWER BOTTOM SHEET */}
+      {/* CUSTOMIZER DRAWER */}
       {/* ========================================================= */}
       <BottomSheet
         open={sheetOpen}
@@ -441,7 +507,6 @@ export default function MobileApp() {
         description="Pilih jenis pakaian, warna kain, dan stiker logo sablon DTF."
       >
         <div className="space-y-5 py-2">
-          {/* Pilihan Jenis Pakaian */}
           <div>
             <label className="text-xs font-semibold text-white mb-2 block font-['Syne']">
               Jenis Pakaian:
@@ -473,7 +538,6 @@ export default function MobileApp() {
             </div>
           </div>
 
-          {/* Pemilih Warna Kain */}
           <div>
             <ColorSwatchPicker
               label="Warna Dasar Kain:"
@@ -482,7 +546,6 @@ export default function MobileApp() {
             />
           </div>
 
-          {/* Upload Logo Sablon */}
           <div className="p-4 rounded-2xl bg-zinc-900 border border-zinc-800 space-y-3">
             <div className="flex items-center justify-between">
               <span className="text-xs font-semibold text-white">Stiker Sablon DTF:</span>
@@ -512,9 +575,7 @@ export default function MobileApp() {
         </div>
       </BottomSheet>
 
-      {/* ========================================================= */}
-      {/* CHECKOUT BOTTOM SHEET */}
-      {/* ========================================================= */}
+      {/* CHECKOUT SHEET */}
       <CheckoutSheet
         open={checkoutOpen}
         onOpenChange={setCheckoutOpen}
@@ -539,9 +600,7 @@ export default function MobileApp() {
         }}
       />
 
-      {/* ========================================================= */}
-      {/* ADMIN MOBILE WORKSHOP DRAWER */}
-      {/* ========================================================= */}
+      {/* ADMIN WORKSHOP DRAWER */}
       <BottomSheet
         open={adminModeOpen}
         onOpenChange={setAdminModeOpen}
@@ -553,6 +612,19 @@ export default function MobileApp() {
           onNotify={(msg) => triggerToast(msg)}
         />
       </BottomSheet>
+
+      {/* BIOMETRIC AUTH PROMPT MODAL */}
+      {biometricPromptOpen && (
+        <BiometricLockPrompt
+          title="Verifikasi Workshop Admin"
+          description="Gunakan Sidik Jari atau Face ID untuk mengonfirmasi identitas Admin Workshop Kaos Kami."
+          onSuccess={() => {
+            setBiometricPromptOpen(false);
+            setAdminModeOpen(true);
+          }}
+          onCancel={() => setBiometricPromptOpen(false)}
+        />
+      )}
 
       {/* Floating Native Toast */}
       <Toast
