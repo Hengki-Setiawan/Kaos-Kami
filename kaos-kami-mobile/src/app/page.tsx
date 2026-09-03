@@ -18,6 +18,9 @@ import {
   ShoppingBag as CartIcon,
   WifiOff,
   Share2,
+  Eye,
+  Crown,
+  FileText,
 } from 'lucide-react';
 import {
   NativeHeader,
@@ -39,14 +42,20 @@ import {
 } from '@/lib/bridge';
 import { useMobileStudioStore, ApparelType } from '@/store/useMobileStudioStore';
 import { useMobileCartStore } from '@/store/useMobileCartStore';
-import { CheckoutSheet, UserOrderTracker, OrderItemData } from '@/components/commerce';
+import {
+  CheckoutSheet,
+  UserOrderTracker,
+  OrderItemData,
+  ProUpgradeModal,
+  TechPackModal,
+} from '@/components/commerce';
 import { AdminMobileDashboard } from '@/components/admin';
 import { SavedDesignsGallery } from '@/components/offline';
 import { BiometricLockPrompt } from '@/components/security';
 import { optimizeDecalImageForMobile } from '@/lib/enhancers/imageOptimizerMobile';
 import { useSavedDesignsStore } from '@/lib/offline/savedDesignsStore';
 
-// Dynamic import for R3F Canvas to ensure zero SSR execution
+// Dynamic imports for 3D & AR to ensure zero SSR execution
 const CanvasStageMobile = dynamic(
   () => import('@/components/3d/CanvasStageMobile').then((m) => m.CanvasStageMobile),
   {
@@ -64,12 +73,21 @@ const StudioControlOverlay = dynamic(
   { ssr: false }
 );
 
+const ARPreviewStage = dynamic(
+  () => import('@/components/3d/ARPreviewStage').then((m) => m.ARPreviewStage),
+  { ssr: false }
+);
+
 export default function MobileApp() {
   const [activeTab, setActiveTab] = useState<TabKey>('home');
   const [sheetOpen, setSheetOpen] = useState(false);
   const [checkoutOpen, setCheckoutOpen] = useState(false);
   const [adminModeOpen, setAdminModeOpen] = useState(false);
   const [biometricPromptOpen, setBiometricPromptOpen] = useState(false);
+  const [arOpen, setArOpen] = useState(false);
+  const [proModalOpen, setProModalOpen] = useState(false);
+  const [techPackOpen, setTechPackOpen] = useState(false);
+  const [isProUser, setIsProUser] = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [isOnline, setIsOnline] = useState(true);
 
@@ -162,7 +180,6 @@ export default function MobileApp() {
       printHeightCm,
     });
 
-    // Also persist to local offline gallery
     saveDesign({
       title: `${selected.label} Custom`,
       apparelType,
@@ -177,20 +194,18 @@ export default function MobileApp() {
     triggerToast('Desain disimpan ke keranjang & galeri offline!');
   };
 
-  const handleShareCurrentDesign = () => {
-    haptic.tap();
-    shareCustomDesign('studio-live', `Kaos Kami 3D - ${apparelType.toUpperCase()}`);
-  };
-
   return (
     <div className="flex-1 flex flex-col min-h-screen bg-[#0E0E10] text-white select-none">
-      {/* Offline Alert Strip if Network Drops */}
+      {/* Offline Alert Strip */}
       {!isOnline && (
         <div className="bg-amber-600/90 text-black px-4 py-1.5 text-[11px] font-bold flex items-center justify-center gap-1.5 z-50">
           <WifiOff className="w-3.5 h-3.5" />
           <span>Mode Offline: Desain & keranjang tersimpan di HP Anda</span>
         </div>
       )}
+
+      {/* AR Camera Passthrough Mode */}
+      {arOpen && <ARPreviewStage onClose={() => setArOpen(false)} />}
 
       {/* Native Header */}
       <NativeHeader
@@ -218,8 +233,8 @@ export default function MobileApp() {
                 </span>
               )}
             </button>
-            <Badge variant="success" pulse={isOnline}>
-              {isOnline ? 'Workshop Live' : 'Offline'}
+            <Badge variant={isProUser ? 'production' : 'success'} pulse={isOnline}>
+              {isProUser ? 'PRO TIER' : isOnline ? 'Workshop Live' : 'Offline'}
             </Badge>
           </div>
         }
@@ -317,7 +332,25 @@ export default function MobileApp() {
               </GlassCard>
             </div>
 
-            {/* Admin Workshop Biometric Access Card */}
+            {/* Pro Suite & B2B Tech Pack Banner */}
+            <GlassCard
+              interactive
+              onClick={() => setProModalOpen(true)}
+              className="p-4 bg-gradient-to-r from-amber-500/15 to-orange-500/10 border-amber-500/30 flex items-center justify-between"
+            >
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-2xl bg-amber-500/20 flex items-center justify-center text-amber-400">
+                  <Crown className="w-5 h-5" />
+                </div>
+                <div>
+                  <h4 className="text-xs font-bold text-white font-['Syne']">Kaos Kami Pro Suite</h4>
+                  <p className="text-[10px] text-zinc-400">Ekspor 4K & Dokumen PDF B2B Sablon DTF</p>
+                </div>
+              </div>
+              <span className="text-xs font-bold text-amber-400">Lihat →</span>
+            </GlassCard>
+
+            {/* Admin Workshop Access Card */}
             <GlassCard className="p-4 bg-gradient-to-r from-zinc-900 to-zinc-800/90 border-zinc-700/60 flex items-center justify-between">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-2xl bg-emerald-500/15 flex items-center justify-center text-emerald-400">
@@ -341,7 +374,7 @@ export default function MobileApp() {
         )}
 
         {/* ========================================================= */}
-        {/* TAB 2: STUDIO 3D CONFIGURATOR */}
+        {/* TAB 2: STUDIO 3D CONFIGURATOR (WITH AR TRY-ON & TECH PACK) */}
         {/* ========================================================= */}
         {activeTab === 'studio' && (
           <div className="flex-1 flex flex-col h-[calc(100vh-140px)] relative">
@@ -364,9 +397,18 @@ export default function MobileApp() {
 
               <HapticButton
                 variant="glass"
-                icon={<Share2 className="w-4 h-4" />}
-                onClick={handleShareCurrentDesign}
+                icon={<Eye className="w-4 h-4 text-[#FF6B35]" />}
+                onClick={() => setArOpen(true)}
                 className="px-3 text-xs"
+                title="Coba AR Virtual Try-On"
+              />
+
+              <HapticButton
+                variant="glass"
+                icon={<FileText className="w-4 h-4 text-amber-400" />}
+                onClick={() => setTechPackOpen(true)}
+                className="px-3 text-xs"
+                title="Lembar B2B Tech Pack Sablon"
               />
 
               <HapticButton
@@ -376,16 +418,6 @@ export default function MobileApp() {
               >
                 Simpan
               </HapticButton>
-
-              <HapticButton
-                variant="secondary"
-                icon={<RotateCcw className="w-4 h-4" />}
-                onClick={() => {
-                  resetStudio();
-                  triggerToast('Studio 3D direset!');
-                }}
-                className="px-3 text-xs"
-              />
             </div>
           </div>
         )}
@@ -459,11 +491,10 @@ export default function MobileApp() {
         )}
 
         {/* ========================================================= */}
-        {/* TAB 5: PROFIL (PHASE 5 OFFLINE DESIGNS GALLERY) */}
+        {/* TAB 5: PROFIL */}
         {/* ========================================================= */}
         {activeTab === 'profile' && (
           <div className="space-y-4 py-2">
-            {/* User Profile Card */}
             <GlassCard className="p-4 flex items-center gap-3">
               <div className="w-14 h-14 rounded-2xl bg-gradient-to-tr from-[#FF6B35] to-orange-400 flex items-center justify-center text-white text-xl font-bold font-['Syne'] shadow-lg shadow-orange-500/25">
                 H
@@ -472,12 +503,13 @@ export default function MobileApp() {
                 <h3 className="text-sm font-bold text-white font-['Syne']">Hengki Setiawan</h3>
                 <p className="text-[11px] text-zinc-400">0882-0206-85076 • Tamalanrea, Makassar</p>
                 <div className="flex gap-2 mt-1.5">
-                  <Badge variant="success">Face ID Aktif</Badge>
+                  <Badge variant={isProUser ? 'production' : 'success'}>
+                    {isProUser ? 'PRO MEMBER' : 'Face ID Aktif'}
+                  </Badge>
                 </div>
               </div>
             </GlassCard>
 
-            {/* Offline Saved Designs Gallery */}
             <SavedDesignsGallery
               onSelectDesign={() => setActiveTab('studio')}
               onNewDesign={() => {
@@ -497,9 +529,7 @@ export default function MobileApp() {
         )}
       </main>
 
-      {/* ========================================================= */}
       {/* CUSTOMIZER DRAWER */}
-      {/* ========================================================= */}
       <BottomSheet
         open={sheetOpen}
         onOpenChange={setSheetOpen}
@@ -613,7 +643,7 @@ export default function MobileApp() {
         />
       </BottomSheet>
 
-      {/* BIOMETRIC AUTH PROMPT MODAL */}
+      {/* BIOMETRIC PROMPT */}
       {biometricPromptOpen && (
         <BiometricLockPrompt
           title="Verifikasi Workshop Admin"
@@ -625,6 +655,35 @@ export default function MobileApp() {
           onCancel={() => setBiometricPromptOpen(false)}
         />
       )}
+
+      {/* PRO UPGRADE MODAL & REWARDED ADS */}
+      <ProUpgradeModal
+        open={proModalOpen}
+        onClose={() => setProModalOpen(false)}
+        onUnlockPro={() => {
+          setIsProUser(true);
+          triggerToast('🎉 Fitur Kaos Kami Pro Suite Berhasil Diaktifkan!');
+        }}
+      />
+
+      {/* B2B TECH PACK VIEWER SHEET */}
+      <TechPackModal
+        open={techPackOpen}
+        onOpenChange={setTechPackOpen}
+        data={{
+          orderId: activeOrder.orderNumber,
+          brandName: 'Kaos Kami Streetwear',
+          designerPhone: '0882-0206-85076',
+          apparelTitle: activeOrder.apparelTitle,
+          colorName: activeOrder.colorName,
+          colorHex: color,
+          size: activeOrder.size,
+          printWidthCm: activeOrder.printWidthCm,
+          printHeightCm: activeOrder.printHeightCm,
+          offsetFromCollarCm: 7.5,
+          estimatedFilmCostIdr: 35000,
+        }}
+      />
 
       {/* Floating Native Toast */}
       <Toast
