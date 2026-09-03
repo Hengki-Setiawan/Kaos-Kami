@@ -104,7 +104,7 @@ export const DecalGizmo: React.FC<DecalGizmoProps> = ({ surfaceZ = 0.18 }) => {
         const curDist = getTouchDistance(pts[0], pts[1]);
         const curAngle = getTouchAngle(pts[0], pts[1]);
         const scaleFactor = curDist / Math.max(1, pinchRef.current.initialDist);
-        const nextScale = Math.max(0.12, Math.min(0.65, pinchRef.current.initialScale * scaleFactor));
+        const nextScale = Math.max(0.04, Math.min(0.162, pinchRef.current.initialScale * scaleFactor));
         const angleDelta = curAngle - pinchRef.current.initialAngle;
         const nextRot = Math.round(((pinchRef.current.initialRot + angleDelta + 180) % 360) - 180);
         updateDecal(activeDecal.id, { scale: nextScale, rotation: nextRot });
@@ -123,7 +123,7 @@ export const DecalGizmo: React.FC<DecalGizmoProps> = ({ surfaceZ = 0.18 }) => {
       updateDecal(activeDecal.id, { x: nextX, y: nextY });
     } else if (activeGizmoTool === "scale") {
       const deltaScale = 1 + dx * 1.5;
-      const nextScale = Math.max(0.12, Math.min(0.60, dragRef.current.initialScale * deltaScale));
+      const nextScale = Math.max(0.04, Math.min(0.162, dragRef.current.initialScale * deltaScale));
       updateDecal(activeDecal.id, { scale: nextScale });
     } else if (activeGizmoTool === "rotate") {
       const deltaDeg = dx * 180;
@@ -148,19 +148,47 @@ export const DecalGizmo: React.FC<DecalGizmoProps> = ({ surfaceZ = 0.18 }) => {
   }
 
   const isBack = activeDecal.targetSide === "back";
-  const zPosition = isBack ? -(surfaceZ + 0.01) : surfaceZ + 0.01;
+  const isLeftSleeve = activeDecal.targetSide === "left_sleeve";
+  const isRightSleeve = activeDecal.targetSide === "right_sleeve";
+
+  let gizmoPos: [number, number, number] = [activeDecal.x, activeDecal.y, surfaceZ + 0.01];
+  let gizmoRot: [number, number, number] = [0, 0, 0];
+
+  if (isBack) {
+    gizmoPos = [activeDecal.x, activeDecal.y, -(surfaceZ + 0.01)];
+    gizmoRot = [0, Math.PI, 0];
+  } else if (isLeftSleeve) {
+    gizmoPos = [-0.27, activeDecal.y, activeDecal.x];
+    gizmoRot = [0, -Math.PI / 2, 0];
+  } else if (isRightSleeve) {
+    gizmoPos = [0.27, activeDecal.y, -activeDecal.x];
+    gizmoRot = [0, Math.PI / 2, 0];
+  }
+
+  const widthCm = Math.min(30.0, Math.round(activeDecal.scale * 185.0 * 10) / 10);
+  const offsetCollarCm = Math.max(2.0, Math.round((0.18 - activeDecal.y) * 135.0 * 10) / 10);
 
   return (
-    <group position={[activeDecal.x, activeDecal.y, zPosition]}>
+    <group position={gizmoPos} rotation={gizmoRot}>
       <Html center transform distanceFactor={2.2} zIndexRange={[100, 0]}>
         <div
           className="relative pointer-events-auto select-none transition-all duration-150 group"
           style={{
-            width: `${Math.max(65, activeDecal.scale * 140)}px`,
-            height: `${Math.max(65, activeDecal.scale * 140)}px`,
+            width: `${Math.max(50, activeDecal.scale * 600)}px`,
+            height: `${Math.max(50, activeDecal.scale * 600)}px`,
             transform: `rotate(${activeDecal.rotation}deg)`,
           }}
         >
+          {/* Live Physical Centimeter Dimension Badge (Top) */}
+          <div className="absolute -top-6 left-1/2 -translate-x-1/2 flex items-center gap-1 px-2 py-0.5 rounded bg-black/90 backdrop-blur-md text-[10px] font-mono font-bold text-emerald-400 border border-emerald-500/40 shadow-xl pointer-events-none whitespace-nowrap">
+            <span>↔ {widthCm} cm</span>
+          </div>
+
+          {/* Distance from Collar Badge (Bottom) */}
+          <div className="absolute -bottom-6 left-1/2 -translate-x-1/2 flex items-center gap-1 px-1.5 py-0.5 rounded bg-black/85 backdrop-blur-md text-[9px] font-mono text-neutral-300 border border-white/10 shadow-lg pointer-events-none whitespace-nowrap">
+            <span>↓ {offsetCollarCm} cm dari kerah</span>
+          </div>
+
           {/* Bounding Box Outline */}
           <div className="absolute inset-0 border-2 border-dashed border-brand-accent/70 rounded-lg bg-brand-accent/5 shadow-[0_0_12px_rgba(230,81,0,0.3)] transition-colors hover:border-brand-accent" />
 

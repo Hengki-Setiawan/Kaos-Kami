@@ -4,14 +4,16 @@ export type MaterialFinish = "combed-cotton" | "french-terry" | "acid-wash" | "p
 export type LightingPreset = "editorial" | "cyber" | "soft-daylight";
 export type CameraViewPreset = "front" | "back" | "left" | "right" | "iso";
 
+export type DecalTargetSide = "front" | "back" | "left_sleeve" | "right_sleeve";
+
 export interface DecalLayer {
   id: string;
   url: string;
   name: string;
-  targetSide: "front" | "back";
+  targetSide: DecalTargetSide;
   x: number; // offset X (-0.35 to 0.35)
   y: number; // offset Y (-0.35 to 0.35)
-  scale: number; // scale (0.15 to 1.2)
+  scale: number; // calibrated 3D scale (0.04 to 0.165)
   rotation: number; // rotation in degrees (-180 to 180)
   opacity: number; // 0 to 1
 }
@@ -183,14 +185,14 @@ export function calculateCustomMockupPrice(
   const sablonDetails = decals.map((d, idx) => {
     let cost = 25000;
     let sizeType: "A6 Pocket" | "A4 Chest" | "A3 Big Print" = "A4 Chest";
-    // 6-var mapping: scale <0.35 → A6 10k, <0.65 → A5/A4 15k-25k, >=0.65 → A3 35k
-    if (d.scale < 0.35) {
+    // Calibrated 3D scale thresholds: <0.065 → A6 10k, <0.095 → A5 15k, <0.135 → A4 25k, >=0.135 → A3 35k
+    if (d.scale < 0.065) {
       cost = 10000;
       sizeType = "A6 Pocket";
-    } else if (d.scale >= 0.65) {
+    } else if (d.scale >= 0.135) {
       cost = 35000;
       sizeType = "A3 Big Print";
-    } else if (d.scale < 0.5) {
+    } else if (d.scale < 0.095) {
       cost = 15000;
       sizeType = "A4 Chest";
     } else {

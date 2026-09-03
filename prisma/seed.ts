@@ -28,8 +28,8 @@ async function main() {
       weightGsm: "240 / 280 GSM",
       basePriceIdr: 169000,
       sizes: JSON.stringify(["S", "M", "L", "XL", "XXL"]),
-      model3dPath: "/models/tshirt-heavyweight.glb",
-      fallbackComponent: "TshirtModel",
+      model3dPath: "/models/longsleeve.glb",
+      fallbackComponent: "LongsleeveModel",
       decalNodes: JSON.stringify([
         { id: "front", label: "Dada Depan", side: "front", anchor: [0, 0.08, 0.15] },
         { id: "back", label: "Punggung Belakang", side: "back", anchor: [0, 0.08, -0.15] },

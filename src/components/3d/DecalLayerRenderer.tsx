@@ -18,9 +18,26 @@ const SingleDecalItem: React.FC<{
   }, [uploaded]);
 
   const isBack = decal.targetSide === "back";
-  const zPos = isBack ? -surfaceZ : surfaceZ;
-  const rotY = isBack ? Math.PI : 0;
+  const isLeftSleeve = decal.targetSide === "left_sleeve";
+  const isRightSleeve = decal.targetSide === "right_sleeve";
+
+  let posX = decal.x;
+  let posY = decal.y;
+  let posZ = isBack ? -surfaceZ : surfaceZ;
+  let rotY = isBack ? Math.PI : 0;
   const rotZ = (decal.rotation * Math.PI) / 180;
+
+  if (isLeftSleeve) {
+    // Proyeksi ke lengan kiri (X negatif)
+    posX = -0.27;
+    posZ = decal.x; // slider X mengatur geser maju-mundur di lengan
+    rotY = -Math.PI / 2;
+  } else if (isRightSleeve) {
+    // Proyeksi ke lengan kanan (X positif)
+    posX = 0.27;
+    posZ = -decal.x;
+    rotY = Math.PI / 2;
+  }
 
   // Starklord technique: anisotropy 16 + depth tuning for crisp decal at angle
   if ((uploaded as any).anisotropy !== undefined) {
@@ -28,24 +45,32 @@ const SingleDecalItem: React.FC<{
     uploaded.needsUpdate = true;
   }
 
-  // Presisi Rasio Aspek Alami (Mencegah distorsi gepeng/stretching)
+  // Presisi Rasio Aspek Alami & Normalisasi Skala Fisik Nyata (Maksimal 30.0 cm DTF)
   const imgWidth = (uploaded.image as any)?.width || 1;
   const imgHeight = (uploaded.image as any)?.height || 1;
   const aspect = imgWidth > 0 && imgHeight > 0 ? imgWidth / imgHeight : 1;
 
-  let scaleX = decal.scale;
-  let scaleY = decal.scale;
+  // Auto-koreksi data legacy dari localStorage (jika scale tersimpan > 0.22, normalisasi ke skala metrik 1:1)
+  let normalizedScale = decal.scale;
+  if (normalizedScale > 0.22) {
+    normalizedScale = Math.min(0.162, normalizedScale * 0.22);
+  }
+  // Kunci keras pada batas fisik printhead roll DTF workshop Makassar (Maks 30.0 cm = 0.162 unit 3D)
+  normalizedScale = Math.max(0.04, Math.min(0.162, normalizedScale));
+
+  let scaleX = normalizedScale;
+  let scaleY = normalizedScale;
   if (aspect >= 1) {
     // Landscape atau Square: lebar dasar, tinggi proporsional
-    scaleY = decal.scale / aspect;
+    scaleY = normalizedScale / aspect;
   } else {
     // Portrait: tinggi dasar, lebar proporsional
-    scaleX = decal.scale * aspect;
+    scaleX = normalizedScale * aspect;
   }
 
   return (
     <Decal
-      position={[decal.x, decal.y, zPos]}
+      position={[posX, posY, posZ]}
       rotation={[0, rotY, rotZ]}
       scale={[scaleX, scaleY, 0.35]}
     >

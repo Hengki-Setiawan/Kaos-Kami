@@ -7,15 +7,14 @@ import { useFrame } from "@react-three/fiber";
 import { easing } from "maath";
 import { useConfiguratorStore } from "@/store/useConfiguratorStore";
 import { DecalLayerRenderer } from "./DecalLayerRenderer";
-import { applyWindToMaterial } from "@/lib/shaders/windDisplacement";
 import { createClothPhysicalMaterial } from "@/lib/materials/clothPhysicalMaterial";
 
-const MODEL_PATH = "/models/tshirt-heavyweight.glb";
+const MODEL_PATH = "/models/longsleeve.glb";
 useGLTF.preload(MODEL_PATH);
 
-const GltfTshirt: React.FC = () => {
+const GltfLongsleeve: React.FC = () => {
   const meshRef = useRef<THREE.Group>(null);
-  const { nodes, materials } = useGLTF(MODEL_PATH) as any;
+  const { nodes } = useGLTF(MODEL_PATH) as any;
   const {
     selectedColor,
     isRotating,
@@ -25,33 +24,36 @@ const GltfTshirt: React.FC = () => {
     modelPosY,
     modelScale,
     viewMode,
+    partColors,
+    activeColorMode,
+    animationPreset,
+    animationSpeed,
   } = useConfiguratorStore();
 
-  const { partColors, activeColorMode } = useConfiguratorStore();
-  const roughness =
-    materialFinish === "acid-wash"
-      ? 0.78
-      : materialFinish === "french-terry"
-      ? 0.88
-      : 0.84;
-
-  const { animationPreset, animationSpeed } = useConfiguratorStore();
-  // Wind strength via animationPreset (BLUEPRINT-02 §4)
   const windStrength =
-    animationPreset === "wind" ? 0.8 * animationSpeed : animationPreset === "walking" ? 0.4 * animationSpeed : animationPreset === "knit" ? 0.2 : 0;
+    animationPreset === "wind"
+      ? 0.8 * animationSpeed
+      : animationPreset === "walking"
+      ? 0.4 * animationSpeed
+      : animationPreset === "knit"
+      ? 0.2
+      : 0;
 
-  // Multi-part fake by vertex position (tanpa Blender re-export) — body/sleeves/collar by |x|/y threshold
+  // Multi-part coloring for longsleeve (collar, sleeves including cuffs, body)
   const coloredGeometry = useMemo(() => {
     const base = nodes?.T_Shirt_male?.geometry as THREE.BufferGeometry | undefined;
     if (!base) return null;
     if (activeColorMode !== "multi-part") return base;
+
     const geo = base.clone();
     const pos = geo.attributes.position as THREE.BufferAttribute;
     if (!pos) return base;
+
     const colors = new Float32Array(pos.count * 3);
     const colBody = new THREE.Color(partColors.body || selectedColor);
     const colSleeve = new THREE.Color(partColors.sleeves || partColors.sleeve || selectedColor);
     const colCollar = new THREE.Color(partColors.collar || selectedColor);
+
     for (let i = 0; i < pos.count; i++) {
       const x = pos.getX(i);
       const y = pos.getY(i);
@@ -67,9 +69,10 @@ const GltfTshirt: React.FC = () => {
     return geo;
   }, [nodes, activeColorMode, partColors, selectedColor]);
 
+  // Use realistic cloth physical material with sheen & peach fuzz
   const material = useMemo(() => {
     return createClothPhysicalMaterial({
-      archetype: "tshirt",
+      archetype: "longsleeve",
       color: selectedColor,
       isWireframe,
       isMultiPart: activeColorMode === "multi-part",
@@ -79,34 +82,26 @@ const GltfTshirt: React.FC = () => {
   }, [selectedColor, isWireframe, activeColorMode, materialFinish, windStrength]);
 
   useEffect(() => {
-    // Afilah multi-part: if multi-part mode, override with first part color
     if (activeColorMode === "multi-part" && Object.keys(partColors).length > 0) {
       const firstPartColor = Object.values(partColors)[0];
       if (firstPartColor) material.color.set(firstPartColor);
     }
-    // Wind shader wiring (BLUEPRINT-02 §4)
-    if (windStrength > 0) {
-      try {
-        applyWindToMaterial(material, windStrength);
-      } catch {}
-    }
     return () => {
       material.dispose();
     };
-  }, [material, activeColorMode, partColors, windStrength]);
+  }, [material, activeColorMode, partColors]);
 
   useFrame((state, delta) => {
     if (activeColorMode !== "multi-part") {
       easing.dampC(material.color, new THREE.Color(selectedColor), 0.25, delta);
     } else {
-      // In multi-part, material stays white — vertex colors carry part colors, so keep white
       easing.dampC(material.color, new THREE.Color(0xffffff), 0.25, delta);
     }
-    // Wind uTime update
+
     if ((material as any).userData?.shader?.uniforms?.uTime) {
       (material as any).userData.shader.uniforms.uTime.value += delta * animationSpeed;
     }
-    // Animation presets: wind via shader, walking via bob, knit via quick reveal, static none
+
     if (meshRef.current) {
       if (isRotating) meshRef.current.rotation.y += delta * 0.75;
       if (animationPreset === "walking") {
@@ -115,7 +110,6 @@ const GltfTshirt: React.FC = () => {
         meshRef.current.rotation.z = Math.sin(t * 1.6) * 0.04;
       } else if (animationPreset === "knit") {
         const prog = Math.min(1, (state.clock.getElapsedTime() % 3) / 2);
-        // subtle scale reveal for knit
         const s = 0.9 + prog * 0.1;
         meshRef.current.scale.set(s, s, s);
       }
@@ -145,10 +139,10 @@ const GltfTshirt: React.FC = () => {
   );
 };
 
-export const TshirtModel: React.FC = () => {
+export const LongsleeveModel: React.FC = () => {
   return (
     <Suspense fallback={null}>
-      <GltfTshirt />
+      <GltfLongsleeve />
     </Suspense>
   );
 };

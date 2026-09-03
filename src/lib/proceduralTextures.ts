@@ -15,23 +15,35 @@ export function createFabricNormalMap(): THREE.CanvasTexture {
   const ctx = canvas.getContext("2d");
   if (!ctx) return new THREE.CanvasTexture(canvas);
 
-  // Base normal color (pointing straight out: [128, 128, 255] in RGB)
-  ctx.fillStyle = "#8080ff";
-  ctx.fillRect(0, 0, 512, 512);
+  // Base tangent-space normal color [128, 128, 255]
+  const imgData = ctx.createImageData(512, 512);
+  const data = imgData.data;
 
-  // Micro-weave cross-hatch pattern simulating dense 16s ring-spun cotton yarns
-  for (let x = 0; x < 512; x += 4) {
-    for (let y = 0; y < 512; y += 4) {
-      const n = (Math.random() - 0.5) * 36;
-      ctx.fillStyle = `rgb(${Math.floor(128 + n)}, ${Math.floor(128 + n)}, 255)`;
-      ctx.fillRect(x, y, 2, 2);
+  // Ultra-subtle, smooth 24s/28s combed cotton knit loops (sine-based, anti-aliased)
+  for (let y = 0; y < 512; y++) {
+    for (let x = 0; x < 512; x++) {
+      const idx = (y * 512 + x) * 4;
+      // Smooth diagonal twill weave (gentle gradient, no harsh step frequencies)
+      const u = (x / 512) * Math.PI * 64;
+      const v = (y / 512) * Math.PI * 64;
+      const waveX = Math.sin(u) * Math.cos(v) * 12;
+      const waveY = Math.cos(u) * Math.sin(v) * 12;
+
+      data[idx] = Math.max(0, Math.min(255, Math.floor(128 + waveX)));     // R (X normal)
+      data[idx + 1] = Math.max(0, Math.min(255, Math.floor(128 + waveY))); // G (Y normal)
+      data[idx + 2] = 255;                                                  // B (Z normal)
+      data[idx + 3] = 255;                                                  // Alpha
     }
   }
+  ctx.putImageData(imgData, 0, 0);
 
   const texture = new THREE.CanvasTexture(canvas);
   texture.wrapS = THREE.RepeatWrapping;
   texture.wrapT = THREE.RepeatWrapping;
-  texture.repeat.set(40, 40);
+  texture.repeat.set(16, 16);
+  texture.generateMipmaps = true;
+  texture.minFilter = THREE.LinearMipmapLinearFilter;
+  texture.magFilter = THREE.LinearFilter;
   texture.needsUpdate = true;
   return texture;
 }

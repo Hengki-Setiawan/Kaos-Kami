@@ -10,6 +10,7 @@ import { useDeviceTier } from "@/hooks/useDeviceTier";
 import { DecalLayerRenderer } from "./DecalLayerRenderer";
 import { easing } from "maath";
 import { applyWindToMaterial } from "@/lib/shaders/windDisplacement";
+import { createClothPhysicalMaterial } from "@/lib/materials/clothPhysicalMaterial";
 
 const MODEL_PATH_HIGH = "/models/hoodie.optimized.glb";
 const MODEL_PATH_LOW = "/models/hoodie.lod1.glb";
@@ -41,25 +42,15 @@ const GltfHoodie: React.FC = () => {
   const roughness = materialFinish === "acid-wash" ? 0.82 : 0.88;
 
   const material = useMemo(() => {
-    const isMulti = activeColorMode === "multi-part";
-    const baseColor = isMulti ? new THREE.Color(0xffffff) : new THREE.Color(selectedColor);
-    const mat = new THREE.MeshStandardMaterial({
-      color: baseColor,
-      roughness,
-      metalness: 0.03,
-      wireframe: isWireframe,
-      side: THREE.DoubleSide,
-      aoMap: null,
-      aoMapIntensity: 0,
-      vertexColors: isMulti,
-    } as any);
-    if (windStrength > 0) {
-      try {
-        applyWindToMaterial(mat, windStrength);
-      } catch {}
-    }
-    return mat;
-  }, [selectedColor, roughness, isWireframe, windStrength, activeColorMode]);
+    return createClothPhysicalMaterial({
+      archetype: "hoodie",
+      color: selectedColor,
+      isWireframe,
+      isMultiPart: activeColorMode === "multi-part",
+      materialFinish,
+      windStrength,
+    });
+  }, [selectedColor, isWireframe, activeColorMode, materialFinish, windStrength]);
 
   // Merge and normalize all Clo3D hoodie meshes so the model is centered at [0,0,0] + vertex colors for multi-part
   const mergedGeometry = useMemo(() => {

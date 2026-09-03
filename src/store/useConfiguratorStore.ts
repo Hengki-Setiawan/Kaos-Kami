@@ -292,8 +292,8 @@ export const useConfiguratorStore = create<ConfiguratorState>((set, get) => ({
           url,
           targetSide: "front",
           x: 0,
-          y: 0.08,
-          scale: 0.55,
+          y: 0.02,
+          scale: 0.11, // A4 standard (~20.5 cm)
           rotation: 0,
           opacity: 1,
         });
@@ -317,8 +317,8 @@ export const useConfiguratorStore = create<ConfiguratorState>((set, get) => ({
           url,
           targetSide: "back",
           x: 0,
-          y: 0.12,
-          scale: 0.75,
+          y: 0.02,
+          scale: 0.15, // A3 poster (~27.8 cm)
           rotation: 0,
           opacity: 1,
         });
@@ -448,12 +448,12 @@ export const useConfiguratorStore = create<ConfiguratorState>((set, get) => ({
   applyLogoPreset: () => {
     const s = get();
     const xMap = [-0.075, 0, 0.075] as const;
-    const scaleMap = [0.09, 0.12, 0.17] as const;
+    const scaleMap = [0.05, 0.11, 0.16] as const;
     const active = s.decals.find((d) => d.id === s.selectedDecalId) ?? s.decals[0];
     if (!active) return;
     s.updateDecal(active.id, {
       x: xMap[s.logoPresetPos] ?? 0,
-      scale: scaleMap[s.logoPresetScale] ?? 0.52,
+      scale: scaleMap[s.logoPresetScale] ?? 0.11,
     });
   },
 }));

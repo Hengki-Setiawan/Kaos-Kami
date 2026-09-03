@@ -5,10 +5,12 @@ import * as THREE from "three";
 import { useFrame } from "@react-three/fiber";
 import { useConfiguratorStore } from "@/store/useConfiguratorStore";
 import { TshirtModel } from "./TshirtModel";
+import { LongsleeveModel } from "./LongsleeveModel";
 import { HoodieModel } from "./HoodieModel";
 import { ShirtModel } from "./ShirtModel";
 
 import { DecalGizmo } from "./DecalGizmo";
+import { PrintZoneGuide } from "./PrintZoneGuide";
 
 export const ApparelMeshRenderer: React.FC = () => {
   const { activeApparel, modelRotY, viewMode, activePhase, isMobile } = useConfiguratorStore();
@@ -77,7 +79,7 @@ export const ApparelMeshRenderer: React.FC = () => {
       case "shirt":
         return <ShirtModel />;
       case "longsleeve":
-        return <TshirtModel />;
+        return <LongsleeveModel />;
       case "tshirt":
       default:
         return <TshirtModel />;
@@ -87,6 +89,7 @@ export const ApparelMeshRenderer: React.FC = () => {
   return (
     <group ref={groupRef}>
       {renderModel()}
+      <PrintZoneGuide />
       <DecalGizmo />
     </group>
   );

@@ -4,10 +4,10 @@ export const DecalLayerSchema = z.object({
   id: z.string(),
   url: z.string().min(1, "URL decal wajib diisi"),
   name: z.string().default("Grafis"),
-  targetSide: z.enum(["front", "back"]),
+  targetSide: z.enum(["front", "back", "left_sleeve", "right_sleeve"]),
   x: z.number().min(-0.75).max(0.75),
   y: z.number().min(-0.75).max(0.75),
-  scale: z.number().min(0.1).max(1.5),
+  scale: z.number().min(0.02).max(1.5),
   rotation: z.number().min(-180).max(180),
   opacity: z.number().min(0).max(1),
 });

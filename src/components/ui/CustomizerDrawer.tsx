@@ -163,7 +163,7 @@ export const CustomizerDrawer: React.FC = () => {
       targetSide: "front",
       x: 0,
       y: -0.05,
-      scale: 0.52,
+      scale: 0.11, // A4 standar dada (~20.5 cm)
       rotation: 0,
       opacity: 1,
     });
@@ -276,7 +276,7 @@ export const CustomizerDrawer: React.FC = () => {
         targetSide: "front",
         x: 0,
         y: -0.05, // Clean chest placement, below neck/hood
-        scale: 0.48,
+        scale: 0.11, // A4 standar dada (~20.5 cm)
         rotation: 0,
         opacity: 1,
       });
@@ -577,22 +577,28 @@ export const CustomizerDrawer: React.FC = () => {
                   <span className="block text-xs font-mono text-text-muted mb-2 font-bold uppercase">
                     CHOOSE APPAREL ASSET:
                   </span>
-                  <div className="grid grid-cols-3 gap-2">
-                    {(["tshirt", "hoodie", "shirt"] as ApparelType[]).map((type) => (
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                    {(["tshirt", "longsleeve", "hoodie", "shirt"] as ApparelType[]).map((type) => (
                       <button
                         key={type}
                         onClick={() => setActiveApparel(type)}
-                        className={`py-3 px-2 rounded-xl font-mono text-xs font-bold border transition-all uppercase truncate flex flex-col items-center justify-center space-y-1 ${
+                        className={`py-3 px-1.5 rounded-xl font-mono text-xs font-bold border transition-all uppercase truncate flex flex-col items-center justify-center space-y-1 ${
                           activeApparel === type
                             ? "bg-brand-accent text-canvas border-brand-accent shadow-[0_0_14px_rgba(230,81,0,0.5)] scale-[1.02]"
                             : "bg-surface border-border-subtle text-text-muted hover:text-text-primary hover:border-text-muted"
                         }`}
                       >
                         <span className="text-base">
-                          {type === "tshirt" ? "👕" : type === "hoodie" ? "🧥" : "👔"}
+                          {type === "tshirt" ? "👕" : type === "longsleeve" ? "🦾" : type === "hoodie" ? "🧥" : "👔"}
                         </span>
-                        <span className="text-[10px] sm:text-xs tracking-wider">
-                          {type === "tshirt" ? "T-SHIRT" : type === "hoodie" ? "HOODIE" : "JACKET / SHIRT"}
+                        <span className="text-[9px] sm:text-[10px] tracking-wider font-bold">
+                          {type === "tshirt"
+                            ? "T-SHIRT"
+                            : type === "longsleeve"
+                            ? "LONGSLEEVE"
+                            : type === "hoodie"
+                            ? "HOODIE"
+                            : "JACKET"}
                         </span>
                       </button>
                     ))}
@@ -794,7 +800,7 @@ export const CustomizerDrawer: React.FC = () => {
                           targetSide: "front",
                           x: 0,
                           y: -0.05,
-                          scale: 0.52,
+                          scale: 0.11, // A4 standar dada (~20.5 cm)
                           rotation: 0,
                           opacity: 1,
                         });
@@ -903,22 +909,40 @@ export const CustomizerDrawer: React.FC = () => {
                           </span>
                           <div className="flex items-center space-x-2">
                             <button
-                              onClick={() =>
-                                updateDecal(activeDecal.id, {
-                                  targetSide: activeDecal.targetSide === "front" ? "back" : "front",
-                                })
-                              }
-                              className="px-2 py-1 rounded text-[10px] font-mono bg-surface border border-border-subtle text-text-muted hover:text-brand-accent uppercase font-bold"
-                            >
-                              SIDE: {activeDecal.targetSide.toUpperCase()}
-                            </button>
-                            <button
                               onClick={() => removeDecal(activeDecal.id)}
-                              className="p-1 rounded text-text-muted hover:text-red-400"
+                              className="p-1.5 rounded-lg bg-surface border border-border-subtle text-text-muted hover:text-red-400 hover:border-red-400/40 transition-all"
                               title="Delete Decal"
                             >
                               <Trash2 size={13} />
                             </button>
+                          </div>
+                        </div>
+
+                        {/* 4-Position Placement Selector (Front, Back, Left Sleeve, Right Sleeve) */}
+                        <div className="space-y-1">
+                          <span className="block text-[10px] font-mono text-text-muted font-bold uppercase">
+                            POSISI PENEMPATAN SABLON:
+                          </span>
+                          <div className="grid grid-cols-4 gap-1 font-mono text-[10px]">
+                            {[
+                              { id: "front", label: "👕 DADA" },
+                              { id: "back", label: "🔙 PUNGGUNG" },
+                              { id: "left_sleeve", label: "👈 LGN KIRI" },
+                              { id: "right_sleeve", label: "👉 LGN KANAN" },
+                            ].map((side) => (
+                              <button
+                                key={side.id}
+                                type="button"
+                                onClick={() => updateDecal(activeDecal.id, { targetSide: side.id as any })}
+                                className={`py-1.5 px-1 rounded-lg border font-bold text-center transition-all ${
+                                  activeDecal.targetSide === side.id
+                                    ? "bg-brand-accent text-canvas border-brand-accent shadow-sm"
+                                    : "bg-surface border-white/10 text-text-muted hover:text-white"
+                                }`}
+                              >
+                                {side.label}
+                              </button>
+                            ))}
                           </div>
                         </div>
 
@@ -1087,20 +1111,48 @@ export const CustomizerDrawer: React.FC = () => {
                         {/* Scale / Size (Directly affects DTF print cost) */}
                         <div>
                           <div className="flex justify-between text-[11px] font-mono text-text-muted mb-1">
-                            <span>SABLON PRINT SIZE (DTF)</span>
+                            <span>UKURAN FISIK CETAK (DTF):</span>
                             <span className="text-brand-accent font-bold">
-                              {activeDecal.scale < 0.35 ? "A6 Pocket (+15k)" : activeDecal.scale >= 0.65 ? "A3 Big (+45k)" : "A4 Chest (+28k)"}
+                              {activeDecal.scale < 0.065
+                                ? "A6 Pocket (+10k)"
+                                : activeDecal.scale < 0.095
+                                ? "A5 Chest (+15k)"
+                                : activeDecal.scale < 0.135
+                                ? "A4 Standard (+25k)"
+                                : "A3 Oversized (+35k)"}
                             </span>
                           </div>
                           <input
                             type="range"
-                            min="0.15"
-                            max="1.1"
-                            step="0.02"
+                            min="0.04"
+                            max="0.162"
+                            step="0.002"
                             value={activeDecal.scale}
                             onChange={(e) => updateDecal(activeDecal.id, { scale: parseFloat(e.target.value) })}
                             className="w-full accent-brand-accent cursor-pointer"
                           />
+                          {/* DTF Standard Size Presets */}
+                          <div className="grid grid-cols-4 gap-1 pt-1 font-mono text-[9px]">
+                            {[
+                              { label: "A6 (9cm)", scale: 0.049 },
+                              { label: "A5 (15cm)", scale: 0.081 },
+                              { label: "A4 (21cm)", scale: 0.114 },
+                              { label: "A3 (29cm)", scale: 0.157 },
+                            ].map((preset) => (
+                              <button
+                                key={preset.label}
+                                type="button"
+                                onClick={() => updateDecal(activeDecal.id, { scale: preset.scale })}
+                                className={`py-1 rounded bg-surface border text-center transition-all ${
+                                  Math.abs(activeDecal.scale - preset.scale) < 0.015
+                                    ? "border-brand-accent text-brand-accent font-bold"
+                                    : "border-white/10 text-text-muted hover:text-white"
+                                }`}
+                              >
+                                {preset.label}
+                              </button>
+                            ))}
+                          </div>
                         </div>
 
                         {/* Rotation */}
@@ -1649,7 +1701,7 @@ export const CustomizerDrawer: React.FC = () => {
                   className="flex-1 py-3 px-4 rounded-xl bg-brand-accent text-canvas font-display font-black text-xs uppercase tracking-wider hover:brightness-110 active:scale-95 transition-all shadow-[0_0_16px_rgba(230,81,0,0.4)] text-center flex items-center justify-center space-x-2"
                 >
                   <ShoppingCart size={14} />
-                  <span>PESAN (MIDTRANS)</span>
+                  <span>PESAN (DUITKU)</span>
                 </button>
 
                 <button
@@ -1700,7 +1752,7 @@ export const CustomizerDrawer: React.FC = () => {
               onClick={() => setIsCheckoutOpen(true)}
               className="w-full py-3 rounded-xl bg-brand-accent text-canvas font-bold text-xs uppercase"
             >
-              PESAN (MIDTRANS) — {pricing.formattedTotal}
+              PESAN (DUITKU) — {pricing.formattedTotal}
             </button>
             <p className="text-[10px] text-text-muted text-center">Geser handle di atas untuk peek / half / full — vaul pattern aktif di mobile</p>
           </div>
