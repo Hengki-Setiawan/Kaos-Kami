@@ -55,3 +55,12 @@ export const db: Db = globalForDb.db ?? createDb();
 if (process.env.NODE_ENV !== "production") {
   globalForDb.db = db;
 }
+
+/** Klien libsql mentah (untuk SQL yang tak bisa diungkapkan via Drizzle,
+ * mis. sqlite_master / DDL introspeksi). Bukan untuk query bisnis umum. */
+export function getRawClient() {
+  return createClient({
+    url: getDatabaseUrl(),
+    authToken: process.env.TURSO_AUTH_TOKEN,
+  });
+}

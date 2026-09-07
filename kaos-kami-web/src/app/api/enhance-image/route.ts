@@ -1,56 +1,20 @@
 import { NextRequest, NextResponse } from "next/server";
-import sharp from "sharp";
-import { uploadToR2 } from "@/lib/r2";
+// sharp DIHAPUS dari route ini (Sep 2026): modul native tidak bisa jalan di
+// Workers (selalu 500). Tombol UI disembunyikan; endpoint dipertahankan agar
+// mengembalikan 501 yang jujur, bukan 500 misterius.
 import { checkRateLimitAsync, getClientIp, rateLimitHeaders } from "@/lib/security/rateLimiter";
 
 export async function POST(req: NextRequest) {
   try {
-    // Sharp = CPU burn. Tetap guest-friendly tapi dibatasi ketat.
     const rl = await checkRateLimitAsync(`enhance:ip:${getClientIp(req)}`, 5, 60);
     if (rl.isLimited) {
       return NextResponse.json({ error: "Terlalu banyak enhance. Tunggu sebentar." }, { status: 429, headers: rateLimitHeaders(rl, 5) });
     }
-    const { imageBase64 } = await req.json();
-
-    if (!imageBase64 || typeof imageBase64 !== "string") {
-      return NextResponse.json({ error: "Missing imageBase64 data" }, { status: 400 });
-    }
-
-    // Extract base64 buffer
-    const base64Data = imageBase64.replace(/^data:image\/\w+;base64,/, "");
-    const buffer = Buffer.from(base64Data, "base64");
-    if (buffer.length === 0 || buffer.length > 10 * 1024 * 1024) {
-      return NextResponse.json({ error: "Ukuran gambar 1B–10MB" }, { status: 413 });
-    }
-
-    // Perform DTF Print Optimization:
-    // 1. Unsharp mask for high-definition edge recovery
-    // 2. Normalization to remove compression noise
-    // 3. Output as high-quality PNG with transparency
-    const enhancedBuffer = await sharp(buffer)
-      .sharpen({
-        sigma: 1.5,
-        m1: 1.0,
-        m2: 2.0,
-      })
-      .toFormat("png", { quality: 100, compressionLevel: 6 })
-      .toBuffer();
-
-    const enhancedBase64 = `data:image/png;base64,${enhancedBuffer.toString("base64")}`;
-
-    // Upload to R2 (zero egress) — key: enhanced/{timestamp}.png
-    const r2Key = `enhanced/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.png`;
-    const r2Result = await uploadToR2(r2Key, enhancedBuffer, "image/png");
-
-    return NextResponse.json({
-      success: true,
-      enhancedUrl: enhancedBase64,
-      r2Url: r2Result.success ? r2Result.url : null,
-      r2Key: r2Result.success ? r2Result.key : null,
-      r2Error: r2Result.error || null,
-    });
+    return NextResponse.json(
+      { error: "Fitur pertajam nonaktif sementara (pindah ke proses browser)." },
+      { status: 501 }
+    );
   } catch (error: any) {
-    console.error("Enhance image error:", error);
     return NextResponse.json({ error: error?.message || "Failed to process image" }, { status: 500 });
   }
 }

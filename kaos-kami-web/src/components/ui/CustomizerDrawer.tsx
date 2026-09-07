@@ -1003,22 +1003,17 @@ export const CustomizerDrawer: React.FC = () => {
                             type="button"
                             disabled={isEnhancingImage}
                             onClick={handleRemoveWhiteBg}
-                            className="flex items-center justify-center gap-1.5 py-2 px-2.5 rounded-xl bg-surface border border-white/10 hover:border-brand-accent text-[11px] font-mono font-bold text-text-primary hover:text-white transition-all disabled:opacity-50"
+                            className="flex items-center justify-center gap-1.5 py-2 px-2.5 rounded-xl bg-surface border border-white/10 hover:border-brand-accent text-[11px] font-mono font-bold text-text-primary hover:text-white transition-all disabled:opacity-50 col-span-2"
                             title="Hapus background putih pada gambar JPG/PNG secara otomatis"
                           >
                             {isEnhancingImage ? <Loader2 size={13} className="animate-spin" /> : <Wand2 size={13} className="text-brand-accent" />}
                             <span>✨ HAPUS BG PUTIH</span>
                           </button>
-                          <button
-                            type="button"
-                            disabled={isEnhancingImage}
-                            onClick={handleSharpEnhance}
-                            className="flex items-center justify-center gap-1.5 py-2 px-2.5 rounded-xl bg-surface border border-white/10 hover:border-brand-accent text-[11px] font-mono font-bold text-text-primary hover:text-white transition-all disabled:opacity-50"
-                            title="Pertajam resolusi tepi sablon dengan AI unsharp-mask filter"
-                          >
-                            {isEnhancingImage ? <Loader2 size={13} className="animate-spin" /> : <Sparkles size={13} className="text-brand-accent" />}
-                            <span>🔍 PERTAJAM DTF</span>
-                          </button>
+                          {/* Tombol PERTAJAM DTF disembunyikan Sep 2026: endpoint
+                              /api/enhance-image (sharp native) tidak bisa jalan
+                              di Workers (500). Handler handleSharpEnhance
+                              dipertahankan untuk dihidupkan ulang versi
+                              client-side. */}
                         </div>
 
                         {/* Interactive Direct-Manipulation Gizmo Toggle Banner */}

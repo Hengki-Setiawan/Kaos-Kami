@@ -398,12 +398,7 @@ export const Coupon = sqliteTable("Coupon", {
   isActive: integer("isActive", { mode: "boolean" }).notNull().default(true),
 });
 
-export const AbandonedCartLog = sqliteTable("AbandonedCartLog", {
-  id: text("id").primaryKey(),
-  userId: text("userId").notNull(),
-  reminderSentAt: isoDateTime("reminderSentAt"),
-  createdAt: isoDateTime("createdAt").notNull().$defaultFn(() => new Date()),
-});
+// AbandonedCartLog DIHAPUS Sep 2026 (tabel mati, tidak dipakai kode mana pun).
 
 // ------------------------------------------------------------------
 // MOBILE PUSH DEVICES
@@ -547,7 +542,6 @@ export const schema = {
   Payment,
   ProductionTask,
   Coupon,
-  AbandonedCartLog,
   UserDevice,
   UserRelations,
   SessionRelations,

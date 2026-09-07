@@ -451,12 +451,8 @@ model Coupon {
   isActive      Boolean   @default(true)
 }
 
-model AbandonedCartLog {
-  id             String    @id @default(cuid())
-  userId         String
-  reminderSentAt DateTime?
-  createdAt      DateTime  @default(now())
-}
+// AbandonedCartLog DIHAPUS Sep 2026 (tabel mati; DROP via SQL langsung
+// setelah verifikasi 0 baris — Prisma migrate tidak support Turso).
 
 // ------------------------------------------------------------------
 // MOBILE PUSH DEVICES (Blueprint M10 — registerPushToken)
