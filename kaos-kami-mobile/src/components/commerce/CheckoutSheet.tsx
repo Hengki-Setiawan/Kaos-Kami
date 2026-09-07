@@ -26,10 +26,12 @@ export function CheckoutSheet({ open, onOpenChange, onOrderSuccess, onNotify }: 
   const { items, getSubtotal, clearCart } = useMobileCartStore();
   const [step, setStep] = useState<1 | 2 | 3>(1);
 
-  // Form states
-  const [customerName, setCustomerName] = useState('Hengki Setiawan');
-  const [customerPhone, setCustomerPhone] = useState('0882020685076');
-  const [customerAddress, setCustomerAddress] = useState('Jl. Perintis Kemerdekaan KM 10, Tamalanrea, Makassar');
+  // Form states (kosong default — JANGAN hardcode data pribadi dev di sini;
+  // insiden Sep 2026: nama/alamat dev tampil ke semua pengguna).
+  const [customerName, setCustomerName] = useState('');
+  const [customerPhone, setCustomerPhone] = useState('');
+  const [customerAddress, setCustomerAddress] = useState('');
+  const [couponCode, setCouponCode] = useState('');
   const [selectedDelivery, setSelectedDelivery] = useState<DeliveryOption>(MAKASSAR_DELIVERY_OPTIONS[0]);
   const [selectedPayment, setSelectedPayment] = useState<'QRIS' | 'VA_BCA' | 'MAXIM_COD'>('QRIS');
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -58,6 +60,7 @@ export function CheckoutSheet({ open, onOpenChange, onOrderSuccess, onNotify }: 
         district: 'Makassar',
         paymentMethod: selectedPayment,
         cod: isCod,
+        couponCode: couponCode.trim() || undefined,
         items: items.map((it) => ({
           apparelSlug: it.apparelType,
           colorHex: it.colorHex,
@@ -307,6 +310,18 @@ export function CheckoutSheet({ open, onOpenChange, onOrderSuccess, onNotify }: 
                 <span className="text-emerald-400 font-medium">
                   {deliveryFee === 0 ? 'Gratis' : `Rp ${deliveryFee.toLocaleString('id-ID')}`}
                 </span>
+              </div>
+              <div>
+                <label htmlFor="m-coupon" className="block mb-1">Kode kupon (opsional)</label>
+                <input
+                  id="m-coupon"
+                  value={couponCode}
+                  onChange={(e) => setCouponCode(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 32))}
+                  placeholder="cth: HEMAT10"
+                  autoComplete="off"
+                  className="w-full px-3 py-2.5 rounded-xl bg-zinc-800 border border-zinc-700 text-white uppercase placeholder:normal-case"
+                />
+                <p className="text-zinc-500 text-[11px] mt-1">Potongan dihitung server saat pesan.</p>
               </div>
               <div className="flex justify-between text-sm font-bold text-white border-t border-zinc-800 pt-1.5 mt-1 font-['Syne']">
                 <span>Total Bayar:</span>

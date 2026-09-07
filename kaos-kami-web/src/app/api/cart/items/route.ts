@@ -33,6 +33,24 @@ export async function POST(req: NextRequest) {
       const [created] = await db.insert(Cart).values({ id: nanoid(), userId }).returning();
       cart = created!;
     }
+    // Gabung qty bila item identik sudah ada (varian/desain sama) —
+    // jangan bikin baris ganda.
+    const same = await db.query.CartItem.findFirst({
+      where: (t, { and, eq, isNull }) =>
+        and(
+          eq(t.cartId, cart.id),
+          productVariantId ? eq(t.productVariantId, productVariantId) : isNull(t.productVariantId),
+          designId ? eq(t.designId, designId) : isNull(t.designId)
+        ),
+    });
+    if (same) {
+      const [merged] = await db
+        .update(CartItem)
+        .set({ quantity: same.quantity + quantity, unitPriceIdr })
+        .where(eq(CartItem.id, same.id))
+        .returning();
+      return NextResponse.json({ success: true, item: merged, merged: true });
+    }
     const [item] = await db
       .insert(CartItem)
       .values({ id: nanoid(), cartId: cart.id, productVariantId: productVariantId || null, designId: designId || null, quantity, unitPriceIdr })

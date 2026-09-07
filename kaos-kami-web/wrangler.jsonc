@@ -30,10 +30,8 @@
 			"bucket_name": "kaos-kami-3d-opennext-cache"
 		}
 	],
-	// OPTIONAL — aktifkan untuk rate-limit lintas-isolate (KV fixed-window):
-	// 1) npx wrangler kv namespace create RATE_LIMIT_KV
-	// 2) uncomment blok di bawah + isi id:
-	// "kv_namespaces": [{ "binding": "RATE_LIMIT_KV", "id": "PASTE_KV_NAMESPACE_ID" }],
+	// Rate-limit lintas-isolate AKTIF (KV dibuat 07 Sep 2026).
+	"kv_namespaces": [{ "binding": "RATE_LIMIT_KV", "id": "6431b2b40c0b4de0afb51e3d25faf53d" }],
 	"images": {
 		// Enable image optimization
 		// see https://opennext.js.org/cloudflare/howtos/image

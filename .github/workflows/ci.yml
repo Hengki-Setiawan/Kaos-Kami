@@ -10,13 +10,19 @@ jobs:
           node-version: 20
           cache: npm
       - run: npm ci
+      # generate butuh DATABASE_URL (prisma.config.ts); dummy cukup karena
+      # generate tidak menyentuh DB. Jangan taruh secret asli di CI.
       - run: npm --workspace=kaos-kami-web exec -- prisma generate
+        env:
+          DATABASE_URL: "file:./prisma/dev.db"
       - run: npm run web:typecheck
       - run: npm run mobile:typecheck
       - run: npm --workspace=kaos-kami-web run lint
       - run: npm --workspace=kaos-kami-web exec -- prisma generate
       - run: npm run test --workspace=kaos-kami-web
       - run: npm run web:build
+        env:
+          DATABASE_URL: "file:./prisma/dev.db"
       - run: npm run mobile:build
       - name: Lighthouse CI (desktop)
         run: |

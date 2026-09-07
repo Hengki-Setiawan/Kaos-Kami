@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { nanoid } from "nanoid";
+import { eq } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { ApparelCategory, Design } from "@/lib/drizzle-schema";
 import { assertResourceOwnerOrAdmin } from "@/lib/security/authGuard";
@@ -59,7 +60,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "User tidak ditemukan. Login/daftar dulu di aplikasi." }, { status: 404 });
     }
 
-    const results: Array<{ clientId: string; designId: string; action: "created" | "kept-server" }> = [];
+    const results: Array<{ clientId: string; designId: string; action: "created" | "updated" | "kept-server" }> = [];
     for (const d of designs) {
       const category =
         (await db.query.ApparelCategory.findFirst({
@@ -79,6 +80,26 @@ export async function POST(req: NextRequest) {
       // Last-Write-Wins: server menang jika lebih baru dari kiriman HP.
       if (existing && existing.updatedAt > remoteUpdatedAt) {
         results.push({ clientId: d.clientId, designId: existing.id, action: "kept-server" });
+        continue;
+      }
+
+      // HP lebih baru (atau belum ada): UPDATE baris yang sama, JANGAN
+      // bikin duplikat tiap sync.
+      if (existing) {
+        await db
+          .update(Design)
+          .set({
+            categoryId: category.id,
+            colorHex: d.colorHex,
+            colorName: d.colorName,
+            size: d.size,
+            decals: JSON.stringify(d.decals || []),
+            calculatedPriceIdr: d.calculatedPriceIdr,
+            priceBreakdown: JSON.stringify({ syncedFrom: "mobile", deviceUpdatedAt: remoteUpdatedAt }),
+            status: "SAVED",
+          })
+          .where(eq(Design.id, existing.id));
+        results.push({ clientId: d.clientId, designId: existing.id, action: "updated" });
         continue;
       }
 

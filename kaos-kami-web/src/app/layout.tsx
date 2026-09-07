@@ -3,6 +3,7 @@ import { Syne, JetBrains_Mono, Plus_Jakarta_Sans } from "next/font/google";
 import { SmoothScrollProvider } from "@/components/providers/SmoothScrollProvider";
 import { QueryProvider } from "@/components/providers/QueryProvider";
 import { DesignSyncProvider } from "@/components/providers/DesignSyncProvider";
+import { AppDownloadBanner } from "@/components/ui/AppDownloadBanner";
 import Script from "next/script";
 import "./globals.css";
 
@@ -140,6 +141,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <QueryProvider>
           <DesignSyncProvider>
             <SmoothScrollProvider>{children}</SmoothScrollProvider>
+            <AppDownloadBanner />
           </DesignSyncProvider>
         </QueryProvider>
       </body>

@@ -76,6 +76,8 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
   const [fullAddress, setFullAddress] = useState("");
   const [courierNotes, setCourierNotes] = useState("");
   const [turnaroundTier, setTurnaroundTier] = useState<"REGULER" | "EXPRESS_24H">("REGULER");
+  // Kode kupon (opsional) — validasi + potongan 100% dihitung server.
+  const [couponCode, setCouponCode] = useState("");
 
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -227,6 +229,7 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
         courierNotes,
         items: itemsPayload,
         turnstileToken: turnstileToken || undefined,
+        couponCode: couponCode.trim() || undefined,
       };
 
       const res = await fetch("/api/checkout", {
@@ -694,6 +697,24 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
                 <span>+Rp {turnaroundSurcharge.toLocaleString("id-ID")}</span>
               </div>
             )}
+
+            {/* Kupon (opsional) — potongan dihitung & divalidasi server */}
+            <div>
+              <label htmlFor="coupon-code" className="block text-text-muted mb-1">
+                Kode kupon (jika ada)
+              </label>
+              <input
+                id="coupon-code"
+                value={couponCode}
+                onChange={(e) => setCouponCode(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 32))}
+                placeholder="cth: HEMAT10"
+                autoComplete="off"
+                className="w-full px-3 py-2 rounded-xl bg-surface border border-white/10 text-white uppercase placeholder:normal-case placeholder:text-text-muted"
+              />
+              <p className="text-text-muted text-[11px] mt-1">
+                Potongan dihitung otomatis oleh server saat bayar.
+              </p>
+            </div>
 
             <div className="flex justify-between items-baseline pt-2 border-t border-white/10 text-sm sm:text-base font-bold text-white">
               <span>TOTAL PEMBAYARAN:</span>
