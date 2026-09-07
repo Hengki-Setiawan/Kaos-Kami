@@ -23,6 +23,9 @@ jobs:
       - run: npm run web:build
         env:
           DATABASE_URL: "libsql://localhost:8080"
+          # Dummy agar inisialisasi modul saat build tidak throw.
+          # BUKAN secret asli — tidak dipakai untuk auth beneran di CI.
+          BETTER_AUTH_SECRET: "ci-only-dummy-secret-min-32-chars-0000"
       - run: npm run mobile:build
       - name: Lighthouse CI (desktop)
         run: |
