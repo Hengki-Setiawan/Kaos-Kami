@@ -68,3 +68,10 @@ android/key.properties
 kaos-kami-web/prisma/dev.db
 keystore-passwords.local.txt
 **/keystore-passwords.local.txt
+
+# build/preview/deploy logs (never commit)
+rebuild*.log
+preview*.log
+deploy*.log
+*-build*.log
+testworker.log
