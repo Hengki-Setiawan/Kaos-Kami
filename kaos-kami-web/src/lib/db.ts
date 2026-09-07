@@ -13,7 +13,6 @@
 // typegen (import TYPE dari @/generated/prisma/*), seed (Node), Studio.
 import { drizzle, type LibSQLDatabase } from "drizzle-orm/libsql";
 import { createClient } from "@libsql/client/web";
-import path from "path";
 import { schema, type DbSchema } from "./drizzle-schema";
 
 export type Db = LibSQLDatabase<DbSchema>;
@@ -33,8 +32,12 @@ function getDatabaseUrl(): string {
   if (process.env.DATABASE_URL) {
     return process.env.DATABASE_URL;
   }
-  const dbPath = path.join(process.cwd(), "prisma", "dev.db");
-  return `file:${dbPath}`;
+  // JANGAN pakai file: — klien /web (fetch-only, workerd-safe) tidak mendukung
+  // SQLite file lokal dan THROW saat import (merusak next build/CI). Dummy URL
+  // membuat import aman; query tanpa env tetap gagal dengan pesan jaringan
+  // yang jelas. Dev/prod SELALU set TURSO_* via .env.local / secrets.
+  console.warn("[db] TURSO_DATABASE_URL/DATABASE_URL kosong — pakai dummy (query akan gagal).");
+  return "libsql://localhost:8080";
 }
 
 function createDb(): Db {
