@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
-import { PRODUCT_COLORS, TECHNICAL_SPECS, SIZES, type ProductSize, type ProductColor } from "@/lib/constants";
+import { PRODUCT_COLORS, TECHNICAL_SPECS, SIZES, APPAREL_CATALOG, type ProductSize, type ProductColor } from "@/lib/constants";
 import { Check } from "lucide-react";
 
 /**
@@ -18,6 +18,10 @@ const DEFAULT_COLOR: ProductColor = PRODUCT_COLORS[0] ?? {
 export const StaticShowcase: React.FC = () => {
   const [selectedColor, setSelectedColor] = useState<ProductColor>(DEFAULT_COLOR);
   const [selectedSize, setSelectedSize] = useState<ProductSize>("L");
+  const basePrice = APPAREL_CATALOG.tshirt?.basePriceIdr ?? 149000;
+  const pigmentFee = selectedColor.isSpecialPigment ? 15000 : 0;
+  const sizeFee = selectedSize === "XXL" ? 10000 : 0;
+  const totalPrice = basePrice + pigmentFee + sizeFee;
 
   return (
     <main className="min-h-screen bg-canvas text-text-primary px-6 md:px-16 py-24 max-w-6xl mx-auto space-y-20">
@@ -95,7 +99,7 @@ export const StaticShowcase: React.FC = () => {
         </div>
 
         <button className="w-full py-4 rounded-xl bg-brand-accent text-canvas font-display font-black text-sm uppercase tracking-wider hover:brightness-110 transition-all shadow-[0_0_20px_rgba(230,81,0,0.3)]">
-          ACQUIRE PIECE — IDR 289.000
+          ACQUIRE PIECE — IDR {totalPrice.toLocaleString("id-ID")}
         </button>
       </section>
     </main>

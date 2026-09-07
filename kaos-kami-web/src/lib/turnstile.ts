@@ -13,10 +13,15 @@ export async function verifyTurnstileToken(
   token: string,
   remoteIp?: string
 ): Promise<TurnstileVerificationResult> {
-  const secretKey =
-    process.env.CLOUDFLARE_TURNSTILE_SECRET_KEY ||
-    // Default fallback testing secret key (Always passes)
-    "1x0000000000000000000000000000000AA";
+  // Test key Cloudflare ("selalu lolos") HANYA untuk dev. Di production tanpa
+  // secret asli = verifikasi tidak berarti → tolak.
+  const secretKey = process.env.CLOUDFLARE_TURNSTILE_SECRET_KEY || "";
+  if (!secretKey) {
+    if (process.env.NODE_ENV === "production") {
+      return { success: false, errorCodes: ["missing-secret"] };
+    }
+    return { success: true };
+  }
 
   // Jika token kosong
   if (!token) {

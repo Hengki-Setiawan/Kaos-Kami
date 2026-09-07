@@ -1,11 +1,23 @@
 import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@/lib/db";
+import { nanoid } from "nanoid";
+import { db } from "@/lib/db";
+import { Design } from "@/lib/drizzle-schema";
 import { SaveDesignSchema } from "@/lib/schemas/design";
 import { uploadBase64ToR2 } from "@/lib/r2";
 import { getAuthenticatedUser } from "@/lib/security/authGuard";
+import { checkRateLimitAsync, getClientIp, rateLimitHeaders } from "@/lib/security/rateLimiter";
 
 export async function POST(req: NextRequest) {
   try {
+    // Guest boleh simpan (fitur), tapi dibatasi ketat anti-spam/DoS.
+    const rl = await checkRateLimitAsync(`designs:ip:${getClientIp(req)}`, 10, 60);
+    if (rl.isLimited) {
+      return NextResponse.json({ error: "Terlalu banyak menyimpan desain." }, { status: 429, headers: rateLimitHeaders(rl, 10) });
+    }
+    const len = Number(req.headers.get("content-length") || 0);
+    if (len > 3 * 1024 * 1024) {
+      return NextResponse.json({ error: "Payload desain >3MB" }, { status: 413 });
+    }
     const body = await req.json();
     const validation = SaveDesignSchema.safeParse(body);
 
@@ -30,8 +42,8 @@ export async function POST(req: NextRequest) {
     } = validation.data;
 
     // Find category
-    const category = await prisma.apparelCategory.findUnique({
-      where: { slug: apparelSlug },
+    const category = await db.query.ApparelCategory.findFirst({
+      where: (t, { eq }) => eq(t.slug, apparelSlug),
     });
 
     if (!category) {
@@ -64,10 +76,12 @@ export async function POST(req: NextRequest) {
       if (up.success) finalBackUrl = up.url;
     }
 
-    const design = await prisma.design.create({
-      data: {
+    const [design] = await db
+      .insert(Design)
+      .values({
+        id: nanoid(),
         title,
-        userId: (await getAuthenticatedUser().catch(() => null))?.id ?? undefined,
+        userId: (await getAuthenticatedUser().catch(() => null))?.id ?? null,
         categoryId: category.id,
         colorHex,
         colorName,
@@ -81,8 +95,8 @@ export async function POST(req: NextRequest) {
         previewImageFrontUrl: finalFrontUrl,
         previewImageBackUrl: finalBackUrl,
         status: "SAVED",
-      },
-    });
+      })
+      .returning();
 
     return NextResponse.json({ success: true, design });
   } catch (error: any) {
@@ -100,11 +114,11 @@ export async function GET(req: NextRequest) {
     if (!viewer) {
       return NextResponse.json({ error: "Unauthorized: silakan login" }, { status: 401 });
     }
-    const designs = await prisma.design.findMany({
-      where: isAdmin ? undefined : { userId: viewer.id },
-      take: 20,
-      orderBy: { createdAt: "desc" },
-      include: { category: true },
+    const designs = await db.query.Design.findMany({
+      where: isAdmin ? undefined : (t, { eq }) => eq(t.userId, viewer.id),
+      limit: 20,
+      orderBy: (t, { desc }) => desc(t.createdAt),
+      with: { category: true },
     });
 
     const parsedDesigns = designs.map((d) => ({

@@ -1,8 +1,8 @@
 import { NextResponse } from 'next/server';
-import { prisma } from '@/lib/db';
+import { db } from '@/lib/db';
 export async function GET() {
   try {
-    const methods = await prisma.sablonMethod.findMany();
+    const methods = await db.query.SablonMethod.findMany();
     return NextResponse.json({ success: true, methods });
   } catch(e:any){ return NextResponse.json({ error: e.message }, { status: 500 }); }
 }

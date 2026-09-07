@@ -42,7 +42,8 @@ import {
   type LightingPreset,
 } from "@/lib/constants";
 import { useConfiguratorStore } from "@/store/useConfiguratorStore";
-import { computePhysicalPrintDimensions } from "@/lib/scaleCalibration";
+import { computePhysicalPrintDimensions, maxDecalScaleUnits, APPAREL_PHYSICAL_SPECS } from "@/lib/scaleCalibration";
+import { classifyPrintTierByCm, printTierCost, PRINT_TIER_LABEL } from "@/lib/printTiers";
 import { evaluatePrintQuality } from "@/lib/dpiAnalyzer";
 import { removeSolidBackground } from "@/lib/enhancers/removeSolidBackground";
 import { compressImageClient } from "@/lib/enhancers/compressImage";
@@ -577,8 +578,8 @@ export const CustomizerDrawer: React.FC = () => {
                   <span className="block text-xs font-mono text-text-muted mb-2 font-bold uppercase">
                     CHOOSE APPAREL ASSET:
                   </span>
-                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                    {(["tshirt", "longsleeve", "hoodie", "shirt"] as ApparelType[]).map((type) => (
+                  <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
+                    {(["tshirt", "longsleeve", "crewneck", "hoodie", "shirt"] as ApparelType[]).map((type) => (
                       <button
                         key={type}
                         onClick={() => setActiveApparel(type)}
@@ -589,13 +590,15 @@ export const CustomizerDrawer: React.FC = () => {
                         }`}
                       >
                         <span className="text-base">
-                          {type === "tshirt" ? "👕" : type === "longsleeve" ? "🦾" : type === "hoodie" ? "🧥" : "👔"}
+                          {type === "tshirt" ? "👕" : type === "longsleeve" ? "🦾" : type === "crewneck" ? "🎽" : type === "hoodie" ? "🧥" : "👔"}
                         </span>
                         <span className="text-[9px] sm:text-[10px] tracking-wider font-bold">
                           {type === "tshirt"
                             ? "T-SHIRT"
                             : type === "longsleeve"
                             ? "LONGSLEEVE"
+                            : type === "crewneck"
+                            ? "CREWNECK"
                             : type === "hoodie"
                             ? "HOODIE"
                             : "JACKET"}
@@ -793,16 +796,27 @@ export const CustomizerDrawer: React.FC = () => {
                   </button>
                   {showFabricEditor && (
                     <FabricEditor
-                      onExport={(dataUrl) => {
+                      printWidthCm={(() => {
+                        const d = decals.find((x) => x.id === selectedDecalId) ?? decals[0];
+                        const m = { tshirt: 101.8, longsleeve: 70.5, crewneck: 91.9, hoodie: 95.1, shirt: 69.5 } as const;
+                        return Math.min(30, Math.max(3.5, (d?.scale ?? 0.11) * (m[activeApparel] ?? 101.8)));
+                      })()}
+                      printHeightCm={(() => {
+                        const d = decals.find((x) => x.id === selectedDecalId) ?? decals[0];
+                        const m = { tshirt: 101.8, longsleeve: 70.5, crewneck: 91.9, hoodie: 95.1, shirt: 69.5 } as const;
+                        return Math.min(42, Math.max(3.5, (d?.scale ?? 0.11) * (m[activeApparel] ?? 101.8)));
+                      })()}
+                      onExport={(dataUrl, printPx) => {
                         const id = addDecal({
                           name: `Fabric ${decals.length + 1}`,
                           url: dataUrl,
                           targetSide: "front",
                           x: 0,
                           y: -0.05,
-                          scale: 0.11, // A4 standar dada (~20.5 cm)
+                          scale: 0.11, // A4 standar dada (~11.2 cm pada kaos, terkalibrasi ukur)
                           rotation: 0,
                           opacity: 1,
+                          ...(printPx ? { printPx } : {}),
                         });
                         setSelectedDecalId(id);
                         setShowFabricEditor(false);
@@ -1113,45 +1127,47 @@ export const CustomizerDrawer: React.FC = () => {
                           <div className="flex justify-between text-[11px] font-mono text-text-muted mb-1">
                             <span>UKURAN FISIK CETAK (DTF):</span>
                             <span className="text-brand-accent font-bold">
-                              {activeDecal.scale < 0.065
-                                ? "A6 Pocket (+10k)"
-                                : activeDecal.scale < 0.095
-                                ? "A5 Chest (+15k)"
-                                : activeDecal.scale < 0.135
-                                ? "A4 Standard (+25k)"
-                                : "A3 Oversized (+35k)"}
+                              {(() => {
+                                if (!activeDecal || !physicalDimensions) return "—";
+                                const tier = classifyPrintTierByCm(physicalDimensions.widthCm);
+                                return `${PRINT_TIER_LABEL[tier]} (+${printTierCost(tier) / 1000}k) • ${physicalDimensions.widthCm.toFixed(1)}cm`;
+                              })()}
                             </span>
                           </div>
                           <input
                             type="range"
                             min="0.04"
-                            max="0.162"
+                            max={activeDecal ? maxDecalScaleUnits(activeApparel, activeDecal.targetSide) : 0.3}
                             step="0.002"
                             value={activeDecal.scale}
                             onChange={(e) => updateDecal(activeDecal.id, { scale: parseFloat(e.target.value) })}
                             className="w-full accent-brand-accent cursor-pointer"
                           />
-                          {/* DTF Standard Size Presets */}
+                          {/* DTF Standard Size Presets — cm akurat per apparel, bukan skala mentah */}
                           <div className="grid grid-cols-4 gap-1 pt-1 font-mono text-[9px]">
-                            {[
-                              { label: "A6 (9cm)", scale: 0.049 },
-                              { label: "A5 (15cm)", scale: 0.081 },
-                              { label: "A4 (21cm)", scale: 0.114 },
-                              { label: "A3 (29cm)", scale: 0.157 },
-                            ].map((preset) => (
-                              <button
-                                key={preset.label}
-                                type="button"
-                                onClick={() => updateDecal(activeDecal.id, { scale: preset.scale })}
-                                className={`py-1 rounded bg-surface border text-center transition-all ${
-                                  Math.abs(activeDecal.scale - preset.scale) < 0.015
-                                    ? "border-brand-accent text-brand-accent font-bold"
-                                    : "border-white/10 text-text-muted hover:text-white"
-                                }`}
-                              >
-                                {preset.label}
-                              </button>
-                            ))}
+                            {(() => {
+                              const mm = APPAREL_PHYSICAL_SPECS[activeApparel]?.meshMultiplier ?? 101.8;
+                              const presets = [
+                                { label: "A6 (9cm)", cm: 9 },
+                                { label: "A5 (15cm)", cm: 15 },
+                                { label: "A4 (21cm)", cm: 21 },
+                                { label: "A3 (29cm)", cm: 29 },
+                              ].map((p) => ({ ...p, scale: p.cm / mm }));
+                              return presets.map((preset) => (
+                                <button
+                                  key={preset.label}
+                                  type="button"
+                                  onClick={() => updateDecal(activeDecal.id, { scale: preset.scale })}
+                                  className={`py-1 rounded bg-surface border text-center transition-all ${
+                                    Math.abs(activeDecal.scale - preset.scale) < preset.scale * 0.15
+                                      ? "border-brand-accent text-brand-accent font-bold"
+                                      : "border-white/10 text-text-muted hover:text-white"
+                                  }`}
+                                >
+                                  {preset.label}
+                                </button>
+                              ));
+                            })()}
                           </div>
                         </div>
 

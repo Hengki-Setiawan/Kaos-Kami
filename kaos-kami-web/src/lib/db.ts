@@ -1,14 +1,29 @@
-import { PrismaClient } from "@prisma/client";
-import { PrismaLibSQL } from "@prisma/adapter-libsql";
+// src/lib/db.ts — Runtime DB untuk Cloudflare Workers via Drizzle + libSQL HTTP.
+//
+// MENGAPA BUKAN PRISMA CLIENT (RUNBOOK §6):
+// Prisma Client v7 butuh query-compiler WASM yang di-compile saat runtime
+// (new WebAssembly.Module / ?module). workerd MENOLAK keduanya
+// ("code generation disallowed" — issue prisma#28657, terbukti di preview
+// lokal: semua query 500). Next 14 (webpack) juga tidak bisa mem-bundle
+// impor .wasm?module (gagal "Module parse failed").
+// Drizzle = SQL builder TypeScript murni + @libsql/client (fetch) →
+// 100% workerd-safe. Bentuk nilai dipertahankan (Date, boolean).
+//
+// Prisma tetap dipakai untuk: skema source-of-truth, `db push`,
+// typegen (import TYPE dari @/generated/prisma/*), seed (Node), Studio.
+import { drizzle, type LibSQLDatabase } from "drizzle-orm/libsql";
+import { createClient } from "@libsql/client/web";
+import path from "path";
+import { schema, type DbSchema } from "./drizzle-schema";
 
-const globalForPrisma = globalThis as unknown as {
-  prisma: PrismaClient | undefined;
+export type Db = LibSQLDatabase<DbSchema>;
+
+const globalForDb = globalThis as unknown as {
+  db: Db | undefined;
 };
 
-import path from "path";
-
 function getDatabaseUrl(): string {
-  // Dukung kedua env: DATABASE_URL (Prisma native) dan TURSO_DATABASE_URL (legacy rumah-kripik-web)
+  // Dukung kedua env: DATABASE_URL (Prisma native) dan TURSO_DATABASE_URL (legacy)
   if (process.env.DATABASE_URL && process.env.DATABASE_URL.startsWith("libsql://")) {
     return process.env.DATABASE_URL;
   }
@@ -22,27 +37,18 @@ function getDatabaseUrl(): string {
   return `file:${dbPath}`;
 }
 
-import { createClient } from "@libsql/client/http";
-
-function createPrismaClient() {
-  const url = getDatabaseUrl();
-  const authToken = process.env.TURSO_AUTH_TOKEN;
-
+function createDb(): Db {
+  // Varian /web (fetch-only, tanpa Node API) agar SATU kode jalan di
+  // Node DEV maupun Cloudflare Workers PROD.
   const client = createClient({
-    url,
-    authToken,
+    url: getDatabaseUrl(),
+    authToken: process.env.TURSO_AUTH_TOKEN,
   });
-
-  const adapter = new PrismaLibSQL(client as any);
-
-  return new PrismaClient({
-    adapter,
-    log: process.env.NODE_ENV === "development" ? ["query", "error", "warn"] : ["error"],
-  });
+  return drizzle(client, { schema });
 }
 
-export const prisma = globalForPrisma.prisma ?? createPrismaClient();
+export const db: Db = globalForDb.db ?? createDb();
 
 if (process.env.NODE_ENV !== "production") {
-  globalForPrisma.prisma = prisma;
+  globalForDb.db = db;
 }

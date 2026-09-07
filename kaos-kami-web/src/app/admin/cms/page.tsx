@@ -1,11 +1,11 @@
-import { prisma } from "@/lib/db";
+import { db } from "@/lib/db";
 export const dynamic = "force-dynamic";
 
 // CMS kelola seluruh website — hero, lookbook, banner, SEO via R2 + DB (tanpa deploy)
 export default async function AdminCMSPage() {
   const [cats, colors] = await Promise.all([
-    prisma.apparelCategory.findMany({ orderBy: { sortOrder: "asc" } }),
-    prisma.colorOption.findMany({ orderBy: { sortOrder: "asc" } }),
+    db.query.ApparelCategory.findMany({ orderBy: (t, { asc }) => asc(t.sortOrder) }),
+    db.query.ColorOption.findMany({ orderBy: (t, { asc }) => asc(t.sortOrder) }),
   ]);
   return (
     <div className="p-5 sm:p-8 space-y-6 max-w-6xl mx-auto font-mono text-xs">

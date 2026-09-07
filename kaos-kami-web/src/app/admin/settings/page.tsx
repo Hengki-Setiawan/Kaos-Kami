@@ -9,7 +9,7 @@ export default function AdminSettingsPage() {
     <div className="p-5 sm:p-8 space-y-6 max-w-5xl mx-auto font-mono text-xs">
       <div className="pb-4 border-b border-white/5">
         <h1 className="font-display text-2xl sm:text-3xl font-black uppercase text-white">WORKSHOP SETTINGS</h1>
-        <p className="text-text-muted">Konfigurasi toko • template WhatsApp • R2 • Midtrans</p>
+        <p className="text-text-muted">Konfigurasi toko • template WhatsApp • R2 • Duitku</p>
       </div>
 
       <div className="grid md:grid-cols-2 gap-4">

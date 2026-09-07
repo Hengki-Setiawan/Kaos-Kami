@@ -22,7 +22,7 @@ All design decisions, schemas, and API contracts are formally documented in the 
 
 ## 🏛️ NON-NEGOTIABLE ARCHITECTURAL RULES
 
-1. **Database:** Always use **Turso (libSQL Edge SQLite)** via `@prisma/adapter-libsql` or `@libsql/client`. NEVER switch to regular Supabase (to prevent 7-day inactivity pause issues).
+1. **Database:** Always use **Turso (libSQL Edge SQLite)**. RUNTIME access MUST go through **Drizzle ORM + `@libsql/client/web`** (`src/lib/db.ts`, schema in `src/lib/drizzle-schema.ts`) — Prisma Client v6/v7 CANNOT run on Cloudflare Workers (eval/WASM blocked by workerd, see RUNBOOK §6). Prisma is kept ONLY for: schema source-of-truth, `db push`, typegen, seed (Node), Studio. NEVER switch to regular Supabase (to prevent 7-day inactivity pause issues).
 2. **Object Storage:** Always use **Cloudflare R2** for user-uploaded decals, master assets, and 3D models. Zero egress fees protect the project margin.
 3. **Physical Scale Calibration (DTF Sablon Standard):**
    - Maximum printable width is strictly clamped to **30.0 cm** (matching physical DTF printhead limits).

@@ -10,6 +10,7 @@ import { useDeviceTier } from "@/hooks/useDeviceTier";
 import { DecalLayerRenderer } from "./DecalLayerRenderer";
 import { easing } from "maath";
 import { applyWindToMaterial } from "@/lib/shaders/windDisplacement";
+import { ensureWindWeights, ensureBoxUV } from "@/lib/geometryPrep";
 import { createClothPhysicalMaterial } from "@/lib/materials/clothPhysicalMaterial";
 
 const MODEL_PATH_HIGH = "/models/hoodie.optimized.glb";
@@ -72,6 +73,10 @@ const GltfHoodie: React.FC = () => {
       if (merged) {
         merged.center();
         merged.computeVertexNormals();
+        // WAJIB: bobot wind ( Sullivan preset wind) + box-UV ( Sullivan normal anyaman,
+        // mesh hoodie mentah Marvelous tanpa UV).
+        ensureWindWeights(merged);
+        ensureBoxUV(merged);
         if (activeColorMode === "multi-part") {
           const pos = merged.attributes.position as THREE.BufferAttribute;
           if (pos) {

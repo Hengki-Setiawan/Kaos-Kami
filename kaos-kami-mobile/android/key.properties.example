@@ -1,0 +1,7 @@
+# Salin ke android/key.properties (JANGAN commit — sudah di .gitignore).
+# Untuk CI: isi GitHub Secrets KAOSKAMI_STORE_PASSWORD / KAOSKAMI_KEY_ALIAS / KAOSKAMI_KEY_PASSWORD.
+# Keystore beta saat ini HANYA untuk sideload. Generate BARU untuk Play Store:
+# keytool -genkeypair -v -keystore kaos-kami-play.keystore -alias kaoskami -keyalg RSA -keysize 2048 -validity 10000
+storePassword=ISI-DI-SINI
+keyAlias=kaoskami
+keyPassword=ISI-DI-SINI

@@ -1,6 +1,6 @@
 import React from "react";
 import Link from "next/link";
-import { prisma } from "@/lib/db";
+import { db } from "@/lib/db";
 import { Navbar } from "@/components/ui/Navbar";
 import { Footer } from "@/components/ui/Footer";
 import {
@@ -34,17 +34,17 @@ export default async function CustomerDashboardPage() {
   const designWhere = sessionUserId && !canSeeAll ? { userId: sessionUserId } : undefined;
 
   const [recentOrders, savedDesigns] = await Promise.all([
-    prisma.order.findMany({
-      where: orderWhere,
-      take: 5,
-      orderBy: { createdAt: "desc" },
-      include: { items: true },
+    db.query.Order.findMany({
+      where: orderWhere ? (t, { eq }) => eq(t.userId, orderWhere.userId) : undefined,
+      limit: 5,
+      orderBy: (t, { desc }) => desc(t.createdAt),
+      with: { items: true },
     }),
-    prisma.design.findMany({
-      where: designWhere,
-      take: 6,
-      orderBy: { createdAt: "desc" },
-      include: { category: true },
+    db.query.Design.findMany({
+      where: designWhere ? (t, { eq }) => eq(t.userId, designWhere.userId) : undefined,
+      limit: 6,
+      orderBy: (t, { desc }) => desc(t.createdAt),
+      with: { category: true },
     }),
   ]);
 

@@ -3,7 +3,7 @@
 import React, { useRef } from 'react';
 import * as THREE from 'three';
 import { ThreeEvent } from '@react-three/fiber';
-import { useMobileStudioStore } from '@/store/useMobileStudioStore';
+import { useMobileStudioStore, mobileMaxScaleUnits } from '@/store/useMobileStudioStore';
 import { haptic } from '@/lib/bridge/haptics';
 
 const X_BOUND = 0.35;
@@ -11,7 +11,6 @@ const Y_MIN = -0.3;
 const Y_MAX = 0.3;
 const SNAP_X = 0.008;
 const MIN_SCALE = 0.04;
-const MAX_SCALE = 0.165;
 
 /**
  * M3.3 — Direct on-mesh decal gizmo (mobile).
@@ -27,6 +26,8 @@ export function DecalGizmoMobile() {
   const activeFace = useMobileStudioStore((s) => s.activeFace);
   const setDecalTransform = useMobileStudioStore((s) => s.setDecalTransform);
   const setGizmoDragging = useMobileStudioStore((s) => s.setGizmoDragging);
+  const apparelType = useMobileStudioStore((s) => s.apparelType);
+  const maxScale = mobileMaxScaleUnits(apparelType);
 
   const pointers = useRef(new Map<number, { x: number; y: number }>());
   const gestureStart = useRef<{ dist: number; angle: number; scale: number; rot: number } | null>(null);
@@ -87,11 +88,11 @@ export function DecalGizmoMobile() {
       const angle = Math.atan2(b.y - a.y, b.x - a.x);
       const g = gestureStart.current;
       const raw = (g.scale * dist) / Math.max(1, g.dist);
-      const ns = Math.max(MIN_SCALE, Math.min(MAX_SCALE, raw));
-      if (ns >= MAX_SCALE && !warnedMax.current) {
+      const ns = Math.max(MIN_SCALE, Math.min(maxScale, raw));
+      if (ns >= maxScale && !warnedMax.current) {
         warnedMax.current = true;
         haptic.tapHeavy();
-      } else if (ns < MAX_SCALE) {
+      } else if (ns < maxScale) {
         warnedMax.current = false;
       }
       const rotDeg = g.rot + ((angle - g.angle) * 180) / Math.PI;

@@ -1,12 +1,16 @@
 // prisma/schema.prisma
 generator client {
-  provider        = "prisma-client-js"
-  previewFeatures = ["driverAdapters"]
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+  // SENGAJA tanpa `runtime = "cloudflare"`: generated client hanya dipakai di
+  // Node tooling (seed/tsx/Studio) + import TYPE di app. Runtime Workers 100%
+  // Drizzle (RUNBOOK §6). Varian cloudflare (?module) justru merusak seed/tsx
+  // Node ("loaded wasm module was unexpectedly undefined").
 }
 
 datasource db {
   provider = "sqlite"
-  url      = env("DATABASE_URL")
+  // URL pindah ke prisma.config.ts (wajib Prisma v7). Jangan taruh url di sini.
 }
 
 // ------------------------------------------------------------------
@@ -61,6 +65,9 @@ model Account {
   user                  User      @relation(fields: [userId], references: [id], onDelete: Cascade)
   accountId             String
   providerId            String    // "credential", "google", "whatsapp-otp"
+  // better-auth 1.7 core WAJIB ada (issuer OIDC; NULL untuk credential).
+  // Ditambah Sep 2026 — tanpa ini sign-up 500 "field issuer does not exist".
+  issuer                String?
   accessToken           String?
   refreshToken          String?
   idToken               String?
@@ -362,8 +369,10 @@ enum PaymentStatus {
 }
 
 enum PaymentProvider {
-  MIDTRANS
   DUITKU
+  // MIDTRANS/XENDIT dipertahankan HANYA agar baris order lama tetap terbaca.
+  // Jangan pakai untuk transaksi baru — proyek ini sepenuhnya Duitku.
+  MIDTRANS
   XENDIT
 }
 
@@ -372,7 +381,7 @@ model Payment {
   orderId           String          @unique
   order             Order           @relation(fields: [orderId], references: [id])
   provider          PaymentProvider @default(DUITKU)
-  providerRef       String        // Duitku reference / Midtrans order_id / transaction_id
+  providerRef       String        // Duitku reference (acuan bayar)
   method            String?       // "qris" | "gopay" | "bank_transfer" | "credit_card"
   amountIdr         Int
   status            PaymentStatus @default(PENDING)

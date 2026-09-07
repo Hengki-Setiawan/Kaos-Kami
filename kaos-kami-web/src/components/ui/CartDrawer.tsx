@@ -148,7 +148,7 @@ export const CartDrawer: React.FC = () => {
                 }}
                 className="w-full py-3.5 rounded-xl bg-brand-accent text-canvas font-bold text-xs uppercase tracking-wider hover:brightness-110 active:scale-95 transition-all shadow-[0_0_20px_rgba(230,81,0,0.4)] flex items-center justify-center space-x-2"
               >
-                <span>PROSES CHECKOUT (MIDTRANS)</span>
+                <span>PROSES CHECKOUT (DUITKU)</span>
                 <ArrowRight size={14} />
               </button>
             </div>

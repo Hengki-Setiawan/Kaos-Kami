@@ -7,6 +7,7 @@ import { useFrame } from "@react-three/fiber";
 import { easing } from "maath";
 import { useConfiguratorStore } from "@/store/useConfiguratorStore";
 import { DecalLayerRenderer } from "./DecalLayerRenderer";
+import { ensureWindWeights } from "@/lib/geometryPrep";
 import { createClothPhysicalMaterial } from "@/lib/materials/clothPhysicalMaterial";
 
 const MODEL_PATH = "/models/longsleeve.glb";
@@ -43,6 +44,8 @@ const GltfLongsleeve: React.FC = () => {
   const coloredGeometry = useMemo(() => {
     const base = nodes?.T_Shirt_male?.geometry as THREE.BufferGeometry | undefined;
     if (!base) return null;
+    // WAJIB: bobot wind per-vertex — tanpa ini preset wind diam total.
+    ensureWindWeights(base);
     if (activeColorMode !== "multi-part") return base;
 
     const geo = base.clone();

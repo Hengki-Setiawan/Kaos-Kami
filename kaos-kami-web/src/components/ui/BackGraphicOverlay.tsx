@@ -2,10 +2,14 @@
 
 import React from "react";
 import { useConfiguratorStore } from "@/store/useConfiguratorStore";
+import { APPAREL_PHYSICAL_SPECS } from "@/lib/scaleCalibration";
 
 export const BackGraphicOverlay: React.FC = () => {
-  const { activePhase, viewMode } = useConfiguratorStore();
+  const { activePhase, viewMode, activeApparel } = useConfiguratorStore();
   const isVisible = activePhase === 3 && viewMode === "story";
+  const spec = APPAREL_PHYSICAL_SPECS[activeApparel];
+  const maxW = spec?.maxBackWidthCm ?? 30;
+  const maxH = spec?.maxBackHeightCm ?? 42;
 
   return (
     <section
@@ -24,7 +28,7 @@ export const BackGraphicOverlay: React.FC = () => {
             AREA SABLON<br />BESAR HINGGA A3+
           </h2>
           <p className="text-sm font-mono text-text-muted mt-3 leading-relaxed">
-            Bidang punggung luas terkalibrasi khusus untuk cetak sablon DTF resolusi tinggi 300 DPI. Tinta merekat lentur dan anti-retak saat ditarik.
+            Bidang punggung luas terkalibrasi khusus untuk cetak sablon DTF hingga 300 DPI (tergantung resolusi file desain). Tinta merekat lentur dan anti-retak saat ditarik.
           </p>
         </div>
 
@@ -32,7 +36,7 @@ export const BackGraphicOverlay: React.FC = () => {
         <div className="p-5 rounded-2xl glass-panel border border-border-subtle space-y-4 inline-block text-left w-full">
           <div className="flex justify-between items-center border-b border-border-subtle pb-2">
             <span className="text-xs font-mono text-text-muted">AREA CETAK MAKSIMAL:</span>
-            <span className="text-xs font-mono font-bold text-text-primary">30 cm × 42 cm (A3+)</span>
+            <span className="text-xs font-mono font-bold text-text-primary">{maxW} cm × {maxH} cm (A3+)</span>
           </div>
           <div className="flex justify-between items-center border-b border-border-subtle pb-2">
             <span className="text-xs font-mono text-text-muted">TEKNIK PRODUKSI:</span>

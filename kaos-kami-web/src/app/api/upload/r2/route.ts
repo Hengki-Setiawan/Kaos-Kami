@@ -1,17 +1,47 @@
 import { NextRequest, NextResponse } from "next/server";
 import { uploadToR2, uploadBase64ToR2 } from "@/lib/r2";
+import { getAuthenticatedUser } from "@/lib/security/authGuard";
+import { checkRateLimitAsync, getClientIp, rateLimitHeaders } from "@/lib/security/rateLimiter";
+
+const ALLOWED_IMAGE = ["image/png", "image/jpeg", "image/webp"] as const;
+const MAX_BYTES = 10 * 1024 * 1024;
+
+function safeExt(mime: string): string {
+  if (mime === "image/png") return "png";
+  if (mime === "image/webp") return "webp";
+  return "jpg";
+}
 
 export async function POST(req: NextRequest) {
   try {
+    // Wajib login — endpoint publik tanpa auth = penimbunan bucket oleh asing.
+    const user = await getAuthenticatedUser().catch(() => null);
+    if (!user) {
+      return NextResponse.json({ error: "Unauthorized: silakan login" }, { status: 401 });
+    }
+    const rl = await checkRateLimitAsync(`upload:ip:${getClientIp(req)}`, 10, 60);
+    if (rl.isLimited) {
+      return NextResponse.json({ error: "Terlalu banyak upload." }, { status: 429, headers: rateLimitHeaders(rl, 10) });
+    }
+
     const contentType = req.headers.get("content-type") || "";
 
-    // JSON base64 mode
+    // JSON base64 mode — validasi sama ketatnya dengan multipart.
     if (contentType.includes("application/json")) {
-      const { imageBase64, key } = await req.json();
-      if (!imageBase64) {
+      const { imageBase64 } = await req.json();
+      if (typeof imageBase64 !== "string" || !imageBase64.startsWith("data:")) {
         return NextResponse.json({ error: "Missing imageBase64" }, { status: 400 });
       }
-      const r2Key = key || `uploads/${Date.now()}-${Math.random().toString(36).slice(2, 6)}.png`;
+      const mime = imageBase64.slice(5, imageBase64.indexOf(";"));
+      if (!(ALLOWED_IMAGE as readonly string[]).includes(mime)) {
+        return NextResponse.json({ error: `MIME ${mime || "?"} not allowed (png/jpg/webp)` }, { status: 400 });
+      }
+      const b64 = imageBase64.split(",")[1] || "";
+      if (Buffer.byteLength(b64, "base64") > MAX_BYTES) {
+        return NextResponse.json({ error: "File >10MB" }, { status: 400 });
+      }
+      // Key SELALU dari server (user-scoped) — client tidak boleh menentukan path.
+      const r2Key = `uploads/${user.id}/${Date.now()}-${Math.random().toString(36).slice(2, 6)}.${safeExt(mime)}`;
       const result = await uploadBase64ToR2(imageBase64, r2Key);
       if (!result.success) {
         return NextResponse.json({ error: result.error }, { status: 500 });
@@ -22,20 +52,19 @@ export async function POST(req: NextRequest) {
     // Multipart form-data mode
     const formData = await req.formData();
     const file = formData.get("file") as File | null;
-    const key = (formData.get("key") as string) || `uploads/${Date.now()}-${Math.random().toString(36).slice(2, 6)}.png`;
 
     if (!file) {
       return NextResponse.json({ error: "Missing file" }, { status: 400 });
     }
 
-    // Validate MIME
-    const allowed = ["image/png", "image/jpeg", "image/webp", "image/svg+xml"];
-    if (!allowed.includes(file.type)) {
-      return NextResponse.json({ error: `MIME ${file.type} not allowed` }, { status: 400 });
+    // Validate MIME — SVG ditolak (bisa sisipkan script/XSS saat diserve publik).
+    if (!(ALLOWED_IMAGE as readonly string[]).includes(file.type)) {
+      return NextResponse.json({ error: `MIME ${file.type} not allowed (png/jpg/webp)` }, { status: 400 });
     }
-    if (file.size > 10 * 1024 * 1024) {
+    if (file.size > MAX_BYTES) {
       return NextResponse.json({ error: "File >10MB" }, { status: 400 });
     }
+    const key = `uploads/${user.id}/${Date.now()}-${Math.random().toString(36).slice(2, 6)}.${safeExt(file.type)}`;
 
     let buffer = Buffer.from(await file.arrayBuffer());
     // Sharp re-encode: resize max 1200, webp/png, strip metadata (10MB guard)

@@ -16,6 +16,8 @@ export interface DecalLayer {
   scale: number; // calibrated 3D scale (0.04 to 0.165)
   rotation: number; // rotation in degrees (-180 to 180)
   opacity: number; // 0 to 1
+  /** Dimensi master cetak 300 DPI (px) — opsional, backwards-compatible di JSON lama. */
+  printPx?: { w: number; h: number };
 }
 
 export interface SavedMockupDesign {
@@ -180,12 +182,14 @@ export function calculateCustomMockupPrice(
   const basePrice = APPAREL_CATALOG[apparel]?.basePriceIdr ?? 149000;
   const matchedColor = PRODUCT_COLORS.find((c) => c.hex.toLowerCase() === colorHex.toLowerCase());
   const colorSurcharge = matchedColor?.isSpecialPigment ? 15000 : 0;
+  // Selaras pricingEngine (SSOT): XXL +10k, XXXL/3XL +20k. XL tidak kena.
   let sizeSurcharge = 0;
-  if (size === "XL") sizeSurcharge = 10000;
-  else if (size === "XXL") sizeSurcharge = 20000;
-  // Use scaleCalibration for tier (same as pricingEngine) — fallback to scale heuristic
+  const upperSize = size.toUpperCase().trim();
+  if (upperSize === "XXL") sizeSurcharge = 10000;
+  else if (upperSize === "XXXL" || upperSize === "3XL") sizeSurcharge = 20000;
+  // Tier via SSOT by-cm (konversi skala→cm terkalibrasi per apparel).
   const sablonDetails = decals.map((d, idx) => {
-    const tier = classifyPrintTierByScale(d.scale);
+    const tier = classifyPrintTierByScale(d.scale, apparel);
     const cost = printTierCost(tier);
     const sizeType = PRINT_TIER_LABEL[tier];
     return { id: d.id, name: `Sablon #${idx + 1} (${d.targetSide.toUpperCase()} - ${sizeType})`, sizeType, cost };

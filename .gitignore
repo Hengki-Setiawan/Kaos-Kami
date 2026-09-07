@@ -1,6 +1,8 @@
-# dependencies
-/node_modules
-/.pnp
+# prisma generated client (v7 output in-repo, regenerasi via `prisma generate`)
+kaos-kami-web/src/generated/
+# dependencies (semua workspace, bukan cuma root)
+node_modules/
+.pnp
 .pnp.js
 
 # testing
@@ -55,3 +57,14 @@ next-env.d.ts
 .env
 .env.local
 .dev.vars
+# android signing — JANGAN PERNAH commit keystore/password (insiden Sep 2026)
+*.keystore
+*.jks
+key.properties
+android/key.properties
+**/android/key.properties
+
+# local sqlite + keystore password stashes (never commit)
+kaos-kami-web/prisma/dev.db
+keystore-passwords.local.txt
+**/keystore-passwords.local.txt

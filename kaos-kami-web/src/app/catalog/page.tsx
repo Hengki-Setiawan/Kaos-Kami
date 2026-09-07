@@ -67,6 +67,8 @@ export default function CatalogPage() {
       colorName: product.colorName,
       colorHex: product.colorHex,
       image: product.images[0] || "/lookbook/look-01.jpg",
+      apparelSlug: (product.category?.slug as any) || "tshirt",
+      productVariantId: product.id,
     });
   };
 

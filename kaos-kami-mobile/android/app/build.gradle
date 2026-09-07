@@ -19,12 +19,17 @@ android {
     signingConfigs {
         release {
             storeFile file('kaoskami-release.keystore')
-            // Password dari CI secrets / env (aman). Fallback lokal hanya untuk beta.
-            // PENTING: password ini pernah ter-commit — saat rilis Play Store,
-            // generate keystore BARU dan jangan commit (beta keystore = sideload saja).
-            storePassword System.getenv('KAOSKAMI_STORE_PASSWORD') ?: 'KaosKamiMakassar2026!'
-            keyAlias System.getenv('KAOSKAMI_KEY_ALIAS') ?: 'kaoskami'
-            keyPassword System.getenv('KAOSKAMI_KEY_PASSWORD') ?: 'KaosKamiMakassar2026!'
+            // Password HANYA dari env/CI secrets atau keystore.properties (gitignored).
+            // JANGAN tulis password di file ini — insiden keystore ter-commit Sep 2026.
+            // Keystore saat ini = BETA sideload saja; generate BARU untuk Play Store.
+            def props = new Properties()
+            def propsFile = rootProject.file('key.properties')
+            if (propsFile.exists()) {
+                propsFile.withInputStream { props.load(it) }
+            }
+            storePassword System.getenv('KAOSKAMI_STORE_PASSWORD') ?: props['storePassword'] ?: { throw new GradleException('KAOSKAMI_STORE_PASSWORD belum di-set (env / CI secret / android/key.properties). Lihat android/key.properties.example') }()
+            keyAlias System.getenv('KAOSKAMI_KEY_ALIAS') ?: props['keyAlias'] ?: 'kaoskami'
+            keyPassword System.getenv('KAOSKAMI_KEY_PASSWORD') ?: props['keyPassword'] ?: { throw new GradleException('KAOSKAMI_KEY_PASSWORD belum di-set (env / CI secret / android/key.properties).') }()
         }
     }
     buildTypes {

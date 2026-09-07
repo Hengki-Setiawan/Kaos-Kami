@@ -3,7 +3,7 @@
 import React, { useEffect, useMemo } from 'react';
 import * as THREE from 'three';
 import { Decal, useTexture } from '@react-three/drei';
-import { useMobileStudioStore } from '@/store/useMobileStudioStore';
+import { useMobileStudioStore, mobileMaxScaleUnits } from '@/store/useMobileStudioStore';
 
 function DecalItem({
   url,
@@ -37,8 +37,10 @@ function DecalItem({
     return 1;
   }, [texture]);
 
-  // Clamped physical DTF scale (max 30.0 cm printhead limit = 0.165 max 3D units)
-  const maxDimension = Math.min(0.165, Math.max(0.04, scale[0]));
+  // Clamp skala pada batas cetak AKTUAL per apparel (terkalibrasi ukur).
+  const apparel = useMobileStudioStore((s) => s.apparelType);
+  const maxScale = mobileMaxScaleUnits(apparel);
+  const maxDimension = Math.min(maxScale, Math.max(0.04, scale[0]));
   const finalScale: [number, number, number] = aspect >= 1
     ? [maxDimension, maxDimension / aspect, maxDimension]
     : [maxDimension * aspect, maxDimension, maxDimension];

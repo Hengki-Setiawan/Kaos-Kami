@@ -218,11 +218,24 @@ export default function MobileApp() {
     const rawDataUrl = await pickOrCaptureDecalImage();
     if (rawDataUrl) {
       try {
-        const { optimizedUrl, dpi } = await optimizeDecalImageForMobile(rawDataUrl);
+        const st = useMobileStudioStore.getState();
+        const { optimizedUrl, dpi, width } = await optimizeDecalImageForMobile(
+          rawDataUrl,
+          2048,
+          st.printWidthCm
+        );
         setDecalUrl(optimizedUrl);
-        useMobileStudioStore.getState().setDecalDpi(dpi);
+        st.setDecalDpi(dpi);
+        // Simpan piksel asli untuk hitung ulang DPI saat skala diubah.
+        try {
+          localStorage.setItem('kaoskami_decal_px', String(width));
+        } catch {}
         haptic.success();
-        triggerToast(`Logo sablon siap (${dpi} DPI terverifikasi)!`);
+        triggerToast(
+          dpi > 0
+            ? `Logo siap (${dpi} DPI pada ${st.printWidthCm.toFixed(1)}cm)!`
+            : 'Logo siap (DPI menyusul setelah skala dikunci).'
+        );
       } catch {
         setDecalUrl(rawDataUrl);
         useMobileStudioStore.getState().setDecalDpi(null);
@@ -260,11 +273,12 @@ export default function MobileApp() {
     crewneck: 'tshirt',
   };
 
+  // Harga fallback = harga web APPAREL_CATALOG (server tetap sumber kebenaran).
   const apparelOptions: { key: ApparelType; label: string; gsm: string; price: number }[] = [
-    { key: 'tshirt', label: 'T-Shirt Heavyweight', gsm: '240 GSM', price: 125000 },
-    { key: 'hoodie', label: 'Streetwear Hoodie', gsm: '330 GSM', price: 210000 },
-    { key: 'jacket', label: 'Coach Jacket', gsm: 'Waterproof', price: 220000 },
-    { key: 'longsleeve', label: 'Longsleeve Shirt', gsm: '280 GSM', price: 145000 },
+    { key: 'tshirt', label: 'T-Shirt Heavyweight', gsm: '240 / 280 GSM', price: 149000 },
+    { key: 'hoodie', label: 'Streetwear Hoodie', gsm: '380 GSM', price: 269000 },
+    { key: 'jacket', label: 'Coach Jacket', gsm: '320 GSM', price: 329000 },
+    { key: 'longsleeve', label: 'Longsleeve Shirt', gsm: '240 / 280 GSM', price: 169000 },
   ];
 
   const handleSaveToCart = () => {
@@ -386,7 +400,7 @@ export default function MobileApp() {
                 Kustom Kaos 3D Impianmu
               </h2>
               <p className="text-xs text-zinc-400 mb-4 leading-relaxed">
-                Pilih kain heavyweight 240 & 280 GSM, pasang stiker logo 300 DPI, dan dapatkan kalibrasi sablon fisik 1:1 cm.
+                Pilih kain heavyweight 240 & 280 GSM, pasang stiker logo hingga 300 DPI, dan dapatkan kalibrasi sablon fisik 1:1 cm.
               </p>
 
               {/* Color Swatch Preview */}
@@ -798,7 +812,9 @@ export default function MobileApp() {
             <div className="flex items-center justify-between">
               <span className="text-xs font-semibold text-white">Stiker Sablon DTF:</span>
               <Badge variant={decalUrl ? 'success' : 'neutral'}>
-                {decalUrl ? `${printWidthCm}x${printHeightCm} cm • 300 DPI` : 'Belum Ada'}
+                {decalUrl
+                  ? `${printWidthCm}x${printHeightCm} cm • ${useMobileStudioStore.getState().decalDpi ?? '…'} DPI`
+                  : 'Belum Ada'}
               </Badge>
             </div>
             <HapticButton

@@ -46,18 +46,19 @@ export async function sendWhatsAppNotification(
   // Format phone to 08... or 628...
   const cleanPhone = targetPhone.replace(/[^0-9]/g, "");
 
-  // SAFETY GUARD: Never dispatch real WhatsApp messages to dummy/test numbers
+  // SAFETY GUARD: Never dispatch real WhatsApp messages to dummy/test numbers.
+  // Return success:false agar caller TAHU pesan tidak terkirim (jangan success palsu).
   if (isDummyPhoneNumber(cleanPhone) || process.env.WHATSAPP_FORCE_MOCK === "true") {
     console.log(`🛡️ [Fonnte Guard: Test/Dummy Number Blocked] Target: ${cleanPhone}\n${message}`);
     return {
-      success: true,
-      messageId: `mock-guard-${Date.now()}`,
+      success: false,
+      error: "mock-guard: nomor dummy/test, WA tidak dikirim",
     };
   }
 
   if (!token) {
     console.log(`[Fonnte Mock Log] To: ${cleanPhone}\n${message}`);
-    return { success: true, messageId: `mock-wa-${Date.now()}` };
+    return { success: false, error: "mock-wa: FONNTE_TOKEN kosong, WA tidak dikirim" };
   }
 
   try {

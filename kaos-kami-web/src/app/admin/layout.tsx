@@ -39,6 +39,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
           {/* Brand Header */}
           <div className="p-5 border-b border-white/5 flex items-center justify-between">
             <Link href="/admin" className="flex items-center space-x-2.5">
+              {/* eslint-disable-next-line @next/next/no-img-element -- logo mungil lokal; images.unoptimized=true sehingga next/image tak menambah nilai */}
               <img src="/brand/logo-white-clean.png" alt="Kaos Kami" className="h-7 w-auto object-contain" />
               <div className="border-l border-white/20 pl-2.5">
                 <span className="font-display font-black text-xs uppercase tracking-tight text-white block leading-tight">

@@ -8,6 +8,7 @@ import { useMobileStudioStore } from '@/store/useMobileStudioStore';
 import { useMobileDeviceTier } from '@/hooks/useMobileDeviceTier';
 import { apparelToArchetype, createClothPhysicalMaterial } from '@/lib/materials/clothPhysicalMaterial';
 import { ClothInertiaSimulator } from '@/lib/3d/clothInertiaPhysics';
+import { applyMobileWind, ensureWindWeights } from '@/lib/3d/windShader';
 import { MobileDecalLayerRenderer } from './MobileDecalLayerRenderer';
 import { DecalGizmoMobile } from './DecalGizmoMobile';
 
@@ -56,13 +57,17 @@ export function MobileApparelMeshRenderer({
   const { scene } = useGLTF(modelPath);
 
   // Clone scene & apply PBR cloth materials
+  const materialRef = useRef<THREE.Material | null>(null);
   const clonedScene = useMemo(() => {
     const cloned = scene.clone();
     const material = createClothPhysicalMaterial(color, apparelToArchetype(apparelType));
+    applyMobileWind(material, 0.25);
+    materialRef.current = material;
 
     cloned.traverse((child) => {
       if ((child as THREE.Mesh).isMesh) {
         const mesh = child as THREE.Mesh;
+        if (mesh.geometry) ensureWindWeights(mesh.geometry as THREE.BufferGeometry);
         mesh.material = material;
         mesh.castShadow = true;
         mesh.receiveShadow = true;
@@ -97,6 +102,14 @@ export function MobileApparelMeshRenderer({
       // Apply subtle dynamic inertial lean to lower hem (Z-axis sway)
       groupRef.current.rotation.z = -swayAngle * 0.45;
       lastYRotation.current = currentY;
+
+      // Umpan sway ke shader: kain bergelombang proporsional goyangan,
+      // kembali tenang (0.2) saat idle.
+      const sh = (materialRef.current as any)?.userData?.shader?.uniforms;
+      if (sh?.uWindStrength) {
+        sh.uWindStrength.value = 0.2 + Math.min(1, Math.abs(swayAngle) * 6) * 0.9;
+      }
+      if (sh?.uTime) sh.uTime.value += delta;
     }
   });
 

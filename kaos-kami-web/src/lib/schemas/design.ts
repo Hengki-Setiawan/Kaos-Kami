@@ -1,8 +1,8 @@
 import { z } from "zod";
 
 export const DecalLayerSchema = z.object({
-  id: z.string(),
-  url: z.string().min(1, "URL decal wajib diisi"),
+  id: z.string().max(64),
+  url: z.string().min(1, "URL decal wajib diisi").max(500_000, "Decal terlalu besar"),
   name: z.string().default("Grafis"),
   targetSide: z.enum(["front", "back", "left_sleeve", "right_sleeve"]),
   x: z.number().min(-0.75).max(0.75),
@@ -16,16 +16,16 @@ export const SaveDesignSchema = z.object({
   title: z.string().min(1, "Judul desain wajib diisi").max(60),
   apparelSlug: z.enum(["tshirt", "longsleeve", "crewneck", "hoodie", "shirt"]),
   colorHex: z.string().regex(/^#([0-9A-Fa-f]{3}|[0-9A-Fa-f]{6})$/, "Format warna HEX tidak valid"),
-  colorName: z.string().min(1),
-  size: z.string().min(1),
-  materialFinishSlug: z.string().optional(),
+  colorName: z.string().min(1).max(40),
+  size: z.string().min(1).max(10),
+  materialFinishSlug: z.string().max(40).optional(),
   sablonMethodSlug: z.string().default("dtf"),
-  decals: z.array(DecalLayerSchema),
+  decals: z.array(DecalLayerSchema).max(10, "Maks 10 lapis sablon"),
   studioTheme: z.enum(["obsidian", "gallery", "concrete"]).default("obsidian"),
-  calculatedPriceIdr: z.number().positive(),
+  calculatedPriceIdr: z.number().positive().max(100_000_000),
   priceBreakdown: z.record(z.any()),
-  previewImageFrontUrl: z.string().optional(),
-  previewImageBackUrl: z.string().optional(),
+  previewImageFrontUrl: z.string().max(500_000).optional(),
+  previewImageBackUrl: z.string().max(500_000).optional(),
 });
 
 export type DecalLayerInput = z.infer<typeof DecalLayerSchema>;

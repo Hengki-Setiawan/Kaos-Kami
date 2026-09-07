@@ -1,6 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
-import { prisma } from "@/lib/db";
+import { nanoid } from "nanoid";
+import { db } from "@/lib/db";
+import { ApparelCategory, Design } from "@/lib/drizzle-schema";
+import { assertResourceOwnerOrAdmin } from "@/lib/security/authGuard";
+import { checkRateLimitAsync, getClientIp, rateLimitHeaders } from "@/lib/security/rateLimiter";
 
 const SyncDesignSchema = z.object({
   clientId: z.string().min(1).max(64),
@@ -28,13 +32,29 @@ const SyncPayloadSchema = z.object({
  */
 export async function POST(req: NextRequest) {
   try {
+    const rl = await checkRateLimitAsync(`sync:ip:${getClientIp(req)}`, 10, 60);
+    if (rl.isLimited) {
+      return NextResponse.json({ error: "Terlalu banyak sinkronisasi." }, { status: 429, headers: rateLimitHeaders(rl, 10) });
+    }
     const validation = SyncPayloadSchema.safeParse(await req.json());
     if (!validation.success) {
       return NextResponse.json({ error: validation.error.errors[0]?.message }, { status: 400 });
     }
     const { userId, designs } = validation.data;
 
-    const user = await prisma.user.findUnique({ where: { id: userId } });
+    // Anti-IDOR: hanya pemilik akun (atau admin) boleh injeksi desain.
+    try {
+      await assertResourceOwnerOrAdmin(userId);
+    } catch (e: any) {
+      const msg = e?.message || "Forbidden";
+      const status = msg.startsWith("Unauthorized") ? 401 : 403;
+      return NextResponse.json({ error: msg }, { status });
+    }
+
+    const user = await db.query.User.findFirst({
+      where: (t, { eq }) => eq(t.id, userId),
+      columns: { id: true },
+    });
     if (!user) {
       return NextResponse.json({ error: "User tidak ditemukan. Login/daftar dulu di aplikasi." }, { status: 404 });
     }
@@ -42,14 +62,18 @@ export async function POST(req: NextRequest) {
     const results: Array<{ clientId: string; designId: string; action: "created" | "kept-server" }> = [];
     for (const d of designs) {
       const category =
-        (await prisma.apparelCategory.findUnique({ where: { slug: d.apparelSlug } })) ||
-        (await prisma.apparelCategory.findFirst({ orderBy: { sortOrder: "asc" } }));
+        (await db.query.ApparelCategory.findFirst({
+          where: (t, { eq }) => eq(t.slug, d.apparelSlug),
+        })) ||
+        (await db.query.ApparelCategory.findFirst({
+          orderBy: (t, { asc }) => asc(t.sortOrder),
+        }));
       if (!category) continue;
 
       const remoteUpdatedAt = d.updatedAt ? new Date(d.updatedAt) : new Date();
-      const existing = await prisma.design.findFirst({
-        where: { userId, title: d.title },
-        orderBy: { updatedAt: "desc" },
+      const existing = await db.query.Design.findFirst({
+        where: (t, { and, eq }) => and(eq(t.userId, userId), eq(t.title, d.title)),
+        orderBy: (t, { desc }) => desc(t.updatedAt),
       });
 
       // Last-Write-Wins: server menang jika lebih baru dari kiriman HP.
@@ -58,8 +82,10 @@ export async function POST(req: NextRequest) {
         continue;
       }
 
-      const saved = await prisma.design.create({
-        data: {
+      const [saved] = await db
+        .insert(Design)
+        .values({
+          id: nanoid(),
           userId,
           categoryId: category.id,
           title: d.title,
@@ -70,9 +96,9 @@ export async function POST(req: NextRequest) {
           calculatedPriceIdr: d.calculatedPriceIdr,
           priceBreakdown: JSON.stringify({ syncedFrom: "mobile", deviceUpdatedAt: remoteUpdatedAt }),
           status: "SAVED",
-        },
-      });
-      results.push({ clientId: d.clientId, designId: saved.id, action: "created" });
+        })
+        .returning({ id: Design.id });
+      results.push({ clientId: d.clientId, designId: saved?.id || "", action: "created" });
     }
 
     return NextResponse.json({ success: true, synced: results.length, results });

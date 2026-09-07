@@ -83,11 +83,12 @@ export function CheckoutSheet({ open, onOpenChange, onOrderSuccess, onNotify }: 
 
       if (!res.success) {
         // 502 fail-closed: order tetap tersimpan PENDING di server.
+        // JANGAN hapus keranjang diam-diam; arahkan ke invoice agar user bisa
+        // bayar manual (WA) — bukan dead-end tanpa paymentUrl.
         if (res.orderId) {
-          clearCart();
           onOpenChange(false);
-          onOrderSuccess(res.orderId);
-          onNotify?.('Pesanan tersimpan (PENDING). Buka tab Pesanan untuk lanjutkan pembayaran.');
+          onOrderSuccess(res.orderId, res.invoiceUrl);
+          onNotify?.('Gagal buat link bayar otomatis. Buka invoice untuk bayar manual via WA.');
         } else {
           setFormError(res.error || 'Checkout gagal. Periksa koneksi lalu coba lagi.');
         }

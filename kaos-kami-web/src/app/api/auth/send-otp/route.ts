@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@/lib/db";
+import { nanoid } from "nanoid";
+import { db } from "@/lib/db";
+import { Verification } from "@/lib/drizzle-schema";
 import { sendWhatsAppNotification } from "@/lib/notifications/whatsapp";
 import { checkRateLimitAsync, getClientIp, rateLimitHeaders } from "@/lib/security/rateLimiter";
 
@@ -32,20 +34,37 @@ export async function POST(req: NextRequest) {
     const expiresAt = new Date(Date.now() + 5 * 60 * 1000); // 5 menit
 
     // Simpan di Verification (identifier = phone)
-    await prisma.verification.create({
-      data: { identifier: `otp:${clean}`, value: code, expiresAt },
+    await db.insert(Verification).values({
+      id: nanoid(),
+      identifier: `otp:${clean}`,
+      value: code,
+      expiresAt,
     });
 
-    // Kirim WA (fail-safe: jika Fonnte off, tetap return code untuk dev)
+    // Kirim WA. Kode OTP TIDAK PERNAH dikembalikan ke client di production —
+    // mock code hanya untuk development lokal tanpa Fonnte.
     const token = process.env.FONNTE_TOKEN;
+    const isProd = process.env.NODE_ENV === "production";
     if (!token) {
       console.log(`[OTP Mock] ${clean} → ${code}`);
+      if (isProd) {
+        return NextResponse.json(
+          { error: "Layanan OTP belum dikonfigurasi. Hubungi admin." },
+          { status: 503 }
+        );
+      }
       return NextResponse.json({ success: true, mock: true, code, message: "OTP mock (Fonnte belum set)" });
     }
 
     const res = await sendWhatsAppNotification(clean, `*Kaos Kami — Kode OTP*\nKode verifikasi WA kamu: *${code}*\nBerlaku 5 menit. Jangan bagikan ke siapapun.`);
     if (!res.success) {
       console.warn("Fonnte OTP fail, fallback log", res.error);
+      if (isProd) {
+        return NextResponse.json(
+          { error: "Gagal mengirim OTP ke WA. Coba lagi sesaat." },
+          { status: 502 }
+        );
+      }
       return NextResponse.json({ success: true, mock: true, code, warning: res.error });
     }
 

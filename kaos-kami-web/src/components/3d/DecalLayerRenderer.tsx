@@ -3,6 +3,7 @@
 import React, { useEffect } from "react";
 import { Decal, useTexture } from "@react-three/drei";
 import { useConfiguratorStore } from "@/store/useConfiguratorStore";
+import { APPAREL_PHYSICAL_SPECS, maxDecalScaleUnits, REAL_WORLD_PRINT_LIMITS } from "@/lib/scaleCalibration";
 import type { DecalLayer } from "@/lib/constants";
 
 const SingleDecalItem: React.FC<{
@@ -21,6 +22,10 @@ const SingleDecalItem: React.FC<{
   const isLeftSleeve = decal.targetSide === "left_sleeve";
   const isRightSleeve = decal.targetSide === "right_sleeve";
 
+  // Jangkar lengan per-apparel dari hasil ukur mesh (bukan ±0.27 global)
+  const sleeveX =
+    APPAREL_PHYSICAL_SPECS[useConfiguratorStore.getState().activeApparel]?.sleeveAnchorX ?? 0.27;
+
   let posX = decal.x;
   let posY = decal.y;
   let posZ = isBack ? -surfaceZ : surfaceZ;
@@ -29,12 +34,12 @@ const SingleDecalItem: React.FC<{
 
   if (isLeftSleeve) {
     // Proyeksi ke lengan kiri (X negatif)
-    posX = -0.27;
+    posX = -sleeveX;
     posZ = decal.x; // slider X mengatur geser maju-mundur di lengan
     rotY = -Math.PI / 2;
   } else if (isRightSleeve) {
     // Proyeksi ke lengan kanan (X positif)
-    posX = 0.27;
+    posX = sleeveX;
     posZ = -decal.x;
     rotY = Math.PI / 2;
   }
@@ -55,8 +60,16 @@ const SingleDecalItem: React.FC<{
   if (normalizedScale > 0.22) {
     normalizedScale = Math.min(0.162, normalizedScale * 0.22);
   }
-  // Kunci keras pada batas fisik printhead roll DTF workshop Makassar (Maks 30.0 cm = 0.162 unit 3D)
-  normalizedScale = Math.max(0.04, Math.min(0.162, normalizedScale));
+  // Kunci keras pada batas fisik printhead roll DTF workshop Makassar —
+  // batas UNIT dihitung dari multiplier terukur agar 30cm benar-benar tercapai.
+  const maxScale = maxDecalScaleUnits(
+    useConfiguratorStore.getState().activeApparel,
+    decal.targetSide
+  );
+  normalizedScale = Math.max(
+    REAL_WORLD_PRINT_LIMITS.minDecalScaleUnits,
+    Math.min(maxScale, normalizedScale)
+  );
 
   let scaleX = normalizedScale;
   let scaleY = normalizedScale;

@@ -4,6 +4,30 @@ export type ApparelType = 'tshirt' | 'hoodie' | 'jacket' | 'longsleeve';
 export type AnimationPreset = 'idle' | 'walking' | 'waving' | 'spin' | 'none';
 export type CameraAngle = 'front' | 'back' | 'left' | 'right' | 'perspective';
 
+/**
+ * Multiplier unit-3D → cm TERUKUR dari bounding-box GLB (selaras web scaleCalibration.ts).
+ * tshirt 56/0.550=101.8 · hoodie 60/0.631=95.1 · jacket via tinggi 74/1.065=69.5 · longsleeve 56/0.794=70.5
+ */
+export const MOBILE_UNITS_TO_CM: Record<ApparelType, number> = {
+  tshirt: 101.8,
+  hoodie: 95.1,
+  jacket: 69.5,
+  longsleeve: 70.5,
+};
+
+/** Lebar cetak maks (cm) per apparel mobile — cermin web APPAREL_PHYSICAL_SPECS. */
+export const MOBILE_MAX_WIDTH_CM: Record<ApparelType, number> = {
+  tshirt: 30,
+  hoodie: 28,
+  jacket: 14,
+  longsleeve: 30,
+};
+
+/** Skala 3D maksimal agar klaim cm tepat menyentuh batas cetak. */
+export function mobileMaxScaleUnits(apparel: ApparelType): number {
+  return (MOBILE_MAX_WIDTH_CM[apparel] ?? 30) / (MOBILE_UNITS_TO_CM[apparel] ?? 100);
+}
+
 export interface MobileStudioState {
   apparelType: ApparelType;
   color: string;
@@ -81,11 +105,19 @@ export const useMobileStudioStore = create<MobileStudioState>((set) => ({
 
   setDecalTransform: (decalPosition, decalScale, decalRotation, widthCm, heightCm) =>
     set((state) => {
-      // Physical scale calculation clamped to maximum 30.0 cm DTF printhead
-      const rawWidth = widthCm ?? decalScale[0] * 100;
-      const rawHeight = heightCm ?? decalScale[1] * 100;
+      // Kalibrasi terukur per apparel (selaras web) — clamped ke printhead DTF 30.0 cm.
+      const mult = MOBILE_UNITS_TO_CM[state.apparelType] ?? 100;
+      const rawWidth = widthCm ?? decalScale[0] * mult;
+      const rawHeight = heightCm ?? decalScale[1] * mult;
       const clampedWidth = Math.min(30.0, Math.max(5.0, rawWidth));
       const clampedHeight = Math.min(42.0, Math.max(5.0, rawHeight));
+
+      // Hitung ulang DPI dari piksel asli setiap skala berubah (jujur per-cm).
+      let dpi: number | null = state.decalDpi;
+      try {
+        const px = Number(localStorage.getItem('kaoskami_decal_px') || 0);
+        dpi = px > 0 ? Math.max(0, Math.min(2400, Math.round(px / (clampedWidth / 2.54)))) : null;
+      } catch {}
 
       return {
         decalPosition,
@@ -93,6 +125,7 @@ export const useMobileStudioStore = create<MobileStudioState>((set) => ({
         decalRotation,
         printWidthCm: Number(clampedWidth.toFixed(1)),
         printHeightCm: Number(clampedHeight.toFixed(1)),
+        decalDpi: dpi,
       };
     }),
 

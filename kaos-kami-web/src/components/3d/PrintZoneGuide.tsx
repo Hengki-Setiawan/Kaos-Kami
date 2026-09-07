@@ -3,6 +3,7 @@
 import React from "react";
 import { Html } from "@react-three/drei";
 import { useConfiguratorStore } from "@/store/useConfiguratorStore";
+import { APPAREL_PHYSICAL_SPECS, maxDecalScaleUnits } from "@/lib/scaleCalibration";
 
 interface PrintZoneGuideProps {
   surfaceZ?: number;
@@ -14,7 +15,7 @@ interface PrintZoneGuideProps {
  * Memberi kepastian 100% kepada pengguna dan UMKM bahwa sablon tidak akan meluber.
  */
 export const PrintZoneGuide: React.FC<PrintZoneGuideProps> = ({ surfaceZ = 0.155 }) => {
-  const { viewMode, isHideWebsiteUI, isGizmoVisible, decals, selectedDecalId } = useConfiguratorStore();
+  const { viewMode, isHideWebsiteUI, isGizmoVisible, decals, selectedDecalId, activeApparel } = useConfiguratorStore();
 
   if (viewMode !== "studio" || isHideWebsiteUI || !isGizmoVisible) {
     return null;
@@ -32,14 +33,18 @@ export const PrintZoneGuide: React.FC<PrintZoneGuideProps> = ({ surfaceZ = 0.155
   const zPos = isBack ? -(surfaceZ + 0.002) : surfaceZ + 0.002;
   const rotY = isBack ? Math.PI : 0;
 
-  // Ukuran Fisik Maksimal Meja Cetak DTF:
-  // Lebar 30.0 cm / 185.0 = 0.162 unit 3D
-  // Tinggi 42.0 cm / 135.0 = 0.311 unit 3D
-  const boxWidthPx = 0.162 * 600; // ~97.2px pada distanceFactor 2.2
-  const boxHeightPx = 0.311 * 600; // ~186.6px
+  // Ukuran Fisik Maksimal Meja Cetak DTF — dikonversi via multiplier TERUKUR
+  // per apparel (30cm ÷ unitsToCm), bukan 0.162 global. Tinggi 42cm serupa.
+  // (Jarak pandang kamera studio dianggap sebanding antar apparel.)
+  const mult = APPAREL_PHYSICAL_SPECS[activeApparel]?.meshMultiplier ?? 101.8;
+  const boxWidthUnits = 30.0 / mult;
+  const boxHeightUnits = 42.0 / mult;
+  const boxWidthPx = boxWidthUnits * 600; // px pada distanceFactor 2.2
+  const boxHeightPx = boxHeightUnits * 600;
 
   // Cek apakah sablon aktif melampaui batas cetak
-  const isOutOfSafeZone = activeDecal && (activeDecal.scale > 0.163 || Math.abs(activeDecal.x) > 0.08);
+  const maxScale = maxDecalScaleUnits(activeApparel, activeDecal?.targetSide ?? "front");
+  const isOutOfSafeZone = activeDecal && (activeDecal.scale > maxScale + 1e-6 || Math.abs(activeDecal.x) > 0.08);
 
   return (
     <group position={[0, 0.02, zPos]} rotation={[0, rotY, 0]}>

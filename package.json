@@ -13,6 +13,7 @@
     "web:typecheck": "npm --workspace=kaos-kami-web run typecheck",
     "mobile:dev": "npm --workspace=kaos-kami-mobile run dev",
     "mobile:build": "npm --workspace=kaos-kami-mobile run build",
+    "mobile:typecheck": "npx tsc --noEmit -p kaos-kami-mobile/tsconfig.json",
     "mobile:sync": "npm --workspace=kaos-kami-mobile run cap:sync",
     "mobile:android": "npm --workspace=kaos-kami-mobile run cap:open:android",
     "mobile:ios": "npm --workspace=kaos-kami-mobile run cap:open:ios",

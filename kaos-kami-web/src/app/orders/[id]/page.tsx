@@ -1,7 +1,7 @@
 import React from "react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { prisma } from "@/lib/db";
+import { db } from "@/lib/db";
 import {
   CheckCircle2,
   Clock,
@@ -30,15 +30,15 @@ export default async function OrderReceiptPage({ params, searchParams }: OrderRe
     sessionUserId = (session?.user as any)?.id || null;
     sessionRole = (session?.user as any)?.role || null;
   } catch {}
-  const order = await prisma.order.findUnique({
-    where: { id: params.id },
-    include: {
+  const order = await db.query.Order.findFirst({
+    where: (t, { eq }) => eq(t.id, params.id),
+    with: {
       items: true,
       user: true,
       shippingAddress: true,
       payment: true,
       statusHistory: {
-        orderBy: { createdAt: "asc" },
+        orderBy: (t, { asc }) => asc(t.createdAt),
       },
     },
   });

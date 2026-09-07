@@ -1,0 +1,160 @@
+
+┌─────────────────────────────┐
+│ OpenNext — Cloudflare build │
+└─────────────────────────────┘
+
+WARN OpenNext is not fully compatible with Windows.
+WARN For optimal performance, it is recommended to use Windows Subsystem for Linux (WSL).
+WARN While OpenNext may function on Windows, it could encounter unpredictable failures during runtime.
+Monorepo detected at D:\Vibe coding Semester 7\Kaos Kami
+App directory: D:\Vibe coding Semester 7\Kaos Kami\kaos-kami-web
+Next.js version : 14.2.15
+WARN Next.js version 14.2.15 is not supported by the Next.js team.
+Major versions are supported for 2 years from their release date.
+Unsupported releases may contain unpatched security vulnerabilities.
+See https://nextjs.org/support-policy for more information.
+Continuing build due to --dangerouslyUseUnsupportedNextVersion flag.
+@opennextjs/cloudflare version: 1.20.4
+@opennextjs/aws version: 4.1.2
+workerd compatibility_date: 2026-08-31
+
+┌─────────────────────────────────┐
+│ OpenNext — Building Next.js app │
+└─────────────────────────────────┘
+
+
+> kaos-kami-web@2.1.0 build
+> next build
+
+Using secrets defined in .dev.vars
+[33m▲ [43;33m[[43;30mWARNING[43;33m][0m [1mMissing required secrets: DUITKU_MERCHANT_CODE, DUITKU_API_KEY, CLOUDFLARE_API_TOKEN, FONNTE_TOKEN. Add them to .dev.vars, .env, or set as environment variables.[0m
+
+
+  ▲ Next.js 14.2.15
+  - Environments: .env.local, .env
+
+   Creating an optimized production build ...
+Using secrets defined in .dev.vars
+[33m▲ [43;33m[[43;30mWARNING[43;33m][0m [1mMissing required secrets: DUITKU_MERCHANT_CODE, DUITKU_API_KEY, CLOUDFLARE_API_TOKEN, FONNTE_TOKEN. Add them to .dev.vars, .env, or set as environment variables.[0m
+
+
+Using secrets defined in .dev.vars
+[33m▲ [43;33m[[43;30mWARNING[43;33m][0m [1mMissing required secrets: DUITKU_MERCHANT_CODE, DUITKU_API_KEY, CLOUDFLARE_API_TOKEN, FONNTE_TOKEN. Add them to .dev.vars, .env, or set as environment variables.[0m
+
+
+Using secrets defined in .dev.vars
+[33m▲ [43;33m[[43;30mWARNING[43;33m][0m [1mMissing required secrets: DUITKU_MERCHANT_CODE, DUITKU_API_KEY, CLOUDFLARE_API_TOKEN, FONNTE_TOKEN. Add them to .dev.vars, .env, or set as environment variables.[0m
+
+
+ ✓ Compiled successfully
+   Linting and checking validity of types ...
+
+./src/app/admin/layout.tsx
+42:15  Warning: Using `<img>` could result in slower LCP and higher bandwidth. Consider using `<Image />` from `next/image` to automatically optimize images. This may incur additional usage or cost from your provider. See: https://nextjs.org/docs/messages/no-img-element  @next/next/no-img-element
+
+./src/app/studio/page.tsx
+56:13  Warning: Using `<img>` could result in slower LCP and higher bandwidth. Consider using `<Image />` from `next/image` to automatically optimize images. This may incur additional usage or cost from your provider. See: https://nextjs.org/docs/messages/no-img-element  @next/next/no-img-element
+
+./src/components/ui/Footer.tsx
+7:9  Warning: Using `<img>` could result in slower LCP and higher bandwidth. Consider using `<Image />` from `next/image` to automatically optimize images. This may incur additional usage or cost from your provider. See: https://nextjs.org/docs/messages/no-img-element  @next/next/no-img-element
+
+./src/components/ui/Navbar.tsx
+43:13  Warning: Using `<img>` could result in slower LCP and higher bandwidth. Consider using `<Image />` from `next/image` to automatically optimize images. This may incur additional usage or cost from your provider. See: https://nextjs.org/docs/messages/no-img-element  @next/next/no-img-element
+
+./src/components/ui/Preloader.tsx
+36:9  Warning: Using `<img>` could result in slower LCP and higher bandwidth. Consider using `<Image />` from `next/image` to automatically optimize images. This may incur additional usage or cost from your provider. See: https://nextjs.org/docs/messages/no-img-element  @next/next/no-img-element
+
+info  - Need to disable some ESLint rules? Learn more here: https://nextjs.org/docs/basic-features/eslint#disabling-rules
+   Collecting page data ...
+   Generating static pages (0/40) ...
+Catalog variants error: Dynamic server usage: Route /api/catalog/variants couldn't be rendered statically because it used `request.url`. See more info here: https://nextjs.org/docs/messages/dynamic-server-error
+   Generating static pages (10/40) 
+   Generating static pages (20/40) 
+   Generating static pages (30/40) 
+ ✓ Generating static pages (40/40)
+   Finalizing page optimization ...
+   Collecting build traces ...
+
+Route (app)                              Size     First Load JS
+┌ ○ /                                    6.35 kB         462 kB
+├ ○ /_not-found                          880 B          88.4 kB
+├ ƒ /admin                               196 B          94.9 kB
+├ ƒ /admin/catalog                       159 B          87.6 kB
+├ ƒ /admin/cms                           159 B          87.6 kB
+├ ƒ /admin/coupons                       159 B          87.6 kB
+├ ƒ /admin/customers                     159 B          87.6 kB
+├ ƒ /admin/orders                        195 B          94.9 kB
+├ ƒ /admin/orders/[id]                   794 B           359 kB
+├ ƒ /admin/orders/[id]/gang-sheet        196 B          94.9 kB
+├ ƒ /admin/orders/[id]/job-ticket        1.14 kB        95.8 kB
+├ ƒ /admin/production                    24.6 kB         118 kB
+├ ƒ /admin/settings                      159 B          87.6 kB
+├ ƒ /api/admin/production-tasks          0 B                0 B
+├ ƒ /api/auth/[...all]                   0 B                0 B
+├ ƒ /api/auth/send-otp                   0 B                0 B
+├ ƒ /api/auth/verify-otp                 0 B                0 B
+├ ƒ /api/cart                            0 B                0 B
+├ ƒ /api/cart/items                      0 B                0 B
+├ ○ /api/catalog/categories              0 B                0 B
+├ ○ /api/catalog/colors                  0 B                0 B
+├ ○ /api/catalog/materials               0 B                0 B
+├ ○ /api/catalog/sablon-methods          0 B                0 B
+├ ƒ /api/catalog/variants                0 B                0 B
+├ ƒ /api/checkout                        0 B                0 B
+├ ƒ /api/designs                         0 B                0 B
+├ ƒ /api/designs/autosave                0 B                0 B
+├ ƒ /api/designs/claim                   0 B                0 B
+├ ƒ /api/enhance-image                   0 B                0 B
+├ ○ /api/health                          0 B                0 B
+├ ƒ /api/mobile/catalog                  0 B                0 B
+├ ƒ /api/mobile/designs/sync             0 B                0 B
+├ ƒ /api/mobile/notifications/register   0 B                0 B
+├ ƒ /api/mobile/orders/[id]/status       0 B                0 B
+├ ƒ /api/mobile/orders/checkout          0 B                0 B
+├ ƒ /api/upload/r2                       0 B                0 B
+├ ƒ /api/webhooks/duitku                 0 B                0 B
+├ ○ /catalog                             5.52 kB         142 kB
+├ ƒ /dashboard/orders                    2.68 kB         139 kB
+├ ƒ /orders/[id]                         196 B          94.9 kB
+├ ○ /privacy                             196 B          94.9 kB
+├ ƒ /render/[designId]                   188 B           351 kB
+├ ○ /robots.txt                          0 B                0 B
+├ ○ /sitemap.xml                         0 B                0 B
+└ ○ /studio                              1.63 kB         410 kB
++ First Load JS shared by all            87.5 kB
+  ├ chunks/2364-7d2fb4d8fa1a15bf.js      31.7 kB
+  ├ chunks/618f8807-359df0f29be213e6.js  53.6 kB
+  └ other shared chunks (total)          2.11 kB
+
+
+○  (Static)   prerendered as static content
+ƒ  (Dynamic)  server-rendered on demand
+
+
+┌──────────────────────────────┐
+│ OpenNext — Generating bundle │
+└──────────────────────────────┘
+
+Bundling middleware function...
+Bundling static assets...
+Bundling cache assets...
+Building server function: default...
+Applying code patches: 10.233s
+# copyPackageTemplateFiles
+[35m⚙️ Bundling the OpenNext server...
+[0m
+▲ [WARNING] The "??" operator here will always return the left operand [suspicious-nullish-coalescing]
+
+    .open-next/server-functions/default/kaos-kami-web/.next/server/chunks/2741.js:163:35347:
+      163 │ ...At:li().default(()=>new Date)}??{},...nF(void 0)});function lT...
+          ╵                                  ~~
+
+  The left operand of the "??" operator here will never be null or undefined, so it will always be returned. This usually indicates a bug in your code:
+
+    .open-next/server-functions/default/kaos-kami-web/.next/server/chunks/2741.js:163:35264:
+      163 │ ...ct",shape:{id:aL(),createdAt:li().default(()=>new Date),update...
+          ╵              ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+[35mWorker saved in `.open-next\worker.js` 🚀
+[0m
+OpenNext build complete.

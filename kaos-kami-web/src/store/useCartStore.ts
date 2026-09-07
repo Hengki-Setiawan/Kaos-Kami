@@ -12,6 +12,10 @@ export interface CartProductItem {
   image: string;
   quantity: number;
   isCustom?: boolean;
+  /** Slug kategori (tshirt/longsleeve/...) agar server hitung tipe benar. */
+  apparelSlug?: string;
+  /** Varian katalog — server pakai harga varian (sudah termasuk sablon/size). */
+  productVariantId?: string;
 }
 
 interface CartStore {
@@ -29,18 +33,8 @@ interface CartStore {
 }
 
 export const useCartStore = create<CartStore>((set, get) => ({
-  items: [
-    {
-      id: "demo-item-1",
-      name: "Heavyweight Boxy Tee — Obsidian Black (Polos)",
-      priceIdr: 165000,
-      size: "L",
-      colorName: "Obsidian Black",
-      colorHex: "#121214",
-      image: "/lookbook/look-01.jpg",
-      quantity: 1,
-    },
-  ],
+  // Keranjang mulai KOSONG — item demo menyesatkan pembeli & checkout.
+  items: [],
   isCartOpen: false,
 
   openCart: () => set({ isCartOpen: true }),

@@ -163,11 +163,14 @@ export function AdminMobileDashboard({
     const target = orders.find((o) => o.id === orderId);
     const serverStage = STATUS_TO_STAGE[newStatus];
     // ACC 1-klik asli: PATCH ke server jika taskId tersedia.
+    // Jujur: bila server gagal, JANGAN klaim sukses.
+    let synced = true;
     if (target?.taskId && serverStage) {
-      const ok = await mobileApiClient.advanceProductionTask(target.taskId, serverStage);
-      if (!ok) {
-        onNotify?.('Server tak merespons (butuh login admin) — status diubah lokal.');
-      }
+      synced = await mobileApiClient.advanceProductionTask(target.taskId, serverStage);
+    }
+    if (!synced) {
+      onNotify?.('Gagal sinkron ke server (butuh login admin / offline). Status TIDAK diubah.');
+      return;
     }
     setOrders((prev) =>
       prev.map((ord) => (ord.id === orderId ? { ...ord, status: newStatus } : ord))
@@ -221,6 +224,7 @@ export function AdminMobileDashboard({
             <input
               type="text"
               placeholder="Cari ID pesanan, nama baju..."
+              aria-label="Cari pesanan berdasarkan ID atau nama baju"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="w-full pl-9 pr-4 py-2.5 rounded-2xl bg-zinc-900 border border-zinc-700/80 text-xs text-white outline-none focus:border-[#FF6B35]"
@@ -360,7 +364,7 @@ export function AdminMobileDashboard({
                 </div>
                 <div>
                   <span className="text-[10px] text-zinc-500 block">Kualitas Gambar:</span>
-                  <span className="text-emerald-400 font-bold">300 DPI (HD Ready)</span>
+                  <span className="text-amber-400 font-bold">Perlu verifikasi file master</span>
                 </div>
                 <div>
                   <span className="text-[10px] text-zinc-500 block">Metode Pembayaran:</span>

@@ -26,6 +26,7 @@ import {
 } from "lucide-react";
 
 import { useCartStore } from "@/store/useCartStore";
+import { TurnstileWidget } from "@/components/ui/TurnstileWidget";
 
 interface CheckoutModalProps {
   isOpen: boolean;
@@ -78,6 +79,9 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
 
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  // Token anti-bot Turnstile (opsional — wajib hanya bila server mengonfigurasi secret).
+  const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
+  const turnstileEnabled = !!process.env.NEXT_PUBLIC_CLOUDFLARE_TURNSTILE_SITE_KEY;
 
   // WA OTP saat bayar (hemat Fonnte: cuma 1x per checkout, bukan per daftar)
   const handleSendOtp = async () => {
@@ -96,7 +100,9 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
       const data = await res.json();
       if (data.success) {
         setOtpSent(true);
-        setOtpMsg(data.mock ? `Kode mock: ${data.code} (Fonnte mock)` : "Kode OTP terkirim ke WA");
+        // Kode mock HANYA tampil di dev lokal; server prod tidak pernah mengirim code.
+        const showMock = data.mock && data.code && process.env.NODE_ENV !== "production";
+        setOtpMsg(showMock ? `Kode mock: ${data.code} (Fonnte mock)` : "Kode OTP terkirim ke WA");
       } else setOtpMsg(data.error || "Gagal kirim OTP");
     } catch {
       setOtpMsg("Gagal kirim OTP");
@@ -176,7 +182,8 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
 
       const itemsPayload = isCartCheckout
         ? cartItems.map((item) => ({
-            apparelSlug: "tshirt" as const,
+            apparelSlug: (item.apparelSlug as any) || "tshirt",
+            productVariantId: item.productVariantId,
             colorHex: item.colorHex || "#121214",
             colorName: item.colorName || "Obsidian Black",
             size: item.size || "L",
@@ -184,17 +191,25 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
             decals: [],
             title: item.name,
           }))
+        : useCustomSizeBreakdown
+        ? // Rincian ukuran = item terpisah per size agar surcharge size tepat.
+          Object.entries(sizeDistribution)
+            .filter(([_, qty]) => qty > 0)
+            .map(([s, q]) => ({
+              apparelSlug: activeApparel,
+              colorHex: selectedColor,
+              colorName: activeColorName,
+              size: s,
+              quantity: q,
+              decals,
+              title: `Custom ${activeApparel.toUpperCase()} Sablon DTF`,
+            }))
         : [
             {
               apparelSlug: activeApparel,
               colorHex: selectedColor,
               colorName: activeColorName,
-              size: useCustomSizeBreakdown
-                ? Object.entries(sizeDistribution)
-                    .filter(([_, qty]) => qty > 0)
-                    .map(([s, q]) => `${s}:${q}`)
-                    .join("/")
-                : selectedSize,
+              size: selectedSize,
               quantity,
               decals,
               title: `Custom ${activeApparel.toUpperCase()} Sablon DTF`,
@@ -209,13 +224,9 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
         turnaroundTier,
         district: deliveryMethod !== "PICKUP" ? district : undefined,
         fullAddress: deliveryMethod === "PICKUP" ? "Workshop Kaos Kami Makassar (Self Pick-up)" : fullAddress,
-        courierNotes: useCustomSizeBreakdown
-          ? `[RINCIAN UKURAN: ${Object.entries(sizeDistribution)
-              .filter(([_, qty]) => qty > 0)
-              .map(([s, q]) => `${s}=${q}pcs`)
-              .join(", ")}] ${courierNotes}`.trim()
-          : courierNotes,
+        courierNotes,
         items: itemsPayload,
+        turnstileToken: turnstileToken || undefined,
       };
 
       const res = await fetch("/api/checkout", {
@@ -484,6 +495,7 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
                       setOtpSent(false);
                     }}
                     placeholder="081234567890"
+                    aria-label="Nomor WhatsApp untuk OTP"
                     className="flex-1 px-3.5 py-2.5 rounded-xl bg-surface border border-white/10 focus:border-brand-accent text-sm text-white font-mono focus:outline-none"
                   />
                   <button
@@ -502,6 +514,7 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
                       value={otpCode}
                       onChange={(e) => setOtpCode(e.target.value)}
                       placeholder="6 digit OTP"
+                      aria-label="Kode OTP 6 digit dari WhatsApp"
                       className="flex-1 px-3 py-2 rounded-xl bg-surface border border-white/10 text-sm text-white font-mono focus:outline-none"
                       maxLength={6}
                     />
@@ -690,6 +703,16 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
             </div>
           </div>
 
+          {/* Anti-bot Turnstile (aktif hanya bila site key dikonfigurasi) */}
+          {turnstileEnabled && (
+            <TurnstileWidget
+              onVerify={(t) => setTurnstileToken(t)}
+              onExpire={() => setTurnstileToken(null)}
+              onError={() => setTurnstileToken(null)}
+              size="flexible"
+            />
+          )}
+
           {/* Action Trigger */}
           <button
             type="submit"
@@ -699,7 +722,7 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
             {isLoading ? (
               <>
                 <Loader2 size={16} className="animate-spin" />
-                <span>MEMPROSES MIDTRANS SNAP...</span>
+                <span>MEMPROSES DUITKU...</span>
               </>
             ) : (
               <>

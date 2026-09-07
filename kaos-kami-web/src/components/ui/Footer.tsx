@@ -4,6 +4,7 @@ export const Footer: React.FC = () => {
   return (
     <footer className="relative z-20 border-t border-border-subtle bg-canvas px-6 md:px-12 py-12 flex flex-col md:flex-row justify-between items-start md:items-center gap-8">
       <div>
+        {/* eslint-disable-next-line @next/next/no-img-element -- logo mungil lokal; images.unoptimized=true sehingga next/image tak menambah nilai */}
         <img
           src="/brand/logo-white-clean.png"
           alt="Kaos Kami"

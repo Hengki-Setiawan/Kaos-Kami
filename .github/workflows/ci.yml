@@ -10,10 +10,13 @@ jobs:
           node-version: 20
           cache: npm
       - run: npm ci
-      - run: npm run typecheck
-      - run: npm run lint
-      - run: npx prisma generate
-      - run: npm run build
+      - run: npm run web:typecheck
+      - run: npm run mobile:typecheck
+      - run: npm --workspace=kaos-kami-web run lint
+      - run: npm --workspace=kaos-kami-web exec -- prisma generate
+      - run: npm run test --workspace=kaos-kami-web
+      - run: npm run web:build
+      - run: npm run mobile:build
       - name: Lighthouse CI (desktop)
         run: |
           npm install -g @lhci/cli@0.15.x

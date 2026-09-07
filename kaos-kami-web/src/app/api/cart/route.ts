@@ -1,6 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { prisma } from '@/lib/db';
+import { nanoid } from 'nanoid';
+import { db } from '@/lib/db';
+import { Cart } from '@/lib/drizzle-schema';
 import { assertResourceOwnerOrAdmin } from '@/lib/security/authGuard';
+
+async function getCartWithItems(userId: string) {
+  return db.query.Cart.findFirst({
+    where: (t, { eq }) => eq(t.userId, userId),
+    with: { items: { with: { productVariant: true, design: true } } },
+  });
+}
 
 export async function GET(req: NextRequest) {
   try {
@@ -14,9 +23,10 @@ export async function GET(req: NextRequest) {
       const status = msg.startsWith('Unauthorized') ? 401 : 403;
       return NextResponse.json({ error: msg }, { status });
     }
-    let cart = await prisma.cart.findUnique({ where: { userId }, include: { items: { include: { productVariant: true, design: true } } } });
+    let cart = await getCartWithItems(userId);
     if (!cart) {
-      cart = await prisma.cart.create({ data: { userId }, include: { items: { include: { productVariant: true, design: true } } } });
+      await db.insert(Cart).values({ id: nanoid(), userId });
+      cart = await getCartWithItems(userId);
     }
     return NextResponse.json({ success: true, cart });
   } catch(e:any){ return NextResponse.json({ error: e.message }, { status: 500 }); }

@@ -1,5 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { prisma } from '@/lib/db';
+import { nanoid } from 'nanoid';
+import { eq } from 'drizzle-orm';
+import { db } from '@/lib/db';
+import { Cart, CartItem } from '@/lib/drizzle-schema';
 import { z } from 'zod';
 import { assertResourceOwnerOrAdmin } from '@/lib/security/authGuard';
 const AddItemSchema = z.object({
@@ -23,11 +26,17 @@ export async function POST(req: NextRequest) {
       const status = msg.startsWith('Unauthorized') ? 401 : 403;
       return NextResponse.json({ error: msg }, { status });
     }
-    let cart = await prisma.cart.findUnique({ where: { userId } });
-    if (!cart) cart = await prisma.cart.create({ data: { userId } });
-    const item = await prisma.cartItem.create({
-      data: { cartId: cart.id, productVariantId: productVariantId || null, designId: designId || null, quantity, unitPriceIdr },
+    let cart = await db.query.Cart.findFirst({
+      where: (t, { eq }) => eq(t.userId, userId),
     });
+    if (!cart) {
+      const [created] = await db.insert(Cart).values({ id: nanoid(), userId }).returning();
+      cart = created!;
+    }
+    const [item] = await db
+      .insert(CartItem)
+      .values({ id: nanoid(), cartId: cart.id, productVariantId: productVariantId || null, designId: designId || null, quantity, unitPriceIdr })
+      .returning();
     return NextResponse.json({ success: true, item });
   } catch(e:any){ return NextResponse.json({ error: e.message }, { status: 500 }); }
 }
@@ -36,9 +45,9 @@ export async function DELETE(req: NextRequest) {
     const { searchParams } = new URL(req.url);
     const itemId = searchParams.get('itemId');
     if (!itemId) return NextResponse.json({ error: 'Missing itemId' }, { status: 400 });
-    const existing = await prisma.cartItem.findUnique({
-      where: { id: itemId },
-      include: { cart: true },
+    const existing = await db.query.CartItem.findFirst({
+      where: (t, { eq }) => eq(t.id, itemId),
+      with: { cart: true },
     });
     if (!existing) return NextResponse.json({ error: 'Item not found' }, { status: 404 });
     try {
@@ -48,20 +57,24 @@ export async function DELETE(req: NextRequest) {
       const status = msg.startsWith('Unauthorized') ? 401 : 403;
       return NextResponse.json({ error: msg }, { status });
     }
-    await prisma.cartItem.delete({ where: { id: itemId } });
+    await db.delete(CartItem).where(eq(CartItem.id, itemId));
     return NextResponse.json({ success: true });
   } catch(e:any){ return NextResponse.json({ error: e.message }, { status: 500 }); }
 }
 
+const UpdateQtySchema = z.object({
+  itemId: z.string().cuid(),
+  quantity: z.number().int().min(1).max(100),
+});
 export async function PATCH(req: NextRequest) {
   try {
     const body = await req.json();
-    const { itemId, quantity } = body;
-    if (!itemId || !quantity || quantity < 1) return NextResponse.json({ error: 'Invalid itemId/quantity' }, { status: 400 });
-    if (quantity > 100) return NextResponse.json({ error: 'Max 100 per item' }, { status: 400 });
-    const existing = await prisma.cartItem.findUnique({
-      where: { id: itemId },
-      include: { cart: true },
+    const parsed = UpdateQtySchema.safeParse(body);
+    if (!parsed.success) return NextResponse.json({ error: parsed.error.errors[0]?.message || 'Invalid itemId/quantity' }, { status: 400 });
+    const { itemId, quantity } = parsed.data;
+    const existing = await db.query.CartItem.findFirst({
+      where: (t, { eq }) => eq(t.id, itemId),
+      with: { cart: true },
     });
     if (!existing) return NextResponse.json({ error: 'Item not found' }, { status: 404 });
     try {
@@ -71,7 +84,11 @@ export async function PATCH(req: NextRequest) {
       const status = msg.startsWith('Unauthorized') ? 401 : 403;
       return NextResponse.json({ error: msg }, { status });
     }
-    const updated = await prisma.cartItem.update({ where: { id: itemId }, data: { quantity } });
+    const [updated] = await db
+      .update(CartItem)
+      .set({ quantity })
+      .where(eq(CartItem.id, itemId))
+      .returning();
     return NextResponse.json({ success: true, item: updated });
   } catch(e:any){ return NextResponse.json({ error: e.message }, { status: 500 }); }
 }

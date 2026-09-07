@@ -1,0 +1,235 @@
+
+> kaos-kami-web@2.1.0 preview
+> opennextjs-cloudflare build --dangerouslyUseUnsupportedNextVersion && opennextjs-cloudflare preview
+
+
+┌─────────────────────────────┐
+│ OpenNext — Cloudflare build │
+└─────────────────────────────┘
+
+WARN OpenNext is not fully compatible with Windows.
+WARN For optimal performance, it is recommended to use Windows Subsystem for Linux (WSL).
+WARN While OpenNext may function on Windows, it could encounter unpredictable failures during runtime.
+Monorepo detected at D:\Vibe coding Semester 7\Kaos Kami
+App directory: D:\Vibe coding Semester 7\Kaos Kami\kaos-kami-web
+Next.js version : 14.2.15
+WARN Next.js version 14.2.15 is not supported by the Next.js team.
+Major versions are supported for 2 years from their release date.
+Unsupported releases may contain unpatched security vulnerabilities.
+See https://nextjs.org/support-policy for more information.
+Continuing build due to --dangerouslyUseUnsupportedNextVersion flag.
+@opennextjs/cloudflare version: 1.20.4
+@opennextjs/aws version: 4.1.2
+workerd compatibility_date: 2026-08-31
+
+┌─────────────────────────────────┐
+│ OpenNext — Building Next.js app │
+└─────────────────────────────────┘
+
+
+> kaos-kami-web@2.1.0 build
+> next build
+
+Using secrets defined in .dev.vars
+[33m▲ [43;33m[[43;30mWARNING[43;33m][0m [1mMissing required secrets: DUITKU_MERCHANT_CODE, DUITKU_API_KEY, CLOUDFLARE_API_TOKEN, FONNTE_TOKEN. Add them to .dev.vars, .env, or set as environment variables.[0m
+
+
+  ▲ Next.js 14.2.15
+  - Environments: .env.local, .env
+
+   Creating an optimized production build ...
+Using secrets defined in .dev.vars
+[33m▲ [43;33m[[43;30mWARNING[43;33m][0m [1mMissing required secrets: DUITKU_MERCHANT_CODE, DUITKU_API_KEY, CLOUDFLARE_API_TOKEN, FONNTE_TOKEN. Add them to .dev.vars, .env, or set as environment variables.[0m
+
+
+Using secrets defined in .dev.vars
+[33m▲ [43;33m[[43;30mWARNING[43;33m][0m [1mMissing required secrets: DUITKU_MERCHANT_CODE, DUITKU_API_KEY, CLOUDFLARE_API_TOKEN, FONNTE_TOKEN. Add them to .dev.vars, .env, or set as environment variables.[0m
+
+
+Using secrets defined in .dev.vars
+[33m▲ [43;33m[[43;30mWARNING[43;33m][0m [1mMissing required secrets: DUITKU_MERCHANT_CODE, DUITKU_API_KEY, CLOUDFLARE_API_TOKEN, FONNTE_TOKEN. Add them to .dev.vars, .env, or set as environment variables.[0m
+
+
+ ✓ Compiled successfully
+   Linting and checking validity of types ...
+
+./src/app/admin/layout.tsx
+42:15  Warning: Using `<img>` could result in slower LCP and higher bandwidth. Consider using `<Image />` from `next/image` to automatically optimize images. This may incur additional usage or cost from your provider. See: https://nextjs.org/docs/messages/no-img-element  @next/next/no-img-element
+
+./src/app/studio/page.tsx
+56:13  Warning: Using `<img>` could result in slower LCP and higher bandwidth. Consider using `<Image />` from `next/image` to automatically optimize images. This may incur additional usage or cost from your provider. See: https://nextjs.org/docs/messages/no-img-element  @next/next/no-img-element
+
+./src/components/ui/Footer.tsx
+7:9  Warning: Using `<img>` could result in slower LCP and higher bandwidth. Consider using `<Image />` from `next/image` to automatically optimize images. This may incur additional usage or cost from your provider. See: https://nextjs.org/docs/messages/no-img-element  @next/next/no-img-element
+
+./src/components/ui/Navbar.tsx
+43:13  Warning: Using `<img>` could result in slower LCP and higher bandwidth. Consider using `<Image />` from `next/image` to automatically optimize images. This may incur additional usage or cost from your provider. See: https://nextjs.org/docs/messages/no-img-element  @next/next/no-img-element
+
+./src/components/ui/Preloader.tsx
+36:9  Warning: Using `<img>` could result in slower LCP and higher bandwidth. Consider using `<Image />` from `next/image` to automatically optimize images. This may incur additional usage or cost from your provider. See: https://nextjs.org/docs/messages/no-img-element  @next/next/no-img-element
+
+info  - Need to disable some ESLint rules? Learn more here: https://nextjs.org/docs/basic-features/eslint#disabling-rules
+   Collecting page data ...
+   Generating static pages (0/40) ...
+Catalog variants error: Dynamic server usage: Route /api/catalog/variants couldn't be rendered statically because it used `request.url`. See more info here: https://nextjs.org/docs/messages/dynamic-server-error
+   Generating static pages (10/40) 
+   Generating static pages (20/40) 
+   Generating static pages (30/40) 
+ ✓ Generating static pages (40/40)
+   Finalizing page optimization ...
+   Collecting build traces ...
+
+Route (app)                              Size     First Load JS
+┌ ○ /                                    6.35 kB         462 kB
+├ ○ /_not-found                          880 B          88.4 kB
+├ ƒ /admin                               196 B          94.9 kB
+├ ƒ /admin/catalog                       159 B          87.6 kB
+├ ƒ /admin/cms                           159 B          87.6 kB
+├ ƒ /admin/coupons                       159 B          87.6 kB
+├ ƒ /admin/customers                     159 B          87.6 kB
+├ ƒ /admin/orders                        195 B          94.9 kB
+├ ƒ /admin/orders/[id]                   794 B           359 kB
+├ ƒ /admin/orders/[id]/gang-sheet        196 B          94.9 kB
+├ ƒ /admin/orders/[id]/job-ticket        1.14 kB        95.8 kB
+├ ƒ /admin/production                    24.6 kB         118 kB
+├ ƒ /admin/settings                      159 B          87.6 kB
+├ ƒ /api/admin/production-tasks          0 B                0 B
+├ ƒ /api/auth/[...all]                   0 B                0 B
+├ ƒ /api/auth/send-otp                   0 B                0 B
+├ ƒ /api/auth/verify-otp                 0 B                0 B
+├ ƒ /api/cart                            0 B                0 B
+├ ƒ /api/cart/items                      0 B                0 B
+├ ○ /api/catalog/categories              0 B                0 B
+├ ○ /api/catalog/colors                  0 B                0 B
+├ ○ /api/catalog/materials               0 B                0 B
+├ ○ /api/catalog/sablon-methods          0 B                0 B
+├ ƒ /api/catalog/variants                0 B                0 B
+├ ƒ /api/checkout                        0 B                0 B
+├ ƒ /api/designs                         0 B                0 B
+├ ƒ /api/designs/autosave                0 B                0 B
+├ ƒ /api/designs/claim                   0 B                0 B
+├ ƒ /api/enhance-image                   0 B                0 B
+├ ○ /api/health                          0 B                0 B
+├ ƒ /api/mobile/catalog                  0 B                0 B
+├ ƒ /api/mobile/designs/sync             0 B                0 B
+├ ƒ /api/mobile/notifications/register   0 B                0 B
+├ ƒ /api/mobile/orders/[id]/status       0 B                0 B
+├ ƒ /api/mobile/orders/checkout          0 B                0 B
+├ ƒ /api/upload/r2                       0 B                0 B
+├ ƒ /api/webhooks/duitku                 0 B                0 B
+├ ○ /catalog                             5.52 kB         142 kB
+├ ƒ /dashboard/orders                    2.68 kB         139 kB
+├ ƒ /orders/[id]                         196 B          94.9 kB
+├ ○ /privacy                             196 B          94.9 kB
+├ ƒ /render/[designId]                   188 B           351 kB
+├ ○ /robots.txt                          0 B                0 B
+├ ○ /sitemap.xml                         0 B                0 B
+└ ○ /studio                              1.63 kB         410 kB
++ First Load JS shared by all            87.5 kB
+  ├ chunks/2364-7d2fb4d8fa1a15bf.js      31.7 kB
+  ├ chunks/618f8807-359df0f29be213e6.js  53.6 kB
+  └ other shared chunks (total)          2.11 kB
+
+
+○  (Static)   prerendered as static content
+ƒ  (Dynamic)  server-rendered on demand
+
+
+┌──────────────────────────────┐
+│ OpenNext — Generating bundle │
+└──────────────────────────────┘
+
+Bundling middleware function...
+Bundling static assets...
+Bundling cache assets...
+Building server function: default...
+Applying code patches: 9.002s
+# copyPackageTemplateFiles
+[35m⚙️ Bundling the OpenNext server...
+[0m
+▲ [WARNING] The "??" operator here will always return the left operand [suspicious-nullish-coalescing]
+
+    .open-next/server-functions/default/kaos-kami-web/.next/server/chunks/2741.js:163:35347:
+      163 │ ...At:li().default(()=>new Date)}??{},...nF(void 0)});function lT...
+          ╵                                  ~~
+
+  The left operand of the "??" operator here will never be null or undefined, so it will always be returned. This usually indicates a bug in your code:
+
+    .open-next/server-functions/default/kaos-kami-web/.next/server/chunks/2741.js:163:35264:
+      163 │ ...ct",shape:{id:aL(),createdAt:li().default(()=>new Date),update...
+          ╵              ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+[35mWorker saved in `.open-next\worker.js` 🚀
+[0m
+OpenNext build complete.
+
+┌───────────────────────────────┐
+│ OpenNext — Cloudflare preview │
+└───────────────────────────────┘
+
+WARN OpenNext is not fully compatible with Windows.
+WARN For optimal performance, it is recommended to use Windows Subsystem for Linux (WSL).
+WARN While OpenNext may function on Windows, it could encounter unpredictable failures during runtime.
+Monorepo detected at D:\Vibe coding Semester 7\Kaos Kami
+Using secrets defined in .dev.vars
+[33m▲ [43;33m[[43;30mWARNING[43;33m][0m [1mMissing required secrets: DUITKU_MERCHANT_CODE, DUITKU_API_KEY, CLOUDFLARE_API_TOKEN, FONNTE_TOKEN. Add them to .dev.vars, .env, or set as environment variables.[0m
+
+
+
+Populating local R2 incremental cache...
+[0G  7%|███                                          | 1/13 [00:00:<00:00:, 1000.00it/s][0G 15%|██████                                       | 2/13 [00:00:<00:00:, 47.62it/s][0G 23%|██████████                                   | 3/13 [00:00:<00:00:, 63.83it/s][0G 30%|█████████████                                | 4/13 [00:00:<00:00:, 76.92it/s][0G 38%|█████████████████                            | 5/13 [00:00:<00:00:, 90.91it/s][0G 46%|████████████████████                         | 6/13 [00:00:<00:00:, 100.00it/s][0G 53%|████████████████████████                     | 7/13 [00:00:<00:00:, 109.38it/s][0G 61%|███████████████████████████                  | 8/13 [00:00:<00:00:, 112.68it/s][0G 69%|███████████████████████████████              | 9/13 [00:00:<00:00:, 120.00it/s][0G 76%|██████████████████████████████████           | 10/13 [00:00:<00:00:, 113.64it/s][0G 84%|██████████████████████████████████████       | 11/13 [00:00:<00:00:, 119.57it/s][0G 92%|█████████████████████████████████████████    | 12/13 [00:00:<00:00:, 127.66it/s][0G100%|█████████████████████████████████████████████| 13/13 [00:00:<00:00:, 134.02it/s]
+Successfully populated cache with 13 entries
+Tag cache does not need populating
+
+ ⛅️ wrangler 4.127.1 (update available 4.129.0)
+───────────────────────────────────────────────
+Using secrets defined in .dev.vars
+Your Worker has access to the following bindings:
+Binding                                                                             Resource                  Mode
+env.NEXT_INC_CACHE_R2_BUCKET (kaos-kami-3d-opennext-cache)                          R2 Bucket                 local
+env.WORKER_SELF_REFERENCE (kaos-kami-3d)                                            Worker                    local [connected]
+env.IMAGES                                                                          Images                    local
+env.ASSETS                                                                          Assets                    local
+env.NEXT_PUBLIC_SITE_URL ("https://kaos-kami-3d.hengkisetiawan46...")               Environment Variable      local
+env.NEXT_PUBLIC_GA_MEASUREMENT_ID ("(hidden)")                                      Environment Variable      local
+env.BETTER_AUTH_URL ("(hidden)")                                                    Environment Variable      local
+env.DATABASE_URL ("(hidden)")                                                       Environment Variable      local
+env.TURSO_DATABASE_URL ("(hidden)")                                                 Environment Variable      local
+env.CLOUDFLARE_ACCOUNT_ID ("6c660b71ad4e72f3bc343252a7c5e825")                      Environment Variable      local
+env.R2_BUCKET_NAME ("kaos-kami-assets")                                             Environment Variable      local
+env.R2_PUBLIC_URL ("https://pub-5746f36a46904edc8425ecd72...")                      Environment Variable      local
+env.TURSO_AUTH_TOKEN ("(hidden)")                                                   Environment Variable      local
+env.BETTER_AUTH_SECRET ("(hidden)")                                                 Environment Variable      local
+
+
+Service bindings, Durable Object bindings, and Tail consumers connect to other Wrangler or Vite dev processes running locally, with their connection status indicated by [connected] or [not connected]. For more details, refer to https://developers.cloudflare.com/workers/runtime-apis/bindings/service-bindings/#local-development
+
+Wrangler detected this dev session is running in an AI agent.
+The Local Explorer API is available at http://127.0.0.1:8787/cdn-cgi/local/explorer/api
+Useful routes:
+  GET http://127.0.0.1:8787/cdn-cgi/local/explorer/api/local/workers - local Workers and bindings
+  GET http://127.0.0.1:8787/cdn-cgi/local/explorer/api/storage/kv/namespaces - KV namespaces
+  GET http://127.0.0.1:8787/cdn-cgi/local/explorer/api/d1/database - D1 databases
+  GET http://127.0.0.1:8787/cdn-cgi/local/explorer/api/r2/buckets - R2 buckets
+  GET http://127.0.0.1:8787/cdn-cgi/local/explorer/api/workers/durable_objects/namespaces - Durable Object namespaces
+  GET http://127.0.0.1:8787/cdn-cgi/local/explorer/api/workflows - Workflows
+  POST http://127.0.0.1:8787/cdn-cgi/local/explorer/api/local/observability/query - run a read-only SQL query (SELECT/WITH only) over captured request traces and console logs. Tables: spans, logs (read attributes via json(attributes)). Example:
+    curl -X POST http://127.0.0.1:8787/cdn-cgi/local/explorer/api/local/observability/query -H 'Content-Type: application/json' -d '{"sql":"SELECT service, name, outcome, duration_ms FROM spans WHERE parent_id IS NULL LIMIT 20"}'
+If the routes above don't cover what you need, fetch the full OpenAPI schema (large - use only as a last resort):
+  GET http://127.0.0.1:8787/cdn-cgi/local/explorer/api - OpenAPI schema
+⎔ Starting local server...
+[wrangler:info] ✨ Parsed 6 valid header rules.
+[wrangler:info] Ready on http://127.0.0.1:8787
+prisma:error Code generation from strings disallowed for this context
+[wrangler:info] GET /api/mobile/catalog 500 Internal Server Error (1694ms)
+prisma:error Code generation from strings disallowed for this context
+[wrangler:info] GET /api/mobile/orders/aaaaaaaaaa/status 500 Internal Server Error (72ms)
+prisma:error Code generation from strings disallowed for this context
+[wrangler:info] GET /api/mobile/catalog 500 Internal Server Error (39ms)
+prisma:error Code generation from strings disallowed for this context
+[wrangler:info] GET /api/mobile/catalog 500 Internal Server Error (43ms)
+prisma:error Code generation from strings disallowed for this context
+[wrangler:info] GET /api/mobile/catalog 500 Internal Server Error (35ms)
+prisma:error Code generation from strings disallowed for this context
+[wrangler:info] GET /api/catalog/variants 500 Internal Server Error (55ms)
+[wrangler:info] GET /api/cart 401 Unauthorized (488ms)

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createHash } from "crypto";
-import { prisma } from "@/lib/db";
+import { db } from "@/lib/db";
 
 /**
  * M10.1 — GET /api/mobile/catalog
@@ -8,10 +8,10 @@ import { prisma } from "@/lib/db";
  */
 export async function GET(req: NextRequest) {
   try {
-    const categories = await prisma.apparelCategory.findMany({
-      where: { isActive: true },
-      orderBy: { sortOrder: "asc" },
-      select: {
+    const categories = await db.query.ApparelCategory.findMany({
+      where: (t, { eq }) => eq(t.isActive, true),
+      orderBy: (t, { asc }) => asc(t.sortOrder),
+      columns: {
         id: true,
         slug: true,
         name: true,

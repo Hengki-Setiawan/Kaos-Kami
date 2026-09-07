@@ -1,17 +1,28 @@
 import React from "react";
-import { prisma } from "@/lib/db";
+import { count } from "drizzle-orm";
+import { db } from "@/lib/db";
+import { ProductVariant } from "@/lib/drizzle-schema";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
 export default async function AdminCatalogPage() {
   const [categories, variants, colors, materials, sablonMethods] = await Promise.all([
-    prisma.apparelCategory.findMany({ orderBy: { sortOrder: "asc" }, include: { _count: { select: { variants: true } } } as any }),
-    prisma.productVariant.findMany({ take: 20, orderBy: { createdAt: "desc" }, include: { category: true } }),
-    prisma.colorOption.findMany({ orderBy: { sortOrder: "asc" } }),
-    prisma.materialFinish.findMany(),
-    prisma.sablonMethod.findMany(),
+    db.query.ApparelCategory.findMany({ orderBy: (t, { asc }) => asc(t.sortOrder) }),
+    db.query.ProductVariant.findMany({ limit: 20, orderBy: (t, { desc }) => desc(t.createdAt), with: { category: true } }),
+    db.query.ColorOption.findMany({ orderBy: (t, { asc }) => asc(t.sortOrder) }),
+    db.query.MaterialFinish.findMany(),
+    db.query.SablonMethod.findMany(),
   ]);
+  const variantCounts = await db
+    .select({ categoryId: ProductVariant.categoryId, n: count() })
+    .from(ProductVariant)
+    .groupBy(ProductVariant.categoryId);
+  const countMap = new Map(variantCounts.map((r) => [r.categoryId, r.n]));
+  const categoriesWithCounts = categories.map((c: any) => ({
+    ...c,
+    _count: { variants: countMap.get(c.id) || 0 },
+  }));
 
   return (
     <div className="p-5 sm:p-8 space-y-8 max-w-7xl mx-auto font-mono text-xs">
@@ -23,7 +34,7 @@ export default async function AdminCatalogPage() {
       <section className="space-y-3">
         <h2 className="font-bold text-white uppercase">Apparel Categories ({categories.length})</h2>
         <div className="bg-[#141416] border border-white/5 rounded-2xl overflow-hidden divide-y divide-white/5">
-          {categories.map((c: any) => (
+          {categoriesWithCounts.map((c: any) => (
             <div key={c.id} className="p-4 flex justify-between items-center">
               <div>
                 <span className="font-bold text-white block">{c.name} ({c.slug})</span>

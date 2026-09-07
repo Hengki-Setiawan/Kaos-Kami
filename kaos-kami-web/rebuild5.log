@@ -1,0 +1,41 @@
+
+┌─────────────────────────────┐
+│ OpenNext — Cloudflare build │
+└─────────────────────────────┘
+
+WARN OpenNext is not fully compatible with Windows.
+WARN For optimal performance, it is recommended to use Windows Subsystem for Linux (WSL).
+WARN While OpenNext may function on Windows, it could encounter unpredictable failures during runtime.
+Monorepo detected at D:\Vibe coding Semester 7\Kaos Kami
+App directory: D:\Vibe coding Semester 7\Kaos Kami\kaos-kami-web
+Next.js version : 14.2.15
+WARN Next.js version 14.2.15 is not supported by the Next.js team.
+Major versions are supported for 2 years from their release date.
+Unsupported releases may contain unpatched security vulnerabilities.
+See https://nextjs.org/support-policy for more information.
+Continuing build due to --dangerouslyUseUnsupportedNextVersion flag.
+@opennextjs/cloudflare version: 1.20.4
+@opennextjs/aws version: 4.1.2
+workerd compatibility_date: 2026-08-31
+node:fs:1193
+  binding.rmdir(path);
+          ^
+
+Error: EBUSY: resource busy or locked, rmdir 'D:\Vibe coding Semester 7\Kaos Kami\kaos-kami-web\.open-next\assets'
+    at rmdirSync (node:fs:1193:11)
+    at _rmdirSync (node:internal/fs/rimraf:236:5)
+    at rimrafSync (node:internal/fs/rimraf:194:7)
+    at node:internal/fs/rimraf:254:9
+    at Array.forEach (<anonymous>)
+    at _rmdirSync (node:internal/fs/rimraf:251:7)
+    at rimrafSync (node:internal/fs/rimraf:194:7)
+    at Object.rmSync (node:fs:1239:10)
+    at Module.initOutputDir (file:///D:/Vibe%20coding%20Semester%207/Kaos%20Kami/node_modules/@opennextjs/aws/dist/build/helper.js:348:8)
+    at build (file:///D:/Vibe%20coding%20Semester%207/Kaos%20Kami/node_modules/@opennextjs/cloudflare/dist/cli/build/build.js:56:17) {
+  errno: -4082,
+  code: 'EBUSY',
+  syscall: 'rmdir',
+  path: 'D:\\Vibe coding Semester 7\\Kaos Kami\\kaos-kami-web\\.open-next\\assets'
+}
+
+Node.js v22.23.0

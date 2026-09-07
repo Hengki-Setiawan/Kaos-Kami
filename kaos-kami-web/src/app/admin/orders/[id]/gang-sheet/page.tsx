@@ -1,13 +1,13 @@
-import { prisma } from "@/lib/db";
+import { db } from "@/lib/db";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 export const dynamic = "force-dynamic";
 
 // Gang Sheet A3 30cm — susun semua decal order jadi 1 lembar film DTF siap print (Cethak workflow)
 export default async function GangSheetPage({ params }: { params: { id: string } }) {
-  const order = await prisma.order.findUnique({
-    where: { id: params.id },
-    include: { items: true, productionTasks: true },
+  const order = await db.query.Order.findFirst({
+    where: (t, { eq }) => eq(t.id, params.id),
+    with: { items: true, productionTasks: true },
   });
   if (!order) notFound();
   return (
@@ -21,7 +21,7 @@ export default async function GangSheetPage({ params }: { params: { id: string }
         <div className="border-2 border-dashed border-black/20 p-4 grid grid-cols-2 gap-4">
           {order.productionTasks.map((t: any, idx: number) => (
             <div key={t.id} className="border border-black p-3 text-center">
-              <div className="text-[10px] text-zinc-500">#{idx+1} {t.placementSide} — {t.printWidthCm?.toFixed(1)}×{t.printHeightCm?.toFixed(1)}cm offset {t.offsetFromCollarCm?.toFixed(1)}cm</div>
+              <div className="text-[10px] text-zinc-500">#{idx+1} {t.placementSide} — {t.printWidthCm != null && t.printHeightCm != null ? `${t.printWidthCm.toFixed(1)}×${t.printHeightCm.toFixed(1)}cm` : "dimensi belum terukur"} offset {t.offsetFromCollarCm != null ? `${t.offsetFromCollarCm.toFixed(1)}cm` : "—"}</div>
               <div className="mt-2 h-32 bg-zinc-100 border border-zinc-300 flex items-center justify-center text-zinc-400">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 {t.mockupPreviewUrl ? <img src={t.mockupPreviewUrl} alt="preview" className="max-h-32" /> : "Preview 300 DPI"}

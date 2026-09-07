@@ -90,6 +90,8 @@ export const HomeCatalogSection: React.FC = () => {
                       colorName: p.colorName,
                       colorHex: p.colorHex,
                       image: p.images[0] || "/lookbook/look-01.jpg",
+                      apparelSlug: p.category?.slug || "tshirt",
+                      productVariantId: p.id,
                     })
                   }
                   className="py-2.5 px-3 rounded-xl bg-surface border border-white/10 text-white font-bold hover:bg-brand-accent hover:text-canvas transition-all flex items-center justify-center space-x-1"

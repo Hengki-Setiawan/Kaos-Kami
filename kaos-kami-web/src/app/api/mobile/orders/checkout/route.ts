@@ -1,7 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
-import { prisma } from "@/lib/db";
+import { nanoid } from "nanoid";
+import { eq } from "drizzle-orm";
+import { db } from "@/lib/db";
+import { Address, Order, OrderItem, OrderStatusEvent, Payment, User } from "@/lib/drizzle-schema";
 import { calculate6VariablePrice } from "@/lib/pricingEngine";
+import { PRODUCT_COLORS } from "@/lib/constants";
 import { duitkuProvider } from "@/lib/payments/duitku";
 import { sendWhatsAppNotification, buildOrderConfirmedMessage } from "@/lib/notifications/whatsapp";
 import { MAKASSAR_DELIVERY_OPTIONS } from "@/lib/shipping/deliveryOptions";
@@ -60,11 +64,15 @@ export async function POST(req: NextRequest) {
     let subtotalIdr = 0;
     const validatedItems: any[] = [];
     for (const item of items) {
+      const matchedColor = PRODUCT_COLORS.find(
+        (c) => c.hex.toLowerCase() === item.colorHex.toLowerCase()
+      );
       const pricing = calculate6VariablePrice({
         apparelSlug: item.apparelSlug,
         fabricThicknessSlug: item.fabricThicknessSlug,
         size: item.size,
         colorHex: item.colorHex,
+        isSpecialPigment: !!matchedColor?.isSpecialPigment,
         decals: item.decals || [],
         quantity: item.quantity,
       });
@@ -76,22 +84,27 @@ export async function POST(req: NextRequest) {
     const totalIdr = subtotalIdr + (delivery?.costIdr || 0);
     const cleanPhone = phoneNumber.replace(/[^0-9]/g, "");
 
-    let user = await prisma.user.findFirst({
-      where: { OR: [{ phoneNumber: cleanPhone }, { email: email || `${cleanPhone}@kaoskami.customer` }] },
+    let user = await db.query.User.findFirst({
+      where: (t, { or, eq }) => or(eq(t.phoneNumber, cleanPhone), eq(t.email, email || `${cleanPhone}@kaoskami.customer`)),
     });
     if (!user) {
-      user = await prisma.user.create({
-        data: {
+      const [created] = await db
+        .insert(User)
+        .values({
+          id: nanoid(),
           name: recipientName,
           phoneNumber: cleanPhone,
           email: email || `${cleanPhone}@kaoskami.customer`,
           role: "CUSTOMER",
-        },
-      });
+        })
+        .returning();
+      user = created!;
     }
 
-    const address = await prisma.address.create({
-      data: {
+    const [address] = await db
+      .insert(Address)
+      .values({
+        id: nanoid(),
         userId: user.id,
         label: deliveryMethod === "PICKUP" ? "Workshop Pickup" : "Alamat Kirim",
         recipientName,
@@ -99,12 +112,14 @@ export async function POST(req: NextRequest) {
         district: district || "Makassar",
         fullAddress,
         notes: courierNotes,
-      },
-    });
+      })
+      .returning({ id: Address.id });
 
     const orderNumber = `KK-${new Date().toISOString().slice(0, 10).replace(/-/g, "")}-${Math.floor(1000 + Math.random() * 9000)}`;
-    const order = await prisma.order.create({
-      data: {
+    const [createdOrder] = await db
+      .insert(Order)
+      .values({
+        id: nanoid(),
         orderNumber,
         userId: user.id,
         status: "PENDING_PAYMENT",
@@ -113,36 +128,59 @@ export async function POST(req: NextRequest) {
         shippingCostIdr: delivery?.costIdr || 0,
         discountIdr: 0,
         totalIdr,
-        shippingAddressId: address.id,
+        shippingAddressId: address?.id,
         courierNotes,
-        items: {
-          create: validatedItems.map((item) => ({
-            quantity: item.quantity,
-            unitPriceIdr: item.unitPriceIdr,
-            lineTotalIdr: item.lineTotalIdr,
-            snapshotName: item.title || `${item.apparelSlug.toUpperCase()} Custom DTF Sablon`,
-            snapshotSize: item.size,
-            snapshotColorName: item.colorName,
-          })),
-        },
-        statusHistory: { create: { status: "PENDING_PAYMENT", note: "Pesanan dari aplikasi mobile." } },
-      },
-      include: { items: true },
-    });
+      })
+      .returning();
+    const orderRow = createdOrder!;
+    // Kompensasi order yatim (lihat checkout web untuk alasan).
+    try {
+      await db.insert(OrderItem).values(
+        validatedItems.map((item) => ({
+          id: nanoid(),
+          orderId: orderRow.id,
+          quantity: item.quantity,
+          unitPriceIdr: item.unitPriceIdr,
+          lineTotalIdr: item.lineTotalIdr,
+          snapshotName: item.title || `${item.apparelSlug.toUpperCase()} Custom DTF Sablon`,
+          snapshotSize: item.size,
+          snapshotColorName: item.colorName,
+        })),
+      );
+      await db.insert(OrderStatusEvent).values({
+        id: nanoid(),
+        orderId: orderRow.id,
+        status: "PENDING_PAYMENT",
+        note: "Pesanan dari aplikasi mobile.",
+      });
+    } catch (itemsErr: any) {
+      console.error("Mobile checkout items gagal, kompensasi hapus order:", orderRow.id, itemsErr?.message);
+      try {
+        await db.delete(OrderStatusEvent).where(eq(OrderStatusEvent.orderId, orderRow.id));
+        await db.delete(OrderItem).where(eq(OrderItem.orderId, orderRow.id));
+        await db.delete(Order).where(eq(Order.id, orderRow.id));
+      } catch (compErr: any) {
+        console.error("Kompensasi order yatim gagal:", orderRow.id, compErr?.message);
+      }
+      throw itemsErr;
+    }
+    const order = {
+      ...orderRow,
+      items: validatedItems,
+    };
 
     let charge;
     const invoiceUrlEarly = `${process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000"}/orders/${order.id}`;
     if (cod) {
       // Bayar tunai ke kurir: tanpa Duitku, order menunggu konfirmasi admin.
-      await prisma.payment.create({
-        data: {
-          orderId: order.id,
-          provider: "DUITKU",
-          providerRef: `COD-${order.orderNumber}`,
-          method: "COD",
-          amountIdr: totalIdr,
-          status: "PENDING",
-        },
+      await db.insert(Payment).values({
+        id: nanoid(),
+        orderId: order.id,
+        provider: "DUITKU",
+        providerRef: `COD-${order.orderNumber}`,
+        method: "COD",
+        amountIdr: totalIdr,
+        status: "PENDING",
       });
       charge = { reference: `COD-${order.orderNumber}`, paymentUrl: invoiceUrlEarly };
     } else {
@@ -175,15 +213,14 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    await prisma.payment.create({
-      data: {
-        orderId: order.id,
-        provider: "DUITKU",
-        providerRef: charge.reference,
-        method: paymentMethod || "DUITKU",
-        amountIdr: totalIdr,
-        status: "PENDING",
-      },
+    await db.insert(Payment).values({
+      id: nanoid(),
+      orderId: order.id,
+      provider: "DUITKU",
+      providerRef: charge.reference,
+      method: paymentMethod || "DUITKU",
+      amountIdr: totalIdr,
+      status: "PENDING",
     });
     } // end else (non-COD)
 

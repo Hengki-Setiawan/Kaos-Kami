@@ -15,7 +15,6 @@ import { useMobileStudioStore } from '@/store/useMobileStudioStore';
 export function ARPreviewStage({ onClose, onNotify }: { onClose: () => void; onNotify?: (msg: string) => void }) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const [facingMode, setFacingMode] = useState<'user' | 'environment'>('user');
-  const [stream, setStream] = useState<MediaStream | null>(null);
   const [lightMultiplier, setLightMultiplier] = useState(1.2);
   const [snapshotTaken, setSnapshotTaken] = useState(false);
   const [useAITracking, setUseAITracking] = useState(true);
@@ -32,13 +31,10 @@ export function ARPreviewStage({ onClose, onNotify }: { onClose: () => void; onN
 
   useEffect(() => {
     let currentStream: MediaStream | null = null;
+    let cancelled = false;
 
     async function initCamera() {
       try {
-        if (stream) {
-          stream.getTracks().forEach((track) => track.stop());
-        }
-
         const mediaStream = await navigator.mediaDevices.getUserMedia({
           video: {
             facingMode,
@@ -47,13 +43,16 @@ export function ARPreviewStage({ onClose, onNotify }: { onClose: () => void; onN
           },
           audio: false,
         });
+        if (cancelled) {
+          mediaStream.getTracks().forEach((track) => track.stop());
+          return;
+        }
 
         currentStream = mediaStream;
-        setStream(mediaStream);
 
         if (videoRef.current) {
           videoRef.current.srcObject = mediaStream;
-          videoRef.current.play();
+          videoRef.current.play().catch(() => {});
         }
       } catch (err) {
         console.debug('[AR Camera] Error initializing camera feed:', err);
@@ -63,6 +62,7 @@ export function ARPreviewStage({ onClose, onNotify }: { onClose: () => void; onN
     initCamera();
 
     return () => {
+      cancelled = true;
       if (currentStream) {
         currentStream.getTracks().forEach((track) => track.stop());
       }

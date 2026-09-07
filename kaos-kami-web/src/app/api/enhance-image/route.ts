@@ -1,9 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
 import sharp from "sharp";
 import { uploadToR2 } from "@/lib/r2";
+import { checkRateLimitAsync, getClientIp, rateLimitHeaders } from "@/lib/security/rateLimiter";
 
 export async function POST(req: NextRequest) {
   try {
+    // Sharp = CPU burn. Tetap guest-friendly tapi dibatasi ketat.
+    const rl = await checkRateLimitAsync(`enhance:ip:${getClientIp(req)}`, 5, 60);
+    if (rl.isLimited) {
+      return NextResponse.json({ error: "Terlalu banyak enhance. Tunggu sebentar." }, { status: 429, headers: rateLimitHeaders(rl, 5) });
+    }
     const { imageBase64 } = await req.json();
 
     if (!imageBase64 || typeof imageBase64 !== "string") {
@@ -13,6 +19,9 @@ export async function POST(req: NextRequest) {
     // Extract base64 buffer
     const base64Data = imageBase64.replace(/^data:image\/\w+;base64,/, "");
     const buffer = Buffer.from(base64Data, "base64");
+    if (buffer.length === 0 || buffer.length > 10 * 1024 * 1024) {
+      return NextResponse.json({ error: "Ukuran gambar 1B–10MB" }, { status: 413 });
+    }
 
     // Perform DTF Print Optimization:
     // 1. Unsharp mask for high-definition edge recovery

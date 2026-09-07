@@ -262,9 +262,13 @@ export default function ProductionKanbanPage() {
                           {/* DTF Print Dimensions */}
                           <div className="p-2 rounded-lg bg-black/40 border border-white/5 text-[10px] space-y-0.5">
                             <span className="block text-text-muted">UKURAN CETAK (DTF):</span>
-                            <span className="font-bold text-white block">
-                              📏 {task.printWidthCm || 28.5} cm × {task.printHeightCm || 16.0} cm (Maks 30cm)
-                            </span>
+                            {task.printWidthCm && task.printHeightCm ? (
+                              <span className="font-bold text-white block">
+                                📏 {task.printWidthCm} cm × {task.printHeightCm} cm (Maks 30cm)
+                              </span>
+                            ) : (
+                              <span className="font-bold text-amber-400 block">⚠ Belum terukur</span>
+                            )}
                           </div>
 
                           {/* Customer & Courier */}

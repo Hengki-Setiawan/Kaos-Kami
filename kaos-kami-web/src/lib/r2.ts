@@ -6,12 +6,14 @@
  */
 
 const R2_BUCKET = process.env.R2_BUCKET_NAME || "kaos-kami-assets";
-const R2_PUBLIC_URL =
-  process.env.R2_PUBLIC_URL || "https://pub-5746f36a46904edc8425ecd721b0bfdc.r2.dev";
-const CF_ACCOUNT_ID = process.env.CLOUDFLARE_ACCOUNT_ID || "6c660b71ad4e72f3bc343252a7c5e825";
+const R2_PUBLIC_URL = process.env.R2_PUBLIC_URL || "";
+const CF_ACCOUNT_ID = process.env.CLOUDFLARE_ACCOUNT_ID || "";
 const CF_TOKEN = process.env.CLOUDFLARE_API_TOKEN || "";
 
 export function getR2PublicUrl(key: string): string {
+  // Tanpa R2_PUBLIC_URL, URL publik tidak bisa dibentuk — return key mentah agar
+  // caller sadar (jangan karang domain publik).
+  if (!R2_PUBLIC_URL) return key.replace(/^\/+/, "");
   const cleanKey = key.replace(/^\/+/, "");
   return `${R2_PUBLIC_URL.replace(/\/+$/, "")}/${cleanKey}`;
 }

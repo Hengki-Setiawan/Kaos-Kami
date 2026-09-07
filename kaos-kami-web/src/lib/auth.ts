@@ -1,12 +1,27 @@
 import { betterAuth } from "better-auth";
-import { prismaAdapter } from "better-auth/adapters/prisma";
-import { prisma } from "./db";
+import { drizzleAdapter } from "@better-auth/drizzle-adapter";
+import { db } from "./db";
+import { Account, Session, User, Verification } from "./drizzle-schema";
+
+const authSecret = process.env.BETTER_AUTH_SECRET || "";
+// Secret default = semua session bisa ditempa. Wajib di-set di production.
+if (!authSecret && process.env.NODE_ENV === "production") {
+  throw new Error("BETTER_AUTH_SECRET belum di-set (wrangler secret put BETTER_AUTH_SECRET)");
+}
 
 export const auth = betterAuth({
-  database: prismaAdapter(prisma, {
+  database: drizzleAdapter(db, {
     provider: "sqlite",
+    // Petakan model better-auth ke tabel Turso yang sudah ada
+    // (nama tabel kapital warisan Prisma — tanpa migrasi).
+    schema: {
+      user: User,
+      session: Session,
+      account: Account,
+      verification: Verification,
+    },
   }),
-  secret: process.env.BETTER_AUTH_SECRET || "kaos-kami-secret-dev-2026-key-32-chars-minimum-security",
+  secret: authSecret || "kaos-kami-dev-only-insecure-secret-ganti-di-prod",
   baseURL: process.env.BETTER_AUTH_URL || process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000",
   emailAndPassword: {
     enabled: true,

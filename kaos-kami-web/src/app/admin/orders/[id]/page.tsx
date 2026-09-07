@@ -1,7 +1,7 @@
 import React from "react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { prisma } from "@/lib/db";
+import { db } from "@/lib/db";
 import {
   Printer,
   Download,
@@ -28,16 +28,16 @@ interface AdminOrderDetailPageProps {
 export const revalidate = 0;
 
 export default async function AdminOrderDetailPage({ params }: AdminOrderDetailPageProps) {
-  const order = await prisma.order.findUnique({
-    where: { id: params.id },
-    include: {
+  const order = await db.query.Order.findFirst({
+    where: (t, { eq }) => eq(t.id, params.id),
+    with: {
       items: true,
       productionTasks: true,
       user: true,
       shippingAddress: true,
       payment: true,
       statusHistory: {
-        orderBy: { createdAt: "asc" },
+        orderBy: (t, { asc }) => asc(t.createdAt),
       },
     },
   });
@@ -160,17 +160,29 @@ export default async function AdminOrderDetailPage({ params }: AdminOrderDetailP
                       <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 p-3 rounded-lg bg-black/50 border border-white/5 text-[11px]">
                         <div>
                           <span className="block text-text-muted">LEBAR CETAK (MAX 30CM):</span>
-                          <span className="font-bold text-emerald-400">
-                            📏 {(task?.printWidthCm || 28.5).toFixed(1)} cm (A3 DTF)
-                          </span>
+                          {task?.printWidthCm ? (
+                            <span className="font-bold text-emerald-400">
+                              📏 {task.printWidthCm.toFixed(1)} cm (A3 DTF)
+                            </span>
+                          ) : (
+                            <span className="font-bold text-amber-400">⚠ Belum terukur — hitung di Studio</span>
+                          )}
                         </div>
                         <div>
                           <span className="block text-text-muted">TINGGI CETAK:</span>
-                          <span className="font-bold text-emerald-400">📏 {(task?.printHeightCm || 16.0).toFixed(1)} cm</span>
+                          {task?.printHeightCm ? (
+                            <span className="font-bold text-emerald-400">📏 {task.printHeightCm.toFixed(1)} cm</span>
+                          ) : (
+                            <span className="font-bold text-amber-400">⚠ Belum terukur</span>
+                          )}
                         </div>
                         <div>
                           <span className="block text-text-muted">JARAK DARI KERAH:</span>
-                          <span className="font-bold text-white">~{(task?.offsetFromCollarCm || 7.5).toFixed(1)} cm di bawah rib</span>
+                          {task?.offsetFromCollarCm ? (
+                            <span className="font-bold text-white">~{task.offsetFromCollarCm.toFixed(1)} cm di bawah rib</span>
+                          ) : (
+                            <span className="font-bold text-amber-400">⚠ Belum terukur</span>
+                          )}
                         </div>
                       </div>
                     );

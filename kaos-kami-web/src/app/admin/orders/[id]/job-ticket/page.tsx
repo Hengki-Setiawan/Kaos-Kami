@@ -1,7 +1,7 @@
 import React from "react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { prisma } from "@/lib/db";
+import { db } from "@/lib/db";
 import { Printer, ArrowLeft } from "lucide-react";
 import { PrintButton } from "@/components/ui/PrintButton";
 
@@ -12,9 +12,9 @@ interface JobTicketPageProps {
 export const revalidate = 0;
 
 export default async function JobTicketPage({ params }: JobTicketPageProps) {
-  const order = await prisma.order.findUnique({
-    where: { id: params.id },
-    include: {
+  const order = await db.query.Order.findFirst({
+    where: (t, { eq }) => eq(t.id, params.id),
+    with: {
       items: true,
       user: true,
       shippingAddress: true,
@@ -108,10 +108,12 @@ export default async function JobTicketPage({ params }: JobTicketPageProps) {
                     <td className="p-2 border border-black font-bold text-center">{item.snapshotSize}</td>
                     <td className="p-2 border border-black font-bold text-center">{item.quantity} pcs</td>
                     <td className="p-2 border border-black font-bold">
-                      {(task?.printWidthCm || 28.5).toFixed(1)} × {(task?.printHeightCm || 16).toFixed(1)} cm (Maks 30cm)
+                      {task?.printWidthCm && task?.printHeightCm
+                        ? `${task.printWidthCm.toFixed(1)} × ${task.printHeightCm.toFixed(1)} cm (Maks 30cm)`
+                        : "UKUR ULANG — data dimensi kosong"}
                     </td>
                     <td className="p-2 border border-black">
-                      {(task?.placementSide || "front") === "back" ? "Punggung" : "Dada Depan"} (~{(task?.offsetFromCollarCm || 7.5).toFixed(1)} cm dari rib)
+                      {(task?.placementSide || "front") === "back" ? "Punggung" : "Dada Depan"} ({task?.offsetFromCollarCm ? `~${task.offsetFromCollarCm.toFixed(1)} cm dari rib` : "offset belum terukur"})
                     </td>
                   </tr>
                 );

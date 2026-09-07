@@ -1,6 +1,7 @@
 export async function optimizeDecalImageForMobile(
   dataUrl: string,
-  maxDimension: number = 2048
+  maxDimension: number = 2048,
+  printWidthCm?: number
 ): Promise<{ optimizedUrl: string; width: number; height: number; dpi: number }> {
   return new Promise((resolve, reject) => {
     const img = new Image();
@@ -35,15 +36,17 @@ export async function optimizeDecalImageForMobile(
       ctx.imageSmoothingQuality = 'high';
       ctx.drawImage(img, 0, 0, width, height);
 
-      // Estimate DPI based on standard DTF width (assume 28cm print area)
-      const estimatedDpi = Math.round((width / 28) * 2.54);
+      // DPI JUJUR: piksel ÷ inci cetak. Lebar cetak = ukuran decal AKTUAL (cm),
+      // bukan asumsi 28cm tetap. Tanpa data → null (pemanggil tampilkan "ukur dulu").
+      const widthInch = printWidthCm && printWidthCm > 0 ? printWidthCm / 2.54 : 0;
+      const estimatedDpi = widthInch > 0 ? Math.round(width / widthInch) : 0;
 
       const optimizedUrl = canvas.toDataURL('image/png', 0.92);
       resolve({
         optimizedUrl,
         width,
         height,
-        dpi: Math.max(150, Math.min(600, estimatedDpi)),
+        dpi: Math.max(0, Math.min(2400, estimatedDpi)),
       });
     };
 

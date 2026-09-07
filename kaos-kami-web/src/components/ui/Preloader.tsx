@@ -33,6 +33,7 @@ export const Preloader: React.FC = () => {
       aria-hidden={!visible}
     >
       <div className="flex flex-col items-center space-y-4">
+        {/* eslint-disable-next-line @next/next/no-img-element -- logo mungil lokal; images.unoptimized=true sehingga next/image tak menambah nilai */}
         <img
           src="/brand/logo-white-clean.png"
           alt="Kaos Kami"

@@ -1,14 +1,14 @@
 import React from "react";
 import Link from "next/link";
-import { prisma } from "@/lib/db";
+import { db } from "@/lib/db";
 import { Package, Search, Filter, ExternalLink, Clock } from "lucide-react";
 
 export const revalidate = 0;
 
 export default async function AdminOrdersListPage() {
-  const orders = await prisma.order.findMany({
-    orderBy: { createdAt: "desc" },
-    include: {
+  const orders = await db.query.Order.findMany({
+    orderBy: (t, { desc }) => desc(t.createdAt),
+    with: {
       items: true,
       user: true,
       shippingAddress: true,
@@ -25,7 +25,7 @@ export default async function AdminOrdersListPage() {
             SEMUA PESANAN MASUK
           </h1>
           <p className="text-text-muted mt-0.5">
-            Daftar lengkap pesanan sablon DTF, status pembayaran Midtrans & status pengiriman.
+            Daftar lengkap pesanan sablon DTF, status pembayaran Duitku & status pengiriman.
           </p>
         </div>
       </div>

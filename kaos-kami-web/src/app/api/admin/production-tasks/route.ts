@@ -1,5 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@/lib/db";
+import { z } from "zod";
+import { eq } from "drizzle-orm";
+import { nanoid } from "nanoid";
+import { db } from "@/lib/db";
+import { Order, OrderStatusEvent, ProductionTask } from "@/lib/drizzle-schema";
 import { sendWhatsAppNotification, buildProductionStatusMessage } from "@/lib/notifications/whatsapp";
 import { headers } from "next/headers";
 import { checkRateLimitAsync, getClientIp, rateLimitHeaders } from "@/lib/security/rateLimiter";
@@ -11,7 +15,8 @@ export async function GET(req: NextRequest) {
     if (rl.isLimited)
       return NextResponse.json({ error: "Rate limited" }, { status: 429, headers: rateLimitHeaders(rl, 30) });
 
-    // RBAC: PRODUCTION_STAFF only sees assigned/unassigned, ADMIN sees all
+    // RBAC: wajib login; PRODUCTION_STAFF hanya lihat assigned/unassigned, ADMIN lihat semua.
+    // Anon SELALU 401 — data berisi PII pelanggan (nama, WA, alamat).
     let staffUserId: string | null = null;
     let isStaff = false;
     try {
@@ -19,19 +24,26 @@ export async function GET(req: NextRequest) {
       const hdrs = await headers();
       const session = await auth.api.getSession({ headers: hdrs as any });
       const role = (session?.user as any)?.role;
+      if (!session?.user) {
+        return NextResponse.json({ error: "Unauthorized: silakan login" }, { status: 401 });
+      }
+      if (!["ADMIN", "SUPER_ADMIN", "PRODUCTION_STAFF"].includes(role)) {
+        return NextResponse.json({ error: "Forbidden: khusus tim workshop" }, { status: 403 });
+      }
       staffUserId = (session?.user as any)?.id || null;
       isStaff = role === "PRODUCTION_STAFF";
-    } catch {}
-    const whereClause = isStaff
-      ? { OR: [{ assignedToUserId: null }, { assignedToUserId: staffUserId }] }
-      : {};
-
-    const tasks = await prisma.productionTask.findMany({
-      where: whereClause as any,
-      orderBy: [{ priority: "desc" }, { createdAt: "asc" }],
-      include: {
+    } catch {
+      return NextResponse.json({ error: "Unauthorized: silakan login" }, { status: 401 });
+    }
+    const tasks = await db.query.ProductionTask.findMany({
+      where: isStaff
+        ? (t, { or, eq, isNull }) =>
+            or(isNull(t.assignedToUserId), staffUserId ? eq(t.assignedToUserId, staffUserId) : undefined)
+        : undefined,
+      orderBy: (t, { desc, asc }) => [desc(t.priority), asc(t.createdAt)],
+      with: {
         order: {
-          include: {
+          with: {
             user: true,
             items: true,
           },
@@ -41,66 +53,9 @@ export async function GET(req: NextRequest) {
 
     return NextResponse.json({ success: true, tasks });
   } catch (error: any) {
-    // Edge worker resilient fallback: return sample production tasks if Wasm eval is restricted
-    const fallbackTasks = [
-      {
-        id: "task-demo-1",
-        orderId: "ord-demo-1",
-        stage: "PRINTING",
-        priority: 2,
-        printWidthCm: 28.5,
-        printHeightCm: 22.0,
-        offsetFromCollarCm: 7.5,
-        notes: "Prioritas Express 24 Jam — Maxim COD Tamalanrea",
-        createdAt: new Date().toISOString(),
-        order: {
-          orderNumber: "KK-260831-EXP1",
-          deliveryMethod: "MAXIM_COD",
-          courierNotes: "⚡ EXPRESS 24H",
-          user: {
-            name: "Andi Muh Fajar",
-            phoneNumber: "080000000000",
-          },
-          items: [
-            {
-              snapshotName: "Heavyweight Boxy Tee (Obsidian Black)",
-              snapshotSize: "XL",
-              snapshotColorName: "Obsidian Black",
-              quantity: 12,
-            },
-          ],
-        },
-      },
-      {
-        id: "task-demo-2",
-        orderId: "ord-demo-2",
-        stage: "PRESSING",
-        priority: 1,
-        printWidthCm: 24.0,
-        printHeightCm: 18.5,
-        offsetFromCollarCm: 8.0,
-        notes: "Sablon DTF Katun Combed 280 GSM",
-        createdAt: new Date().toISOString(),
-        order: {
-          orderNumber: "KK-260831-REG2",
-          deliveryMethod: "PICKUP_WORKSHOP",
-          courierNotes: null,
-          user: {
-            name: "Rahmat Hidayat",
-            phoneNumber: "080000000000",
-          },
-          items: [
-            {
-              snapshotName: "Heavyweight Boxy Tee (Chalk Ecru)",
-              snapshotSize: "L",
-              snapshotColorName: "Chalk Ecru",
-              quantity: 24,
-            },
-          ],
-        },
-      },
-    ];
-    return NextResponse.json({ success: true, tasks: fallbackTasks });
+    // JANGAN kembalikan data demo — menyesatkan operator. Gagal = 500 jujur.
+    console.error("Admin production-tasks GET error:", error?.message);
+    return NextResponse.json({ error: "Gagal memuat antrean produksi" }, { status: 500 });
   }
 }
 
@@ -111,54 +66,63 @@ export async function PATCH(req: NextRequest) {
     if (rl.isLimited)
       return NextResponse.json({ error: "Rate limited" }, { status: 429, headers: rateLimitHeaders(rl, 30) });
 
-    // RBAC check on mutating side as well
+    // RBAC: selalu enforce di semua env (dev fail-open = WA palsu + stage palsu).
     try {
       const { auth } = await import("@/lib/auth");
       const hdrs = await headers();
       const session = await auth.api.getSession({ headers: hdrs as any });
       const role = (session?.user as any)?.role;
-      if (process.env.NODE_ENV === "production" && !["ADMIN", "SUPER_ADMIN", "PRODUCTION_STAFF"].includes(role)) {
+      if (!session?.user) {
+        return NextResponse.json({ error: "Unauthorized: silakan login" }, { status: 401 });
+      }
+      if (!["ADMIN", "SUPER_ADMIN", "PRODUCTION_STAFF"].includes(role)) {
         return NextResponse.json({ error: "Forbidden: insufficient role" }, { status: 403 });
       }
-    } catch {}
-    const { taskId, stage, notes } = await req.json();
-
-    if (!taskId || !stage) {
-      return NextResponse.json({ error: "Missing taskId or stage" }, { status: 400 });
+    } catch {
+      return NextResponse.json({ error: "Unauthorized: silakan login" }, { status: 401 });
     }
+    const body = await req.json();
+    const parsed = z.object({
+      taskId: z.string().min(1),
+      stage: z.enum(["DESIGN_PREP", "SCREEN_PRINT_SETUP", "PRINTING", "PRESSING", "QUALITY_CHECK", "PACKAGING", "DONE"]),
+      notes: z.string().max(500).optional(),
+    }).safeParse(body);
 
-    const updatedTask = await prisma.productionTask.update({
-      where: { id: taskId },
-      data: {
+    if (!parsed.success) {
+      return NextResponse.json({ error: parsed.error.errors[0]?.message || "Invalid input" }, { status: 400 });
+    }
+    const { taskId, stage, notes } = parsed.data;
+
+    const [updatedTask] = await db
+      .update(ProductionTask)
+      .set({
         stage,
-        notes: notes !== undefined ? notes : undefined,
-        completedAt: stage === "DONE" ? new Date() : undefined,
-      },
-      include: {
-        order: {
-          include: {
-            user: true,
-            items: true,
-          },
-        },
-      },
+        ...(notes !== undefined ? { notes } : {}),
+        ...(stage === "DONE" ? { completedAt: new Date() } : {}),
+      })
+      .where(eq(ProductionTask.id, taskId))
+      .returning();
+    if (!updatedTask) {
+      return NextResponse.json({ error: "Task tidak ditemukan" }, { status: 404 });
+    }
+    const fullTask = await db.query.ProductionTask.findFirst({
+      where: (t, { eq }) => eq(t.id, taskId),
+      with: { order: { with: { user: true, items: true } } },
     });
-
-    const order = updatedTask.order;
+    const order = fullTask?.order;
+    if (!order) {
+      return NextResponse.json({ error: "Order task tidak ditemukan" }, { status: 404 });
+    }
+    const taskWithOrder = { ...updatedTask, order };
 
     // Automatically synchronize order status & notify customer when entering PRINTING or COMPLETED
     if (stage === "PRINTING") {
-      await prisma.order.update({
-        where: { id: updatedTask.orderId },
-        data: {
-          status: "PRINTING",
-          statusHistory: {
-            create: {
-              status: "PRINTING",
-              note: `Pesanan sedang dicetak di mesin sablon DTF.`,
-            },
-          },
-        },
+      await db.update(Order).set({ status: "PRINTING" }).where(eq(Order.id, updatedTask.orderId));
+      await db.insert(OrderStatusEvent).values({
+        id: nanoid(),
+        orderId: updatedTask.orderId,
+        status: "PRINTING",
+        note: `Pesanan sedang dicetak di mesin sablon DTF.`,
       });
 
       // Send WhatsApp update to customer
@@ -177,17 +141,12 @@ export async function PATCH(req: NextRequest) {
       }
     } else if (stage === "PACKAGING" || stage === "DONE") {
       const nextStatus = order.deliveryMethod === "PICKUP" ? "READY_TO_SHIP" : "SHIPPED";
-      await prisma.order.update({
-        where: { id: updatedTask.orderId },
-        data: {
-          status: nextStatus,
-          statusHistory: {
-            create: {
-              status: nextStatus,
-              note: `Produksi sablon selesai dan telah di-packing rapi.`,
-            },
-          },
-        },
+      await db.update(Order).set({ status: nextStatus }).where(eq(Order.id, updatedTask.orderId));
+      await db.insert(OrderStatusEvent).values({
+        id: nanoid(),
+        orderId: updatedTask.orderId,
+        status: nextStatus,
+        note: `Produksi sablon selesai dan telah di-packing rapi.`,
       });
 
       if (order.user?.phoneNumber) {
@@ -208,7 +167,7 @@ export async function PATCH(req: NextRequest) {
       }
     }
 
-    return NextResponse.json({ success: true, task: updatedTask });
+    return NextResponse.json({ success: true, task: taskWithOrder });
   } catch (error: any) {
     console.error("Update task error:", error);
     return NextResponse.json({ error: error?.message || "Failed to update task" }, { status: 500 });

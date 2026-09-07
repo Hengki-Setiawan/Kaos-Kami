@@ -4,6 +4,7 @@ import React, { useRef, useState, useCallback } from "react";
 import { Html } from "@react-three/drei";
 import { useThree } from "@react-three/fiber";
 import { useConfiguratorStore } from "@/store/useConfiguratorStore";
+import { APPAREL_PHYSICAL_SPECS, maxDecalScaleUnits, REAL_WORLD_PRINT_LIMITS } from "@/lib/scaleCalibration";
 import { Move, ZoomIn, RotateCw } from "lucide-react";
 
 interface DecalGizmoProps {
@@ -20,6 +21,7 @@ export const DecalGizmo: React.FC<DecalGizmoProps> = ({ surfaceZ = 0.18 }) => {
     toggleGizmoVisible,
     updateDecal,
     setGizmoDragging,
+    activeApparel,
   } = useConfiguratorStore();
   const { size } = useThree();
 
@@ -46,6 +48,8 @@ export const DecalGizmo: React.FC<DecalGizmoProps> = ({ surfaceZ = 0.18 }) => {
   // Two-finger pinch tracking (native PointerEvents, no Hammer.js — blueprint §2)
   const pinchRef = useRef<{ initialDist: number; initialScale: number; initialAngle: number; initialRot: number } | null>(null);
   const activePointers = useRef<Map<number, { x: number; y: number }>>(new Map());
+  const maxScaleUnits = () =>
+    maxDecalScaleUnits(activeApparel, activeDecal?.targetSide ?? "front");
 
   const getTouchDistance = (p1: { x: number; y: number }, p2: { x: number; y: number }) =>
     Math.hypot(p2.x - p1.x, p2.y - p1.y);
@@ -54,9 +58,7 @@ export const DecalGizmo: React.FC<DecalGizmoProps> = ({ surfaceZ = 0.18 }) => {
 
   const onPointerDown = (tool: "move" | "scale" | "rotate", e: React.PointerEvent) => {
     e.stopPropagation();
-    if (!activeDecal) return;
-
-    (e.target as HTMLElement).setPointerCapture(e.pointerId);
+    if (!activeDecal) return;    (e.target as HTMLElement).setPointerCapture(e.pointerId);
     activePointers.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
 
     // If two pointers on gizmo, start pinch
@@ -104,7 +106,7 @@ export const DecalGizmo: React.FC<DecalGizmoProps> = ({ surfaceZ = 0.18 }) => {
         const curDist = getTouchDistance(pts[0], pts[1]);
         const curAngle = getTouchAngle(pts[0], pts[1]);
         const scaleFactor = curDist / Math.max(1, pinchRef.current.initialDist);
-        const nextScale = Math.max(0.04, Math.min(0.162, pinchRef.current.initialScale * scaleFactor));
+        const nextScale = Math.max(REAL_WORLD_PRINT_LIMITS.minDecalScaleUnits, Math.min(maxScaleUnits(), pinchRef.current.initialScale * scaleFactor));
         const angleDelta = curAngle - pinchRef.current.initialAngle;
         const nextRot = Math.round(((pinchRef.current.initialRot + angleDelta + 180) % 360) - 180);
         updateDecal(activeDecal.id, { scale: nextScale, rotation: nextRot });
@@ -123,7 +125,7 @@ export const DecalGizmo: React.FC<DecalGizmoProps> = ({ surfaceZ = 0.18 }) => {
       updateDecal(activeDecal.id, { x: nextX, y: nextY });
     } else if (activeGizmoTool === "scale") {
       const deltaScale = 1 + dx * 1.5;
-      const nextScale = Math.max(0.04, Math.min(0.162, dragRef.current.initialScale * deltaScale));
+      const nextScale = Math.max(REAL_WORLD_PRINT_LIMITS.minDecalScaleUnits, Math.min(maxScaleUnits(), dragRef.current.initialScale * deltaScale));
       updateDecal(activeDecal.id, { scale: nextScale });
     } else if (activeGizmoTool === "rotate") {
       const deltaDeg = dx * 180;
@@ -157,16 +159,26 @@ export const DecalGizmo: React.FC<DecalGizmoProps> = ({ surfaceZ = 0.18 }) => {
   if (isBack) {
     gizmoPos = [activeDecal.x, activeDecal.y, -(surfaceZ + 0.01)];
     gizmoRot = [0, Math.PI, 0];
-  } else if (isLeftSleeve) {
-    gizmoPos = [-0.27, activeDecal.y, activeDecal.x];
-    gizmoRot = [0, -Math.PI / 2, 0];
-  } else if (isRightSleeve) {
-    gizmoPos = [0.27, activeDecal.y, -activeDecal.x];
-    gizmoRot = [0, Math.PI / 2, 0];
   }
 
-  const widthCm = Math.min(30.0, Math.round(activeDecal.scale * 185.0 * 10) / 10);
-  const offsetCollarCm = Math.max(2.0, Math.round((0.18 - activeDecal.y) * 135.0 * 10) / 10);
+  // Badge cm dari SSOT kalibrasi terukur (SAMA dengan pricing engine).
+  // Rumus offset kerah ×36.0 disamakan dengan computePhysicalPrintDimensions.
+  // Jangkar lengan per apparel (bukan ±0.27 global).
+  const spec = APPAREL_PHYSICAL_SPECS[activeApparel];
+  const sleeveX = spec?.sleeveAnchorX ?? 0.27;
+
+  if (isLeftSleeve) {
+    gizmoPos = [-sleeveX, activeDecal.y, activeDecal.x];
+    gizmoRot = [0, -Math.PI / 2, 0];
+  } else if (isRightSleeve) {
+    gizmoPos = [sleeveX, activeDecal.y, -activeDecal.x];
+    gizmoRot = [0, Math.PI / 2, 0];
+  }
+  const widthCm = Math.min(
+    spec?.maxFrontWidthCm ?? 30.0,
+    Math.round(activeDecal.scale * (spec?.meshMultiplier ?? 101.8) * 10) / 10
+  );
+  const offsetCollarCm = Math.max(2.0, Math.round((0.18 - activeDecal.y) * 36.0 * 10) / 10);
 
   return (
     <group position={gizmoPos} rotation={gizmoRot}>

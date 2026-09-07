@@ -1,6 +1,8 @@
 import React from "react";
 import Link from "next/link";
-import { prisma } from "@/lib/db";
+import { and, count, inArray, like, ne, notInArray, sum } from "drizzle-orm";
+import { db } from "@/lib/db";
+import { Order, ProductionTask } from "@/lib/drizzle-schema";
 import {
   DollarSign,
   Package,
@@ -17,26 +19,32 @@ export const revalidate = 0; // Dynamic server component
 
 export default async function AdminDashboardPage() {
   // Aggregate workshop statistics from Turso DB
-  const [totalOrders, totalRevenue, pendingProduction, expressOrders, recentOrders] = await Promise.all([
-    prisma.order.count(),
-    prisma.order.aggregate({
-      _sum: { totalIdr: true },
-      where: { status: { not: "CANCELLED" } },
-    }),
-    prisma.productionTask.count({
-      where: { stage: { in: ["DESIGN_PREP", "SCREEN_PRINT_SETUP", "PRINTING", "PRESSING", "QUALITY_CHECK"] } },
-    }),
-    prisma.order.count({
-      where: { courierNotes: { contains: "EXPRESS" }, status: { notIn: ["COMPLETED", "CANCELLED"] } },
-    }),
-    prisma.order.findMany({
-      take: 6,
-      orderBy: { createdAt: "desc" },
-      include: { items: true, user: true },
+  const [totalOrdersRows, totalRevenueRows, pendingProductionRows, expressOrdersRows, recentOrders] = await Promise.all([
+    db.select({ n: count() }).from(Order),
+    db.select({ total: sum(Order.totalIdr) }).from(Order).where(ne(Order.status, "CANCELLED")),
+    db
+      .select({ n: count() })
+      .from(ProductionTask)
+      .where(
+        inArray(ProductionTask.stage, ["DESIGN_PREP", "SCREEN_PRINT_SETUP", "PRINTING", "PRESSING", "QUALITY_CHECK"])
+      ),
+    db
+      .select({ n: count() })
+      .from(Order)
+      .where(
+        and(like(Order.courierNotes, "%EXPRESS%"), notInArray(Order.status, ["COMPLETED", "CANCELLED"]))
+      ),
+    db.query.Order.findMany({
+      limit: 6,
+      orderBy: (t, { desc }) => desc(t.createdAt),
+      with: { items: true, user: true },
     }),
   ]);
+  const totalOrders = totalOrdersRows[0]?.n || 0;
+  const pendingProduction = pendingProductionRows[0]?.n || 0;
+  const expressOrders = expressOrdersRows[0]?.n || 0;
 
-  const revenueIdr = totalRevenue._sum.totalIdr || 0;
+  const revenueIdr = Number(totalRevenueRows[0]?.total || 0);
 
   return (
     <div className="p-5 sm:p-8 space-y-8 max-w-7xl mx-auto">
@@ -78,7 +86,7 @@ export default async function AdminDashboardPage() {
             </span>
             <span className="font-mono text-[10px] text-emerald-400 flex items-center gap-1 mt-1">
               <TrendingUp size={11} />
-              <span>Termasuk Midtrans & COD</span>
+              <span>Termasuk Duitku & COD</span>
             </span>
           </div>
         </div>

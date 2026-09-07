@@ -1,4 +1,19 @@
-import { prisma } from "../src/lib/db";
+// Seed Node-only: Prisma Client v7 jalan normal di Node (CLI/tsx).
+// JANGAN impor dari src/lib/db (itu Drizzle untuk Workers runtime).
+import { PrismaClient } from "../src/generated/prisma/client";
+import { PrismaLibSql } from "@prisma/adapter-libsql";
+
+function makePrisma() {
+  const url =
+    process.env.DATABASE_URL?.startsWith("libsql://")
+      ? process.env.DATABASE_URL
+      : process.env.TURSO_DATABASE_URL || process.env.DATABASE_URL || "file:./prisma/dev.db";
+  return new PrismaClient({
+    adapter: new PrismaLibSql({ url, authToken: process.env.TURSO_AUTH_TOKEN || "" }),
+  });
+}
+
+const prisma = makePrisma();
 
 async function main() {
   console.log("🌱 Mulai seeding katalog database Kaos Kami...");

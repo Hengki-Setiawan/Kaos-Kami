@@ -1,7 +1,7 @@
-import { prisma } from "@/lib/db";
+import { db } from "@/lib/db";
 export const dynamic = "force-dynamic";
 export default async function AdminCouponsPage() {
-  const coupons = await prisma.coupon.findMany({}).catch(()=>[]);
+  const coupons = await db.query.Coupon.findMany().catch(()=>[]);
   return (
     <div className="p-5 sm:p-8 space-y-6 max-w-7xl mx-auto font-mono text-xs">
       <div className="pb-4 border-b border-white/5 flex justify-between">

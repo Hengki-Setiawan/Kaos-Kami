@@ -40,6 +40,7 @@ export const Navbar: React.FC = () => {
             href="/"
             className="hover:opacity-85 transition-opacity flex items-center shrink-0"
           >
+            {/* eslint-disable-next-line @next/next/no-img-element -- logo mungil lokal; images.unoptimized=true sehingga next/image tak menambah nilai */}
             <img
               src={isLight ? "/brand/logo-black-clean.png" : "/brand/logo-white-clean.png"}
               alt="Kaos Kami"
