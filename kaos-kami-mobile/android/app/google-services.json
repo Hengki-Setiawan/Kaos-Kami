@@ -1,0 +1,30 @@
+{
+  "project_info": {
+    "project_number": "1080760609679",
+    "firebase_url": "https://studio-5437363240-5a213-default-rtdb.asia-southeast1.firebasedatabase.app",
+    "project_id": "studio-5437363240-5a213",
+    "storage_bucket": "studio-5437363240-5a213.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:1080760609679:android:ca6fdcee7b7f6f1bf439fa",
+        "android_client_info": {
+          "package_name": "id.makassar.kaoskami"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAO3B2dynZTXUmguZbxfULl53f9wgGT1iQ"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

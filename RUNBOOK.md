@@ -46,5 +46,5 @@
 - **Keystore beta** `kaos-kami-mobile/android/app/kaoskami-release.keystore` (RSA-2048, alias `kaoskami`, 30 thn) dibuat lokal 07 Sep 2026 — HANYA sideload. Password di `android/key.properties` (gitignored) + `keystore-passwords.local.txt` (gitignored, berikan ke owner via jalur aman). Untuk Play Store: generate keystore BARU terpisah.
 - **CI secrets wajib:** `KAOSKAMI_STORE_PASSWORD`, `KAOSKAMI_KEY_ALIAS=kaoskami`, `KAOSKAMI_KEY_PASSWORD` (Settings → Secrets → Actions).
 - **AAB:** `npm --workspace=kaos-kami-mobile run cap:build:aab` (butuh `JAVA_HOME` = JDK 17–21, BUKAN 24; hasil: `android/app/build/outputs/bundle/release/app-release.aab` ±19 MB, terbukti 07 Sep 2026).
-- **Firebase (`google-services.json`):** BELUM ADA — push notification tidak aktif sampai owner buat project Firebase + taruh file di `android/app/` (build tetap jalan tanpa itu, hanya push yang mati).
+- **Firebase (`google-services.json`):** SUDAH ADA di `kaos-kami-mobile/android/app/` (dibuat owner 07 Sep 2026) + `firebase-bom:34.18.0` & `firebase-messaging` di `app/build.gradle` → AAB 07 Sep 2026 sudah include FCM. File ini BOLEH di-commit (isinya identifier publik yang memang ikut terkirim di dalam APK; bukan secret).
 - **Catatan Capacitor 8:** semua `@capacitor/*` WAJIB se-major dengan core (keyboard v7 gagal kompilasi di core v8 → upgrade ke v8).
