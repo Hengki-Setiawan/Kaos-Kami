@@ -75,3 +75,6 @@ preview*.log
 deploy*.log
 *-build*.log
 testworker.log
+
+# local DB backups (contain customer PII - never commit)
+backups/
