@@ -35,6 +35,7 @@ const MobileCheckoutSchema = z.object({
   courierNotes: z.string().optional(),
   paymentMethod: z.string().max(32).optional(),
   cod: z.boolean().optional(),
+  couponCode: z.string().max(32).optional(),
   items: z.array(MobileItemSchema).min(1).max(20),
 });
 
@@ -58,7 +59,7 @@ export async function POST(req: NextRequest) {
     if (!validation.success) {
       return NextResponse.json({ error: validation.error.errors[0]?.message }, { status: 400 });
     }
-    const { recipientName, phoneNumber, email, deliveryMethod, district, fullAddress, courierNotes, paymentMethod, cod, items } =
+    const { recipientName, phoneNumber, email, deliveryMethod, district, fullAddress, courierNotes, paymentMethod, cod, couponCode, items } =
       validation.data;
 
     let subtotalIdr = 0;
@@ -81,7 +82,24 @@ export async function POST(req: NextRequest) {
     }
 
     const delivery = MAKASSAR_DELIVERY_OPTIONS.find((d) => d.method === deliveryMethod);
-    const totalIdr = subtotalIdr + (delivery?.costIdr || 0);
+    // Kupon (opsional) — sama seperti checkout web.
+    let discountIdr = 0;
+    let appliedCoupon: string | null = null;
+    if (couponCode?.trim()) {
+      try {
+        const { validateCoupon, consumeCoupon } = await import("@/lib/coupons");
+        const c = await validateCoupon(couponCode, subtotalIdr);
+        const reserved = await consumeCoupon(c.code);
+        if (!reserved) {
+          return NextResponse.json({ error: "Kuota kupon habis" }, { status: 400 });
+        }
+        discountIdr = c.discountIdr;
+        appliedCoupon = c.code;
+      } catch (couponErr: any) {
+        return NextResponse.json({ error: couponErr?.message || "Kupon tidak valid" }, { status: 400 });
+      }
+    }
+    const totalIdr = subtotalIdr - discountIdr + (delivery?.costIdr || 0);
     const cleanPhone = phoneNumber.replace(/[^0-9]/g, "");
 
     let user = await db.query.User.findFirst({
@@ -126,7 +144,7 @@ export async function POST(req: NextRequest) {
         deliveryMethod,
         subtotalIdr,
         shippingCostIdr: delivery?.costIdr || 0,
-        discountIdr: 0,
+        discountIdr,
         totalIdr,
         shippingAddressId: address?.id,
         courierNotes,
@@ -186,17 +204,28 @@ export async function POST(req: NextRequest) {
     } else {
     try {
       const duitkuMethod = paymentMethod === "VA_BCA" ? "BC" : "SP"; // QRIS default
+      // Duitku: paymentAmount wajib == Σ item (lihat checkout web).
+      const shippingIdr = delivery?.costIdr || 0;
+      const duitkuItems = [
+        ...validatedItems.map((it) => ({
+          name: it.title || `${it.apparelSlug.toUpperCase()} Sablon`,
+          price: it.unitPriceIdr,
+          quantity: it.quantity,
+        })),
+        ...(shippingIdr > 0
+          ? [{ name: `Ongkir ${delivery?.name || deliveryMethod}`, price: shippingIdr, quantity: 1 }]
+          : []),
+        ...(discountIdr > 0
+          ? [{ name: `Diskon kupon ${appliedCoupon || ""}`.trim(), price: -discountIdr, quantity: 1 }]
+          : []),
+      ];
       charge = await duitkuProvider.createCharge({
         orderId: order.id,
         orderNumber: order.orderNumber,
         amountIdr: totalIdr,
         paymentMethod: duitkuMethod,
         customer: { name: recipientName, phone: cleanPhone, email: email || `${cleanPhone}@kaoskami.customer` },
-        itemDetails: validatedItems.map((it) => ({
-          name: it.title || `${it.apparelSlug.toUpperCase()} Sablon`,
-          price: it.unitPriceIdr,
-          quantity: it.quantity,
-        })),
+        itemDetails: duitkuItems,
       });
     } catch (chargeErr: any) {
       console.error("Mobile checkout Duitku gagal:", chargeErr?.message);
@@ -245,6 +274,8 @@ export async function POST(req: NextRequest) {
       paymentUrl: charge.paymentUrl,
       reference: charge.reference,
       invoiceUrl,
+      discountIdr,
+      appliedCoupon,
     });
   } catch (e: any) {
     console.error("Mobile checkout error:", e);

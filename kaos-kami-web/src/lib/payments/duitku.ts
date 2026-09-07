@@ -128,8 +128,13 @@ export class DuitkuPaymentProvider {
 
       const data = await response.json();
 
+      // Sandbox mengembalikan {"Message": "..."} + HTTP 4xx bila item tidak
+      // balance (paymentAmount != Σ item) — teruskan pesannya apa adanya.
       if (data.statusCode && data.statusCode !== "00") {
         throw new Error(data.statusMessage || `Duitku Error: ${data.statusCode}`);
+      }
+      if (!response.ok && !data.statusCode) {
+        throw new Error(data.Message || `Duitku HTTP ${response.status}`);
       }
 
       if (!data.reference && !data.paymentUrl) {

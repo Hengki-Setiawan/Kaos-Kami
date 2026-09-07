@@ -37,6 +37,7 @@ const CheckoutPayloadSchema = z.object({
   courierNotes: z.string().optional(),
   items: z.array(CheckoutItemSchema).min(1, "Minimal 1 item di keranjang"),
   turnstileToken: z.string().max(2048).optional(),
+  couponCode: z.string().max(32).optional(),
 });
 
 export async function POST(req: NextRequest) {
@@ -68,6 +69,7 @@ export async function POST(req: NextRequest) {
       courierNotes,
       items,
       turnstileToken,
+      couponCode,
     } = validation.data;
 
     // Anti-bot: wajib lolos HANYA bila server mengonfigurasi secret Turnstile.
@@ -144,7 +146,25 @@ export async function POST(req: NextRequest) {
     const selectedTurnaround = PRODUCTION_TURNAROUND_OPTIONS.find((t) => t.tier === turnaroundTier);
     const turnaroundSurchargeIdr = selectedTurnaround?.surchargeIdr || 0;
 
-    const computedTotalIdr = computedSubtotalIdr + shippingCostIdr + turnaroundSurchargeIdr;
+    // 2b. Kupon (opsional): validasi server-side + reservasi kuota atomik.
+    let discountIdr = 0;
+    let appliedCoupon: string | null = null;
+    if (couponCode?.trim()) {
+      try {
+        const { validateCoupon, consumeCoupon } = await import("@/lib/coupons");
+        const c = await validateCoupon(couponCode, computedSubtotalIdr);
+        const reserved = await consumeCoupon(c.code);
+        if (!reserved) {
+          return NextResponse.json({ error: "Kuota kupon habis" }, { status: 400 });
+        }
+        discountIdr = c.discountIdr;
+        appliedCoupon = c.code;
+      } catch (couponErr: any) {
+        return NextResponse.json({ error: couponErr?.message || "Kupon tidak valid" }, { status: 400 });
+      }
+    }
+
+    const computedTotalIdr = computedSubtotalIdr - discountIdr + shippingCostIdr + turnaroundSurchargeIdr;
 
     // 3. Find or create user for this WhatsApp number
     const cleanPhone = phoneNumber.replace(/[^0-9]/g, "");
@@ -198,7 +218,7 @@ export async function POST(req: NextRequest) {
         deliveryMethod,
         subtotalIdr: computedSubtotalIdr,
         shippingCostIdr,
-        discountIdr: 0,
+        discountIdr,
         totalIdr: computedTotalIdr,
         shippingAddressId: address?.id,
         courierNotes: courierNotes || (turnaroundTier === "EXPRESS_24H" ? "EXPRESS 24H" : ""),
@@ -245,6 +265,24 @@ export async function POST(req: NextRequest) {
     // 7. Request Duitku Payment Token & Reference (fail-closed: lempar 502, order tetap PENDING)
     let chargeResult;
     try {
+      // Duitku mewajibkan paymentAmount == Σ(item price×qty): kirim baris
+      // ongkir/surcharge/diskon eksplisit (harga negatif untuk diskon OK).
+      const duitkuItems = [
+        ...validatedItems.map((it) => ({
+          name: it.title || `${it.apparelSlug.toUpperCase()} Sablon`,
+          price: it.unitPriceIdr,
+          quantity: it.quantity,
+        })),
+        ...(shippingCostIdr > 0
+          ? [{ name: `Ongkir ${selectedDelivery?.name || deliveryMethod}`, price: shippingCostIdr, quantity: 1 }]
+          : []),
+        ...(turnaroundSurchargeIdr > 0
+          ? [{ name: "Surcharge EXPRESS 24H", price: turnaroundSurchargeIdr, quantity: 1 }]
+          : []),
+        ...(discountIdr > 0
+          ? [{ name: `Diskon kupon ${appliedCoupon || ""}`.trim(), price: -discountIdr, quantity: 1 }]
+          : []),
+      ];
       chargeResult = await duitkuProvider.createCharge({
         orderId: order.id,
         orderNumber: order.orderNumber,
@@ -254,13 +292,7 @@ export async function POST(req: NextRequest) {
           phone: cleanPhone,
           email: email || `${cleanPhone}@kaoskami.customer`,
         },
-        itemDetails: [
-          ...validatedItems.map((it) => ({
-            name: it.title || `${it.apparelSlug.toUpperCase()} Sablon`,
-            price: it.unitPriceIdr,
-            quantity: it.quantity,
-          })),
-        ],
+        itemDetails: duitkuItems,
       });
     } catch (chargeErr: any) {
       console.error("Duitku charge gagal, order tetap PENDING_PAYMENT:", chargeErr?.message);
@@ -316,6 +348,8 @@ export async function POST(req: NextRequest) {
       paymentUrl: chargeResult.paymentUrl,
       reference: chargeResult.reference,
       invoiceUrl,
+      discountIdr,
+      appliedCoupon,
     });
   } catch (error: any) {
     console.error("Checkout process error:", error);

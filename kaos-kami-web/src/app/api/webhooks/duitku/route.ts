@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
-import { and, eq } from "drizzle-orm";
+import { and, eq, sql } from "drizzle-orm";
 import { nanoid } from "nanoid";
 import { db } from "@/lib/db";
-import { Order, OrderStatusEvent, Payment, ProductionTask } from "@/lib/drizzle-schema";
+import { Order, OrderStatusEvent, Payment, ProductionTask, ProductVariant } from "@/lib/drizzle-schema";
 import { duitkuProvider } from "@/lib/payments/duitku";
 import { sendWhatsAppNotification, buildProductionStatusMessage } from "@/lib/notifications/whatsapp";
 import { computePhysicalPrintDimensions } from "@/lib/scaleCalibration";
@@ -166,10 +166,22 @@ export async function POST(req: NextRequest) {
         });
       }
 
+      // Kurangi stok varian katalog yang terjual (clamp >= 0, SQLite serial).
+      for (const item of order.items) {
+        const variantId = (item as any).productVariantId as string | null;
+        const qty = (item as any).quantity as number;
+        if (variantId && qty > 0) {
+          await db
+            .update(ProductVariant)
+            .set({ stockQty: sql`max(0, ${ProductVariant.stockQty} - ${qty})` })
+            .where(eq(ProductVariant.id, variantId))
+            .catch((e) => console.warn("Stok decrement gagal:", variantId, e?.message));
+        }
+      }
+
       // Notify customer via WhatsApp
       const invoiceUrl = `${process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000"}/orders/${order.id}`;
-      if (order.user?.phoneNumber) {
-        sendWhatsAppNotification(
+      if (order.user?.phoneNumber) {        sendWhatsAppNotification(
           order.user.phoneNumber,
           buildProductionStatusMessage({
             orderNumber: order.orderNumber,
