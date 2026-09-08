@@ -6,20 +6,14 @@ const nextConfig = {
   // sehingga impor root "@libsql/client" (dari dalam drizzle-orm) me-resolve
   // ke build /web fetch-only — bukan build node (require native → 500 workerd).
   transpilePackages: ["@libsql/client"],
+  // Next 15: optimizePackageImports stabil (keluar dari experimental).
+  optimizePackageImports: ["lucide-react", "clsx", "tailwind-merge", "framer-motion"],
   images: {
     unoptimized: true,
     formats: ["image/avif", "image/webp"],
   },
-  experimental: {
-    optimizePackageImports: ["lucide-react", "clsx", "tailwind-merge", "framer-motion"],
-    // Prisma Client TIDAK dipakai di runtime Workers (lihat src/lib/db.ts + RUNBOOK §6).
-    // drizzle-orm + @libsql/client SENGAJA di-bundle (TIDAK external): dengan alias
-    // webpack "@libsql/client$" → "@libsql/client/web" di bawah, semua impor
-    // (termasuk dari dalam drizzle-orm) me-resolve ke build fetch-only.
-    // External justru rusak: require() runtime jatuh ke build node/CJS →
-    // require("@libsql/linux-x64-musl") → 500 di workerd.
-    serverComponentsExternalPackages: [],
-  },
+  // Next 15: serverComponentsExternalPackages -> serverExternalPackages.
+  serverExternalPackages: [],
   compiler: {
     removeConsole: process.env.NODE_ENV === "production" ? { exclude: ["error", "warn"] } : false,
   },

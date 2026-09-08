@@ -17,11 +17,14 @@ import {
 } from "lucide-react";
 
 interface OrderReceiptPageProps {
-  params: { id: string };
-  searchParams: { status?: string };
+  params: Promise<{ id: string }>;
+  searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
 }
 
 export default async function OrderReceiptPage({ params, searchParams }: OrderReceiptPageProps) {
+  // Next 15: params & searchParams async.
+  const { id } = await params;
+  const sp = await searchParams;
   // Anti-IDOR: invoice publik via link WA, tapi PII dimask untuk non-pemilik.
   let sessionUserId: string | null = null;
   let sessionRole: string | null = null;
@@ -33,7 +36,7 @@ export default async function OrderReceiptPage({ params, searchParams }: OrderRe
     sessionRole = (session?.user as any)?.role || null;
   } catch {}
   const order = await db.query.Order.findFirst({
-    where: (t, { eq }) => eq(t.id, params.id),
+    where: (t, { eq }) => eq(t.id, id),
     with: {
       items: true,
       user: true,
@@ -63,7 +66,7 @@ export default async function OrderReceiptPage({ params, searchParams }: OrderRe
   };
 
   const isSuccess =
-    searchParams.status === "success" ||
+    sp.status === "success" ||
     order.status === "PAYMENT_CONFIRMED" ||
     order.status === "IN_PRODUCTION_QUEUE";
 

@@ -9,9 +9,10 @@ const OrderIdParam = z.string().min(5).max(64);
  * Ultra-lean polling (<500 bytes): hanya id, orderNumber, status, updatedAt.
  * Aman publik by-ID (cuid tak tertebak, tanpa PII) — pola sama seperti invoice web.
  */
-export async function GET(_req: NextRequest, { params }: { params: { id: string } }) {
+export async function GET(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
-    const parsed = OrderIdParam.safeParse(params.id);
+    const { id } = await params;
+    const parsed = OrderIdParam.safeParse(id);
     if (!parsed.success) {
       return NextResponse.json({ error: "Invalid order id" }, { status: 400 });
     }

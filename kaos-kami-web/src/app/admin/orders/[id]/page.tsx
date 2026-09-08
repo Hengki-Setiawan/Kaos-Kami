@@ -17,23 +17,19 @@ import {
   Eye,
   Layers,
 } from "lucide-react";
-import dynamic from "next/dynamic";
-
-const OrderInspector3D = dynamic(() => import("@/components/admin/OrderInspector3D"), { ssr: false });
-const OrderAdminActions = dynamic(
-  () => import("@/components/admin/OrderAdminActions").then((m) => m.OrderAdminActions),
-  { ssr: false }
-);
+import OrderInspector3D from "@/components/admin/OrderInspector3D";
+import { OrderAdminActions } from "@/components/admin/OrderAdminActions";
 
 interface AdminOrderDetailPageProps {
-  params: { id: string };
+  params: Promise<{ id: string }>;
 }
 
 export const revalidate = 0;
 
 export default async function AdminOrderDetailPage({ params }: AdminOrderDetailPageProps) {
+  const { id } = await params;
   const order = await db.query.Order.findFirst({
-    where: (t, { eq }) => eq(t.id, params.id),
+    where: (t, { eq }) => eq(t.id, id),
     with: {
       items: true,
       productionTasks: true,

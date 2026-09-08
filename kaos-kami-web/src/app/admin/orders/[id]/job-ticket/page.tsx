@@ -6,14 +6,15 @@ import { Printer, ArrowLeft } from "lucide-react";
 import { PrintButton } from "@/components/ui/PrintButton";
 
 interface JobTicketPageProps {
-  params: { id: string };
+  params: Promise<{ id: string }>;
 }
 
 export const revalidate = 0;
 
 export default async function JobTicketPage({ params }: JobTicketPageProps) {
+  const { id } = await params;
   const order = await db.query.Order.findFirst({
-    where: (t, { eq }) => eq(t.id, params.id),
+    where: (t, { eq }) => eq(t.id, id),
     with: {
       items: true,
       user: true,

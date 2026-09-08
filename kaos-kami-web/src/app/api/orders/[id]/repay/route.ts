@@ -15,14 +15,15 @@ import { checkRateLimitAsync, getClientIp, rateLimitHeaders } from "@/lib/securi
  * 3. Webhook idempoten: callback pertama yang menang (sudah ada).
  * 4. Rate-limit ketat: spam inquiry = spam dashboard merchant.
  */
-export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
+export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
+    const { id: orderId } = await params;
     const ip = getClientIp(req);
     const rl = await checkRateLimitAsync(`repay:ip:${ip}`, 3, 300);
     if (rl.isLimited) {
       return NextResponse.json({ error: "Terlalu sering. Tunggu sebentar." }, { status: 429, headers: rateLimitHeaders(rl, 3) });
     }
-    const orl = await checkRateLimitAsync(`repay:order:${params.id}`, 3, 3600);
+    const orl = await checkRateLimitAsync(`repay:order:${orderId}`, 3, 3600);
     if (orl.isLimited) {
       return NextResponse.json(
         { error: "Link baru sudah dibuat 3x. Hubungi admin via WA." },
@@ -31,7 +32,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
     }
 
     const order = await db.query.Order.findFirst({
-      where: (t, { eq }) => eq(t.id, params.id),
+      where: (t, { eq }) => eq(t.id, orderId),
       with: { items: true, payment: true, user: true },
     });
     if (!order) return NextResponse.json({ error: "Order tidak ditemukan" }, { status: 404 });

@@ -11,14 +11,15 @@ import { checkRateLimitAsync, getClientIp, rateLimitHeaders } from "@/lib/securi
  * PENDING (belum bayar). Tanpa sesi login yang cocok → 401/403.
  * Order lunas TIDAK bisa batal sendiri (hubungi workshop — uang sudah jalan).
  */
-export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
+export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
+    const { id: orderId } = await params;
     const rl = await checkRateLimitAsync(`cancel:ip:${getClientIp(req)}`, 5, 300);
     if (rl.isLimited) {
       return NextResponse.json({ error: "Terlalu sering." }, { status: 429, headers: rateLimitHeaders(rl, 5) });
     }
     const order = await db.query.Order.findFirst({
-      where: (t, { eq }) => eq(t.id, params.id),
+      where: (t, { eq }) => eq(t.id, orderId),
       columns: { id: true, userId: true, status: true, orderNumber: true },
     });
     if (!order) return NextResponse.json({ error: "Order tidak ditemukan" }, { status: 404 });

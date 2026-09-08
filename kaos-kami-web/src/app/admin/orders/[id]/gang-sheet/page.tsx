@@ -4,15 +4,16 @@ import { notFound } from "next/navigation";
 export const dynamic = "force-dynamic";
 
 // Gang Sheet A3 30cm — susun semua decal order jadi 1 lembar film DTF siap print (Cethak workflow)
-export default async function GangSheetPage({ params }: { params: { id: string } }) {
+export default async function GangSheetPage({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
   const order = await db.query.Order.findFirst({
-    where: (t, { eq }) => eq(t.id, params.id),
+    where: (t, { eq }) => eq(t.id, id),
     with: { items: true, productionTasks: true },
   });
   if (!order) notFound();
   return (
     <div className="min-h-screen bg-[#0E0E10] text-white p-6 font-mono text-xs max-w-6xl mx-auto space-y-4">
-      <Link href={`/admin/orders/${params.id}`} className="text-text-muted hover:text-white">← Kembali Detail</Link>
+      <Link href={`/admin/orders/${id}`} className="text-text-muted hover:text-white">← Kembali Detail</Link>
       <div className="flex justify-between items-center pb-4 border-b border-white/5">
         <h1 className="font-display text-2xl font-black uppercase">GANG SHEET A3 — {order.orderNumber}</h1>
         <span className="px-3 py-1 rounded-full bg-brand-accent text-canvas font-bold">30cm ROLL</span>
@@ -35,7 +36,7 @@ export default async function GangSheetPage({ params }: { params: { id: string }
       </div>
       <div className="flex gap-2 justify-center print:hidden">
         <button onClick={()=>window.print()} className="px-4 py-2 rounded-xl bg-brand-accent text-canvas font-bold">CETAK GANG SHEET PDF</button>
-        <a href={`/admin/orders/${params.id}/job-ticket`} className="px-4 py-2 rounded-xl bg-surface border border-white/10 text-white font-bold">JOB TICKET</a>
+        <a href={`/admin/orders/${order.id}/job-ticket`} className="px-4 py-2 rounded-xl bg-surface border border-white/10 text-white font-bold">JOB TICKET</a>
       </div>
     </div>
   );

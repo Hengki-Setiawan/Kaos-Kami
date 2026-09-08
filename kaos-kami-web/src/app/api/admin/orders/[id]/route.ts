@@ -39,15 +39,16 @@ async function requireWorkshop(req: NextRequest) {
  * Batal hanya untuk status awal (PENDING_PAYMENT/PAYMENT_CONFIRMED) — order yang
  * sudah masuk produksi tidak bisa dibatalkan dari sini (hubungi supervisor).
  */
-export async function PATCH(req: NextRequest, { params }: { params: { id: string } }) {
+export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const gate = await requireWorkshop(req);
   if (gate.error) return gate.error;
   const parsed = PatchSchema.safeParse(await req.json().catch(() => ({})));
   if (!parsed.success) return NextResponse.json({ error: "Input tidak valid" }, { status: 400 });
   const { trackingNumber, cancel, refund } = parsed.data;
 
+  const { id: orderId } = await params;
   const order = await db.query.Order.findFirst({
-    where: (t, { eq }) => eq(t.id, params.id),
+    where: (t, { eq }) => eq(t.id, orderId),
     columns: { id: true, status: true, orderNumber: true },
   });
   if (!order) return NextResponse.json({ error: "Order tidak ditemukan" }, { status: 404 });
