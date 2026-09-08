@@ -27,37 +27,44 @@ export const CameraRig: React.FC<CameraRigProps> = ({ targetPosition, targetLook
   const { camera } = useThree();
   const controlsRef = useRef<OrbitControlsImpl>(null);
   const currentLookAt = useRef(new THREE.Vector3(0, 0, 0));
+  // Transisi preset sinematik (audit #2 — sebelumnya jump motong).
+  const presetAnim = useRef<{ from: THREE.Vector3; to: THREE.Vector3; fromLook: THREE.Vector3; t: number } | null>(null);
 
   // Quick Camera Presets
   useEffect(() => {
     if (!cameraPreset) return;
 
-    if (cameraPreset === "front") {
-      camera.position.set(0, 0.05, 2.3);
-      currentLookAt.current.set(0, 0, 0);
-    } else if (cameraPreset === "back") {
-      camera.position.set(0, 0.05, -2.3);
-      currentLookAt.current.set(0, 0, 0);
-    } else if (cameraPreset === "left") {
-      camera.position.set(-2.3, 0.05, 0);
-      currentLookAt.current.set(0, 0, 0);
-    } else if (cameraPreset === "right") {
-      camera.position.set(2.3, 0.05, 0);
-      currentLookAt.current.set(0, 0, 0);
-    } else if (cameraPreset === "iso") {
-      camera.position.set(1.6, 1.1, 1.8);
-      currentLookAt.current.set(0, 0, 0);
-    }
+    const dest = new THREE.Vector3(0, 0.05, 2.3);
+    if (cameraPreset === "back") dest.set(0, 0.05, -2.3);
+    else if (cameraPreset === "left") dest.set(-2.3, 0.05, 0);
+    else if (cameraPreset === "right") dest.set(2.3, 0.05, 0);
+    else if (cameraPreset === "iso") dest.set(1.6, 1.1, 1.8);
 
-    camera.lookAt(currentLookAt.current);
-    if (controlsRef.current) {
-      controlsRef.current.target.copy(currentLookAt.current);
-      controlsRef.current.update();
-    }
+    presetAnim.current = {
+      from: camera.position.clone(),
+      to: dest,
+      fromLook: currentLookAt.current.clone(),
+      t: 0,
+    };
     setCameraPreset(null);
   }, [cameraPreset, camera, setCameraPreset]);
 
   useFrame((_, delta) => {
+    // Mainkan animasi preset (±0.6 detik, ease-out).
+    const anim = presetAnim.current;
+    if (anim) {
+      anim.t = Math.min(1, anim.t + delta / 0.6);
+      const k = 1 - Math.pow(1 - anim.t, 3);
+      camera.position.lerpVectors(anim.from, anim.to, k);
+      currentLookAt.current.lerpVectors(anim.fromLook, new THREE.Vector3(0, 0, 0), k);
+      camera.lookAt(currentLookAt.current);
+      if (controlsRef.current) {
+        controlsRef.current.target.copy(currentLookAt.current);
+        controlsRef.current.update();
+      }
+      if (anim.t >= 1) presetAnim.current = null;
+      return;
+    }
     if (viewMode === "story" && !isHideWebsiteUI) {
       const lerpSpeed = Math.min(delta * 4.5, 1);
       camera.position.lerp(targetPosition, lerpSpeed);

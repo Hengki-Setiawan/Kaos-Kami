@@ -1,10 +1,11 @@
 "use client";
 
-import React, { useMemo, useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import * as THREE from "three";
 import { Canvas, useFrame, useThree, type ThreeEvent } from "@react-three/fiber";
 import { useConfiguratorStore } from "@/store/useConfiguratorStore";
 import { createClothParticleGrid, gsmPreset, type VerletCloth } from "@/lib/verletCloth";
+import { useDeviceTier } from "@/hooks/useDeviceTier";
 
 const NX = 22;
 const NY = 16;
@@ -21,6 +22,7 @@ function ClothMesh({
 }) {
   const { camera } = useThree();
   const geoRef = useRef<THREE.PlaneGeometry>(null);
+  const frameCount = useRef(0);
   const lastCursor = useRef(new THREE.Vector3());
   const drag = useRef<{
     ids: number[];
@@ -43,14 +45,37 @@ function ClothMesh({
   );
   material.color.set(color);
 
+  // Dispose material+geometri saat lab ditutup (audit #12 — konteks kedua =
+  // memori ganda bila bocor).
+  useEffect(() => {
+    return () => {
+      try {
+        material.dispose();
+      } catch {}
+      try {
+        geoRef.current?.dispose();
+      } catch {}
+    };
+  }, [material]);
+
   useFrame((_, rawDt) => {
-    const dt = Math.min(rawDt, 1 / 30);
-    cloth.step(dt, performance.now() / 1000, { x: 0, y: 0, z: windRef.current });
+    // Substep: dt besar (lag) dipecah agar stabil, maks 3 substep (audit #12).
+    let remaining = Math.min(rawDt, 1 / 20);
+    const h = 1 / 90;
+    let guard = 0;
+    while (remaining > 1e-6 && guard < 3) {
+      const dt = Math.min(h, remaining);
+      cloth.step(dt, performance.now() / 1000, { x: 0, y: 0, z: windRef.current });
+      remaining -= dt;
+      guard++;
+    }
     const pos = geoRef.current?.attributes.position as THREE.BufferAttribute | undefined;
     if (pos) {
       (pos.array as Float32Array).set(cloth.positions);
       pos.needsUpdate = true;
-      geoRef.current?.computeVertexNormals();
+      // Normals tiap frame kedua (hemat ~50% di HP, visual sama).
+      frameCount.current++;
+      if (frameCount.current % 2 === 0) geoRef.current?.computeVertexNormals();
     }
   });
 
@@ -147,7 +172,13 @@ export const ClothLab: React.FC = () => {
     [materialFinish]
   );
 
-  windRef.current = wind * preset.windGain * 2.2;
+  // Assignment di effect, bukan saat render (audit #12).
+  useEffect(() => {
+    windRef.current = wind * preset.windGain * 2.2;
+  }, [wind, preset.windGain]);
+
+  // DPR lab ikut tier global (audit #3 — sebelumnya [1,2] sendiri).
+  const { tier } = useDeviceTier();
 
   if (!open) {
     return (
@@ -173,7 +204,7 @@ export const ClothLab: React.FC = () => {
         </button>
       </div>
       <div className="rounded-xl overflow-hidden border border-white/10 bg-black/60 h-56">
-        <Canvas camera={{ position: [0, -0.25, 1.1], fov: 42 }} dpr={[1, 2]}>
+        <Canvas camera={{ position: [0, -0.25, 1.1], fov: 42 }} dpr={[1, tier === "low" ? 1 : 2]}>
           <ambientLight intensity={0.7} />
           <directionalLight position={[2, 3, 4]} intensity={1.2} />
           <ClothMesh cloth={cloth} color={selectedColor} windRef={windRef} />

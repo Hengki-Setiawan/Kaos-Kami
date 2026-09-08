@@ -158,6 +158,13 @@ export const PatternStudio: React.FC = () => {
           });
         };
         const pushToStoreSync = (obj: any) => {
+          // Kunci uniform: stretch 1-sisialat distorsi artwork — normalisasi ke
+          // sisi panjang (kontrak patternSync, audit #19).
+          try {
+            if (obj && obj.scaleX && obj.scaleY && Math.abs(obj.scaleX - obj.scaleY) > 1e-6) {
+              obj.set({ scaleY: obj.scaleX });
+            }
+          } catch {}
           const id = (obj as any).decalId as string | undefined;
           if (!id || syncingRef.current) return;
           const target = decalsRef.current.find((x) => x.id === id);

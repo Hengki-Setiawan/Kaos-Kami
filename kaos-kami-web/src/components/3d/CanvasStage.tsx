@@ -26,6 +26,11 @@ interface CanvasStageProps {
 export const CanvasStage: React.FC<CanvasStageProps> = ({ camPos, lookAtPos }) => {
   const { viewMode, studioTheme, isHideWebsiteUI } = useConfiguratorStore();
   const deviceTier = useDeviceTier();
+  // preserveDrawingBuffer HARUS true: ekspor PNG (toDataURL) blank tanpanya
+  // (flag ini atribut konteks WebGL — tak bisa diubah pasca-mount, dan render
+  // on-demand sinkron dari luar Canvas tak andal). Biaya slow-path diterima
+  // sebagai trade-off fitur; tier-low sudah dihemat via lampu/material/dpr.
+  const preserveBuffer = true;
 
   const themeBgHex =
     studioTheme === "gallery"
@@ -54,7 +59,7 @@ export const CanvasStage: React.FC<CanvasStageProps> = ({ camPos, lookAtPos }) =
             powerPreference: "high-performance",
             toneMapping: THREE.ACESFilmicToneMapping,
             toneMappingExposure: studioTheme === "gallery" ? 1.05 : 1.15,
-            preserveDrawingBuffer: true,
+            preserveDrawingBuffer: preserveBuffer,
           }}
         >
           <Suspense fallback={null}>

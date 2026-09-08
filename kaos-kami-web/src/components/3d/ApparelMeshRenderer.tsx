@@ -16,7 +16,10 @@ export const ApparelMeshRenderer: React.FC = () => {
   const { activeApparel, modelRotY, viewMode, activePhase, isMobile } = useConfiguratorStore();
   const groupRef = useRef<THREE.Group>(null);
 
-  // Target coordinates for each Story Mode phase
+  // Target coordinates for each Story Mode phase (EDITORIAL, bukan fisika —
+  // angka per fase disengaja untuk framing story-scroll; modelRotY manual
+  // hanya berlaku di studio. Faktor mobile 0.85 di luar × modelScale user
+  // di dalam — keduanya dikali, bukan duplikat (audit #1).
   const targetStoryPos = useRef(new THREE.Vector3(0.68, -0.05, 0));
   const targetStoryRot = useRef(new THREE.Euler(0, -0.28, 0));
   const targetStoryScale = useRef(1.35);
@@ -86,11 +89,16 @@ export const ApparelMeshRenderer: React.FC = () => {
     }
   };
 
+  // surfaceZ per apparel — SATU angka dipakai renderer+gizmo+guide
+  // (audit #6: sebelumnya renderer 0.176/0.24, gizmo default 0.18, guide 0.155
+  // = selisih s/d 6cm). Nilai = ketebalan dada terukur per mesh.
+  const surfaceZ = activeApparel === "shirt" ? 0.24 : 0.176;
+
   return (
     <group ref={groupRef}>
       {renderModel()}
-      <PrintZoneGuide />
-      <DecalGizmo />
+      <PrintZoneGuide surfaceZ={surfaceZ} />
+      <DecalGizmo surfaceZ={surfaceZ} />
     </group>
   );
 };

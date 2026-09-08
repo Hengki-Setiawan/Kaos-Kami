@@ -88,6 +88,9 @@ export function createClothParticleGrid(o: VerletOptions): VerletCloth {
     const wx = wind.x * gust;
     const wy = wind.y * gust;
     const wz = (wind.z + 0.35 * Math.sin(time * 2.3)) * gust;
+    // Clamp kecepatan implisit (audit #20): cegah ledakan saat dt spike /
+    // sentakan cubit. maxStep ≈ 2× spacing per frame.
+    const maxStep = spacing * 2;
     for (let k = 0; k < count; k++) {
       if (invMass[k] === 0) continue;
       const i3 = k * 3;
@@ -95,9 +98,18 @@ export function createClothParticleGrid(o: VerletOptions): VerletCloth {
       const py = positions[i3 + 1]!;
       const pz = positions[i3 + 2]!;
       // Verlet: x' = x + (x - xPrev) * damping + a * dt^2
-      positions[i3] = px + (px - previous[i3]!) * damp + wx * dtC * dtC;
-      positions[i3 + 1] = py + (py - previous[i3 + 1]!) * damp + (gravity * 0.12 + wy) * dtC * dtC;
-      positions[i3 + 2] = pz + (pz - previous[i3 + 2]!) * damp + wz * dtC * dtC;
+      let nx = px + (px - previous[i3]!) * damp + wx * dtC * dtC;
+      let ny = py + (py - previous[i3 + 1]!) * damp + (gravity * 0.12 + wy) * dtC * dtC;
+      let nz = pz + (pz - previous[i3 + 2]!) * damp + wz * dtC * dtC;
+      const sx = nx - px, sy = ny - py, sz2 = nz - pz;
+      const stepLen = Math.sqrt(sx * sx + sy * sy + sz2 * sz2);
+      if (stepLen > maxStep) {
+        const f = maxStep / stepLen;
+        nx = px + sx * f; ny = py + sy * f; nz = pz + sz2 * f;
+      }
+      positions[i3] = nx;
+      positions[i3 + 1] = ny;
+      positions[i3 + 2] = nz;
       previous[i3] = px;
       previous[i3 + 1] = py;
       previous[i3 + 2] = pz;
@@ -137,9 +149,10 @@ export function createClothParticleGrid(o: VerletOptions): VerletCloth {
   function addVelocity(i: number, vx: number, vy: number, vz: number) {
     if (invMass[i] === 0) return;
     // Verlet velocity tersirat di (pos - prev): geser prev berlawanan arah.
-    previous[i * 3]! -= vx * 0.016;
-    previous[i * 3 + 1]! -= vy * 0.016;
-    previous[i * 3 + 2]! -= vz * 0.016;
+    // Skala 1/60 (satu frame 60fps nominal, audit #20 — bukan hardcode magis).
+    previous[i * 3]! -= vx / 60;
+    previous[i * 3 + 1]! -= vy / 60;
+    previous[i * 3 + 2]! -= vz / 60;
   }
 
   function pickNearest(x: number, y: number, z: number, maxCount: number): number[] {

@@ -13,6 +13,9 @@ export interface ClothMaterialOptions {
   isMultiPart?: boolean;
   materialFinish?: string;
   windStrength?: number;
+  // Tier-low HP: MeshStandardMaterial tanpa sheen/clearcoat (audit #25 —
+  // physical penuh + sheen>1 bikin HP kentang ngos-ngosan).
+  lowTier?: boolean;
 }
 
 let cachedNormalMap: THREE.CanvasTexture | null = null;
@@ -31,7 +34,7 @@ function getNormalMap(): THREE.CanvasTexture {
  * - Menerapkan micro-weave normal bump map
  * - Mengatur roughness difus khas katun tebal 240/280 GSM, fleece 380 GSM, dan ripstop jacket
  */
-export function createClothPhysicalMaterial(options: ClothMaterialOptions): THREE.MeshPhysicalMaterial {
+export function createClothPhysicalMaterial(options: ClothMaterialOptions): THREE.MeshStandardMaterial {
   const {
     archetype,
     color,
@@ -39,6 +42,7 @@ export function createClothPhysicalMaterial(options: ClothMaterialOptions): THRE
     isMultiPart = false,
     materialFinish = "standard",
     windStrength = 0,
+    lowTier = false,
   } = options;
 
   const baseColor = isMultiPart ? new THREE.Color(0xffffff) : new THREE.Color(color);
@@ -92,11 +96,33 @@ export function createClothPhysicalMaterial(options: ClothMaterialOptions): THRE
 
   const normalMap = getNormalMap();
 
+  // Tier-low: standard material (sheen/clearcoat dimatikan total).
+  if (lowTier) {
+    const mat = new THREE.MeshStandardMaterial({
+      color: baseColor,
+      roughness: Math.min(1, roughness),
+      metalness,
+      wireframe: isWireframe,
+      side: THREE.DoubleSide,
+      vertexColors: isMultiPart,
+      normalMap: normalMap || null,
+      normalScale: new THREE.Vector2(normalScaleValue, normalScaleValue),
+    });
+    if (windStrength > 0) {
+      try {
+        applyWindToMaterial(mat as any, windStrength);
+      } catch {}
+    }
+    return mat;
+  }
+
+  // Sheen tak boleh >1 (audit #25 — hoodie terang 1.15 di-clamp).
+  const safeSheen = Math.min(1, sheen);
   const mat = new THREE.MeshPhysicalMaterial({
     color: baseColor,
     roughness,
     metalness,
-    sheen,
+    sheen: safeSheen,
     sheenRoughness,
     sheenColor,
     clearcoat,

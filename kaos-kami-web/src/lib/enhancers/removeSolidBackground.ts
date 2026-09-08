@@ -1,7 +1,19 @@
 /**
- * Instant <10ms Canvas Chroma-Key algorithm to remove solid backgrounds (white or black JPGs)
- * Works client-side with 0KB extra bundle.
+ * Instant Canvas background remover (<10ms untuk foto HP, 0KB bundle).
+ *
+ * Metode: FLOOD-FILL dari tepi (audit #28 — chroma-key global lama MEMAKAN
+ * putih interior kaos/gambar!). Hanya piksel yang TERHUBUNG ke tepi yang
+ * dihapus + feather 1px di perbatasan agar tidak bergerigi.
+ * Target: "white" (kertas/foto produk) atau "black" (foto malam).
  */
+
+function matchTarget(r: number, g: number, b: number, targetColor: "white" | "black", tolerance: number): boolean {
+  if (targetColor === "white") {
+    const t = 255 - tolerance;
+    return r >= t && g >= t && b >= t;
+  }
+  return r <= tolerance && g <= tolerance && b <= tolerance;
+}
 
 export function removeSolidBackground(
   imageSource: string | HTMLImageElement,
@@ -18,32 +30,79 @@ export function removeSolidBackground(
           return;
         }
 
-        canvas.width = img.naturalWidth || img.width;
-        canvas.height = img.naturalHeight || img.height;
+        const w = img.naturalWidth || img.width;
+        const h = img.naturalHeight || img.height;
+        // Cap 1600px: flood-fill O(n) + getImageData besar bikin HP hang.
+        const k = Math.min(1, 1600 / Math.max(w, h));
+        canvas.width = Math.max(1, Math.round(w * k));
+        canvas.height = Math.max(1, Math.round(h * k));
 
-        ctx.drawImage(img, 0, 0);
+        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
 
         const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
         const data = imgData.data;
+        const W = canvas.width;
+        const H = canvas.height;
 
-        const threshold = targetColor === "white" ? 255 - tolerance : tolerance;
+        // Flood-fill dari SEMUA piksel tepi (atas/bawah/kiri/kanan).
+        const visited = new Uint8Array(W * H);
+        const stack: number[] = [];
+        const push = (x: number, y: number) => {
+          if (x < 0 || y < 0 || x >= W || y >= H) return;
+          const idx = y * W + x;
+          if (visited[idx]) return;
+          const o = idx * 4;
+          if (!matchTarget(data[o]!, data[o + 1]!, data[o + 2]!, targetColor, tolerance)) return;
+          visited[idx] = 1;
+          stack.push(idx);
+        };
+        for (let x = 0; x < W; x++) {
+          push(x, 0);
+          push(x, H - 1);
+        }
+        for (let y = 0; y < H; y++) {
+          push(0, y);
+          push(W - 1, y);
+        }
+        let removed = 0;
+        while (stack.length > 0) {
+          const idx = stack.pop()!;
+          const x = idx % W;
+          const y = (idx - x) / W;
+          data[idx * 4 + 3] = 0;
+          removed++;
+          push(x + 1, y);
+          push(x - 1, y);
+          push(x, y + 1);
+          push(x, y - 1);
+        }
 
-        for (let i = 0; i < data.length; i += 4) {
-          const r = data[i] ?? 0;
-          const g = data[i + 1] ?? 0;
-          const b = data[i + 2] ?? 0;
-
-          const isMatch =
-            targetColor === "white"
-              ? r >= threshold && g >= threshold && b >= threshold
-              : r <= threshold && g <= threshold && b <= threshold;
-
-          if (isMatch) {
-            data[i + 3] = 0; // Set Alpha transparency to 0
-          }
+        // Tak ada yang terhapus dari tepi = background bukan solid tepi;
+        // JANGAN hapus apa-apa (lebih aman daripada melubangi gambar).
+        if (removed === 0) {
+          resolve(canvas.toDataURL("image/png"));
+          return;
         }
 
         ctx.putImageData(imgData, 0, 0);
+
+        // Feather 1px: rata-rata alpha tajam + blur = tepi semi-transparan.
+        // (RGB dibiarkan tajam — hanya alpha yang dihaluskan.)
+        const mask = document.createElement("canvas");
+        mask.width = W;
+        mask.height = H;
+        const mctx = mask.getContext("2d");
+        if (mctx) {
+          mctx.filter = "blur(1px)";
+          mctx.drawImage(canvas, 0, 0);
+          const sharp = ctx.getImageData(0, 0, W, H);
+          const blurred = mctx.getImageData(0, 0, W, H);
+          for (let i = 3; i < sharp.data.length; i += 4) {
+            sharp.data[i] = Math.round((sharp.data[i]! + blurred.data[i]!) / 2);
+          }
+          ctx.putImageData(sharp, 0, 0);
+        }
+
         resolve(canvas.toDataURL("image/png"));
       } catch (err) {
         reject(err);
@@ -54,7 +113,7 @@ export function removeSolidBackground(
       const img = new Image();
       img.crossOrigin = "anonymous";
       img.onload = () => processImage(img);
-      img.onerror = (e) => reject(new Error("Failed to load image for background removal"));
+      img.onerror = () => reject(new Error("Failed to load image for background removal"));
       img.src = imageSource;
     } else {
       processImage(imageSource);

@@ -23,7 +23,7 @@ export const DecalGizmo: React.FC<DecalGizmoProps> = ({ surfaceZ = 0.18 }) => {
     setGizmoDragging,
     activeApparel,
   } = useConfiguratorStore();
-  const { size } = useThree();
+  const { size, camera } = useThree();
 
   const [activeGizmoTool, setActiveGizmoTool] = useState<"move" | "scale" | "rotate" | null>(null);
 
@@ -116,12 +116,19 @@ export const DecalGizmo: React.FC<DecalGizmoProps> = ({ surfaceZ = 0.18 }) => {
 
     if (!activeGizmoTool) return;
 
-    const dx = (e.clientX - dragRef.current.startX) / (size.width * 0.45);
-    const dy = (e.clientY - dragRef.current.startY) / (size.height * 0.45);
+    // Drag akurat-cm (audit #4): konversi piksel → unit dunia via kamera
+    // (bukan fraksi viewport mentah yang beda arti tiap zoom).
+    const cam = camera as any;
+    const dist = cam?.position ? Math.hypot(cam.position.x, cam.position.y, cam.position.z) : 2.9;
+    const fov = ((cam?.fov ?? 40) * Math.PI) / 180;
+    const worldPerPixel = (2 * dist * Math.tan(fov / 2)) / Math.max(1, size.height);
+    const dx = (e.clientX - dragRef.current.startX) * worldPerPixel;
+    const dy = (e.clientY - dragRef.current.startY) * worldPerPixel;
 
     if (activeGizmoTool === "move") {
-      const nextX = Math.max(-0.25, Math.min(0.25, dragRef.current.initialX + dx));
-      const nextY = Math.max(-0.25, Math.min(0.25, dragRef.current.initialY - dy));
+      // SSOT store ±0.35 (audit #4 — gizmo ±0.25 beda sendiri).
+      const nextX = Math.max(-0.35, Math.min(0.35, dragRef.current.initialX + dx));
+      const nextY = Math.max(-0.35, Math.min(0.35, dragRef.current.initialY - dy));
       updateDecal(activeDecal.id, { x: nextX, y: nextY });
     } else if (activeGizmoTool === "scale") {
       const deltaScale = 1 + dx * 1.5;
@@ -162,23 +169,34 @@ export const DecalGizmo: React.FC<DecalGizmoProps> = ({ surfaceZ = 0.18 }) => {
   }
 
   // Badge cm dari SSOT kalibrasi terukur (SAMA dengan pricing engine).
-  // Rumus offset kerah ×36.0 disamakan dengan computePhysicalPrintDimensions.
+  // Kerah per-apparel dari spek (audit #4 — hardcode 0.18 salah s/d 1,4cm).
   // Jangkar lengan per apparel (bukan ±0.27 global).
   const spec = APPAREL_PHYSICAL_SPECS[activeApparel];
   const sleeveX = spec?.sleeveAnchorX ?? 0.27;
+  const collarY = spec?.collarBaselineY ?? 0.18;
+  const sleeveSlide = Math.max(-0.12, Math.min(0.12, activeDecal.x));
 
   if (isLeftSleeve) {
-    gizmoPos = [-sleeveX, activeDecal.y, activeDecal.x];
-    gizmoRot = [0, -Math.PI / 2, 0];
+    // Tanpa rotasi grup: Html drei selalu menghadap kamera; rotasi 90° bikin
+    // panel edge-on tak bisa diklik (audit #4). Posisi saja yang dijangkar.
+    gizmoPos = [-sleeveX, activeDecal.y, sleeveSlide];
+    gizmoRot = [0, 0, 0];
   } else if (isRightSleeve) {
-    gizmoPos = [sleeveX, activeDecal.y, -activeDecal.x];
-    gizmoRot = [0, Math.PI / 2, 0];
+    gizmoPos = [sleeveX, activeDecal.y, sleeveSlide];
+    gizmoRot = [0, 0, 0];
   }
+  // Lebar badge per sisi dari spek (audit #4 — maxFront untuk semua sisi salah).
+  const sideMaxCm =
+    activeDecal.targetSide === "back"
+      ? (spec?.maxBackWidthCm ?? 30.0)
+      : activeDecal.targetSide === "left_sleeve" || activeDecal.targetSide === "right_sleeve"
+        ? (spec?.maxSleeveWidthCm ?? 8.5)
+        : (spec?.maxFrontWidthCm ?? 30.0);
   const widthCm = Math.min(
-    spec?.maxFrontWidthCm ?? 30.0,
+    sideMaxCm,
     Math.round(activeDecal.scale * (spec?.meshMultiplier ?? 101.8) * 10) / 10
   );
-  const offsetCollarCm = Math.max(2.0, Math.round((0.18 - activeDecal.y) * 36.0 * 10) / 10);
+  const offsetCollarCm = Math.max(2.0, Math.round((collarY - activeDecal.y) * (spec?.meshMultiplier ?? 101.8) * 10) / 10);
 
   return (
     <group position={gizmoPos} rotation={gizmoRot}>

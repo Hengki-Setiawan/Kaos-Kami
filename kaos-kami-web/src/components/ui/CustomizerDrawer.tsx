@@ -169,13 +169,14 @@ export const CustomizerDrawer: React.FC = () => {
   const [isAuthOpen, setIsAuthOpen] = useState(false);
   const { data: session } = useSession();
 
-  const handleAddTextDecal = () => {
+  const handleAddTextDecal = async () => {
     if (!customTextString.trim()) return;
-    const textDataUrl = generateTextDecalDataUrl({
+    const textDataUrl = await generateTextDecalDataUrl({
       text: customTextString,
       fontFamily: customTextFont,
       textColor: customTextColor,
     });
+    if (!textDataUrl) return;
 
     const id = addDecal({
       name: `Teks: ${customTextString.slice(0, 10)}`,
@@ -200,6 +201,7 @@ export const CustomizerDrawer: React.FC = () => {
 
   // Real-Time DPI & Aspect Ratio Quality Analyzer — uses actual image naturalWidth and naturalHeight
   const [decalPixelWidth, setDecalPixelWidth] = useState<number>(1200);
+  const [decalPixelHeight, setDecalPixelHeight] = useState<number>(1200);
   const [decalAspectRatio, setDecalAspectRatio] = useState<number>(1.0);
 
   useEffect(() => {
@@ -209,10 +211,12 @@ export const CustomizerDrawer: React.FC = () => {
       const w = img.naturalWidth || img.width || 1200;
       const h = img.naturalHeight || img.height || 1200;
       setDecalPixelWidth(w);
+      setDecalPixelHeight(h);
       setDecalAspectRatio(h > 0 ? w / h : 1.0);
     };
     img.onerror = () => {
       setDecalPixelWidth(1200);
+      setDecalPixelHeight(1200);
       setDecalAspectRatio(1.0);
     };
     img.src = activeDecal.url;
@@ -232,8 +236,14 @@ export const CustomizerDrawer: React.FC = () => {
 
   const qualityReport = useMemo(() => {
     if (!physicalDimensions) return null;
-    return evaluatePrintQuality(decalPixelWidth, physicalDimensions.widthCm);
-  }, [physicalDimensions, decalPixelWidth]);
+    // 2 sumbu (audit #21): pakai tinggi riil, bukan default 28,5cm.
+    return evaluatePrintQuality(
+      decalPixelWidth,
+      physicalDimensions.widthCm,
+      decalPixelHeight,
+      (physicalDimensions as any).heightCm || physicalDimensions.widthCm
+    );
+  }, [physicalDimensions, decalPixelWidth, decalPixelHeight]);
 
   // Handler: 1-Click White Background Remover (<10ms Canvas Chroma-Key)
   const handleRemoveWhiteBg = async () => {
@@ -287,12 +297,16 @@ export const CustomizerDrawer: React.FC = () => {
 
     try {
       setIsEnhancingImage(true);
-      // Auto-compress large phone camera uploads to max 1200px (Saves up to 90% DB storage while keeping 300 DPI print crispness)
-      const compressedDataUrl = await compressImageClient(file, { maxDimension: 1200, quality: 0.9 });
+      // Kompres untuk PREVIEW 3D (hemat DB). Master produksi = ekspor 300 DPI
+      // dari tab Pola 2D — bukan file ini (audit #27).
+      const { dataUrl, previewDpiAt30cm } = await compressImageClient(file, { maxDimension: 1200, quality: 0.9 });
+      if (previewDpiAt30cm < 150) {
+        setEnhancementMessage(`Resolusi foto rendah (~${previewDpiAt30cm} DPI @30cm). Hasil cetak bisa pecah — pakai file asli beresolusi tinggi.`);
+      }
 
       const id = addDecal({
         name: `Sablon ${decals.length + 1} (${file.name.slice(0, 8)})`,
-        url: compressedDataUrl,
+        url: dataUrl,
         targetSide: "front",
         x: 0,
         y: -0.05, // Clean chest placement, below neck/hood
@@ -324,7 +338,10 @@ export const CustomizerDrawer: React.FC = () => {
       const wasRotating = isRotating;
       if (!wasRotating) toggleRotating();
 
-      // Capture 30fps video stream from Three.js canvas
+      // Capture 30fps video stream dari kanvas WebGL (bukan kanvas Fabric 2D —
+      // audit #39: querySelector("canvas") mentah bisa dapat kanvas yang salah).
+      const canvas = document.querySelector(".webgl-canvas-container canvas") as HTMLCanvasElement | null;
+      if (!canvas) return;
       const stream = (canvas as any).captureStream ? (canvas as any).captureStream(30) : null;
       if (!stream) {
         alert("Browser Anda tidak mendukung perekaman kanvas 3D langsung.");
@@ -380,7 +397,8 @@ export const CustomizerDrawer: React.FC = () => {
   };
 
   const handleExportPNG = (viewName: string = "mockup") => {
-    const canvas = document.querySelector("canvas");
+    // Scope ke kanvas WebGL (audit #39 — querySelector mentah bisa dapat Fabric).
+    const canvas = document.querySelector(".webgl-canvas-container canvas") as HTMLCanvasElement | null;
     if (!canvas) return;
     const dataUrl = canvas.toDataURL("image/png");
     const link = document.createElement("a");

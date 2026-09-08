@@ -16,10 +16,18 @@ export interface QualityReport {
 
 export function evaluatePrintQuality(
   imagePixelWidth: number = 1200,
-  printWidthCm: number = 28.5
+  printWidthCm: number = 28.5,
+  // Sumbu ke-2 (audit #21 — DPI 1 sumbu menipu bila artwork portrait/
+  // stretch). DPI efektif = sumbu TERKECIL (yang paling dulu pecah).
+  imagePixelHeight?: number,
+  printHeightCm?: number
 ): QualityReport {
-  const widthInches = Math.max(0.5, printWidthCm / 2.54);
-  const dpi = Math.round(imagePixelWidth / widthInches);
+  const wIn = Math.max(0.5, printWidthCm / 2.54);
+  let dpi = Math.round(imagePixelWidth / wIn);
+  if (imagePixelHeight && printHeightCm) {
+    const hIn = Math.max(0.5, printHeightCm / 2.54);
+    dpi = Math.min(dpi, Math.round(imagePixelHeight / hIn));
+  }
 
   if (dpi >= 300) {
     return {

@@ -10,12 +10,14 @@ import { DecalLayerRenderer } from "./DecalLayerRenderer";
 import { applyWindToMaterial } from "@/lib/shaders/windDisplacement";
 import { ensureWindWeights } from "@/lib/geometryPrep";
 import { createClothPhysicalMaterial } from "@/lib/materials/clothPhysicalMaterial";
+import { useDeviceTier } from "@/hooks/useDeviceTier";
 
 const MODEL_PATH = "/models/tshirt-heavyweight.glb";
 useGLTF.preload(MODEL_PATH);
 
 const GltfTshirt: React.FC = () => {
   const meshRef = useRef<THREE.Group>(null);
+  const { tier } = useDeviceTier();
   const { nodes, materials } = useGLTF(MODEL_PATH) as any;
   const {
     selectedColor,
@@ -78,8 +80,9 @@ const GltfTshirt: React.FC = () => {
       isMultiPart: activeColorMode === "multi-part",
       materialFinish,
       windStrength,
+      lowTier: tier === "low",
     });
-  }, [selectedColor, isWireframe, activeColorMode, materialFinish, windStrength]);
+  }, [selectedColor, isWireframe, activeColorMode, materialFinish, windStrength, tier]);
 
   useEffect(() => {
     // Afilah multi-part: if multi-part mode, override with first part color

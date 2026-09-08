@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect } from "react";
+import React from "react";
 import { Decal, useTexture } from "@react-three/drei";
 import { useConfiguratorStore } from "@/store/useConfiguratorStore";
 import { APPAREL_PHYSICAL_SPECS, maxDecalScaleUnits, REAL_WORLD_PRINT_LIMITS } from "@/lib/scaleCalibration";
@@ -9,14 +9,13 @@ import type { DecalLayer } from "@/lib/constants";
 const SingleDecalItem: React.FC<{
   decal: DecalLayer;
   surfaceZ: number;
-}> = ({ decal, surfaceZ }) => {
+  order: number;
+}> = ({ decal, surfaceZ, order }) => {
   const uploaded = useTexture(decal.url);
 
-  useEffect(() => {
-    return () => {
-      uploaded.dispose();
-    };
-  }, [uploaded]);
+  // JANGAN dispose: drei useTexture cache per-URL dipakai bersama —
+  // dispose di sini = flicker/use-after-dispose di decal lain (audit #5c).
+  // Cache drei + unmount GC sudah cukup untuk sesi studio.
 
   const isBack = decal.targetSide === "back";
   const isLeftSleeve = decal.targetSide === "left_sleeve";
@@ -31,17 +30,24 @@ const SingleDecalItem: React.FC<{
   let posZ = isBack ? -surfaceZ : surfaceZ;
   let rotY = isBack ? Math.PI : 0;
   const rotZ = (decal.rotation * Math.PI) / 180;
+  // Epsilon sepanjang normal agar tak z-fight (riset three.js resmi).
+  const EPS = 0.004;
 
+  // Lengan: geser melingkar dibatasi ±0.12 (audit #5d — ±0.35 penuh bikin
+  // bidang datar melayang dari lengkung lengan) + epsilon keluar permukaan.
+  const sleeveSlide = Math.max(-0.12, Math.min(0.12, decal.x));
   if (isLeftSleeve) {
     // Proyeksi ke lengan kiri (X negatif)
-    posX = -sleeveX;
-    posZ = decal.x; // slider X mengatur geser maju-mundur di lengan
+    posX = -sleeveX - EPS;
+    posZ = sleeveSlide;
     rotY = -Math.PI / 2;
   } else if (isRightSleeve) {
     // Proyeksi ke lengan kanan (X positif)
-    posX = sleeveX;
-    posZ = -decal.x;
+    posX = sleeveX + EPS;
+    posZ = sleeveSlide;
     rotY = Math.PI / 2;
+  } else {
+    posZ = (isBack ? -surfaceZ : surfaceZ) + (isBack ? -EPS : EPS);
   }
 
   // Starklord technique: anisotropy 16 + depth tuning for crisp decal at angle
@@ -55,10 +61,12 @@ const SingleDecalItem: React.FC<{
   const imgHeight = (uploaded.image as any)?.height || 1;
   const aspect = imgWidth > 0 && imgHeight > 0 ? imgWidth / imgHeight : 1;
 
-  // Auto-koreksi data legacy dari localStorage (jika scale tersimpan > 0.22, normalisasi ke skala metrik 1:1)
+  // Auto-koreksi data legacy dari localStorage (skala unit lama → metrik 1:1),
+  // lalu jepit ke batas SSOT maxDecalScaleUnits (audit #5a — cap 0.162 lama
+  // membuat 30cm tak pernah tercapai di render walau gizmo mengizinkan).
   let normalizedScale = decal.scale;
   if (normalizedScale > 0.22) {
-    normalizedScale = Math.min(0.162, normalizedScale * 0.22);
+    normalizedScale = normalizedScale * 0.22;
   }
   // Kunci keras pada batas fisik printhead roll DTF workshop Makassar —
   // batas UNIT dihitung dari multiplier terukur agar 30cm benar-benar tercapai.
@@ -87,14 +95,18 @@ const SingleDecalItem: React.FC<{
       rotation={[0, rotY, rotZ]}
       scale={[scaleX, scaleY, 0.35]}
     >
+      {/* Kombinasi kanonis three.js resmi (audit #5b — sebelumnya terbalik:
+          depthTest:false bikin decal belakang tembus = ghosting).
+          Factor turun per layer agar decal bertumpuk konsisten. */}
       <meshStandardMaterial
         map={uploaded}
         transparent
         opacity={decal.opacity}
         polygonOffset
-        polygonOffsetFactor={-10}
-        depthTest={false}
-        depthWrite={true}
+        polygonOffsetFactor={-4 - order}
+        polygonOffsetUnits={-4}
+        depthTest
+        depthWrite={false}
         roughness={0.8}
         metalness={0}
       />
@@ -117,10 +129,11 @@ export const DecalLayerRenderer: React.FC<{
 
   return (
     <>
-      {decals.map((decal) => (
+      {decals.map((decal, i) => (
         <SingleDecalItem
           key={decal.id}
           decal={decal}
+          order={i}
           surfaceZ={decal.targetSide === "front" ? surfaceZFront : surfaceZBack}
         />
       ))}

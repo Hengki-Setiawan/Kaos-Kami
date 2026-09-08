@@ -31,6 +31,9 @@ export function getPanelGeometry(apparel: ApparelType, panel: PatternPanel): Pan
       label: panel === "front" ? "Depan" : "Belakang",
     };
   }
+  // Panel lengan: artboard = area sablon + margin jahit keliling.
+  // Faktor 2.2 TERDOKUMENTASI (audit #17): diameter lengan ≈ 2× lebar cetak
+  // (depan+belakang lengan) + 10% margin pola. Bukan angka sembarang.
   return {
     wCm: spec.maxSleeveWidthCm * 2.2,
     hCm: spec.maxSleeveHeightCm,
@@ -54,5 +57,7 @@ export function cmToUnits(apparel: ApparelType, cm: number): number {
 export const PRINT_DPI = 300;
 export const PX_PER_CM_300DPI = PRINT_DPI / 2.54;
 
-/** Resolusi kanvas EDITOR (px per cm) — ringan untuk HP. */
-export const EDITOR_PX_PER_CM = 6;
+/** Resolusi kanvas EDITOR (px per cm) — snap 1,25mm, masih ringan untuk HP.
+ * Dipakai simetris (× dan ÷) di patternSync + PatternStudio sehingga aman naik
+ * dari 6 (audit #17). Ekspor 300 DPI tak terpengaruh (faktor k terpisah). */
+export const EDITOR_PX_PER_CM = 8;

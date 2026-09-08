@@ -12,8 +12,8 @@
  * - hoodie & crewneck (mesh hoodie.glb sama): 60 / 0.631 = 95.1 / 58 / 0.631 = 91.9
  * - shirt (coach jacket, lengan terentang 2.0 unit): kalibrasi via TINGGI
  *   74 / 1.065 = 69.5 agar area dada proporsional.
- * Faktor Y offset kerah (36.0) EMPIRIS — dikalibrasi ke standar industri
- * 3 inch (7.6cm) drop kerah untuk full-front (bukan dari proporsi sculpt).
+ * Offset kerah = (collarBaselineY − decalY) × meshMultiplier (faktor 36.0 lama
+ * terbukti SALAH Sep 2026 — diganti multiplier agar konsisten dengan sumbu X).
  */
 
 import type { DecalTargetSide } from "./constants";
@@ -33,6 +33,10 @@ export interface ApparelSpec {
   measuredMeshWidthUnits: number;
   /** Jangkar X lengan di mesh (unit 3D) — posisi jahitan bahu terukur per apparel. */
   sleeveAnchorX: number;
+  /** Y kerah di mesh (unit 3D), TERUKUR per apparel (0.14–0.18).
+   * Konversi ke cm SELALU via meshMultiplier apparel tsb (bukan konstanta
+   * global) — setiap apparel diskala dari mesh-nya sendiri (audit #15).
+   * Rumus offset = (collarBaselineY − decalY) × meshMultiplier. */
   collarBaselineY: number;
 }
 
@@ -207,11 +211,12 @@ export function computePhysicalPrintDimensions(
   const rawHeight = widthCm / validAspectRatio;
   const heightCm = Math.min(maxHeight, Math.max(3.5, Math.round(rawHeight * 10) / 10));
 
-  // Konversi posisi Y ke jarak turun dari kerah dalam cm
+  // Konversi posisi Y ke jarak turun dari kerah dalam cm — via meshMultiplier
+  // apparel ini (audit #15: faktor 36.0 lama SALAH, hasilnya ~1/3 jarak asli).
   const normalizedDistance = Math.max(0, spec.collarBaselineY - decalY);
   const offsetFromCollarCm = Math.max(
     2.0,
-    Math.round(normalizedDistance * 36.0 * 10) / 10
+    Math.round(normalizedDistance * spec.meshMultiplier * 10) / 10
   );
 
   const isWithinProductionLimits = widthCm <= maxWidth && heightCm <= maxHeight;

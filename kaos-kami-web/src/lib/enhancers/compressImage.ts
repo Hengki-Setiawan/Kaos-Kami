@@ -1,9 +1,11 @@
 /**
  * CLIENT-SIDE IMAGE COMPRESSION UTILITY FOR 3D DECALS
- * Resizes large smartphone camera photos (>5MB) down to optimized print-ready
- * dimensions (max 1200px width/height) while preserving transparency.
- * Shrinks JSON payload by up to 90% (from ~7MB base64 down to ~350KB),
- * preventing database bloat and network timeouts on mobile 4G.
+ * Mengecilkan foto HP (>5MB) agar aman di JSON/DB (≤~350KB).
+ *
+ * KEJUJURAN (audit #27): output ini untuk PREVIEW 3D, BUKAN master produksi.
+ * 1200px @30cm = ~101 DPI (kategori POOR untuk cetak). Master produksi yang
+ * sesungguhnya = file ASLI (disimpan terpisah) atau ekspor 300 DPI dari
+ * PatternStudio. Jangan klaim "print-ready" untuk hasil fungsi ini.
  */
 
 export interface CompressImageOptions {
@@ -11,10 +13,16 @@ export interface CompressImageOptions {
   quality?: number;
 }
 
+function hasAlpha(img: HTMLImageElement): boolean {
+  // Heuristik cepat: PNG kemungkinan ber-alpha; JPEG pasti tidak.
+  // (Deteksi piksel penuh terlalu mahal untuk util upload.)
+  return false;
+}
+
 export function compressImageClient(
   file: File,
   options: CompressImageOptions = {}
-): Promise<string> {
+): Promise<{ dataUrl: string; format: "jpeg" | "png"; width: number; height: number; previewDpiAt30cm: number }> {
   const { maxDimension = 1200, quality = 0.9 } = options;
 
   return new Promise((resolve, reject) => {
@@ -44,7 +52,13 @@ export function compressImageClient(
         const ctx = canvas.getContext("2d");
         if (!ctx) {
           // Fallback to original if canvas fails
-          resolve(e.target?.result as string);
+          resolve({
+            dataUrl: e.target?.result as string,
+            format: "jpeg",
+            width: img.width,
+            height: img.height,
+            previewDpiAt30cm: Math.round(Math.max(img.width, img.height) / (30 / 2.54)),
+          });
           return;
         }
 
@@ -52,9 +66,21 @@ export function compressImageClient(
         ctx.clearRect(0, 0, width, height);
         ctx.drawImage(img, 0, 0, width, height);
 
-        // Keep as PNG for transparency
-        const compressedDataUrl = canvas.toDataURL("image/png");
-        resolve(compressedDataUrl);
+        // Format adaptif (audit #27): JPEG+quality untuk foto (90% lebih kecil),
+        // PNG hanya bila sumbernya PNG (kemungkinan ber-transparansi).
+        // toDataURL PNG mengabaikan quality — jangan oper quality ke PNG.
+        const srcIsPng = file.type === "image/png";
+        const q = Math.min(1, Math.max(0.5, quality));
+        const dataUrl = srcIsPng
+          ? canvas.toDataURL("image/png")
+          : canvas.toDataURL("image/jpeg", q);
+        resolve({
+          dataUrl,
+          format: srcIsPng ? "png" : "jpeg",
+          width,
+          height,
+          previewDpiAt30cm: Math.round(Math.max(width, height) / (30 / 2.54)),
+        });
       };
 
       img.onerror = () => {

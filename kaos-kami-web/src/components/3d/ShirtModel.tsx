@@ -50,8 +50,9 @@ const GltfJacket: React.FC = () => {
       isMultiPart: activeColorMode === "multi-part",
       materialFinish,
       windStrength,
+      lowTier: tier === "low",
     });
-  }, [selectedColor, isWireframe, activeColorMode, materialFinish, windStrength]);
+  }, [selectedColor, isWireframe, activeColorMode, materialFinish, windStrength, tier]);
 
   // Merge and center all 10 jacket sub-meshes + vertex colors for multi-part
   const mergedGeometry = useMemo(() => {
@@ -70,6 +71,12 @@ const GltfJacket: React.FC = () => {
 
     try {
       const merged = BufferGeometryUtils.mergeGeometries(geoms, false);
+      // Clone perantara dibuang setelah merge (audit #6 — leak VRAM).
+      for (const g of geoms) {
+        try {
+          g.dispose();
+        } catch {}
+      }
       if (merged) {
         merged.center();
         merged.computeVertexNormals();
@@ -106,6 +113,18 @@ const GltfJacket: React.FC = () => {
     }
     return null;
   }, [scene, activeColorMode, partColors, selectedColor]);
+
+  // Dispose geometri merge + material saat unmount/ganti (audit #6).
+  useEffect(() => {
+    return () => {
+      try {
+        mergedGeometry?.dispose();
+      } catch {}
+      try {
+        (material as any)?.dispose?.();
+      } catch {}
+    };
+  }, [mergedGeometry, material]);
 
   useFrame((state, delta) => {
     if (activeColorMode !== "multi-part") {

@@ -4,9 +4,14 @@ import React from "react";
 import { Color } from "three";
 import { ContactShadows } from "@react-three/drei";
 import { useConfiguratorStore } from "@/store/useConfiguratorStore";
+import { useDeviceTier } from "@/hooks/useDeviceTier";
 
 export const StudioLighting: React.FC = () => {
   const { studioTheme, lightingPreset, selectedColor } = useConfiguratorStore();
+  // Tiering HP (audit #10): tier-low = rig ramping (ambient+key+rear),
+  // tanpa spot/point/rim ganda/shadow agar HP kentang tidak ngos-ngosan.
+  const { tier } = useDeviceTier();
+  const isLow = tier === "low" || tier === "no-webgl";
 
   const isLightMode = studioTheme === "gallery";
   const shadowColor = isLightMode ? "#707080" : "#050508";
@@ -38,7 +43,7 @@ export const StudioLighting: React.FC = () => {
       <directionalLight
         position={[3.5, 6, 4.5]}
         intensity={isLightMode ? 1.5 : lightingPreset === "cyber" ? 1.2 : k(1.35)}
-        castShadow
+        castShadow={!isLow}
         shadow-mapSize={[1024, 1024]}
         shadow-bias={-0.0001}
         shadow-camera-near={0.5}
@@ -64,32 +69,40 @@ export const StudioLighting: React.FC = () => {
       />
 
       {/* 5. BALANCED SHOULDER RIM LIGHTS (Clean silhouette separation without washing out dark tones) */}
-      <directionalLight
-        position={[-3, 4, -3]}
-        intensity={isLightMode ? 0.8 : k(1.15)}
-        color="#ffffff"
-      />
-      <directionalLight
-        position={[3, 4, -3]}
-        intensity={isLightMode ? 0.8 : k(1.15)}
-        color="#ffffff"
-      />
+      {!isLow && (
+        <>
+          <directionalLight
+            position={[-3, 4, -3]}
+            intensity={isLightMode ? 0.8 : k(1.15)}
+            color="#ffffff"
+          />
+          <directionalLight
+            position={[3, 4, -3]}
+            intensity={isLightMode ? 0.8 : k(1.15)}
+            color="#ffffff"
+          />
+        </>
+      )}
 
       {/* 6. Overhead Collar & Crease Sculpting Light */}
-      <spotLight
-        position={[0, 6, 1]}
-        intensity={isLightMode ? 1.0 : k(1.25)}
-        angle={0.6}
-        penumbra={0.8}
-        color="#ffffff"
-      />
+      {!isLow && (
+        <spotLight
+          position={[0, 6, 1]}
+          intensity={isLightMode ? 1.0 : k(1.25)}
+          angle={0.6}
+          penumbra={0.8}
+          color="#ffffff"
+        />
+      )}
 
       {/* 7. Soft Bottom Bounce */}
-      <pointLight
-        position={[0, -2.5, 1.5]}
-        intensity={0.4}
-        color={lightingPreset === "cyber" ? "#ff4500" : isLightMode ? "#ffffff" : "#ffe8d6"}
-      />
+      {!isLow && (
+        <pointLight
+          position={[0, -2.5, 1.5]}
+          intensity={0.4}
+          color={lightingPreset === "cyber" ? "#ff4500" : isLightMode ? "#ffffff" : "#ffe8d6"}
+        />
+      )}
 
       {/* 7. Ground Contact Shadow */}
       <ContactShadows

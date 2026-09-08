@@ -9,12 +9,14 @@ import { useConfiguratorStore } from "@/store/useConfiguratorStore";
 import { DecalLayerRenderer } from "./DecalLayerRenderer";
 import { ensureWindWeights } from "@/lib/geometryPrep";
 import { createClothPhysicalMaterial } from "@/lib/materials/clothPhysicalMaterial";
+import { useDeviceTier } from "@/hooks/useDeviceTier";
 
 const MODEL_PATH = "/models/longsleeve.glb";
 useGLTF.preload(MODEL_PATH);
 
 const GltfLongsleeve: React.FC = () => {
   const meshRef = useRef<THREE.Group>(null);
+  const { tier } = useDeviceTier();
   const { nodes } = useGLTF(MODEL_PATH) as any;
   const {
     selectedColor,
@@ -81,8 +83,9 @@ const GltfLongsleeve: React.FC = () => {
       isMultiPart: activeColorMode === "multi-part",
       materialFinish,
       windStrength,
+      lowTier: tier === "low",
     });
-  }, [selectedColor, isWireframe, activeColorMode, materialFinish, windStrength]);
+  }, [selectedColor, isWireframe, activeColorMode, materialFinish, windStrength, tier]);
 
   useEffect(() => {
     if (activeColorMode === "multi-part" && Object.keys(partColors).length > 0) {

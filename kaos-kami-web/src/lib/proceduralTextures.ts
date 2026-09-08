@@ -76,19 +76,29 @@ export function createWordmarkDecal(
   ctx.lineWidth = 3;
   ctx.strokeRect(40, 160, 432, 192);
 
-  // Primary bold wordmark
+  // Primary bold wordmark (letterSpacing tak didukung Safari — deteksi fitur,
+  // fallback spasi manual agar tampilan konsisten, audit #24).
+  const spaced = (text: string) =>
+    "letterSpacing" in ctx ? text : text.split("").join("\u2009");
   ctx.fillStyle = "#F5F3EF";
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
   ctx.font = "900 52px 'Arial Black', 'Helvetica Neue', sans-serif";
-  ctx.letterSpacing = "2px";
-  ctx.fillText(label.toUpperCase(), 256, 235);
+  try {
+    (ctx as any).letterSpacing = "2px";
+  } catch {}
+  ctx.fillText(spaced(label.toUpperCase()), 256, 235);
 
   // Signal Tangerine subline
   ctx.font = "700 15px 'Courier New', monospace";
   ctx.fillStyle = "#E65100";
-  ctx.letterSpacing = "4px";
-  ctx.fillText(subtitle.toUpperCase(), 256, 295);
+  try {
+    (ctx as any).letterSpacing = "4px";
+  } catch {}
+  ctx.fillText(spaced(subtitle.toUpperCase()), 256, 295);
+  try {
+    (ctx as any).letterSpacing = "0px";
+  } catch {}
 
   const texture = new THREE.CanvasTexture(canvas);
   texture.needsUpdate = true;

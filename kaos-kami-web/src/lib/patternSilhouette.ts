@@ -56,14 +56,19 @@ export function getPatternSilhouette(apparel: ApparelType, panel: PatternPanel):
   }
 
   const isBack = panel === "back";
+  // Lengan panjang digambar proporsional (audit #18 — w*0.02 bikin lengan
+  // 1cm tak terlihat). Sketsa skematis, bukan pola jahit.
   const sleeveLen =
-    apparel === "longsleeve" ? w * 0.02 : apparel === "tshirt" ? w * 0.16 : w * 0.14;
+    apparel === "longsleeve" ? w * 0.3 : apparel === "tshirt" ? w * 0.16 : w * 0.14;
   const base = teeFront(w, h, sleeveLen, w * 0.22);
   const details: string[] = [...base.details];
   const cx = w / 2;
+  let viewBox = base.viewBox;
 
   if (apparel === "hoodie") {
     // Tudung (hood) di belakang leher + saku kanguru di depan.
+    // viewBox diperluas ke atas agar tudung tak terpotong (audit #18).
+    viewBox = `0 ${r2(-h * 0.09)} ${w} ${r2(h * 1.09)}`;
     details.push(
       `M ${r2(cx - w * 0.16)} 3 Q ${r2(cx)} ${r2(-h * 0.06)} ${r2(cx + w * 0.16)} 3`
     );
@@ -88,5 +93,5 @@ export function getPatternSilhouette(apparel: ApparelType, panel: PatternPanel):
   if (isBack) {
     details.push(`M ${r2(cx - w * 0.05)} ${r2(h * 0.1)} L ${r2(cx + w * 0.05)} ${r2(h * 0.1)}`);
   }
-  return { ...base, details };
+  return { ...base, details, viewBox };
 }

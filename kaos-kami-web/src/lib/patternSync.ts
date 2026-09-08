@@ -3,8 +3,12 @@
 // - scale unit 3D = SISI PANJANG artwork (landscape: lebar, portrait: tinggi)
 // - (x, y) = offset TENGAH artwork dari titik (0,0) mesh, satuan unit
 // - rotasi derajat, opacity 0-1
-// Kanvas 2D: pusat artboard = (0,0) 3D (offset 2mm box diabaikan, di bawah
-// persepsi); X kanan+, Y kanvas ke bawah (dibalik dari Y 3D ke atas).
+// Kanvas 2D: pusat artboard = (0,0) 3D, pemetaan EXACT tanpa offset
+// (audit #19: tak ada konstanta 0,02 yang dibuang — komentar lama "2mm"
+// yang membingungkan sudah dihapus).
+// CATATAN PRODUKSI: stretch non-uniform (tarik 1 sisi) SENGAJA dinormalisasi
+// ke sisi panjang — artwork distorsi tidak boleh naik ke film DTF. Editor
+// mengunci skala uniform (lihat PatternStudio).
 import type { ApparelType, DecalLayer } from "./constants";
 import { cmToUnits, EDITOR_PX_PER_CM, unitsToCm } from "./patternGeometry";
 

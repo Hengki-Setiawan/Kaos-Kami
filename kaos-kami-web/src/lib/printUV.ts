@@ -49,8 +49,12 @@ export async function composePrintFile(
   widthCm: number,
   heightCm: number
 ): Promise<{ dataUrl: string; widthPx: number; heightPx: number; dpi: number }> {
-  const wPx = Math.max(1, Math.round((widthCm / 2.54) * 300));
-  const hPx = Math.max(1, Math.round((heightCm / 2.54) * 300));
+  // Cap 4000px/sisi (audit #22 — 17MP OOM di HP). Proporsi dipertahankan.
+  const rawW = Math.max(1, (widthCm / 2.54) * 300);
+  const rawH = Math.max(1, (heightCm / 2.54) * 300);
+  const k = Math.min(1, 4000 / Math.max(rawW, rawH));
+  const wPx = Math.max(1, Math.round(rawW * k));
+  const hPx = Math.max(1, Math.round(rawH * k));
   const out = document.createElement("canvas");
   out.width = wPx;
   out.height = hPx;
@@ -58,6 +62,15 @@ export async function composePrintFile(
   if (!ctx) throw new Error("Canvas 2D tidak didukung");
   ctx.imageSmoothingEnabled = true;
   ctx.imageSmoothingQuality = "high";
+  // Letterbox contain (audit #22 — stretch drawImage mendistorsi artwork):
+  // gambar diskala proporsional + dipusatkan, sisa transparan.
+  const paint = (sw: number, sh: number, draw: (dx: number, dy: number, dw: number, dh: number) => void) => {
+    const s = Math.min(wPx / sw, hPx / sh);
+    const dw = sw * s;
+    const dh = sh * s;
+    ctx.clearRect(0, 0, wPx, hPx);
+    draw((wPx - dw) / 2, (hPx - dh) / 2, dw, dh);
+  };
   if (typeof source === "string") {
     const img = new Image();
     img.crossOrigin = "anonymous";
@@ -66,11 +79,13 @@ export async function composePrintFile(
       img.onerror = () => reject(new Error("Gagal memuat gambar sumber cetak"));
       img.src = source;
     });
-    ctx.clearRect(0, 0, wPx, hPx);
-    ctx.drawImage(img, 0, 0, wPx, hPx);
+    const sw = img.naturalWidth || wPx;
+    const sh = img.naturalHeight || hPx;
+    paint(sw, sh, (dx, dy, dw, dh) => ctx.drawImage(img, dx, dy, dw, dh));
   } else {
-    ctx.clearRect(0, 0, wPx, hPx);
-    ctx.drawImage(source, 0, 0, wPx, hPx);
+    const sw = source.width || wPx;
+    const sh = source.height || hPx;
+    paint(sw, sh, (dx, dy, dw, dh) => ctx.drawImage(source, dx, dy, dw, dh));
   }
   return {
     dataUrl: out.toDataURL("image/png"),

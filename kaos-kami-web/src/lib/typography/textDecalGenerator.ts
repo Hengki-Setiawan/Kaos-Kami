@@ -40,7 +40,7 @@ export const FONT_PRESETS: { id: TextDecalOptions["fontFamily"]; name: string; c
   },
 ];
 
-export function generateTextDecalDataUrl(options: TextDecalOptions): string {
+export async function generateTextDecalDataUrl(options: TextDecalOptions): Promise<string> {
   const {
     text,
     fontFamily = "streetwear-bold",
@@ -55,17 +55,62 @@ export function generateTextDecalDataUrl(options: TextDecalOptions): string {
 
   if (!ctx) return "";
 
+  // Tunggu font web selesai dimuat (audit #29 — sebelumnya fallback font
+  // diam-diam bila Syne/JetBrains belum siap).
+  try {
+    await Promise.race([
+      Promise.all([
+        (document as any).fonts?.load("900 72px 'Syne'"),
+        (document as any).fonts?.load("700 56px 'JetBrains Mono'"),
+        (document as any).fonts?.ready,
+      ]),
+      new Promise((res) => setTimeout(res, 1500)),
+    ]);
+  } catch {}
+
   // Clear background for pure transparency
   ctx.clearRect(0, 0, canvas.width, canvas.height);
 
   const preset = FONT_PRESETS.find((p) => p.id === fontFamily) ?? FONT_PRESETS[0]!;
 
-  ctx.font = preset.cssFont;
   ctx.fillStyle = textColor;
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
 
-  const upperText = text.trim();
+  const upperText = text.trim().slice(0, 24);
+  if (!upperText) return "";
+
+  // Auto-fit (audit #29 — kanvas 3:1 fix + teks panjang kepotong):
+  // kecilkan font sampai muat dengan margin 60px.
+  let fontPx = 72;
+  const baseFont = (px: number) => preset.cssFont.replace(/\d+px/, `${px}px`);
+  ctx.font = baseFont(fontPx);
+  const maxW = canvas.width - 120;
+  while (fontPx > 20 && ctx.measureText(upperText).width > maxW) {
+    fontPx -= 4;
+    ctx.font = baseFont(fontPx);
+  }
+
+  // letterSpacing: API native bila ada, manual per-huruf bila tidak.
+  const drawSpaced = (text: string, cx: number, cy: number) => {
+    try {
+      (ctx as any).letterSpacing = `${letterSpacing}px`;
+      ctx.fillText(text, cx, cy);
+      (ctx as any).letterSpacing = "0px";
+    } catch {
+      // Fallback manual: gambar per huruf.
+      const widths = Array.from(text).map((ch) => ctx.measureText(ch).width);
+      const total = widths.reduce((a, b) => a + b, 0) + letterSpacing * (text.length - 1);
+      let x = cx - total / 2;
+      const prevAlign = ctx.textAlign;
+      ctx.textAlign = "left";
+      Array.from(text).forEach((ch, i) => {
+        ctx.fillText(ch, x, cy);
+        x += (widths[i] || 0) + letterSpacing;
+      });
+      ctx.textAlign = prevAlign;
+    }
+  };
 
   // Subtle stroke for extra pop on dark/light fabric
   ctx.shadowColor = "rgba(0, 0, 0, 0.4)";
@@ -73,7 +118,7 @@ export function generateTextDecalDataUrl(options: TextDecalOptions): string {
   ctx.shadowOffsetX = 2;
   ctx.shadowOffsetY = 2;
 
-  ctx.fillText(upperText, canvas.width / 2, canvas.height / 2);
+  drawSpaced(upperText, canvas.width / 2, canvas.height / 2);
 
   return canvas.toDataURL("image/png");
 }
