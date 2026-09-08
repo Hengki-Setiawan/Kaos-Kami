@@ -80,3 +80,5 @@ testworker.log
 backups/
 
 cap-upgrade.log
+
+dev-*.log
