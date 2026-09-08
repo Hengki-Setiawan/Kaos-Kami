@@ -240,6 +240,8 @@ model Design {
   previewImageFrontUrl String?
   previewImageBackUrl  String?
   previewImage360Url   String?
+  // Master produksi 300 DPI dari Pola 2D (URL R2 / JSON map per panel).
+  masterAssetUrl       String?
 
   status               DesignStatus    @default(DRAFT)
   cartItems            CartItem[]

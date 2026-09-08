@@ -120,12 +120,16 @@ export async function POST(req: NextRequest) {
         let heightCm = 16.0;
         let placementSide = "front";
         let offsetCm = 7.5;
+        // Master 300 DPI dari Pola 2D (jika desainer mengekspornya) → file
+        // yang dibuka operator press. Bentuk: URL tunggal atau JSON map
+        // per panel {"front": url, ...} — pakai sisi item ini.
+        let masterUrl: string | null = null;
 
         try {
           if ((item as any).designId) {
             const design = await db.query.Design.findFirst({
               where: (t, { eq }) => eq(t.id, (item as any).designId),
-              columns: { decals: true, categoryId: true },
+              columns: { decals: true, categoryId: true, masterAssetUrl: true },
             });
             if (design?.decals) {
               const decals = JSON.parse(design.decals as unknown as string);
@@ -147,6 +151,21 @@ export async function POST(req: NextRequest) {
                 placementSide = first.targetSide || "front";
               }
             }
+            // Master 300 DPI: pilih sisi item ini (placementSide sudah final).
+            const rawMaster = (design as any)?.masterAssetUrl as string | null;
+            if (rawMaster) {
+              try {
+                const parsed = JSON.parse(rawMaster);
+                if (typeof parsed === "object" && parsed !== null) {
+                  masterUrl =
+                    (parsed[placementSide] as string) || (parsed.front as string) || null;
+                } else {
+                  masterUrl = rawMaster;
+                }
+              } catch {
+                masterUrl = rawMaster;
+              }
+            }
           }
         } catch (e) {
           console.warn("Failed to compute dims for task, using default", e);
@@ -163,6 +182,7 @@ export async function POST(req: NextRequest) {
           printHeightCm: heightCm,
           placementSide,
           offsetFromCollarCm: offsetCm,
+          printFileUrl: masterUrl,
         });
       }
 

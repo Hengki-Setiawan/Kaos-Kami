@@ -367,6 +367,17 @@ export const useConfiguratorStore = create<ConfiguratorState>((set, get) => ({
     // Backend sync: POST /api/designs (fire-and-forget, non-blocking)
     try {
       const cat = state.activeApparel;
+      // Sertakan master 300 DPI dari Pola 2D (jika sudah diekspor).
+      let masterAssetUrl: string | undefined;
+      try {
+        const raw = localStorage.getItem("kaoskami_master_assets") || "{}";
+        const all = JSON.parse(raw);
+        const mine: Record<string, unknown> = {};
+        for (const [k, v] of Object.entries(all)) {
+          if (k.startsWith(`${cat}:`)) mine[k.slice(cat.length + 1)] = v;
+        }
+        if (Object.keys(mine).length > 0) masterAssetUrl = JSON.stringify(mine);
+      } catch {}
       fetch("/api/designs", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -381,6 +392,7 @@ export const useConfiguratorStore = create<ConfiguratorState>((set, get) => ({
           studioTheme: newDesign.theme,
           calculatedPriceIdr: newDesign.calculatedPriceIdr,
           priceBreakdown: { totalPrice: pricing.totalPrice },
+          masterAssetUrl,
         }),
       }).catch(() => {});
     } catch {}

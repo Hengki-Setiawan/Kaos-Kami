@@ -26,6 +26,8 @@ export const SaveDesignSchema = z.object({
   priceBreakdown: z.record(z.any()),
   previewImageFrontUrl: z.string().max(500_000).optional(),
   previewImageBackUrl: z.string().max(500_000).optional(),
+  // Master produksi 300 DPI dari Pola 2D (URL R2; JSON map per panel ATAU url tunggal).
+  masterAssetUrl: z.string().max(500_000).optional(),
 });
 
 export type DecalLayerInput = z.infer<typeof DecalLayerSchema>;

@@ -240,6 +240,8 @@ export const Design = sqliteTable(
     previewImageFrontUrl: text("previewImageFrontUrl"),
     previewImageBackUrl: text("previewImageBackUrl"),
     previewImage360Url: text("previewImage360Url"),
+    // Master produksi 300 DPI dari Pola 2D (URL R2 / JSON map per panel).
+    masterAssetUrl: text("masterAssetUrl"),
     status: text("status").notNull().default("DRAFT"),
     createdAt: isoDateTime("createdAt").notNull().$defaultFn(() => new Date()),
     updatedAt: isoDateTime("updatedAt")

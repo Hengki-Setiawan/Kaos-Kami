@@ -39,6 +39,7 @@ export async function POST(req: NextRequest) {
       priceBreakdown,
       previewImageFrontUrl,
       previewImageBackUrl,
+      masterAssetUrl,
     } = validation.data;
 
     // Find category
@@ -94,6 +95,7 @@ export async function POST(req: NextRequest) {
         priceBreakdown: JSON.stringify(priceBreakdown),
         previewImageFrontUrl: finalFrontUrl,
         previewImageBackUrl: finalBackUrl,
+        masterAssetUrl: masterAssetUrl || null,
         status: "SAVED",
       })
       .returning();

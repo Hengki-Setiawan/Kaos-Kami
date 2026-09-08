@@ -15,6 +15,7 @@ import {
   Layers,
   Sparkles,
   Sliders,
+  PenTool,
   Move,
   RotateCw,
   ZoomIn,
@@ -61,7 +62,25 @@ const FabricEditor = dynamic(() => import("./FabricEditor").then((m) => m.Fabric
   loading: () => <p className="text-xs font-mono text-text-muted p-2">Memuat Fabric editor…</p>,
 });
 
-type StudioTab = "apparel" | "decals" | "sandbox" | "saved" | "export";
+// Pola 2D skala-cm (Fabric, lazy — sinkron live ke DecalLayer 3D).
+const PatternStudioLazy = dynamic(
+  () => import("@/components/studio/PatternStudio").then((m) => m.PatternStudio),
+  {
+    ssr: false,
+    loading: () => <p className="text-xs font-mono text-text-muted p-2">Memuat pola 2D…</p>,
+  }
+);
+
+// Lab Kain verlet (lazy — Canvas R3F kecil, hanya saat dibuka).
+const ClothLabLazy = dynamic(
+  () => import("@/components/studio/ClothLab").then((m) => m.ClothLab),
+  {
+    ssr: false,
+    loading: () => <p className="text-xs font-mono text-text-muted p-2">Memuat lab kain…</p>,
+  }
+);
+
+  type StudioTab = "apparel" | "decals" | "pattern" | "sandbox" | "saved" | "export";
 
 export const CustomizerDrawer: React.FC = () => {
   const {
@@ -549,6 +568,7 @@ export const CustomizerDrawer: React.FC = () => {
             {[
               { id: "apparel", label: "APPAREL", icon: Layers },
               { id: "decals", label: `SABLON (${decals.length})`, icon: Sliders },
+              { id: "pattern", label: "POLA 2D", icon: PenTool },
               { id: "sandbox", label: "SANDBOX", icon: Sparkles },
               { id: "saved", label: `SAVED (${savedDesigns.length})`, icon: Bookmark },
               { id: "export", label: "EXPORT", icon: Camera },
@@ -1211,6 +1231,9 @@ export const CustomizerDrawer: React.FC = () => {
               </>
             )}
 
+            {/* TAB 2B: POLA 2D (skala cm, sinkron live ke 3D) */}
+            {activeTab === "pattern" && <PatternStudioLazy />}
+
             {/* TAB 3: SANDBOX ENVIRONMENT, 3D ROTATION & TRANSFORMS */}
             {activeTab === "sandbox" && (
               <>
@@ -1476,8 +1499,7 @@ export const CustomizerDrawer: React.FC = () => {
                   </div>
                 </div>
 
-                {/* Technical Wireframe Mode */}
-                <div className="flex justify-between items-center p-3 rounded-xl bg-surface border border-border-subtle">
+                {/* Technical Wireframe Mode */}                <div className="flex justify-between items-center p-3 rounded-xl bg-surface border border-border-subtle">
                   <span className="text-xs font-mono text-text-primary font-bold">WIREFRAME MESH TOPOLOGY</span>
                   <button
                     onClick={toggleWireframe}
@@ -1490,6 +1512,8 @@ export const CustomizerDrawer: React.FC = () => {
                     {isWireframe ? "ON" : "OFF"}
                   </button>
                 </div>
+                {/* Lab Kain verlet — cubit & tarik, rasa GSM + angin */}
+                <ClothLabLazy />
               </>
             )}
 
@@ -1738,6 +1762,7 @@ export const CustomizerDrawer: React.FC = () => {
               {[
                 { id: "apparel", label: "APPAREL" },
                 { id: "decals", label: `SABLON (${decals.length})` },
+                { id: "pattern", label: "POLA 2D" },
                 { id: "sandbox", label: "SANDBOX" },
                 { id: "saved", label: `SAVED (${savedDesigns.length})` },
                 { id: "export", label: "EXPORT" },

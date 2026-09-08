@@ -48,7 +48,7 @@ export const CanvasStage: React.FC<CanvasStageProps> = ({ camPos, lookAtPos }) =
         <Canvas
           shadows={deviceTier.enableShadows}
           dpr={[1, deviceTier.maxDpr]}
-          camera={{ position: [0, 0, 3.4], fov: 40 }}
+          camera={{ position: [0, 0, 2.9], fov: 40 }}
           gl={{
             antialias: deviceTier.tier !== "low",
             powerPreference: "high-performance",

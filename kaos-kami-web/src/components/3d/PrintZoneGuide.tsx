@@ -1,7 +1,8 @@
 "use client";
 
-import React from "react";
+import React, { useState } from "react";
 import { Html } from "@react-three/drei";
+import { useFrame, useThree } from "@react-three/fiber";
 import { useConfiguratorStore } from "@/store/useConfiguratorStore";
 import { APPAREL_PHYSICAL_SPECS, maxDecalScaleUnits } from "@/lib/scaleCalibration";
 
@@ -16,6 +17,19 @@ interface PrintZoneGuideProps {
  */
 export const PrintZoneGuide: React.FC<PrintZoneGuideProps> = ({ surfaceZ = 0.155 }) => {
   const { viewMode, isHideWebsiteUI, isGizmoVisible, decals, selectedDecalId, activeApparel } = useConfiguratorStore();
+
+  // Hooks WAJIB di atas semua early-return (aturan React).
+  const camera = useThree((s) => s.camera);
+  const [zoomComp, setZoomComp] = useState(1);
+  useFrame(() => {
+    const targetObj = (camera as any).target;
+    const d =
+      targetObj && isFinite(targetObj.x)
+        ? camera.position.distanceTo(targetObj)
+        : camera.position.length();
+    const target = (isFinite(d) && d > 0 ? d : 2.2) / 2.2;
+    setZoomComp((prev) => (Math.abs(target - prev) > 0.01 ? target : prev));
+  });
 
   if (viewMode !== "studio" || isHideWebsiteUI || !isGizmoVisible) {
     return null;
@@ -35,12 +49,16 @@ export const PrintZoneGuide: React.FC<PrintZoneGuideProps> = ({ surfaceZ = 0.155
 
   // Ukuran Fisik Maksimal Meja Cetak DTF — dikonversi via multiplier TERUKUR
   // per apparel (30cm ÷ unitsToCm), bukan 0.162 global. Tinggi 42cm serupa.
-  // (Jarak pandang kamera studio dianggap sebanding antar apparel.)
   const mult = APPAREL_PHYSICAL_SPECS[activeApparel]?.meshMultiplier ?? 101.8;
   const boxWidthUnits = 30.0 / mult;
   const boxHeightUnits = 42.0 / mult;
-  const boxWidthPx = boxWidthUnits * 600; // px pada distanceFactor 2.2
-  const boxHeightPx = boxHeightUnits * 600;
+
+  // A2 (Fase 19): kotak HTML memakai distanceFactor tetap (2.2) sehingga ukuran
+  // px-nya konstan di layar — padahal baju MEMBESAR saat zoom. Kompensasi
+  // zoomComp (dihitung di atas tiap frame): skala px dengan
+  // (jarakKameraAktual / 2.2) agar kotak SELALU mewakili 30×42cm fisik.
+  const boxWidthPx = boxWidthUnits * 600 * zoomComp;
+  const boxHeightPx = boxHeightUnits * 600 * zoomComp;
 
   // Cek apakah sablon aktif melampaui batas cetak
   const maxScale = maxDecalScaleUnits(activeApparel, activeDecal?.targetSide ?? "front");
