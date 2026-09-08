@@ -4,6 +4,8 @@ Aturan bisnis (owner, Sep 2026):
 1. **PICKUP** → user ambil di workshop, alamat tampil di invoice.
 2. **Makassar** → tim antar **GRATIS** (`FREE_MAKASSAR`, Rp 0, tanpa minimal).
 3. **Luar Makassar** → user lihat daftar kurir + pilih termurah (real-time).
+4. **Lunas-dulu via QRIS** — TANPA COD, TANPA Maxim/kurir instan, TANPA kurir
+   bayar (dihapus Sep 2026: sablon kustom baru diproduksi setelah lunas).
 
 Workshop: Jl. Galangan Kapal Lrg. Permandian 1, Kaluku Bodoa, Kec. Tallo,
 Kota Makassar 90211 — GPS -5.106081, 119.432365.
@@ -26,9 +28,7 @@ tidak pernah percaya angka dari client (prinsip sama seperti harga kaos).
 | Method | Biaya | Keterangan |
 |---|---|---|
 | PICKUP | Rp 0 | Ambil di workshop; invoice tampilkan alamat + "tunjukkan no. pesanan" |
-| FREE_MAKASSAR | Rp 0 | Diantar tim, se-Kota Makassar |
-| INSTANT_COURIER | Rp 0 + COD | Maxim/GoSend/Grab, bayar ke driver |
-| FLAT_MAKASSAR | Rp 15.000 | Kurir internal (legacy, tetap didukung) |
+| FREE_MAKASSAR | Rp 0 | Diantar tim, se-Kota Makassar, ke alamat/GPS user |
 | EXPEDITION_MANUAL | dinamis | Luar kota: live AgenWebsite → fallback zona → flat |
 
 ## AgenWebsite Rate API (provider live)

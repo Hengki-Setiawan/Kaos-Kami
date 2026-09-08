@@ -211,7 +211,7 @@ export function CheckoutSheet({ open, onOpenChange, onOrderSuccess, onNotify }: 
       open={open}
       onOpenChange={onOpenChange}
        title={step === 1 ? 'Data Penerima' : step === 2 ? 'Pengiriman' : 'Metode Pembayaran'}
-      description="Harga dihitung ulang di server. COD bayar tunai ke kurir."
+      description="Harga dihitung ulang di server. Bayar QRIS, lunas dulu baru produksi."
     >
       <div className="space-y-4 py-2 pb-6">
         {/* Step Indicator Tabs */}

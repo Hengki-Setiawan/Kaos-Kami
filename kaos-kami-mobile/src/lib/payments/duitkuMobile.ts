@@ -6,7 +6,7 @@ export interface PaymentRequest {
   customerName: string;
   customerEmail: string;
   customerPhone: string;
-  paymentMethod: 'QRIS' | 'VA_BCA' | 'VA_MANDIRI' | 'EWALLET_SHOPEEPAY' | 'EWALLET_GOPAY' | 'COD';
+  paymentMethod: 'QRIS';
 }
 
 export async function openDuitkuPaymentModal(

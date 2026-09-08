@@ -21,7 +21,7 @@ export function DynamicIslandPreview({
       case 'CURING_PRESS':
         return { label: 'Press 160°C', icon: Flame, color: 'text-amber-400', progress: '65%' };
       case 'SHIPPED':
-        return { label: 'Kurir Maxim', icon: Truck, color: 'text-blue-400', progress: '85%' };
+        return { label: 'Diantar / Ekspedisi', icon: Truck, color: 'text-blue-400', progress: '85%' };
       case 'COMPLETED':
         return { label: 'Selesai', icon: CheckCircle2, color: 'text-emerald-400', progress: '100%' };
       case 'PENDING_DESIGN_APPROVAL':

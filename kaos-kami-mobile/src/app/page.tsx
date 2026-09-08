@@ -482,7 +482,7 @@ export default function MobileApp() {
                   <ClipboardList className="w-5 h-5" />
                 </div>
                 <h3 className="text-sm font-bold text-white font-['Syne']">Lacak Pesanan</h3>
-                <p className="text-[11px] text-zinc-400 mt-0.5">Live Sablon & Maxim COD</p>
+                <p className="text-[11px] text-zinc-400 mt-0.5">Live Sablon & Bayar QRIS</p>
               </GlassCard>
             </div>
 

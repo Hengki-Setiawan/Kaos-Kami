@@ -52,7 +52,7 @@ const INITIAL_ADMIN_ORDERS: OrderItemData[] = [
     status: 'PENDING_DESIGN_APPROVAL',
     totalAmount: 160000,
     paymentMethod: 'QRIS Instant',
-    deliveryMethod: 'Maxim Instant COD',
+    deliveryMethod: 'Antar Gratis Makassar',
     createdAt: '10 menit yang lalu',
   },
   {
@@ -66,7 +66,7 @@ const INITIAL_ADMIN_ORDERS: OrderItemData[] = [
     printHeightCm: 26.0,
     status: 'PRINTING_DTF',
     totalAmount: 390000,
-    paymentMethod: 'BCA Virtual Account',
+    paymentMethod: 'QRIS',
     deliveryMethod: 'Ambil di Workshop',
     createdAt: '1 jam yang lalu',
   },
@@ -446,7 +446,7 @@ export function AdminMobileDashboard({
                 onClick={() => updateOrderStatus(selectedOrder.id, 'SHIPPED')}
                 className="w-full py-3.5 text-xs font-bold"
               >
-                Selesai QC & Packing → Serahkan ke Kurir Maxim
+                Selesai QC & Packing → Siap Diambil / Diantar
               </HapticButton>
             )}
 
