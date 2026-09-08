@@ -1,9 +1,16 @@
 import { NextRequest, NextResponse } from "next/server";
 import { nanoid } from "nanoid";
+import { z } from "zod";
+import { eq } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { Verification } from "@/lib/drizzle-schema";
+import { hashOtp, randomOtp6 } from "@/lib/otp";
 import { sendWhatsAppNotification } from "@/lib/notifications/whatsapp";
 import { checkRateLimitAsync, getClientIp, rateLimitHeaders } from "@/lib/security/rateLimiter";
+
+const OtpRequestSchema = z.object({
+  phoneNumber: z.string().regex(/^\+?[0-9]{9,16}$/, "Nomor WA tidak valid"),
+});
 
 // POST { phoneNumber: "0812..." } → generate 6-digit, simpan Verification, kirim WA via Fonnte (hemat: cuma saat checkout)
 export async function POST(req: NextRequest) {
@@ -17,11 +24,11 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const { phoneNumber } = await req.json();
-    if (!phoneNumber || phoneNumber.length < 9) {
+    const parsed = OtpRequestSchema.safeParse(await req.json().catch(() => ({})));
+    if (!parsed.success) {
       return NextResponse.json({ error: "Nomor WA tidak valid" }, { status: 400 });
     }
-    const clean = phoneNumber.replace(/[^0-9]/g, "");
+    const clean = parsed.data.phoneNumber.replace(/[^0-9]/g, "");
 
     const phoneLimit = await checkRateLimitAsync(`otp:phone:${clean}`, 3, 300);
     if (phoneLimit.isLimited) {
@@ -30,14 +37,16 @@ export async function POST(req: NextRequest) {
         { status: 429, headers: rateLimitHeaders(phoneLimit, 3) }
       );
     }
-    const code = Math.floor(100000 + Math.random() * 900000).toString();
+    // CSPRNG (bukan Math.random) + hanguskan kode lama (satu kode aktif).
+    const code = randomOtp6();
     const expiresAt = new Date(Date.now() + 5 * 60 * 1000); // 5 menit
 
-    // Simpan di Verification (identifier = phone)
+    // Simpan di Verification (identifier = phone), hash + hapus kode lama.
+    await db.delete(Verification).where(eq(Verification.identifier, `otp:${clean}`));
     await db.insert(Verification).values({
       id: nanoid(),
       identifier: `otp:${clean}`,
-      value: code,
+      value: hashOtp(code),
       expiresAt,
     });
 

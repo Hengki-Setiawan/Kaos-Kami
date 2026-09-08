@@ -3,6 +3,7 @@ import { z } from "zod";
 import { eq } from "drizzle-orm";
 import { nanoid } from "nanoid";
 import { db } from "@/lib/db";
+import { siteUrl } from "@/lib/siteUrl";
 import { Order, OrderStatusEvent, ProductionTask } from "@/lib/drizzle-schema";
 import { sendWhatsAppNotification, buildProductionStatusMessage } from "@/lib/notifications/whatsapp";
 import { headers } from "next/headers";
@@ -110,6 +111,17 @@ export async function PATCH(req: NextRequest) {
     if (!stage) {
       return NextResponse.json({ error: "stage wajib diisi" }, { status: 400 });
     }
+    // DONE final: tak bisa mundur (buat task baru / hubungi supervisor).
+    const current = await db.query.ProductionTask.findFirst({
+      where: (t, { eq }) => eq(t.id, taskId),
+      columns: { stage: true },
+    });
+    if (!current) {
+      return NextResponse.json({ error: "Task tidak ditemukan" }, { status: 404 });
+    }
+    if (current.stage === "DONE" && stage !== "DONE") {
+      return NextResponse.json({ error: "Task DONE final — buat task baru bila perlu" }, { status: 400 });
+    }
 
     const [updatedTask] = await db
       .update(ProductionTask)
@@ -145,7 +157,7 @@ export async function PATCH(req: NextRequest) {
 
       // Send WhatsApp update to customer
       if (order.user?.phoneNumber) {
-        const invoiceUrl = `${process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000"}/orders/${updatedTask.orderId}`;
+        const invoiceUrl = `${siteUrl()}/orders/${updatedTask.orderId}`;
         sendWhatsAppNotification(
           order.user.phoneNumber,
           buildProductionStatusMessage({
@@ -168,7 +180,7 @@ export async function PATCH(req: NextRequest) {
       });
 
       if (order.user?.phoneNumber) {
-        const invoiceUrl = `${process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000"}/orders/${updatedTask.orderId}`;
+        const invoiceUrl = `${siteUrl()}/orders/${updatedTask.orderId}`;
         sendWhatsAppNotification(
           order.user.phoneNumber,
           buildProductionStatusMessage({

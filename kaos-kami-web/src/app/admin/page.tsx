@@ -19,9 +19,10 @@ export const revalidate = 0; // Dynamic server component
 
 export default async function AdminDashboardPage() {
   // Aggregate workshop statistics from Turso DB
+  // Omset = HANYA order lunas (bukan PENDING/CANCELLED/REFUNDED).
   const [totalOrdersRows, totalRevenueRows, pendingProductionRows, expressOrdersRows, recentOrders] = await Promise.all([
     db.select({ n: count() }).from(Order),
-    db.select({ total: sum(Order.totalIdr) }).from(Order).where(ne(Order.status, "CANCELLED")),
+    db.select({ total: sum(Order.totalIdr) }).from(Order).where(notInArray(Order.status, ["PENDING_PAYMENT", "CANCELLED", "REFUNDED"])),
     db
       .select({ n: count() })
       .from(ProductionTask)

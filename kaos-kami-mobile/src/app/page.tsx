@@ -44,6 +44,7 @@ import {
 } from '@/lib/bridge';
 import { initOfflineSyncQueue, enqueueOfflineMutation } from '@/lib/offline/syncQueue';
 import { mobileApiClient } from '@/lib/api/mobileApiClient';
+import { SHOP_WHATSAPP } from '@/lib/shop';
 import { App as CapacitorApp } from '@capacitor/app';
 import { Keyboard } from '@capacitor/keyboard';
 import { useMobileStudioStore, ApparelType } from '@/store/useMobileStudioStore';
@@ -267,6 +268,12 @@ export default function MobileApp() {
           try {
             localStorage.setItem('kaoskami_catalog_cache', JSON.stringify(res.data.categories));
             if (res.etag) localStorage.setItem('kaoskami_catalog_etag', res.etag);
+          } catch {}
+        } else if (cached) {
+          // Offline total (timeout/HTTP error): pakai cache terakhir agar
+          // aplikasi tetap bisa dipakai lihat katalog + pesan (sync saat online).
+          try {
+            setServerCatalog(JSON.parse(cached));
           } catch {}
         }
       } catch {}
@@ -700,8 +707,8 @@ export default function MobileApp() {
                 H
               </div>
               <div>
-                <h3 className="text-sm font-bold text-white font-['Syne']">Hengki Setiawan</h3>
-                <p className="text-[11px] text-zinc-400">0882-0206-85076 • Tamalanrea, Makassar</p>
+                <h3 className="text-sm font-bold text-white font-['Syne']">Pelanggan Kaos Kami</h3>
+                <p className="text-[11px] text-zinc-400">Mode tamu • Tamalanrea, Makassar</p>
                 <div className="flex gap-2 mt-1.5">
                   <Badge variant={isProUser ? 'production' : 'success'}>
                     {isProUser ? 'PRO MEMBER' : 'Face ID Aktif'}
@@ -906,7 +913,7 @@ export default function MobileApp() {
         data={{
           orderId: activeOrderId ?? '-',
           brandName: 'Kaos Kami Streetwear',
-          designerPhone: '0882-0206-85076',
+          designerPhone: SHOP_WHATSAPP,
           apparelTitle:
             apparelOptions.find((a) => a.key === apparelType)?.label ?? 'T-Shirt Heavyweight',
           colorName: 'Custom',

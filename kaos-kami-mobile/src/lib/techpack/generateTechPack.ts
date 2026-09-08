@@ -1,3 +1,5 @@
+import { SHOP_ADDRESS, SHOP_WHATSAPP } from "@/lib/shop";
+
 export interface TechPackData {
   orderId: string;
   brandName: string;
@@ -145,7 +147,7 @@ export function generateTechPackHtml(data: TechPackData): string {
         </div>
 
         <div class="footer">
-          Kaos Kami Workshop • Jl. Perintis Kemerdekaan KM 10, Tamalanrea, Makassar • Hotline: 0882-0206-85076
+          Kaos Kami Workshop • ${SHOP_ADDRESS} • Hotline: ${SHOP_WHATSAPP}
         </div>
       </body>
     </html>

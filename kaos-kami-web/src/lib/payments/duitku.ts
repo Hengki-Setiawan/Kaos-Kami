@@ -1,4 +1,6 @@
 import crypto from "crypto";
+import { siteUrl as canonicalSiteUrl } from "@/lib/siteUrl";
+import { secretsEqual } from "@/lib/timingSafe";
 
 export interface DuitkuCustomer {
   name: string;
@@ -85,14 +87,14 @@ export class DuitkuPaymentProvider {
       .update(`${merchantCode}${amount}${merchantOrderId}${this.apiKey}`)
       .digest("hex")
       .toLowerCase();
-    if (md5 === sig) return true;
+    if (secretsEqual(md5, sig)) return true;
     try {
       const hmac = crypto
         .createHmac("sha256", this.apiKey)
         .update(`${merchantCode}${amount}${merchantOrderId}`)
         .digest("hex")
         .toLowerCase();
-      if (hmac === sig) return true;
+      if (secretsEqual(hmac, sig)) return true;
     } catch {}
     return false;
   }
@@ -102,7 +104,7 @@ export class DuitkuPaymentProvider {
    */
   public async createCharge(params: CreateDuitkuChargeParams): Promise<DuitkuChargeResult> {
     this.assertConfigured();
-    const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
+    const siteUrl = canonicalSiteUrl();
     const callbackUrl = `${siteUrl}/api/webhooks/duitku`;
     const returnUrl = `${siteUrl}/orders/${params.orderId}`;
 

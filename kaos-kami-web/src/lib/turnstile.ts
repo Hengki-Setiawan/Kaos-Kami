@@ -60,9 +60,11 @@ export async function verifyTurnstileToken(
     };
   } catch (error) {
     console.error("[Turnstile] Verification error:", error);
-    // Fail-safe: jika Cloudflare challenge down, tidak memblokir user sungguhan
+    // B1-4: FAIL-CLOSED di jalur uang — Cloudflare down/timeout = tolak,
+    // JANGAN loloskan bot. (Sebelumnya success:true.)
     return {
-      success: true,
+      success: false,
+      errorCodes: ["verification-error"],
     };
   }
 }

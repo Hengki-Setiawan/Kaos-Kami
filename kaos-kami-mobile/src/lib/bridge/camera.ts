@@ -2,13 +2,15 @@ import { Camera, CameraResultType, CameraSource } from '@capacitor/camera';
 
 export async function pickOrCaptureDecalImage(): Promise<string | null> {
   try {
+    // 1600px/q85: cukup untuk decal 30cm @ ~135DPI, hemat RAM HP kentang
+    // (2048px dataUrl base64 ≈ 5MB+ per salinan di memori).
     const photo = await Camera.getPhoto({
-      quality: 92,
+      quality: 85,
       allowEditing: true,
       resultType: CameraResultType.DataUrl,
       source: CameraSource.Prompt,
-      width: 2048,
-      height: 2048,
+      width: 1600,
+      height: 1600,
       correctOrientation: true,
     });
 

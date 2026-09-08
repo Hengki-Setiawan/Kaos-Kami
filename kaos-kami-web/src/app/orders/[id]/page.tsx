@@ -2,6 +2,7 @@ import React from "react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { db } from "@/lib/db";
+import { SHOP_WORKSHOP_ADDRESS } from "@/lib/shop";
 import { RepayButton } from "@/components/commerce/RepayButton";
 import { CancelOrderButton } from "@/components/commerce/CancelOrderButton";
 import {
@@ -131,10 +132,22 @@ export default async function OrderReceiptPage({ params, searchParams }: OrderRe
           <div className="p-4 rounded-xl bg-surface/50 border border-white/5 space-y-1.5">
             <span className="block text-[11px] text-text-muted uppercase">Pengiriman Makassar</span>
             <p className="font-bold text-brand-accent text-sm">{order.deliveryMethod}</p>
-            <p className="text-text-muted text-[11px]">
-              {canSeePII ? order.shippingAddress?.fullAddress : "Alamat disembunyikan untuk privasi pemilik"}
-            </p>
+            {order.deliveryMethod === "PICKUP" ? (
+              <>
+                <p className="text-white text-[11px]">Ambil di: {SHOP_WORKSHOP_ADDRESS}</p>
+                <p className="text-text-muted text-[10px]">Tunjukkan nomor pesanan saat pengambilan.</p>
+              </>
+            ) : (
+              <p className="text-text-muted text-[11px]">
+                {canSeePII ? order.shippingAddress?.fullAddress : "Alamat disembunyikan untuk privasi pemilik"}
+              </p>
+            )}
             {order.courierNotes && <p className="text-amber-400 text-[10px]">Catatan: {order.courierNotes}</p>}
+            {order.trackingNumber && (
+              <p className="text-emerald-400 text-[11px]">
+                No. Resi: <span className="font-bold select-all">{order.trackingNumber}</span>
+              </p>
+            )}
           </div>
         </div>
 
@@ -170,13 +183,47 @@ export default async function OrderReceiptPage({ params, searchParams }: OrderRe
             <span>Biaya Pengiriman</span>
             <span>Rp {order.shippingCostIdr.toLocaleString("id-ID")}</span>
           </div>
+          {order.discountIdr > 0 && (
+            <div className="flex justify-between text-emerald-400">
+              <span>Diskon kupon</span>
+              <span>−Rp {order.discountIdr.toLocaleString("id-ID")}</span>
+            </div>
+          )}
           <div className="flex justify-between items-baseline pt-2 border-t border-white/10 text-sm font-bold text-white">
             <span>TOTAL TAGIHAN:</span>
             <span className="text-brand-accent text-lg">
               Rp {order.totalIdr.toLocaleString("id-ID")}
             </span>
           </div>
+          {order.payment && (
+            <div className="flex justify-between text-text-muted pt-1">
+              <span>Pembayaran ({order.payment.method || "Duitku"})</span>
+              <span className="font-bold text-white">{order.payment.status}</span>
+            </div>
+          )}
         </div>
+
+        {/* Riwayat perjalanan pesanan */}
+        {order.statusHistory.length > 0 && (
+          <div className="p-4 rounded-xl bg-surface/30 border border-white/5 font-mono text-xs space-y-0">
+            <h3 className="text-[11px] font-bold uppercase tracking-wider text-text-muted pb-2">
+              Perjalanan pesanan
+            </h3>
+            <div className="divide-y divide-white/5">
+              {order.statusHistory.map((h) => (
+                <div key={h.id} className="py-2 flex justify-between items-center gap-3">
+                  <div>
+                    <span className="font-bold text-white block text-[11px]">{h.status.replace(/_/g, " ")}</span>
+                    {h.note && <span className="text-text-muted text-[10px]">{h.note}</span>}
+                  </div>
+                  <span className="text-text-muted text-[10px] shrink-0">
+                    {new Date(h.createdAt).toLocaleDateString("id-ID", { day: "numeric", month: "short" })}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* Fail-Safe Direct WhatsApp Fallback Button */}
         <div className="pt-2 flex flex-col sm:flex-row gap-3">

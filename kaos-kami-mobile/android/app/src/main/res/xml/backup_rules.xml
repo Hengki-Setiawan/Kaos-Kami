@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Backup: persist login/prefs, kecualikan cache & WebView (boros + basi). -->
+<full-backup-content>
+    <exclude domain="cache" path="." />
+    <exclude domain="file" path="app_webview/" />
+    <exclude domain="database" path="webview.db" />
+    <exclude domain="database" path="webviewCookiesChromium.db" />
+    <exclude domain="sharedpref" path="WebViewChromiumPrefs.xml" />
+</full-backup-content>

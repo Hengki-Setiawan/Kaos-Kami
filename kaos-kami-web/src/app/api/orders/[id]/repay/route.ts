@@ -64,15 +64,10 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       console.warn("Repay status-check gagal, lanjut bikin charge baru:", e?.message);
     }
 
-    // Kedaluwarsakan payment PENDING lama (catatan lokal; link lama di Duitku
-    // ikut mati saat expiry 24 jam. Bayar SATU link saja — tertera di UI).
-    if (order.payment) {
-      await db
-        .update(Payment)
-        .set({ status: "EXPIRED" })
-        .where(eq(Payment.id, order.payment.id));
-    }
-
+    // Update-in-place (B1-2): Payment.orderId UNIQUE → JANGAN insert baris
+    // kedua. Timpa ref lama dengan yang baru; link lama ikut mati saat
+    // expiry Duitku. SENGAJA tanpa auth sesi agar tamu (tanpa akun) tetap bisa
+    // bayar ulang via link invoice tak-tertebak + rate-limit ketat.
     // Susun ulang rincian agar balance dengan total (syarat Duitku).
     const itemLines = order.items.map((it) => ({
       name: it.snapshotName.slice(0, 60),
@@ -106,15 +101,29 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       );
     }
 
-    await db.insert(Payment).values({
-      id: nanoid(),
-      orderId: order.id,
-      provider: "DUITKU",
-      providerRef: charge.reference,
-      method: "RETRY",
-      amountIdr: order.totalIdr,
-      status: "PENDING",
-    });
+    if (order.payment) {
+      await db
+        .update(Payment)
+        .set({
+          providerRef: charge.reference,
+          method: "RETRY",
+          amountIdr: order.totalIdr,
+          status: "PENDING",
+          paidAt: null,
+          rawWebhookPayload: null,
+        })
+        .where(eq(Payment.id, order.payment.id));
+    } else {
+      await db.insert(Payment).values({
+        id: nanoid(),
+        orderId: order.id,
+        provider: "DUITKU",
+        providerRef: charge.reference,
+        method: "RETRY",
+        amountIdr: order.totalIdr,
+        status: "PENDING",
+      });
+    }
 
     return NextResponse.json({ success: true, paymentUrl: charge.paymentUrl, reference: charge.reference });
   } catch (e: any) {

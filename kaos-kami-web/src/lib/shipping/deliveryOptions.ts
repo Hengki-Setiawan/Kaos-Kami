@@ -1,4 +1,4 @@
-export type DeliveryMethod = "PICKUP" | "INSTANT_COURIER" | "FLAT_MAKASSAR" | "EXPEDITION_MANUAL";
+export type DeliveryMethod = "PICKUP" | "FREE_MAKASSAR" | "INSTANT_COURIER" | "FLAT_MAKASSAR" | "EXPEDITION_MANUAL";
 
 export interface DeliveryOption {
   method: DeliveryMethod;
@@ -13,6 +13,12 @@ export const MAKASSAR_DELIVERY_OPTIONS: DeliveryOption[] = [
     method: "PICKUP",
     name: "Ambil di Workshop Kaos Kami (Rp 0)",
     description: "Ambil langsung di workshop Kaos Kami Makassar setelah sablon selesai (Gratis).",
+    costIdr: 0,
+  },
+  {
+    method: "FREE_MAKASSAR",
+    name: "Diantar Tim Kaos Kami — Gratis se-Kota Makassar (Rp 0)",
+    description: "Tim kami antar langsung ke alamatmu di Kota Makassar, gratis tanpa minimal belanja (1-2 hari setelah produksi).",
     costIdr: 0,
   },
   {

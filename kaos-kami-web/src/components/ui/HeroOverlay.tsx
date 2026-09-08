@@ -10,6 +10,20 @@ export const HeroOverlay: React.FC = () => {
   const { activePhase, viewMode, activeApparel } = useConfiguratorStore();
   const isVisible = activePhase === 1 && viewMode === "story";
   const apparel = APPAREL_CATALOG[activeApparel];
+  // Judul hero dari CMS (R2) — gagal = default editorial.
+  const [cmsTitle, setCmsTitle] = React.useState<string | null>(null);
+  const [cmsSubtitle, setCmsSubtitle] = React.useState<string | null>(null);
+  React.useEffect(() => {
+    fetch("/api/admin/cms")
+      .then((r) => r.json())
+      .then((d) => {
+        if (d?.heroTitle) setCmsTitle(d.heroTitle);
+        if (typeof d?.heroSubtitle === "string" && d.heroSubtitle) setCmsSubtitle(d.heroSubtitle);
+      })
+      .catch(() => {});
+  }, []);
+  const titleLines = (cmsTitle || "HEAVYWEIGHT BOXY TEE").split("\n");
+  const subtitle = cmsSubtitle || "Katun combed tebal berkarakter boxy tegap dengan pola drop-shoulder modern & sablon DTF resolusi tinggi.";
 
   return (
     <section
@@ -25,17 +39,19 @@ export const HeroOverlay: React.FC = () => {
           MAKASSAR STREETWEAR // {apparel.weightGsm}
         </span>
         <p className="font-sans text-xs text-text-muted leading-relaxed">
-          Katun combed tebal berkarakter boxy tegap dengan pola drop-shoulder modern & sablon DTF resolusi tinggi.
+          {subtitle}
         </p>
       </div>
 
       {/* Main Editorial Title: Strict Left 45% Column, zero collision with 3D garment */}
       <div className="my-auto max-w-sm sm:max-w-md space-y-3 z-20">
         <h1 className="text-3xl sm:text-4xl md:text-[44px] font-display font-black uppercase tracking-tight leading-[0.96] text-text-primary">
-          HEAVYWEIGHT<br />
-          <span className="text-text-primary opacity-90">
-            BOXY TEE
-          </span>
+          {titleLines.map((line, i) => (
+            <React.Fragment key={i}>
+              {i > 0 && <br />}
+              <span className={i > 0 ? "text-text-primary opacity-90" : undefined}>{line}</span>
+            </React.Fragment>
+          ))}
         </h1>
         <p className="font-mono text-xs sm:text-sm text-brand-accent tracking-wider uppercase font-bold">
           {`KATUN COMBED 240/280 GSM · ${apparel.formattedPrice}`}

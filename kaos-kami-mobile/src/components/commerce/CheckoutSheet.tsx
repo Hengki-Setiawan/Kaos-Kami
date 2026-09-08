@@ -5,7 +5,7 @@ import { Check, ShieldCheck, MapPin, QrCode, CreditCard, Truck, ChevronRight } f
 import { BottomSheet, HapticButton, Badge } from '@/components/ui';
 import { useMobileCartStore } from '@/store/useMobileCartStore';
 import { MAKASSAR_DELIVERY_OPTIONS, DeliveryOption } from '@/lib/shipping/deliveryOptionsMobile';
-import { mobileApiClient } from '@/lib/api/mobileApiClient';
+import { mobileApiClient, quoteShipping, reverseGeocode } from '@/lib/api/mobileApiClient';
 import { openDuitkuPaymentModal } from '@/lib/payments/duitkuMobile';
 import { haptic } from '@/lib/bridge/haptics';
 
@@ -16,10 +16,12 @@ export interface CheckoutSheetProps {
   onNotify?: (msg: string) => void;
 }
 
-const DELIVERY_TO_SERVER: Record<string, 'PICKUP' | 'INSTANT_COURIER' | 'FLAT_MAKASSAR'> = {
+const DELIVERY_TO_SERVER: Record<string, 'PICKUP' | 'FREE_MAKASSAR' | 'INSTANT_COURIER' | 'FLAT_MAKASSAR' | 'EXPEDITION_MANUAL'> = {
   WORKSHOP_PICKUP: 'PICKUP',
+  FREE_MAKASSAR: 'FREE_MAKASSAR',
   MAXIM_COD: 'INSTANT_COURIER',
   FLAT_RATE_MAKASSAR: 'FLAT_MAKASSAR',
+  EXPEDITION: 'EXPEDITION_MANUAL',
 };
 
 export function CheckoutSheet({ open, onOpenChange, onOrderSuccess, onNotify }: CheckoutSheetProps) {
@@ -33,13 +35,80 @@ export function CheckoutSheet({ open, onOpenChange, onOrderSuccess, onNotify }: 
   const [customerAddress, setCustomerAddress] = useState('');
   const [couponCode, setCouponCode] = useState('');
   const [selectedDelivery, setSelectedDelivery] = useState<DeliveryOption>(MAKASSAR_DELIVERY_OPTIONS[0]);
+  // Ekspedisi luar kota: kota + kode pos + daftar tarif server + opsi terpilih.
+  // Harga final tetap di-resolve server (tampilan di sini hanya estimasi).
+  interface ShipOption { key: string; courier: string; service: string; cost: number; etd: string; zoneId?: string; courierCode?: string; serviceCode?: string; }
+  const [destCity, setDestCity] = useState('');
+  const [destPostal, setDestPostal] = useState('');
+  const [zones, setZones] = useState<ShipOption[]>([]);
+  const [zonesLoading, setZonesLoading] = useState(false);
+  const [zonesError, setZonesError] = useState<string | null>(null);
+  const [selectedZoneId, setSelectedZoneId] = useState<string | null>(null);
+  const [gpsLoading, setGpsLoading] = useState(false);
+  const [gpsMsg, setGpsMsg] = useState<string | null>(null);
   const [selectedPayment, setSelectedPayment] = useState<'QRIS' | 'VA_BCA' | 'MAXIM_COD'>('QRIS');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
 
   const subtotal = getSubtotal();
-  const deliveryFee = selectedDelivery.price;
+  const selectedZone = zones.find((z) => z.key === selectedZoneId) || null;
+  const isExpedition = selectedDelivery.id === 'EXPEDITION';
+  const deliveryFee = isExpedition && selectedZone ? selectedZone.cost : selectedDelivery.price;
   const grandTotal = subtotal + deliveryFee;
+
+  const handleCheckOngkir = async () => {
+    if (destCity.trim().length < 2) return setZonesError('Isi nama kota dulu (min. 2 huruf).');
+    setZonesLoading(true);
+    setZonesError(null);
+    try {
+      const weightGrams = Math.max(250, items.reduce((a, it) => a + (it.quantity || 0), 0) * 250);
+      const data = await quoteShipping(destCity.trim(), /^\d{5}$/.test(destPostal) ? destPostal : undefined, weightGrams);
+      let opts: ShipOption[] = [];
+      if (data.source === 'live' && Array.isArray(data.rates)) {
+        opts = data.rates.map((r: any) => ({
+          key: `live:${r.courierCode}:${r.serviceCode}`,
+          courier: r.courierName, service: r.serviceName, cost: r.costIdr, etd: r.etdText,
+          courierCode: r.courierCode, serviceCode: r.serviceCode,
+        }));
+      } else if (Array.isArray(data.zones)) {
+        opts = data.zones.map((z: any) => ({
+          key: `zone:${z.id}`, courier: z.courier, service: `${z.service} — ${z.city}`,
+          cost: z.costIdr, etd: z.etdLabel, zoneId: z.id,
+        }));
+      }
+      setZones(opts);
+      setSelectedZoneId(opts[0]?.key || null);
+      if (opts.length === 0) setZonesError('Tarif tidak ditemukan.');
+    } catch (e: any) {
+      setZonesError(e?.message || 'Gagal cek ongkir.');
+    } finally {
+      setZonesLoading(false);
+    }
+  };
+
+  // GPS: isi alamat otomatis dari lokasi HP (browser geolocation + proxy server).
+  const handleUseGps = () => {
+    if (!('geolocation' in navigator)) return setGpsMsg('GPS tidak didukung HP ini.');
+    setGpsLoading(true);
+    setGpsMsg(null);
+    navigator.geolocation.getCurrentPosition(
+      async (pos) => {
+        const r = await reverseGeocode(pos.coords.latitude, pos.coords.longitude);
+        setGpsLoading(false);
+        if (r) {
+          if (r.displayName) setCustomerAddress(r.displayName);
+          if (isExpedition && r.city) {
+            setDestCity(r.city);
+            setZones([]);
+            setSelectedZoneId(null);
+          }
+          setGpsMsg(r.city || r.district ? `Lokasi: ${[r.district, r.city].filter(Boolean).join(', ')}` : 'Alamat terisi dari GPS.');
+        } else setGpsMsg('Gagal baca lokasi. Isi manual.');
+      },
+      () => { setGpsLoading(false); setGpsMsg('Izin lokasi ditolak. Isi manual.'); },
+      { timeout: 15000, maximumAge: 60000 }
+    );
+  };
 
   const handlePlaceOrder = async () => {
     setFormError(null);
@@ -47,6 +116,7 @@ export function CheckoutSheet({ open, onOpenChange, onOrderSuccess, onNotify }: 
     if (customerPhone.replace(/[^0-9]/g, '').length < 10) return setFormError('Nomor WhatsApp minimal 10 digit.');
     if (customerAddress.trim().length < 5) return setFormError('Alamat pengiriman minimal 5 karakter.');
     if (items.length === 0) return setFormError('Keranjang masih kosong.');
+    if (isExpedition && destCity.trim().length < 2) return setFormError('Isi kota tujuan ekspedisi.');
 
     setIsSubmitting(true);
     haptic.tapHeavy();
@@ -57,7 +127,12 @@ export function CheckoutSheet({ open, onOpenChange, onOrderSuccess, onNotify }: 
         phoneNumber: customerPhone.trim(),
         deliveryMethod: DELIVERY_TO_SERVER[selectedDelivery.id],
         fullAddress: customerAddress.trim(),
-        district: 'Makassar',
+        district: isExpedition ? destCity.trim() || 'Luar Kota' : 'Makassar',
+        destinationCity: isExpedition ? destCity.trim() : undefined,
+        destinationPostalCode: isExpedition && /^\d{5}$/.test(destPostal) ? destPostal : undefined,
+        expeditionZoneId: isExpedition && selectedZone?.zoneId ? selectedZone.zoneId : undefined,
+        expeditionCourier: isExpedition && selectedZone?.courierCode ? selectedZone.courierCode : undefined,
+        expeditionService: isExpedition && selectedZone?.serviceCode ? selectedZone.serviceCode : undefined,
         paymentMethod: selectedPayment,
         cod: isCod,
         couponCode: couponCode.trim() || undefined,
@@ -123,7 +198,7 @@ export function CheckoutSheet({ open, onOpenChange, onOrderSuccess, onNotify }: 
     <BottomSheet
       open={open}
       onOpenChange={onOpenChange}
-      title={step === 1 ? 'Data Penerima' : step === 2 ? 'Pengiriman Makassar' : 'Metode Pembayaran'}
+       title={step === 1 ? 'Data Penerima' : step === 2 ? 'Pengiriman' : 'Metode Pembayaran'}
       description="Harga dihitung ulang di server. COD bayar tunai ke kurir."
     >
       <div className="space-y-4 py-2 pb-6">
@@ -190,6 +265,16 @@ export function CheckoutSheet({ open, onOpenChange, onOrderSuccess, onNotify }: 
                 onChange={(e) => setCustomerAddress(e.target.value)}
                 className="w-full px-3.5 py-2.5 rounded-xl bg-zinc-900 border border-zinc-700/80 text-white text-xs outline-none focus:border-[#FF6B35]"
               />
+              <button
+                type="button"
+                onClick={handleUseGps}
+                disabled={gpsLoading}
+                className="mt-1.5 flex items-center gap-1.5 text-[11px] text-[#FF6B35] font-semibold disabled:opacity-50"
+              >
+                <MapPin className="w-3.5 h-3.5" />
+                {gpsLoading ? 'Membaca GPS...' : 'Isi otomatis dari GPS HP'}
+              </button>
+              {gpsMsg && <p className="text-[11px] text-zinc-400 mt-1">{gpsMsg}</p>}
             </div>
 
             <HapticButton
@@ -213,10 +298,11 @@ export function CheckoutSheet({ open, onOpenChange, onOrderSuccess, onNotify }: 
               return (
                 <div
                   key={opt.id}
-                  onClick={() => {
-                    haptic.selection();
-                    setSelectedDelivery(opt);
-                  }}
+                   onClick={() => {
+                     haptic.selection();
+                     setSelectedDelivery(opt);
+                     if (opt.id !== 'EXPEDITION') { setZones([]); setSelectedZoneId(null); setZonesError(null); }
+                   }}
                   className={`p-3.5 rounded-2xl border cursor-pointer transition-all ${
                     isSelected
                       ? 'bg-[#FF6B35]/15 border-[#FF6B35] ring-1 ring-orange-500/30'
@@ -237,6 +323,57 @@ export function CheckoutSheet({ open, onOpenChange, onOrderSuccess, onNotify }: 
                 </div>
               );
             })}
+
+            {isExpedition && (
+              <div className="p-3.5 rounded-2xl bg-zinc-900 border border-[#FF6B35]/40 space-y-2.5">
+                <label className="text-xs font-semibold text-zinc-300 block">Kota tujuan (luar Makassar):</label>
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    value={destCity}
+                    onChange={(e) => { setDestCity(e.target.value); setSelectedZoneId(null); }}
+                    placeholder="cth: Gowa, Jakarta, Surabaya"
+                    className="flex-1 px-3 py-2.5 rounded-xl bg-zinc-800 border border-zinc-700 text-white text-xs outline-none focus:border-[#FF6B35]"
+                  />
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    value={destPostal}
+                    onChange={(e) => setDestPostal(e.target.value.replace(/[^0-9]/g, '').slice(0, 5))}
+                    placeholder="Kode pos"
+                    className="w-24 px-3 py-2.5 rounded-xl bg-zinc-800 border border-zinc-700 text-white text-xs outline-none focus:border-[#FF6B35]"
+                  />
+                </div>
+                <div className="flex gap-2">
+                  <HapticButton variant="primary" onClick={handleCheckOngkir} className="flex-1 text-xs px-3">
+                    {zonesLoading ? '...' : 'Cek Ongkir'}
+                  </HapticButton>
+                </div>
+                {zonesError && <p className="text-[11px] text-rose-300">{zonesError}</p>}
+                {zones.map((z) => {
+                  const sel = selectedZoneId === z.key;
+                  return (
+                    <div
+                      key={z.key}
+                      onClick={() => { haptic.selection(); setSelectedZoneId(z.key); }}
+                      className={`p-3 rounded-xl border cursor-pointer flex items-center justify-between ${
+                        sel ? 'bg-[#FF6B35]/15 border-[#FF6B35]' : 'bg-zinc-800 border-zinc-700'
+                      }`}
+                    >
+                      <div>
+                        <p className="text-xs font-bold text-white">{z.courier} {z.service}</p>
+                        <p className="text-[10px] text-zinc-400">Estimasi {z.etd}</p>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs font-bold text-emerald-400">Rp {z.cost.toLocaleString('id-ID')}</span>
+                        {sel && <Check className="w-4 h-4 text-[#FF6B35]" />}
+                      </div>
+                    </div>
+                  );
+                })}
+                <p className="text-[10px] text-zinc-500">Pilih yang termurah. Ongkir final dihitung server.</p>
+              </div>
+            )}
 
             <div className="flex gap-2 pt-2">
               <HapticButton

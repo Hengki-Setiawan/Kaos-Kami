@@ -21,9 +21,14 @@ export async function openDuitkuPaymentModal(
       toolbarColor: '#0E0E10',
     });
 
-    Browser.addListener('browserFinished', () => {
-      if (onComplete) onComplete();
-    });
+    // Satu listener aktif: hapus yang lama agar onComplete tidak dobel
+    // (addListener tiap panggil tanpa remove = leak + callback ganda).
+    await Browser.removeAllListeners();
+    if (onComplete) {
+      await Browser.addListener('browserFinished', () => {
+        onComplete();
+      });
+    }
   } catch (err) {
     console.debug('[Duitku Payment] Browser fallback:', err);
     if (typeof window !== 'undefined') {

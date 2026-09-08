@@ -1,6 +1,21 @@
-import { CapacitorHttp, HttpResponse } from '@capacitor/core';
+import { Capacitor, CapacitorHttp, HttpResponse } from '@capacitor/core';
 
 const BASE_API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://kaos-kami-3d.hengkisetiawan461.workers.dev';
+
+/** Base URL API — dipakai komponen untuk endpoint GET publik (ongkir, geocode). */
+export const API_BASE_URL = BASE_API_URL;
+
+// Batas waktu jaringan (CapacitorHttp Android; web fallback diabaikan aman).
+const HTTP_TIMEOUT = { connectTimeout: 15000, readTimeout: 15000 } as const;
+
+/** Platform aktual (android/ios/web) — jangan hardcode. */
+export function currentPlatform(): string {
+  try {
+    return Capacitor.getPlatform();
+  } catch {
+    return 'android';
+  }
+}
 
 export interface MobileCatalogCategory {
   id: string;
@@ -18,6 +33,10 @@ export interface MobileOrderStatus {
   orderNumber: string;
   status: string;
   updatedAt: string;
+  totalIdr?: number;
+  deliveryMethod?: string;
+  itemCount?: number;
+  paymentMethod?: string | null;
 }
 
 /**
@@ -34,6 +53,7 @@ export const mobileApiClient = {
       const response: HttpResponse = await CapacitorHttp.get({
         url: `${BASE_API_URL}/api/mobile/catalog`,
         headers,
+        ...HTTP_TIMEOUT,
       });
       if (response.status === 304) return { data: null, notModified: true };
       return {
@@ -53,6 +73,7 @@ export const mobileApiClient = {
         url: `${BASE_API_URL}/api/mobile/orders/checkout`,
         headers: { 'Content-Type': 'application/json' },
         data: payload,
+        ...HTTP_TIMEOUT,
       });
       return response.data;
     } catch (err: any) {
@@ -65,6 +86,7 @@ export const mobileApiClient = {
     try {
       const response: HttpResponse = await CapacitorHttp.get({
         url: `${BASE_API_URL}/api/mobile/orders/${orderId}/status`,
+        ...HTTP_TIMEOUT,
       });
       if (response.status === 200) return response.data;
       return null;
@@ -79,6 +101,7 @@ export const mobileApiClient = {
         url: `${BASE_API_URL}/api/mobile/designs/sync`,
         headers: { 'Content-Type': 'application/json' },
         data: payload,
+        ...HTTP_TIMEOUT,
       });
       return response.data;
     } catch (err: any) {
@@ -91,7 +114,8 @@ export const mobileApiClient = {
       const response: HttpResponse = await CapacitorHttp.post({
         url: `${BASE_API_URL}/api/mobile/notifications/register`,
         headers: { 'Content-Type': 'application/json' },
-        data: { pushToken: token, platform: 'android', userId },
+        data: { pushToken: token, platform: currentPlatform(), userId },
+        ...HTTP_TIMEOUT,
       });
       return response.status === 200 && !!response.data?.success;
     } catch {
@@ -106,6 +130,7 @@ export const mobileApiClient = {
   getProductionTasks: async (): Promise<any[]> => {
     const response: HttpResponse = await CapacitorHttp.get({
       url: `${BASE_API_URL}/api/admin/production-tasks`,
+      ...HTTP_TIMEOUT,
     });
     if (response.status === 200 && response.data?.success) return response.data.tasks || [];
     throw new Error(`production-tasks ${response.status}`);
@@ -119,6 +144,7 @@ export const mobileApiClient = {
         url: `${BASE_API_URL}/api/admin/production-tasks`,
         headers: { 'Content-Type': 'application/json' },
         data: { taskId, stage, notes },
+        ...HTTP_TIMEOUT,
       });
       return response.status === 200 && !!response.data?.success;
     } catch {
@@ -126,3 +152,46 @@ export const mobileApiClient = {
     }
   },
 };
+
+export interface ShippingZoneQuote {
+  id: string;
+  city: string;
+  province: string;
+  courier: string;
+  service: string;
+  costIdr: number;
+  etdLabel: string;
+}
+
+/** Tarif ekspedisi per kota (publik). Harga final tetap di-resolve server saat checkout. */
+export async function quoteShipping(city: string, postalCode?: string, weightGrams?: number): Promise<{ source: string; rates?: ShippingZoneQuote[]; zones?: ShippingZoneQuote[] }> {
+  const params = new URLSearchParams({ city });
+  if (postalCode) params.set('postalCode', postalCode);
+  if (weightGrams) params.set('weightGrams', String(weightGrams));
+  const response: HttpResponse = await CapacitorHttp.get({
+    url: `${BASE_API_URL}/api/shipping/quote?${params.toString()}`,
+    ...HTTP_TIMEOUT,
+  });
+  if (response.status === 200) return response.data;
+  throw new Error(response.data?.error || 'Gagal cek ongkir');
+}
+
+export interface GeoResult {
+  district: string;
+  city: string;
+  province: string;
+  displayName: string;
+}
+
+/** Reverse-geocode via proxy server (bukan direct Nominatim dari HP). Null bila gagal. */
+export async function reverseGeocode(lat: number, lon: number): Promise<GeoResult | null> {
+  try {
+    const response: HttpResponse = await CapacitorHttp.get({
+      url: `${BASE_API_URL}/api/geocode/reverse?lat=${lat}&lon=${lon}`,
+      ...HTTP_TIMEOUT,
+    });
+    return response.data?.result || null;
+  } catch {
+    return null;
+  }
+}

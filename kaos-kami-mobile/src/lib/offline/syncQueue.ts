@@ -38,20 +38,58 @@ export function clearOfflineMutationQueue(): void {
   }
 }
 
+const FAIL_COUNT_KEY = 'kaoskami_mutation_failcount';
+const MAX_QUEUE = 50; // Batas antrean (memori localStorage HP kentang).
+const MAX_CONSECUTIVE_FAIL = 5; // Poison-eviction: item tertua dibuang.
+
+function getFailCount(): number {
+  try {
+    return Number(localStorage.getItem(FAIL_COUNT_KEY) || 0);
+  } catch {
+    return 0;
+  }
+}
+
 export function initOfflineSyncQueue(
   onSync: (mutations: PendingMutation[]) => Promise<void>
 ): () => void {
   const processQueue = async () => {
     const status = await getCurrentNetworkStatus();
     if (status.connected) {
-      const queue = getOfflineMutationQueue();
+      let queue = getOfflineMutationQueue();
+      if (queue.length > MAX_QUEUE) {
+        // Pangkas terlama bila membludak (HP offline berhari-hari).
+        queue = queue.slice(queue.length - MAX_QUEUE);
+        if (typeof window !== 'undefined') {
+          localStorage.setItem(MUTATION_QUEUE_KEY, JSON.stringify(queue));
+        }
+      }
       if (queue.length > 0) {
         try {
           await onSync(queue);
           clearOfflineMutationQueue();
+          try {
+            localStorage.removeItem(FAIL_COUNT_KEY);
+          } catch {}
           console.log(`[SyncQueue] Sukses memproses ${queue.length} mutasi offline.`);
         } catch (err) {
-          console.warn('[SyncQueue] Gagal sinkronisasi mutasi:', err);
+          // Poison-guard: gagal N x beruntun → buang 1 item tertua (kemungkinan
+          // rusak/ditolak permanen server) agar antrean tidak macet selamanya.
+          const fails = getFailCount() + 1;
+          try {
+            localStorage.setItem(FAIL_COUNT_KEY, String(fails));
+          } catch {}
+          if (fails >= MAX_CONSECUTIVE_FAIL) {
+            const dropped = queue[0];
+            queue = queue.slice(1);
+            if (typeof window !== 'undefined') {
+              localStorage.setItem(MUTATION_QUEUE_KEY, JSON.stringify(queue));
+              localStorage.removeItem(FAIL_COUNT_KEY);
+            }
+            console.warn('[SyncQueue] Poison-eviction, buang mutasi tertua:', dropped?.id, err);
+          } else {
+            console.warn('[SyncQueue] Gagal sinkronisasi mutasi:', err);
+          }
         }
       }
     }

@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { eq } from "drizzle-orm";
+import { nanoid } from "nanoid";
 import { db } from "@/lib/db";
-import { Payment } from "@/lib/drizzle-schema";
+import { OrderStatusEvent, Payment } from "@/lib/drizzle-schema";
 import { duitkuProvider } from "@/lib/payments/duitku";
 import { confirmOrderPaid } from "@/lib/payments/confirmOrder";
 
@@ -68,9 +69,10 @@ export async function POST(req: NextRequest) {
     // 3. Check resultCode ("00" = SUCCESS)
     const isPaymentSuccess = resultCode === "00";
 
-    // 3b. Nominal callback WAJIB sama dengan total order — tolak underpayment.
-    if (isPaymentSuccess && amount !== undefined && Number(amount) !== order.totalIdr) {
-      console.warn("Duitku Webhook: amount mismatch", { merchantOrderId, amount, total: order.totalIdr });
+    // 3b. Nominal callback WAJIB ada & sama dengan total order — tolak
+    // underpayment maupun sukses-tanpa-nominal.
+    if (isPaymentSuccess && (amount === undefined || Number(amount) !== order.totalIdr)) {
+      console.warn("Duitku Webhook: amount missing/mismatch", { merchantOrderId, amount, total: order.totalIdr });
       return NextResponse.json({ error: "Amount mismatch" }, { status: 400 });
     }
 
@@ -99,6 +101,14 @@ export async function POST(req: NextRequest) {
     // (satu pintu via confirmOrderPaid — idempoten, anti spawn ganda).
     if (isPaymentSuccess) {
       await confirmOrderPaid(order.id, { paymentCode, reference, via: "webhook" });
+    } else {
+      // Catat kegagalan ke riwayat agar admin melihat (sebelumnya sunyi).
+      await db.insert(OrderStatusEvent).values({
+        id: nanoid(),
+        orderId: order.id,
+        status: order.status,
+        note: `Callback Duitku gagal (${resultCode || "?"} via ${paymentCode || "Duitku"}).`,
+      }).catch(() => {});
     }
 
     return new Response("SUCCESS", { status: 200 });

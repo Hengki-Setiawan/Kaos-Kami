@@ -5,6 +5,7 @@
 import { and, eq, sql } from "drizzle-orm";
 import { nanoid } from "nanoid";
 import { db } from "@/lib/db";
+import { siteUrl } from "@/lib/siteUrl";
 import { Order, OrderStatusEvent, ProductionTask, ProductVariant } from "@/lib/drizzle-schema";
 import { computePhysicalPrintDimensions } from "@/lib/scaleCalibration";
 import { sendWhatsAppNotification, buildProductionStatusMessage } from "@/lib/notifications/whatsapp";
@@ -104,21 +105,28 @@ export async function confirmOrderPaid(
     });
   }
 
-  // Kurangi stok varian katalog (clamp >= 0, SQLite serial).
+  // Kurangi stok varian katalog HANYA bila cukup (anti oversell diam-diam).
+  // Bila kurang → biarkan (order sudah lunas!) + peringatkan admin via log.
   for (const item of order.items) {
     const variantId = (item as any).productVariantId as string | null;
     const qty = (item as any).quantity as number;
     if (variantId && qty > 0) {
-      await db
+      const res = await db
         .update(ProductVariant)
-        .set({ stockQty: sql`max(0, ${ProductVariant.stockQty} - ${qty})` })
-        .where(eq(ProductVariant.id, variantId))
-        .catch((e) => console.warn("Stok decrement gagal:", variantId, e?.message));
+        .set({ stockQty: sql`${ProductVariant.stockQty} - ${qty}` })
+        .where(and(eq(ProductVariant.id, variantId), sql`${ProductVariant.stockQty} >= ${qty}`))
+        .catch((e) => {
+          console.warn("Stok decrement gagal:", variantId, e?.message);
+          return null;
+        });
+      if (res && (res.rowsAffected ?? 0) === 0) {
+        console.warn(`OVERSELL: stok ${variantId} kurang untuk qty ${qty} (order ${order.orderNumber}) — cek manual!`);
+      }
     }
   }
 
   // Notify customer via WhatsApp (fail-safe).
-  const invoiceUrl = `${process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000"}/orders/${order.id}`;
+  const invoiceUrl = `${siteUrl()}/orders/${order.id}`;
   if (order.user?.phoneNumber) {
     sendWhatsAppNotification(
       order.user.phoneNumber,

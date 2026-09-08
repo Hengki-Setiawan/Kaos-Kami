@@ -4,7 +4,6 @@
  * Auth via CLOUDFLARE_API_TOKEN (Bearer) + CLOUDFLARE_ACCOUNT_ID
  * Endpoint: https://api.cloudflare.com/client/v4/accounts/{id}/r2/buckets/{bucket}/objects/{key}
  */
-
 const R2_BUCKET = process.env.R2_BUCKET_NAME || "kaos-kami-assets";
 const R2_PUBLIC_URL = process.env.R2_PUBLIC_URL || "";
 const CF_ACCOUNT_ID = process.env.CLOUDFLARE_ACCOUNT_ID || "";
@@ -21,14 +20,17 @@ export function getR2PublicUrl(key: string): string {
 export async function uploadToR2(
   key: string,
   body: Buffer | Uint8Array | string,
-  contentType: string = "application/octet-stream"
+  contentType: string = "application/octet-stream",
+  bucketOverride?: string
 ): Promise<{ success: boolean; url: string; key: string; error?: string }> {
   if (!CF_TOKEN || !CF_ACCOUNT_ID) {
     return { success: false, url: "", key, error: "Missing CLOUDFLARE_API_TOKEN/ACCOUNT_ID" };
   }
 
+  // B1-3: backup (PII) WAJIB ke bucket privat terpisah, JANGAN ke bucket aset publik.
+  const bucket = bucketOverride || R2_BUCKET;
   const cleanKey = key.replace(/^\/+/, "");
-  const url = `https://api.cloudflare.com/client/v4/accounts/${CF_ACCOUNT_ID}/r2/buckets/${R2_BUCKET}/objects/${encodeURIComponent(cleanKey).replace(/%2F/g, "/")}`;
+  const url = `https://api.cloudflare.com/client/v4/accounts/${CF_ACCOUNT_ID}/r2/buckets/${bucket}/objects/${encodeURIComponent(cleanKey).replace(/%2F/g, "/")}`;
 
   try {
     const buffer = typeof body === "string" ? Buffer.from(body) : Buffer.from(body);
@@ -52,7 +54,8 @@ export async function uploadToR2(
       };
     }
 
-    return { success: true, url: getR2PublicUrl(cleanKey), key: cleanKey };
+    // Bucket privat (backup): tak ada URL publik — panggil pakai key via API.
+    return { success: true, url: bucketOverride ? "" : getR2PublicUrl(cleanKey), key: cleanKey };
   } catch (e: any) {
     return { success: false, url: "", key: cleanKey, error: e?.message || "R2 upload exception" };
   }
@@ -75,8 +78,7 @@ export async function uploadBase64ToR2(
   }
 }
 
-export async function deleteFromR2(key: string) {
-  if (!CF_TOKEN || !CF_ACCOUNT_ID) return { success: false, error: "Missing token" };
+export async function deleteFromR2(key: string) {  if (!CF_TOKEN || !CF_ACCOUNT_ID) return { success: false, error: "Missing token" };
   const cleanKey = key.replace(/^\/+/, "");
   const url = `https://api.cloudflare.com/client/v4/accounts/${CF_ACCOUNT_ID}/r2/buckets/${R2_BUCKET}/objects/${encodeURIComponent(cleanKey).replace(/%2F/g, "/")}`;
   try {
@@ -89,4 +91,20 @@ export async function deleteFromR2(key: string) {
   } catch (e: any) {
     return { success: false, error: e?.message };
   }
+}
+
+/**
+ * Verifikasi magic-byte gambar (JANGAN percaya ekstensi/MIME saja):
+ * PNG 89 50 4E 47 · JPEG FF D8 FF · WEBP "RIFF....WEBP".
+ */
+export function sniffImageMime(buffer: Uint8Array): "image/png" | "image/jpeg" | "image/webp" | null {
+  if (buffer.length < 12) return null;
+  if (buffer[0] === 0x89 && buffer[1] === 0x50 && buffer[2] === 0x4e && buffer[3] === 0x47) return "image/png";
+  if (buffer[0] === 0xff && buffer[1] === 0xd8 && buffer[2] === 0xff) return "image/jpeg";
+  if (
+    buffer[0] === 0x52 && buffer[1] === 0x49 && buffer[2] === 0x46 && buffer[3] === 0x46 &&
+    buffer[8] === 0x57 && buffer[9] === 0x45 && buffer[10] === 0x42 && buffer[11] === 0x50
+  )
+    return "image/webp";
+  return null;
 }

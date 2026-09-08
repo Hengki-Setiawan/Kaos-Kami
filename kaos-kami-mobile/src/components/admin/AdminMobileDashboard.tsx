@@ -18,6 +18,7 @@ import {
 import { GlassCard, Badge, HapticButton, BottomSheet } from '@/components/ui';
 import { OrderItemData, OrderStatus } from '@/components/commerce/UserOrderTracker';
 import { mobileApiClient } from '@/lib/api/mobileApiClient';
+import { SHOP_WHATSAPP } from '@/lib/shop';
 import { scanJobTicketOrQris } from '@/lib/bridge/scanner';
 import { haptic } from '@/lib/bridge/haptics';
 
@@ -162,11 +163,15 @@ export function AdminMobileDashboard({
     haptic.success();
     const target = orders.find((o) => o.id === orderId);
     const serverStage = STATUS_TO_STAGE[newStatus];
-    // ACC 1-klik asli: PATCH ke server jika taskId tersedia.
+    // ACC 1-klik asli: PATCH ke server jika taskId tersedia DAN ada padanan stage.
+    // Jujur: tanpa padanan (mis. REJECTED) = lokal saja, beri tahu eksplisit.
     // Jujur: bila server gagal, JANGAN klaim sukses.
     let synced = true;
+    let localOnly = false;
     if (target?.taskId && serverStage) {
       synced = await mobileApiClient.advanceProductionTask(target.taskId, serverStage);
+    } else if (target?.taskId && !serverStage) {
+      localOnly = true;
     }
     if (!synced) {
       onNotify?.('Gagal sinkron ke server (butuh login admin / offline). Status TIDAK diubah.');
@@ -179,7 +184,11 @@ export function AdminMobileDashboard({
       setSelectedOrder((prev) => (prev ? { ...prev, status: newStatus } : null));
     }
     if (onNotify) {
-      onNotify(`Pesanan ${selectedOrder?.orderNumber} status diubah ke: ${newStatus}`);
+      onNotify(
+        localOnly
+          ? `Pesanan ${selectedOrder?.orderNumber} ditolak (lokal — tak ada padanan server).`
+          : `Pesanan ${selectedOrder?.orderNumber} status diubah ke: ${newStatus}`
+      );
     }
   };
 
@@ -394,7 +403,7 @@ export function AdminMobileDashboard({
                   variant="destructive"
                   hapticStyle="error"
                   icon={<XCircle className="w-4 h-4" />}
-                  onClick={() => updateOrderStatus(selectedOrder.id, 'COMPLETED')}
+                  onClick={() => updateOrderStatus(selectedOrder.id, 'REJECTED')}
                   className="w-full py-3 text-xs"
                 >
                   Tolak Desain (Gambar Pecah / Buram)
@@ -450,7 +459,7 @@ export function AdminMobileDashboard({
                 const msg = encodeURIComponent(
                   `Halo dari Kaos Kami Workshop Makassar! Mengenai pesanan Anda ${selectedOrder.orderNumber}...`
                 );
-                window.open(`https://wa.me/62882020685076?text=${msg}`, '_blank');
+                window.open(`https://wa.me/${SHOP_WHATSAPP}?text=${msg}`, '_blank');
               }}
               className="w-full py-2.5 text-xs"
             >

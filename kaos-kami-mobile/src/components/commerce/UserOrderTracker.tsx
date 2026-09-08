@@ -14,6 +14,7 @@ import {
 } from 'lucide-react';
 import { GlassCard, Badge, HapticButton } from '@/components/ui';
 import { openDuitkuPaymentModal } from '@/lib/payments/duitkuMobile';
+import { SHOP_WHATSAPP } from '@/lib/shop';
 import { mobileApiClient, MobileOrderStatus } from '@/lib/api/mobileApiClient';
 import { haptic } from '@/lib/bridge/haptics';
 
@@ -25,7 +26,8 @@ export type OrderStatus =
   | 'CURING_PRESS'
   | 'QC_PACKED'
   | 'SHIPPED'
-  | 'COMPLETED';
+  | 'COMPLETED'
+  | 'REJECTED';
 
 export interface OrderItemData {
   id: string;
@@ -68,7 +70,7 @@ export function UserOrderTracker({
     const message = encodeURIComponent(
       `Halo Admin Kaos Kami! Saya ingin menanyakan pesanan nomor *${order.orderNumber}* (${order.apparelTitle}).`
     );
-    window.open(`https://wa.me/62882020685076?text=${message}`, '_blank');
+    window.open(`https://wa.me/${SHOP_WHATSAPP}?text=${message}`, '_blank');
   };
 
   const handlePay = () => {
@@ -260,16 +262,16 @@ export function UserOrderTrackerLive({
   const order: OrderItemData = {
     id: remote.id,
     orderNumber: remote.orderNumber,
-    apparelTitle: 'Pesanan Sablon DTF',
+    apparelTitle: `Pesanan Sablon DTF (${remote.itemCount || 1} pcs)`,
     colorName: '-',
     size: '-',
-    quantity: 1,
+    quantity: remote.itemCount || 1,
     printWidthCm: 0,
     printHeightCm: 0,
     status: mapped,
-    totalAmount: 0,
-    paymentMethod: paymentUrl ? 'Duitku' : '-',
-    deliveryMethod: 'Makassar',
+    totalAmount: remote.totalIdr || 0,
+    paymentMethod: paymentUrl ? 'Duitku' : remote.paymentMethod || '-',
+    deliveryMethod: remote.deliveryMethod || 'Makassar',
     createdAt: remote.updatedAt,
   };
 

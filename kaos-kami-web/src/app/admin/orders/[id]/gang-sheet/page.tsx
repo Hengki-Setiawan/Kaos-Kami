@@ -25,7 +25,7 @@ export default async function GangSheetPage({ params }: { params: Promise<{ id: 
               <div className="text-[10px] text-zinc-500">#{idx+1} {t.placementSide} — {t.printWidthCm != null && t.printHeightCm != null ? `${t.printWidthCm.toFixed(1)}×${t.printHeightCm.toFixed(1)}cm` : "dimensi belum terukur"} offset {t.offsetFromCollarCm != null ? `${t.offsetFromCollarCm.toFixed(1)}cm` : "—"}</div>
               <div className="mt-2 h-32 bg-zinc-100 border border-zinc-300 flex items-center justify-center text-zinc-400">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
-                {t.mockupPreviewUrl ? <img src={t.mockupPreviewUrl} alt="preview" className="max-h-32" /> : "Preview 300 DPI"}
+                {t.printFileUrl ? <img src={t.printFileUrl} alt="master 300dpi" className="max-h-32" /> : t.mockupPreviewUrl ? <img src={t.mockupPreviewUrl} alt="preview" className="max-h-32" /> : "Master 300 DPI belum ada"}
               </div>
               <div className="text-[9px] mt-1">{t.notes || order.items[idx]?.snapshotName}</div>
             </div>

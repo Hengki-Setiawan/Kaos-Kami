@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getRawClient } from "@/lib/db";
 import { uploadToR2 } from "@/lib/r2";
+import { secretsEqual } from "@/lib/timingSafe";
 
 const q = (v: unknown): string =>
   v === null || v === undefined
@@ -22,7 +23,7 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "CRON_SECRET belum dikonfigurasi" }, { status: 503 });
   }
   const auth = req.headers.get("authorization") || "";
-  if (auth !== `Bearer ${secret}`) {
+  if (!secretsEqual(auth, `Bearer ${secret}`)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
@@ -52,7 +53,8 @@ export async function GET(req: NextRequest) {
     out += "COMMIT;\n";
     const stamp = new Date().toISOString().slice(0, 16).replace(/[-:T]/g, "");
     const key = `backups/kaos-kami-${stamp}.sql`;
-    const up = await uploadToR2(key, out, "application/sql");
+    // Bucket PRIVAT (tanpa domain publik) — berisi PII pelanggan.
+    const up = await uploadToR2(key, out, "application/sql", "kaos-kami-backups");
     if (!up.success) {
       return NextResponse.json({ error: up.error || "Upload backup gagal" }, { status: 500 });
     }

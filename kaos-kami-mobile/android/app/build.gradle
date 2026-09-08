@@ -7,7 +7,10 @@ android {
         applicationId "id.makassar.kaoskami"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 1
+        // Auto-increment: ANDROID_VERSION_CODE dari CI (GITHUB_RUN_NUMBER),
+        // fallback tanggal (aman di bawah batas Play 2100000000).
+        // Tanpa ini Play menolak upload ulang dengan versionCode sama.
+        versionCode (System.getenv("ANDROID_VERSION_CODE") ?: new Date().format('yyyyMMdd')).toInteger()
         versionName "1.0"
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         aaptOptions {

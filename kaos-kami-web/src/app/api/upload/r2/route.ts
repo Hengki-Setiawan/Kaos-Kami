@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { uploadToR2, uploadBase64ToR2 } from "@/lib/r2";
+import { sniffImageMime, uploadToR2, uploadBase64ToR2 } from "@/lib/r2";
 import { getAuthenticatedUser } from "@/lib/security/authGuard";
 import { checkRateLimitAsync, getClientIp, rateLimitHeaders } from "@/lib/security/rateLimiter";
 
@@ -40,6 +40,11 @@ export async function POST(req: NextRequest) {
       if (Buffer.byteLength(b64, "base64") > MAX_BYTES) {
         return NextResponse.json({ error: "File >10MB" }, { status: 400 });
       }
+      // Magic-byte: isi harus gambar betulan (bukan script ganti baju).
+      const probe = Buffer.from(b64.slice(0, 32), "base64");
+      if (!sniffImageMime(probe)) {
+        return NextResponse.json({ error: "Isi file bukan gambar valid" }, { status: 400 });
+      }
       // Key SELALU dari server (user-scoped) — client tidak boleh menentukan path.
       const r2Key = `uploads/${user.id}/${Date.now()}-${Math.random().toString(36).slice(2, 6)}.${safeExt(mime)}`;
       const result = await uploadBase64ToR2(imageBase64, r2Key);
@@ -67,6 +72,9 @@ export async function POST(req: NextRequest) {
     const key = `uploads/${user.id}/${Date.now()}-${Math.random().toString(36).slice(2, 6)}.${safeExt(file.type)}`;
 
     let buffer = Buffer.from(await file.arrayBuffer());
+    if (!sniffImageMime(buffer.subarray(0, 32))) {
+      return NextResponse.json({ error: "Isi file bukan gambar valid" }, { status: 400 });
+    }
     // Sharp re-encode: resize max 1200, webp/png, strip metadata (10MB guard)
     try {
       const sharp = (await import("sharp")).default;

@@ -99,6 +99,14 @@ export default async function AdminOrderDetailPage({ params }: AdminOrderDetailP
             <Printer size={14} className="text-brand-accent" />
             <span>CETAK JOB TICKET (PDF)</span>
           </a>
+          <a
+            href={`/admin/orders/${order.id}/gang-sheet`}
+            target="_blank"
+            className="py-2.5 px-3.5 rounded-xl bg-surface border border-white/10 hover:border-brand-accent text-white font-bold transition-all flex items-center gap-1.5"
+          >
+            <Layers size={14} className="text-brand-accent" />
+            <span>GANG SHEET A3</span>
+          </a>
         </div>
         <OrderAdminActions orderId={order.id} currentTracking={order.trackingNumber} />
       </div>
@@ -307,11 +315,31 @@ export default async function AdminOrderDetailPage({ params }: AdminOrderDetailP
                 <span>Ongkos Kirim</span>
                 <span>Rp {order.shippingCostIdr.toLocaleString("id-ID")}</span>
               </div>
+              {order.discountIdr > 0 && (
+                <div className="flex justify-between text-emerald-400">
+                  <span>Diskon kupon</span>
+                  <span>−Rp {order.discountIdr.toLocaleString("id-ID")}</span>
+                </div>
+              )}
               <div className="flex justify-between items-baseline pt-2 border-t border-white/10 text-sm font-bold text-white">
                 <span>TOTAL:</span>
                 <span className="text-brand-accent text-base">
                   Rp {order.totalIdr.toLocaleString("id-ID")}
                 </span>
+              </div>
+              <div className="pt-2 space-y-1 border-t border-white/5">
+                <div className="flex justify-between text-text-muted">
+                  <span>Metode</span>
+                  <span className="text-white font-bold">{order.payment?.method || "—"}</span>
+                </div>
+                <div className="flex justify-between text-text-muted">
+                  <span>Status bayar</span>
+                  <span className="text-white font-bold">{order.payment?.status || "—"}</span>
+                </div>
+                <div className="flex justify-between text-text-muted">
+                  <span>Referensi</span>
+                  <span className="text-white font-bold break-all text-right max-w-[60%]">{order.payment?.providerRef || "—"}</span>
+                </div>
               </div>
             </div>
           </div>

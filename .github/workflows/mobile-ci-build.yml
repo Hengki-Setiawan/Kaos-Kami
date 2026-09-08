@@ -63,6 +63,8 @@ jobs:
           printf 'storePassword=%s\nkeyAlias=%s\nkeyPassword=%s\n' "$STORE_PASSWORD" "$KEY_ALIAS" "$KEY_PASSWORD" > kaos-kami-mobile/android/key.properties
 
       - name: Build Android Release APK
+        env:
+          ANDROID_VERSION_CODE: ${{ github.run_number }}
         run: |
           cd kaos-kami-mobile/android
           ./gradlew assembleRelease --no-daemon
@@ -75,6 +77,8 @@ jobs:
           retention-days: 14
 
       - name: Build Android Release AAB (Play Store)
+        env:
+          ANDROID_VERSION_CODE: ${{ github.run_number }}
         run: |
           cd kaos-kami-mobile/android
           ./gradlew bundleRelease --no-daemon

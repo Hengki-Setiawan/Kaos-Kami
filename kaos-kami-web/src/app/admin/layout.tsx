@@ -13,23 +13,26 @@ import {
   LogOut,
   ExternalLink,
   ChevronRight,
+  FileText,
+  Truck,
 } from "lucide-react";
 
 export const dynamic = "force-dynamic";
 
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
-  // RBAC — server-side gate (ADMIN/SUPER_ADMIN/PRODUCTION_STAFF)
+  // RBAC — server-side gate (ADMIN/SUPER_ADMIN/PRODUCTION_STAFF).
+  // B1-4: FAIL-CLOSED — error auth/infra = tolak, JANGAN render panel.
+  // (Sebelumnya: non-prod/catch → panel terbuka.)
+  let role: string | null = null;
   try {
     const session = await auth.api.getSession({ headers: await headers() });
-    const role = (session?.user as any)?.role;
-    if (!session || !["ADMIN", "SUPER_ADMIN", "PRODUCTION_STAFF"].includes(role)) {
-      // Allow dev without session but log warning (hapus di prod strict)
-      if (process.env.NODE_ENV === "production") {
-        redirect("/");
-      }
+    role = (session?.user as any)?.role || null;
+    if (!session || !role || !["ADMIN", "SUPER_ADMIN", "PRODUCTION_STAFF"].includes(role)) {
+      redirect("/");
     }
   } catch (e) {
-    console.warn("AdminLayout auth check failed (dev mode):", e);
+    console.error("AdminLayout auth check failed — akses ditolak:", (e as any)?.message);
+    redirect("/");
   }
   return (
     <div className="min-h-screen bg-[#0E0E10] text-text-primary flex flex-col md:flex-row">
@@ -100,6 +103,22 @@ export default async function AdminLayout({ children }: { children: React.ReactN
             >
               <Sparkles size={16} />
               <span>VOUCHER</span>
+            </Link>
+
+            <Link
+              href="/admin/cms"
+              className="flex items-center space-x-3 px-3 py-2.5 rounded-xl text-text-muted hover:text-white hover:bg-white/5 transition-all"
+            >
+              <FileText size={16} />
+              <span>CMS WEBSITE</span>
+            </Link>
+
+            <Link
+              href="/admin/shipping"
+              className="flex items-center space-x-3 px-3 py-2.5 rounded-xl text-text-muted hover:text-white hover:bg-white/5 transition-all"
+            >
+              <Truck size={16} />
+              <span>ONGKIR & ZONA</span>
             </Link>
 
             <Link

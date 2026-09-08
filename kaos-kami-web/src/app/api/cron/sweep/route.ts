@@ -3,6 +3,7 @@ import { and, eq } from "drizzle-orm";
 import { nanoid } from "nanoid";
 import { db } from "@/lib/db";
 import { Order, OrderStatusEvent } from "@/lib/drizzle-schema";
+import { secretsEqual } from "@/lib/timingSafe";
 
 // Batas kedaluwarsa order tanpa bayar: 24 jam (sama dengan expiry Duitku).
 const STALE_MS = 24 * 60 * 60 * 1000;
@@ -22,7 +23,7 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "CRON_SECRET belum dikonfigurasi" }, { status: 503 });
   }
   const auth = req.headers.get("authorization") || "";
-  if (auth !== `Bearer ${secret}`) {
+  if (!secretsEqual(auth, `Bearer ${secret}`)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 

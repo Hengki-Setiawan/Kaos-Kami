@@ -72,12 +72,36 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
   const [isPhoneVerified, setIsPhoneVerified] = useState(false);
   const [isSendingOtp, setIsSendingOtp] = useState(false);
   const [otpMsg, setOtpMsg] = useState<string | null>(null);
-  const [district, setDistrict] = useState(MAKASSAR_SUBDISTRICTS[0] || "Tamalanrea");
+  const [district, setDistrict] = useState(MAKASSAR_SUBDISTRICTS[0] || "Tallo");
   const [fullAddress, setFullAddress] = useState("");
   const [courierNotes, setCourierNotes] = useState("");
   const [turnaroundTier, setTurnaroundTier] = useState<"REGULER" | "EXPRESS_24H">("REGULER");
   // Kode kupon (opsional) — validasi + potongan 100% dihitung server.
   const [couponCode, setCouponCode] = useState("");
+  // Ekspedisi luar kota: autocomplete kota→kode pos + daftar kurir server.
+  // Harga tampil = estimasi; FINAL di-resolve server saat checkout.
+  interface QuoteOption {
+    key: string;
+    courier: string;
+    service: string;
+    cost: number;
+    etd: string;
+    source: "live" | "zone";
+    zoneId?: string;
+    courierCode?: string;
+    serviceCode?: string;
+  }
+  const [destQuery, setDestQuery] = useState("");
+  const [locSuggest, setLocSuggest] = useState<{ postalCode: string; label: string }[]>([]);
+  const [locLoading, setLocLoading] = useState(false);
+  const [selectedPostal, setSelectedPostal] = useState("");
+  const [quotes, setQuotes] = useState<QuoteOption[]>([]);
+  const [quoteSource, setQuoteSource] = useState<"live" | "zone" | "">("");
+  const [selectedQuoteKey, setSelectedQuoteKey] = useState("");
+  const [quoteLoading, setQuoteLoading] = useState(false);
+  const [quoteMsg, setQuoteMsg] = useState<string | null>(null);
+  const [gpsLoading, setGpsLoading] = useState(false);
+  const [gpsMsg, setGpsMsg] = useState<string | null>(null);
 
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -152,7 +176,127 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
   });
 
   const selectedDelivery = MAKASSAR_DELIVERY_OPTIONS.find((d) => d.method === deliveryMethod);
-  const shippingCost = selectedDelivery?.costIdr || 0;
+  // Berat estimasi-mo: ±250g per pcs (konsisten dengan server).
+  const totalQty = isCartCheckout
+    ? cartItems.reduce((a, c: any) => a + (c.quantity || 0), 0)
+    : quantity;
+  const selectedQuote = quotes.find((q) => q.key === selectedQuoteKey) || null;
+  const shippingCost =
+    deliveryMethod === "EXPEDITION_MANUAL" && selectedQuote
+      ? selectedQuote.cost
+      : selectedDelivery?.costIdr || 0;
+
+  // Autocomplete kota → kode pos (proxy server, key aman).
+  const handleDestSearch = async (q: string) => {
+    setDestQuery(q);
+    setSelectedPostal("");
+    setQuotes([]);
+    setSelectedQuoteKey("");
+    if (q.trim().length < 3) {
+      setLocSuggest([]);
+      return;
+    }
+    setLocLoading(true);
+    try {
+      const r = await fetch(`/api/shipping/locations?q=${encodeURIComponent(q.trim())}`);
+      const j = await r.json();
+      if (Array.isArray(j.locations)) setLocSuggest(j.locations.slice(0, 6));
+      else setLocSuggest([]);
+    } catch {
+      setLocSuggest([]);
+    } finally {
+      setLocLoading(false);
+    }
+  };
+
+  // Ambil daftar kurir (live bila key ada, else tabel zona).
+  const handleCheckOngkir = async () => {
+    setQuoteMsg(null);
+    if (!selectedPostal && destQuery.trim().length < 2) {
+      setQuoteMsg("Pilih kota dari saran atau ketik manual min. 2 huruf.");
+      return;
+    }
+    setQuoteLoading(true);
+    try {
+      const params = new URLSearchParams({
+        city: destQuery.trim(),
+        weightGrams: String(Math.max(250, totalQty * 250)),
+      });
+      if (selectedPostal) params.set("postalCode", selectedPostal);
+      const r = await fetch(`/api/shipping/quote?${params.toString()}`);
+      const j = await r.json();
+      if (j.source === "live" && Array.isArray(j.rates)) {
+        setQuoteSource("live");
+        const opts: QuoteOption[] = j.rates.map((x: any, i: number) => ({
+          key: `live:${x.courierCode}:${x.serviceCode}`,
+          courier: x.courierName,
+          service: x.serviceName,
+          cost: x.costIdr,
+          etd: x.etdText,
+          source: "live" as const,
+          courierCode: x.courierCode,
+          serviceCode: x.serviceCode,
+        }));
+        setQuotes(opts);
+        setSelectedQuoteKey(opts[0]?.key || "");
+        if (!opts.length) setQuoteMsg("Tarif tidak ditemukan untuk kode pos ini.");
+      } else if (Array.isArray(j.zones)) {
+        setQuoteSource("zone");
+        const opts: QuoteOption[] = j.zones.map((z: any) => ({
+          key: `zone:${z.id}`,
+          courier: z.courier,
+          service: `${z.service} — ${z.city}`,
+          cost: z.costIdr,
+          etd: z.etdLabel,
+          source: "zone" as const,
+          zoneId: z.id,
+        }));
+        setQuotes(opts);
+        setSelectedQuoteKey(opts[0]?.key || "");
+        if (!opts.length) setQuoteMsg("Tarif tidak ditemukan.");
+      } else {
+        setQuoteMsg(j.error || "Gagal cek ongkir.");
+      }
+    } catch {
+      setQuoteMsg("Gagal cek ongkir. Coba lagi.");
+    } finally {
+      setQuoteLoading(false);
+    }
+  };
+
+  // GPS via proxy server (bukan direct Nominatim dari browser).
+  const handleUseGps = () => {
+    if (!navigator.geolocation) {
+      setGpsMsg("GPS tidak didukung browser ini.");
+      return;
+    }
+    setGpsLoading(true);
+    setGpsMsg(null);
+    navigator.geolocation.getCurrentPosition(
+      async (pos) => {
+        try {
+          const r = await fetch(
+            `/api/geocode/reverse?lat=${pos.coords.latitude}&lon=${pos.coords.longitude}`
+          );
+          const j = await r.json();
+          const g = j?.result;
+          if (g?.displayName) setFullAddress(g.displayName);
+          if (g?.district && MAKASSAR_SUBDISTRICTS.includes(g.district)) setDistrict(g.district);
+          if (g?.city && deliveryMethod === "EXPEDITION_MANUAL") handleDestSearch(g.city);
+          setGpsMsg(g ? `Lokasi: ${[g.district, g.city].filter(Boolean).join(", ") || "terisi"}` : "Gagal baca lokasi. Isi manual.");
+        } catch {
+          setGpsMsg("Gagal baca lokasi. Isi manual.");
+        } finally {
+          setGpsLoading(false);
+        }
+      },
+      () => {
+        setGpsLoading(false);
+        setGpsMsg("Izin lokasi ditolak. Isi manual.");
+      },
+      { timeout: 15000, maximumAge: 60000 }
+    );
+  };
 
   const selectedTurnaround = PRODUCTION_TURNAROUND_OPTIONS.find((t) => t.tier === turnaroundTier);
   const turnaroundSurcharge = selectedTurnaround?.surchargeIdr || 0;
@@ -176,6 +320,10 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
     }
     if (deliveryMethod !== "PICKUP" && !fullAddress.trim()) {
       setErrorMessage("Alamat lengkap pengiriman wajib diisi.");
+      return;
+    }
+    if (deliveryMethod === "EXPEDITION_MANUAL" && !selectedQuote) {
+      setErrorMessage("Cek ongkir & pilih kurir dulu untuk ekspedisi luar kota.");
       return;
     }
 
@@ -224,7 +372,12 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
         email: email || undefined,
         deliveryMethod,
         turnaroundTier,
-        district: deliveryMethod !== "PICKUP" ? district : undefined,
+        district: deliveryMethod === "EXPEDITION_MANUAL" ? destQuery.trim() || undefined : deliveryMethod !== "PICKUP" ? district : undefined,
+        destinationCity: deliveryMethod === "EXPEDITION_MANUAL" ? destQuery.trim() || undefined : undefined,
+        destinationPostalCode: deliveryMethod === "EXPEDITION_MANUAL" && selectedPostal ? selectedPostal : undefined,
+        expeditionZoneId: selectedQuote?.source === "zone" ? selectedQuote.zoneId : undefined,
+        expeditionCourier: selectedQuote?.source === "live" ? selectedQuote.courierCode : undefined,
+        expeditionService: selectedQuote?.source === "live" ? selectedQuote.serviceCode : undefined,
         fullAddress: deliveryMethod === "PICKUP" ? "Workshop Kaos Kami Makassar (Self Pick-up)" : fullAddress,
         courierNotes,
         items: itemsPayload,
@@ -555,7 +708,12 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
                         type="radio"
                         name="deliveryMethod"
                         checked={deliveryMethod === opt.method}
-                        onChange={() => setDeliveryMethod(opt.method)}
+                        onChange={() => {
+                          setDeliveryMethod(opt.method);
+                          setQuotes([]);
+                          setSelectedQuoteKey("");
+                          setQuoteMsg(null);
+                        }}
                         className="accent-brand-accent"
                       />
                       <span className="font-mono text-xs font-bold text-white">{opt.name}</span>
@@ -571,6 +729,94 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
             {/* Address fields (if not pickup) */}
             {deliveryMethod !== "PICKUP" && (
               <div className="pt-2 space-y-3 animate-fadeIn">
+                {deliveryMethod === "EXPEDITION_MANUAL" ? (
+                  <div className="p-3 rounded-xl bg-surface border border-brand-accent/40 space-y-2.5">
+                    <label className="block font-mono text-[11px] text-text-muted uppercase">
+                      Kota tujuan (luar Makassar) *
+                    </label>
+                    <input
+                      type="text"
+                      value={destQuery}
+                      onChange={(e) => handleDestSearch(e.target.value)}
+                      placeholder="cth: Gowa, Jakarta, Surabaya"
+                      className="w-full px-3 py-2.5 rounded-xl bg-black/40 border border-white/10 focus:border-brand-accent text-xs text-white focus:outline-none"
+                    />
+                    {locLoading && <p className="font-mono text-[11px] text-text-muted">Mencari kota...</p>}
+                    {locSuggest.length > 0 && (
+                      <div className="space-y-1">
+                        {locSuggest.map((l) => (
+                          <button
+                            key={`${l.postalCode}-${l.label}`}
+                            type="button"
+                            onClick={() => {
+                              setDestQuery(l.label.split(",")[0] || l.label);
+                              setSelectedPostal(l.postalCode);
+                              setLocSuggest([]);
+                            }}
+                            className="w-full text-left px-2.5 py-1.5 rounded-lg bg-black/40 border border-white/10 hover:border-brand-accent font-mono text-[11px] text-white"
+                          >
+                            {l.label}{" "}
+                            <span className="text-brand-accent font-bold">{l.postalCode}</span>
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                    <button
+                      type="button"
+                      onClick={handleCheckOngkir}
+                      disabled={quoteLoading}
+                      className="w-full py-2 rounded-lg bg-brand-accent text-canvas font-mono text-[11px] font-bold disabled:opacity-50"
+                    >
+                      {quoteLoading ? "MENGECEK..." : "CEK ONGKIR (PILIH TERMURAH)"}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleUseGps}
+                      disabled={gpsLoading}
+                      className="w-full py-1.5 rounded-lg bg-black/40 border border-white/10 font-mono text-[11px] text-brand-accent disabled:opacity-50"
+                    >
+                      {gpsLoading ? "MEMBACA GPS..." : "📍 ISI KOTA DARI GPS HP"}
+                    </button>
+                    {gpsMsg && <p className="font-mono text-[10px] text-text-muted">{gpsMsg}</p>}
+                    {quoteMsg && <p className="font-mono text-[11px] text-rose-300">{quoteMsg}</p>}
+                    {quoteSource === "zone" && (
+                      <p className="font-mono text-[10px] text-amber-400">
+                        Tarif estimasi tabel (live belum aktif). Final dihitung server.
+                      </p>
+                    )}
+                    <div className="space-y-1.5">
+                      {quotes.map((q) => (
+                        <label
+                          key={q.key}
+                          className={`p-2.5 rounded-xl border cursor-pointer flex items-center justify-between ${
+                            selectedQuoteKey === q.key
+                              ? "bg-brand-accent/15 border-brand-accent"
+                              : "bg-black/40 border-white/10 hover:border-white/25"
+                          }`}
+                        >
+                          <div className="flex items-center gap-2">
+                            <input
+                              type="radio"
+                              name="expeditionQuote"
+                              checked={selectedQuoteKey === q.key}
+                              onChange={() => setSelectedQuoteKey(q.key)}
+                              className="accent-brand-accent"
+                            />
+                            <div>
+                              <p className="font-mono text-xs font-bold text-white">
+                                {q.courier} {q.service}
+                              </p>
+                              <p className="font-mono text-[10px] text-text-muted">Estimasi {q.etd}</p>
+                            </div>
+                          </div>
+                          <span className="font-mono text-xs font-bold text-emerald-400">
+                            Rp {q.cost.toLocaleString("id-ID")}
+                          </span>
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+                ) : (
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
                 <label className="block font-mono text-[11px] text-text-muted uppercase mb-1">
@@ -589,27 +835,16 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
                 </select>
                 <button
                   type="button"
-                  onClick={()=>{
-                    if(!navigator.geolocation){ setCourierNotes(courierNotes+" [GPS tidak didukung]"); return; }
-                    navigator.geolocation.getCurrentPosition(
-                      async (pos)=>{
-                        const lat=pos.coords.latitude.toFixed(6), lng=pos.coords.longitude.toFixed(6);
-                        setCourierNotes((prev)=> prev ? `${prev} [GPS ${lat},${lng}]` : `GPS ${lat},${lng}`);
-                        try{
-                          const r=await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&zoom=14`,{headers:{Accept:'application/json'}});
-                          const j=await r.json();
-                          const kec=j.address?.suburb||j.address?.city_district||"";
-                          if(kec && MAKASSAR_SUBDISTRICTS.includes(kec)) setDistrict(kec);
-                        }catch{}
-                      },
-                      ()=> setCourierNotes((p)=> p+" [GPS gagal]")
-                    );
-                  }}
-                  className="mt-1.5 w-full py-1.5 rounded-lg bg-surface border border-white/10 text-[11px] font-mono text-brand-accent hover:bg-brand-accent/10"
+                  onClick={handleUseGps}
+                  disabled={gpsLoading}
+                  className="mt-1.5 w-full py-1.5 rounded-lg bg-surface border border-white/10 text-[11px] font-mono text-brand-accent hover:bg-brand-accent/10 disabled:opacity-50"
                 >
-                  📍 PAKAI LOKASI SAAT INI (GPS)
+                  {gpsLoading ? "MEMBACA GPS..." : "📍 PAKAI LOKASI SAAT INI (GPS)"}
                 </button>
+                {gpsMsg && <p className="font-mono text-[10px] text-text-muted mt-1">{gpsMsg}</p>}
               </div>
+                </div>
+                )}
 
                   <div>
                     <label className="block font-mono text-[11px] text-text-muted uppercase mb-1">
@@ -623,7 +858,6 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
                       className="w-full px-3.5 py-2.5 rounded-xl bg-surface border border-white/10 focus:border-brand-accent text-sm text-white focus:outline-none font-sans"
                     />
                   </div>
-                </div>
 
                 <div>
                   <label className="block font-mono text-[11px] text-text-muted uppercase mb-1">
@@ -686,8 +920,16 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
 
             {shippingCost > 0 && (
               <div className="flex justify-between text-text-muted">
-                <span>Ongkos Kirim Flat Makassar</span>
+                <span>
+                  Ongkos Kirim{deliveryMethod === "EXPEDITION_MANUAL" && selectedQuote ? ` (${selectedQuote.courier} ${selectedQuote.service})` : ""}
+                </span>
                 <span>Rp {shippingCost.toLocaleString("id-ID")}</span>
+              </div>
+            )}
+            {deliveryMethod === "FREE_MAKASSAR" && (
+              <div className="flex justify-between text-emerald-400">
+                <span>Diantar tim kami — Gratis Makassar</span>
+                <span>Rp 0</span>
               </div>
             )}
 

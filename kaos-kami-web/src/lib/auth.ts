@@ -51,6 +51,8 @@ export const auth = betterAuth({
       role: {
         type: "string",
         defaultValue: "CUSTOMER",
+        // KRITIS: tanpa input:false, pendaftar bisa kirim role:"ADMIN".
+        input: false,
       },
     },
   },

@@ -2,7 +2,7 @@ import { db } from "@/lib/db";
 import { CouponAdminPanel, CouponRowActions } from "@/components/admin/CouponAdminPanel";
 export const dynamic = "force-dynamic";
 export default async function AdminCouponsPage() {
-  const coupons = await db.query.Coupon.findMany().catch(()=>[]);
+  const coupons = await db.query.Coupon.findMany();
   return (
     <div className="p-5 sm:p-8 space-y-6 max-w-7xl mx-auto font-mono text-xs">
       <div className="pb-4 border-b border-white/5 flex justify-between">

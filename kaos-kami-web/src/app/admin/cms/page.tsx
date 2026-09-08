@@ -1,4 +1,5 @@
 import { db } from "@/lib/db";
+import { CmsHeroForm } from "@/components/admin/CmsHeroForm";
 export const dynamic = "force-dynamic";
 
 // CMS kelola seluruh website — hero, lookbook, banner, SEO via R2 + DB (tanpa deploy)
@@ -15,17 +16,7 @@ export default async function AdminCMSPage() {
       </div>
 
       <div className="grid md:grid-cols-2 gap-4">
-        <div className="bg-[#141416] border border-white/5 rounded-2xl p-5 space-y-3">
-          <h3 className="font-bold text-white">HERO & SEO</h3>
-          <div className="space-y-2">
-            <label className="block text-[11px] text-text-muted">Judul Hero (HeroOverlay)</label>
-            <input defaultValue="HEAVYWEIGHT BOXY TEE — 240 & 280 GSM" className="w-full px-3 py-2 rounded-xl bg-surface border border-white/10 text-white" />
-            <label className="block text-[11px] text-text-muted">Deskripsi SEO</label>
-            <textarea defaultValue="Engineered oversized streetwear. 240 & 280 GSM combed cotton." rows={2} className="w-full px-3 py-2 rounded-xl bg-surface border border-white/10 text-white" />
-            <button className="px-4 py-2 rounded-xl bg-brand-accent text-canvas font-bold">SIMPAN (R2 JSON)</button>
-            <p className="text-[10px] text-text-muted">Simpan ke R2 `cms/hero.json` → `page.tsx` fetch via `getR2PublicUrl` — tanpa redeploy</p>
-          </div>
-        </div>
+        <CmsHeroForm />
 
         <div className="bg-[#141416] border border-white/5 rounded-2xl p-5 space-y-3">
           <h3 className="font-bold text-white">LOOKBOOK (R2)</h3>

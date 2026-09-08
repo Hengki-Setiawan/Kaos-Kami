@@ -202,8 +202,7 @@ export const MaterialFinish = sqliteTable("MaterialFinish", {
   sheen: real("sheen").notNull().default(0.5),
 });
 
-export const SablonMethod = sqliteTable("SablonMethod", {
-  id: text("id").primaryKey(),
+export const SablonMethod = sqliteTable("SablonMethod", {  id: text("id").primaryKey(),
   slug: text("slug").notNull().unique(),
   name: text("name").notNull(),
   description: text("description"),
@@ -216,6 +215,33 @@ export const SablonMethod = sqliteTable("SablonMethod", {
   minTurnaroundDays: integer("minTurnaroundDays").notNull().default(2),
   maxTurnaroundDays: integer("maxTurnaroundDays").notNull().default(5),
 });
+
+// ------------------------------------------------------------------
+// EXPEDITION ZONE (tarif luar kota per kota-kurir, editable admin)
+// ------------------------------------------------------------------
+
+export const ExpeditionZone = sqliteTable(
+  "ExpeditionZone",
+  {
+    id: text("id").primaryKey(),
+    city: text("city").notNull(),
+    province: text("province").notNull(),
+    courier: text("courier").notNull(),
+    service: text("service").notNull(),
+    costIdr: integer("costIdr").notNull(),
+    etdLabel: text("etdLabel").notNull(),
+    isActive: integer("isActive", { mode: "boolean" }).notNull().default(true),
+    sortOrder: integer("sortOrder").notNull().default(0),
+  },
+  (t) => [
+    index("ExpeditionZone_city_idx").on(t.city),
+    uniqueIndex("ExpeditionZone_city_courier_service_uidx").on(
+      t.city,
+      t.courier,
+      t.service,
+    ),
+  ],
+);
 
 // ------------------------------------------------------------------
 // DESIGN (3D STUDIO PERSISTENCE)
@@ -544,6 +570,7 @@ export const schema = {
   Payment,
   ProductionTask,
   Coupon,
+  ExpeditionZone,
   UserDevice,
   UserRelations,
   SessionRelations,

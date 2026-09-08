@@ -9,7 +9,7 @@ const AddItemSchema = z.object({
   userId: z.string(),
   productVariantId: z.string().optional(),
   designId: z.string().optional(),
-  quantity: z.number().int().positive().default(1),
+  quantity: z.number().int().positive().max(100).default(1),
   unitPriceIdr: z.number().int(),
 });
 export async function POST(req: NextRequest) {
@@ -61,13 +61,14 @@ export async function POST(req: NextRequest) {
 export async function DELETE(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url);
-    const itemId = searchParams.get('itemId');
-    if (!itemId) return NextResponse.json({ error: 'Missing itemId' }, { status: 400 });
+    const rawId = (searchParams.get('itemId') || '').slice(0, 64);
+    if (!rawId) return NextResponse.json({ error: 'Missing itemId' }, { status: 400 });
+    const itemId = rawId;
     const existing = await db.query.CartItem.findFirst({
       where: (t, { eq }) => eq(t.id, itemId),
       with: { cart: true },
     });
-    if (!existing) return NextResponse.json({ error: 'Item not found' }, { status: 404 });
+    if (!existing || !existing.cart) return NextResponse.json({ error: 'Item not found' }, { status: 404 });
     try {
       await assertResourceOwnerOrAdmin(existing.cart.userId);
     } catch (e: any) {
@@ -81,7 +82,7 @@ export async function DELETE(req: NextRequest) {
 }
 
 const UpdateQtySchema = z.object({
-  itemId: z.string().cuid(),
+  itemId: z.string().min(5).max(64),
   quantity: z.number().int().min(1).max(100),
 });
 export async function PATCH(req: NextRequest) {

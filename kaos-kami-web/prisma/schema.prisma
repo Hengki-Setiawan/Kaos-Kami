@@ -94,9 +94,31 @@ model Verification {
 
 enum DeliveryMethod {
   PICKUP              // Ambil di workshop Kaos Kami Makassar (Rp 0)
+  FREE_MAKASSAR       // Diantar tim Kaos Kami, gratis se-Kota Makassar (Rp 0)
   INSTANT_COURIER     // Maxim / GoSend / Grab (Ongkir COD bayar ke driver)
   FLAT_MAKASSAR       // Kurir Internal Flat Rate Makassar (Rp 15.000)
   EXPEDITION_MANUAL   // Ekspedisi Luar Kota (JNE / J&T / SiCepat)
+}
+
+// ------------------------------------------------------------------
+// ZONA EKSPEDISI (tarif luar kota per kota-kurir, bisa diedit admin)
+// v2: colok provider API (api.co.id/dsb) via ExpeditionProvider bila volume
+// sudah justify (lihat Blueprint/PENGIRIMAN.md). v1 = tabel milik sendiri.
+// ------------------------------------------------------------------
+
+model ExpeditionZone {
+  id        String   @id @default(cuid())
+  city      String   // "Gowa", "Jakarta Selatan", ...
+  province  String   // "Sulawesi Selatan", ...
+  courier   String   // "JNE", "J&T", "SiCepat", ...
+  service   String   // "REG", "YES", "Ekonomi", ...
+  costIdr   Int
+  etdLabel  String   // "2-3 hari"
+  isActive  Boolean  @default(true)
+  sortOrder Int      @default(0)
+
+  @@unique([city, courier, service])
+  @@index([city])
 }
 
 model Address {

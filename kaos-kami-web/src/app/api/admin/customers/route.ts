@@ -30,6 +30,15 @@ export async function PATCH(req: NextRequest) {
     if (userId === myId) {
       return NextResponse.json({ error: "Tidak bisa ubah role sendiri (anti-lockout)" }, { status: 400 });
     }
+    // Cegah eskalasi lateral: hanya SUPER_ADMIN boleh memberi/mencabut SUPER_ADMIN.
+    const target = await db.query.User.findFirst({
+      where: (t, { eq }) => eq(t.id, userId),
+      columns: { role: true },
+    });
+    if (!target) return NextResponse.json({ error: "User tidak ditemukan" }, { status: 404 });
+    if ((role === "SUPER_ADMIN" || target.role === "SUPER_ADMIN") && myRole !== "SUPER_ADMIN") {
+      return NextResponse.json({ error: "Hanya SUPER_ADMIN yang boleh kelola SUPER_ADMIN" }, { status: 403 });
+    }
     await db.update(User).set({ role }).where(eq(User.id, userId));
     return NextResponse.json({ success: true });
   } catch {

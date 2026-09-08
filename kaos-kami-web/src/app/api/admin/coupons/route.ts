@@ -28,11 +28,14 @@ async function requireAdmin(req: NextRequest) {
 const CreateSchema = z.object({
   code: z.string().min(3).max(32),
   discountType: z.enum(["PERCENT", "FIXED"]),
-  discountValue: z.number().int().positive().max(100),
+  discountValue: z.number().int().positive(),
   minSpendIdr: z.number().int().nonnegative().default(0),
   maxUses: z.number().int().positive().nullable().optional(),
   expiresAt: z.string().datetime().nullable().optional(),
-});
+}).refine(
+  (v) => (v.discountType === "PERCENT" ? v.discountValue <= 100 : v.discountValue <= 50_000_000),
+  { message: "Nilai diskon di luar batas (persen ≤100, tetap ≤Rp50jt)" }
+);
 
 export async function POST(req: NextRequest) {
   const gate = await requireAdmin(req);
@@ -40,9 +43,6 @@ export async function POST(req: NextRequest) {
   const parsed = CreateSchema.safeParse(await req.json().catch(() => ({})));
   if (!parsed.success) return NextResponse.json({ error: parsed.error.errors[0]?.message || "Invalid" }, { status: 400 });
   const v = parsed.data;
-  if (v.discountType === "PERCENT" && v.discountValue > 100) {
-    return NextResponse.json({ error: "Persen maksimal 100" }, { status: 400 });
-  }
   try {
     const [row] = await db
       .insert(Coupon)

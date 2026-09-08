@@ -41,7 +41,7 @@ export async function POST(req: NextRequest) {
     if (!validation.success) {
       return NextResponse.json({ error: validation.error.errors[0]?.message }, { status: 400 });
     }
-    const { userId, designs } = validation.data;
+    const { userId, designs, deviceId } = validation.data;
 
     // Anti-IDOR: hanya pemilik akun (atau admin) boleh injeksi desain.
     try {
@@ -61,15 +61,36 @@ export async function POST(req: NextRequest) {
     }
 
     const results: Array<{ clientId: string; designId: string; action: "created" | "updated" | "kept-server" }> = [];
+    // Preload kategori sekali (hindari N+1 ±150 query).
+    const allCategories = await db.query.ApparelCategory.findMany({
+      orderBy: (t, { asc }) => asc(t.sortOrder),
+    });
+    const fallbackCategory = allCategories[0];
+    const { calculate6VariablePrice } = await import("@/lib/pricingEngine");
+    const { PRODUCT_COLORS } = await import("@/lib/constants");
     for (const d of designs) {
       const category =
-        (await db.query.ApparelCategory.findFirst({
-          where: (t, { eq }) => eq(t.slug, d.apparelSlug),
-        })) ||
-        (await db.query.ApparelCategory.findFirst({
-          orderBy: (t, { asc }) => asc(t.sortOrder),
-        }));
+        allCategories.find((c) => c.slug === d.apparelSlug) || fallbackCategory;
       if (!category) continue;
+
+      // Harga dihitung ULANG di server (jangan percaya HP).
+      let serverPrice = d.calculatedPriceIdr;
+      try {
+        const matched = PRODUCT_COLORS.find(
+          (c: any) => String(c.hex).toLowerCase() === String(d.colorHex).toLowerCase()
+        );
+        const pricing = calculate6VariablePrice({
+          apparelSlug: (category.slug || d.apparelSlug) as any,
+          size: d.size,
+          colorHex: d.colorHex,
+          isSpecialPigment: !!matched?.isSpecialPigment,
+          decals: Array.isArray(d.decals) ? d.decals : [],
+          quantity: 1,
+        });
+        serverPrice = pricing.totalPriceIdr;
+      } catch {
+        // Decal HP tak valid untuk engine → pakai angka HP apa adanya.
+      }
 
       const remoteUpdatedAt = d.updatedAt ? new Date(d.updatedAt) : new Date();
       const existing = await db.query.Design.findFirst({
@@ -94,8 +115,8 @@ export async function POST(req: NextRequest) {
             colorName: d.colorName,
             size: d.size,
             decals: JSON.stringify(d.decals || []),
-            calculatedPriceIdr: d.calculatedPriceIdr,
-            priceBreakdown: JSON.stringify({ syncedFrom: "mobile", deviceUpdatedAt: remoteUpdatedAt }),
+            calculatedPriceIdr: serverPrice,
+            priceBreakdown: JSON.stringify({ syncedFrom: "mobile", deviceId: deviceId || null, deviceUpdatedAt: remoteUpdatedAt }),
             status: "SAVED",
           })
           .where(eq(Design.id, existing.id));
@@ -114,12 +135,15 @@ export async function POST(req: NextRequest) {
           colorName: d.colorName,
           size: d.size,
           decals: JSON.stringify(d.decals || []),
-          calculatedPriceIdr: d.calculatedPriceIdr,
-          priceBreakdown: JSON.stringify({ syncedFrom: "mobile", deviceUpdatedAt: remoteUpdatedAt }),
+          calculatedPriceIdr: serverPrice,
+          priceBreakdown: JSON.stringify({ syncedFrom: "mobile", deviceId: deviceId || null, deviceUpdatedAt: remoteUpdatedAt }),
           status: "SAVED",
         })
         .returning({ id: Design.id });
-      results.push({ clientId: d.clientId, designId: saved?.id || "", action: "created" });
+      if (!saved?.id) {
+        throw new Error(`Gagal simpan desain ${d.clientId}`);
+      }
+      results.push({ clientId: d.clientId, designId: saved.id, action: "created" });
     }
 
     return NextResponse.json({ success: true, synced: results.length, results });

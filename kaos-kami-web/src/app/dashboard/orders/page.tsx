@@ -1,7 +1,10 @@
 import React from "react";
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { db } from "@/lib/db";
 import { ReorderButton } from "@/components/commerce/ReorderButton";
+import { DesignCardActions } from "@/components/commerce/DesignCardActions";
+import { AddressBook } from "@/components/commerce/AddressBook";
 import { Navbar } from "@/components/ui/Navbar";
 import { Footer } from "@/components/ui/Footer";
 import {
@@ -13,6 +16,7 @@ import {
   ChevronRight,
   User,
   ShoppingBag,
+  MapPin,
 } from "lucide-react";
 
 export const revalidate = 0;
@@ -30,6 +34,11 @@ export default async function CustomerDashboardPage() {
     sessionUserId = (session?.user as any)?.id || null;
     sessionRole = (session?.user as any)?.role || null;
   } catch {}
+  // B1-4: tamu tanpa sesi JANGAN diberi data siapa pun (sebelumnya where=undefined
+  // mengembalikan order/desain milik orang lain!). Lacak tanpa daftar: /track.
+  if (!sessionUserId) {
+    redirect("/track");
+  }
   const canSeeAll = sessionRole === "ADMIN" || sessionRole === "SUPER_ADMIN" || sessionRole === "PRODUCTION_STAFF";
   const orderWhere = sessionUserId && !canSeeAll ? { userId: sessionUserId } : undefined;
   const designWhere = sessionUserId && !canSeeAll ? { userId: sessionUserId } : undefined;
@@ -48,6 +57,14 @@ export default async function CustomerDashboardPage() {
       with: { category: true },
     }),
   ]);
+  const addresses =
+    sessionUserId && !canSeeAll
+      ? await db.query.Address.findMany({
+          where: (t, { eq }) => eq(t.userId, sessionUserId),
+          orderBy: (t, { desc }) => desc(t.createdAt),
+          limit: 20,
+        })
+      : [];
 
   return (
     <div className="min-h-screen bg-canvas text-text-primary flex flex-col justify-between">
@@ -187,6 +204,7 @@ export default async function CustomerDashboardPage() {
                   >
                     BUKA DI 3D STUDIO
                   </Link>
+                  <DesignCardActions id={design.id} title={design.title} />
                 </div>
               ))
             ) : (
@@ -195,6 +213,17 @@ export default async function CustomerDashboardPage() {
               </div>
             )}
           </div>
+        </div>
+
+        {/* Section 3: Buku alamat */}
+        <div className="space-y-4 pt-4">
+          <div className="flex items-center justify-between">
+            <h2 className="font-mono text-xs font-bold uppercase tracking-wider text-text-muted flex items-center gap-2">
+              <MapPin size={14} className="text-brand-accent" />
+              <span>ALAMAT TERSIMPAN ({addresses.length})</span>
+            </h2>
+          </div>
+          <AddressBook initial={addresses} />
         </div>
       </main>
 

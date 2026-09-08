@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { eq } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { Verification } from "@/lib/drizzle-schema";
+import { hashOtp } from "@/lib/otp";
 import { checkRateLimitAsync, getClientIp, rateLimitHeaders } from "@/lib/security/rateLimiter";
 
 export async function POST(req: NextRequest) {
@@ -28,14 +29,16 @@ export async function POST(req: NextRequest) {
     }
 
     const record = await db.query.Verification.findFirst({
-      where: (t, { and, eq }) => and(eq(t.identifier, `otp:${clean}`), eq(t.value, code)),
+      where: (t, { and, eq }) => and(eq(t.identifier, `otp:${clean}`), eq(t.value, hashOtp(code))),
       orderBy: (t, { desc }) => desc(t.createdAt),
     });
-    if (!record) return NextResponse.json({ error: "Kode salah" }, { status: 400 });
-    if (new Date() > record.expiresAt) return NextResponse.json({ error: "Kode kadaluarsa" }, { status: 400 });
+    // Satu pesan untuk salah & kadaluarsa (anti-oracle brute-force).
+    if (!record || new Date() > record.expiresAt) {
+      return NextResponse.json({ error: "Kode salah atau kadaluarsa" }, { status: 400 });
+    }
 
-    // Hapus biar tidak dipakai ulang
-    await db.delete(Verification).where(eq(Verification.id, record.id)).catch(() => {});
+    // Hapus SEMUA kode nomor ini (satu-pakai, tanpa sisa).
+    await db.delete(Verification).where(eq(Verification.identifier, `otp:${clean}`)).catch(() => {});
 
     // Tandai phone terverifikasi — bisa set User.phoneNumber verified jika ada session, tapi untuk checkout cukup return success
     return NextResponse.json({ success: true, verified: true, phone: clean });

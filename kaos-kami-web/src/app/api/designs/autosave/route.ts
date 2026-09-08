@@ -26,7 +26,9 @@ export async function POST(req: NextRequest) {
     }
     const body = await req.json();
     const parsed = AutosaveSchema.safeParse(body);
-    if (!parsed.success) return NextResponse.json({ success: true, autosaved: false });
+    if (!parsed.success) {
+      return NextResponse.json({ success: false, autosaved: false, error: "Payload autosave tidak valid" }, { status: 400 });
+    }
     const { apparelSlug, colorHex, colorName, size, decals, studioTheme, materialFinishSlug } = parsed.data;
     if (!apparelSlug) return NextResponse.json({ success: true, autosaved: true });
 
