@@ -1,0 +1,113 @@
+
+> kaos-kami-web@2.1.0 dev
+> next dev --port 3002
+
+ ⚠ Invalid next.config.mjs options detected: 
+ ⚠     Unrecognized key(s) in object: 'optimizePackageImports'
+ ⚠ See more info here: https://nextjs.org/docs/messages/invalid-next-config
+   ▲ Next.js 15.5.25
+   - Local:        http://localhost:3002
+   - Network:      http://172.20.240.1:3002
+   - Environments: .env.local, .env
+
+ ✓ Starting...
+Using secrets defined in .dev.vars
+[33m▲ [43;33m[[43;30mWARNING[43;33m][0m [1mMissing required secrets: DUITKU_MERCHANT_CODE, DUITKU_API_KEY, CLOUDFLARE_API_TOKEN, FONNTE_TOKEN. Add them to .dev.vars, .env, or set as environment variables.[0m
+
+
+ ✓ Ready in 15.5s
+ ○ Compiling /studio ...
+Watchpack Error (initial scan): Error: EINVAL: invalid argument, lstat 'D:\System Volume Information'
+ ⨯ ./src/store/useConfiguratorStore.ts
+Error:   [31mx[0m Expression expected
+     ,-[[36;1;4mD:\Vibe coding Semester 7\Kaos Kami\kaos-kami-web\src\store\useConfiguratorStore.ts[0m:523:1]
+ [2m520[0m | if (process.env.NODE_ENV !== "production" && typeof window !== "undefined") {
+ [2m521[0m |   (window as any).__KK_STORE__ = useConfiguratorStore;
+ [2m522[0m | }
+ [2m523[0m |   },
+     : [35;1m  ^[0m
+ [2m524[0m | }));
+     `----
+
+Caused by:
+    Syntax Error
+
+Import trace for requested module:
+./src/store/useConfiguratorStore.ts
+./src/components/providers/DesignSyncProvider.tsx
+Watchpack Error (initial scan): Error: EINVAL: invalid argument, lstat 'D:\System Volume Information'
+ ⨯ ./src/store/useConfiguratorStore.ts
+Error:   [31mx[0m Expression expected
+     ,-[[36;1;4mD:\Vibe coding Semester 7\Kaos Kami\kaos-kami-web\src\store\useConfiguratorStore.ts[0m:523:1]
+ [2m520[0m | if (process.env.NODE_ENV !== "production" && typeof window !== "undefined") {
+ [2m521[0m |   (window as any).__KK_STORE__ = useConfiguratorStore;
+ [2m522[0m | }
+ [2m523[0m |   },
+     : [35;1m  ^[0m
+ [2m524[0m | }));
+     `----
+
+Caused by:
+    Syntax Error
+
+Import trace for requested module:
+./src/store/useConfiguratorStore.ts
+./src/components/providers/DesignSyncProvider.tsx
+Watchpack Error (initial scan): Error: EINVAL: invalid argument, lstat 'D:\System Volume Information'
+ ⨯ ./src/store/useConfiguratorStore.ts
+Error:   [31mx[0m Expression expected
+     ,-[[36;1;4mD:\Vibe coding Semester 7\Kaos Kami\kaos-kami-web\src\store\useConfiguratorStore.ts[0m:523:1]
+ [2m520[0m | if (process.env.NODE_ENV !== "production" && typeof window !== "undefined") {
+ [2m521[0m |   (window as any).__KK_STORE__ = useConfiguratorStore;
+ [2m522[0m | }
+ [2m523[0m |   },
+     : [35;1m  ^[0m
+ [2m524[0m | }));
+     `----
+
+Caused by:
+    Syntax Error
+
+Import trace for requested module:
+./src/store/useConfiguratorStore.ts
+./src/components/providers/DesignSyncProvider.tsx
+ GET /studio 500 in 56253ms
+ ✓ Compiled /_error in 4.2s (1824 modules)
+ ○ Compiling /studio ...
+ ✓ Compiled /studio in 4.3s (2266 modules)
+ GET /studio 200 in 9082ms
+ ○ Compiling /api/auth/[...all] ...
+ ✓ Compiled /api/auth/[...all] in 23.4s (4821 modules)
+ GET /studio 200 in 3419ms
+ ✓ Compiled in 8.7s (1838 modules)
+ ✓ Compiled in 1299ms (1634 modules)
+ ○ Compiling /studio ...
+ ✓ Compiled /studio in 6.9s (2266 modules)
+ GET /studio 200 in 9748ms
+ ○ Compiling /api/auth/[...all] ...
+ ✓ Compiled /api/auth/[...all] in 2.4s (3201 modules)
+ GET /studio 200 in 2161ms
+ GET /api/auth/get-session 200 in 319ms
+ ○ Compiling /api/designs ...
+ ✓ Compiled /api/designs in 33.2s (4841 modules)
+ ✓ Compiled in 17.3s (3900 modules)
+ ✓ Compiled in 3.2s (3900 modules)
+ ✓ Compiled in 3.6s (3900 modules)
+ ✓ Compiled in 4.3s (3900 modules)
+ ⨯ ./src/store/useConfiguratorStore.ts
+Error:   [31mx[0m Expected ',', got ';'
+     ,-[[36;1;4mD:\Vibe coding Semester 7\Kaos Kami\kaos-kami-web\src\store\useConfiguratorStore.ts[0m:516:1]
+ [2m513[0m |       scale: scaleMap[s.logoPresetScale] ?? 0.11,
+ [2m514[0m |     });
+ [2m515[0m |   },
+ [2m516[0m | });
+     : [35;1m  ^[0m
+     `----
+
+Caused by:
+    Syntax Error
+
+Import trace for requested module:
+./src/store/useConfiguratorStore.ts
+./src/components/ui/Navbar.tsx
+ ✓ Compiled in 25.1s (3900 modules)

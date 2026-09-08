@@ -70,6 +70,16 @@ export function calculate6VariablePrice(input: CalculatePricingInput): PricingBr
     quantity = 1,
   } = input;
 
+  // Validasi sisi-vs-apparel (tudung = hoodie saja). Fail-closed: tolak
+  // request manipulasi, bukan diam-diam harga salah.
+  for (const d of decals || []) {
+    if (d?.targetSide === "hood" && apparelSlug !== "hoodie") {
+      const err: any = new Error("Sablon tudung hanya untuk hoodie.");
+      err.status = 400;
+      throw err;
+    }
+  }
+
   // 1. Base Apparel Price
   const basePriceIdr = APPAREL_CATALOG[apparelSlug]?.basePriceIdr ?? 149000;
 

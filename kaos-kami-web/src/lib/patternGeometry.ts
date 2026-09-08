@@ -5,7 +5,7 @@
 import type { ApparelType, DecalTargetSide } from "./constants";
 import { APPAREL_PHYSICAL_SPECS } from "./scaleCalibration";
 
-export type PatternPanel = "front" | "back" | "left_sleeve" | "right_sleeve";
+export type PatternPanel = "front" | "back" | "left_sleeve" | "right_sleeve" | "hood";
 
 export interface PanelGeometry {
   /** Lebar panel cm */
@@ -29,6 +29,19 @@ export function getPanelGeometry(apparel: ApparelType, panel: PatternPanel): Pan
       printWcm: panel === "front" ? spec.maxFrontWidthCm : spec.maxBackWidthCm,
       printHcm: panel === "front" ? spec.maxFrontHeightCm : spec.maxBackHeightCm,
       label: panel === "front" ? "Depan" : "Belakang",
+    };
+  }
+  if (panel === "hood") {
+    // Panel tudung (hoodie saja): artboard + margin.
+    // Non-hoodie: max 0 → UI menyembunyikan tab (lihat PANELS filter).
+    const hw = spec.maxHoodWidthCm ?? 0;
+    const hh = spec.maxHoodHeightCm ?? 0;
+    return {
+      wCm: Math.max(1, hw * 1.4),
+      hCm: Math.max(1, hh * 1.4),
+      printWcm: hw,
+      printHcm: hh,
+      label: "Tudung (Hood)",
     };
   }
   // Panel lengan: artboard = area sablon + margin jahit keliling.

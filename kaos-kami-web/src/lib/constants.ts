@@ -4,7 +4,22 @@ export type MaterialFinish = "combed-cotton" | "french-terry" | "acid-wash" | "p
 export type LightingPreset = "editorial" | "cyber" | "soft-daylight";
 export type CameraViewPreset = "front" | "back" | "left" | "right" | "iso";
 
-export type DecalTargetSide = "front" | "back" | "left_sleeve" | "right_sleeve";
+export type DecalTargetSide = "front" | "back" | "left_sleeve" | "right_sleeve" | "hood";
+
+/** Label manusiawi sisi sablon (invoice, job ticket, kanban). */
+export const DECAL_SIDE_LABELS: Record<DecalTargetSide, string> = {
+  front: "Dada Depan",
+  back: "Punggung",
+  left_sleeve: "Lengan Kiri",
+  right_sleeve: "Lengan Kanan",
+  hood: "Tudung (Hood)",
+};
+
+/** Sisi valid per apparel (hood = hoodie saja — coach jacket tak bertudung). */
+export function validSidesFor(apparel: ApparelType): DecalTargetSide[] {
+  const base: DecalTargetSide[] = ["front", "back", "left_sleeve", "right_sleeve"];
+  return apparel === "hoodie" ? [...base, "hood"] : base;
+}
 
 export interface DecalLayer {
   id: string;

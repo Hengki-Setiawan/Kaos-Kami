@@ -38,6 +38,13 @@ export interface ApparelSpec {
    * global) — setiap apparel diskala dari mesh-nya sendiri (audit #15).
    * Rumus offset = (collarBaselineY − decalY) × meshMultiplier. */
   collarBaselineY: number;
+  /** Tudung (hoodie SAJA, riset Sep 2026: panel hood 15–20cm, tengah tudung,
+   * press datar hindari jahitan). Unit 3D, dikalibrasi visualiteratif —
+   * ukur ulang bila mesh ganti. Non-hoodie: undefined = tak didukung. */
+  maxHoodWidthCm?: number;
+  maxHoodHeightCm?: number;
+  hoodAnchorY?: number;
+  hoodAnchorZ?: number;
 }
 
 export const APPAREL_PHYSICAL_SPECS: Record<string, ApparelSpec> = {
@@ -100,6 +107,14 @@ export const APPAREL_PHYSICAL_SPECS: Record<string, ApparelSpec> = {
     measuredMeshWidthUnits: 0.631,
     sleeveAnchorX: 0.29,
     collarBaselineY: 0.14,
+    // Tudung belakang: panel 18×14cm (riset: standar 15–20cm), jangkar
+    // TERUKUR dari bbox GLB (bukan tebakan): mesh tudung y 1.588–1.926,
+    // z-belakang −0.115, center() −(y 1.42, z −0.02) → runtime y 0.168–0.506
+    // (tengah 0.34), z-belakang −0.095. Ukur ulang bila mesh ganti.
+    maxHoodWidthCm: 18.0,
+    maxHoodHeightCm: 14.0,
+    hoodAnchorY: 0.34,
+    hoodAnchorZ: 0.095,
   },
   shirt: {
     name: "Streetwear Coach Jacket",
@@ -148,6 +163,8 @@ export function maxDecalScaleUnits(
       ? spec.maxBackWidthCm
       : targetSide === "left_sleeve" || targetSide === "right_sleeve"
       ? spec.maxSleeveWidthCm
+      : targetSide === "hood"
+      ? (spec.maxHoodWidthCm ?? 0)
       : spec.maxFrontWidthCm;
   return maxW / spec.meshMultiplier;
 }
@@ -201,6 +218,10 @@ export function computePhysicalPrintDimensions(
   } else if (targetSide === "left_sleeve" || targetSide === "right_sleeve") {
     maxWidth = spec.maxSleeveWidthCm;
     maxHeight = spec.maxSleeveHeightCm;
+  } else if (targetSide === "hood") {
+    // Hoodie saja; non-hoodie max 0 → validasi sisi menolak di hulu.
+    maxWidth = spec.maxHoodWidthCm ?? 0;
+    maxHeight = spec.maxHoodHeightCm ?? 0;
   }
 
   const rawWidth = decalScale * spec.meshMultiplier;

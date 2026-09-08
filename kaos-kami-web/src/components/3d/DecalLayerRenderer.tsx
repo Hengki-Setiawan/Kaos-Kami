@@ -20,10 +20,12 @@ const SingleDecalItem: React.FC<{
   const isBack = decal.targetSide === "back";
   const isLeftSleeve = decal.targetSide === "left_sleeve";
   const isRightSleeve = decal.targetSide === "right_sleeve";
+  const isHood = decal.targetSide === "hood";
 
   // Jangkar lengan per-apparel dari hasil ukur mesh (bukan ±0.27 global)
-  const sleeveX =
-    APPAREL_PHYSICAL_SPECS[useConfiguratorStore.getState().activeApparel]?.sleeveAnchorX ?? 0.27;
+  const apparel = useConfiguratorStore.getState().activeApparel;
+  const spec = APPAREL_PHYSICAL_SPECS[apparel];
+  const sleeveX = spec?.sleeveAnchorX ?? 0.27;
 
   let posX = decal.x;
   let posY = decal.y;
@@ -46,6 +48,16 @@ const SingleDecalItem: React.FC<{
     posX = sleeveX + EPS;
     posZ = sleeveSlide;
     rotY = Math.PI / 2;
+  } else if (isHood) {
+    // Tudung belakang (hoodie saja): bidang menghadap -Z di tengah tudung.
+    // Geser dibatasi area tudung (x ±0.09 ≈ ±8.5cm, y ±0.06) agar tak lepas
+    // dari kain (jangkar terukur Fase 25).
+    const hoodY = spec?.hoodAnchorY ?? 0.34;
+    const hoodZ = spec?.hoodAnchorZ ?? 0.095;
+    posX = Math.max(-0.09, Math.min(0.09, decal.x));
+    posY = hoodY + Math.max(-0.06, Math.min(0.06, decal.y));
+    posZ = -(hoodZ + EPS);
+    rotY = Math.PI;
   } else {
     posZ = (isBack ? -surfaceZ : surfaceZ) + (isBack ? -EPS : EPS);
   }

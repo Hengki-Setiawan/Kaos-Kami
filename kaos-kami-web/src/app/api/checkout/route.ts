@@ -423,6 +423,7 @@ export async function POST(req: NextRequest) {
     });
   } catch (error: any) {
     console.error("Checkout process error:", error);
-    return NextResponse.json({ error: error?.message || "Internal server error during checkout" }, { status: 500 });
+    const status = error?.status === 400 ? 400 : 500;
+    return NextResponse.json({ error: error?.message || "Internal server error during checkout" }, { status });
   }
 }

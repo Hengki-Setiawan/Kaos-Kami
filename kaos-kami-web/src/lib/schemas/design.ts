@@ -4,7 +4,7 @@ export const DecalLayerSchema = z.object({
   id: z.string().max(64),
   url: z.string().min(1, "URL decal wajib diisi").max(500_000, "Decal terlalu besar"),
   name: z.string().default("Grafis"),
-  targetSide: z.enum(["front", "back", "left_sleeve", "right_sleeve"]),
+  targetSide: z.enum(["front", "back", "left_sleeve", "right_sleeve", "hood"]),
   x: z.number().min(-0.75).max(0.75),
   y: z.number().min(-0.75).max(0.75),
   scale: z.number().min(0.02).max(1.5),

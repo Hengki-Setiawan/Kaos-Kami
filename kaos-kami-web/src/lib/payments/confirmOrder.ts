@@ -38,14 +38,34 @@ export async function confirmOrderPaid(
     note: `Pembayaran Duitku lunas via ${paymentCode || "Duitku"} (Ref: ${reference || "-"}, via ${via}).`,
   });
 
-  // Spawn ProductionTask per item (dimensi terkalibrasi 30cm + master 300DPI).
+  // Spawn ProductionTask PER DECAL (bukan per item — audit lengan/hood:
+  // sebelumnya hanya decal pertama yang masuk produksi, sablon lengan/hood
+  // tak terlihat admin). Item katalog tanpa desain = 1 task default.
   for (const item of order.items) {
-    let widthCm = 28.5;
-    let heightCm = 16.0;
-    let placementSide = "front";
-    let offsetCm = 7.5;
-    let masterUrl: string | null = null;
+    const spawnOne = async (opts: {
+      side: string;
+      widthCm: number;
+      heightCm: number;
+      offsetCm: number;
+      masterUrl: string | null;
+      label: string;
+    }) => {
+      await db.insert(ProductionTask).values({
+        id: nanoid(),
+        orderId: order.id,
+        orderItemId: item.id,
+        stage: "DESIGN_PREP",
+        priority: order.courierNotes?.includes("EXPRESS") ? 10 : 0,
+        notes: `Item: ${item.snapshotName} (${item.snapshotSize}, ${item.snapshotColorName}) — ${opts.label}`,
+        printWidthCm: opts.widthCm,
+        printHeightCm: opts.heightCm,
+        placementSide: opts.side,
+        offsetFromCollarCm: opts.offsetCm,
+        printFileUrl: opts.masterUrl,
+      });
+    };
 
+    let spawned = 0;
     try {
       if ((item as any).designId) {
         const design = await db.query.Design.findFirst({
@@ -54,55 +74,69 @@ export async function confirmOrderPaid(
         });
         if (design?.decals) {
           const decals = JSON.parse(design.decals as unknown as string);
-          const first = Array.isArray(decals) && decals.length > 0 ? decals[0] : null;
-          if (first) {
-            const cat = await db.query.ApparelCategory.findFirst({
-              where: (t, { eq }) => eq(t.id, design.categoryId),
-              columns: { slug: true },
-            });
-            const dims = computePhysicalPrintDimensions(
-              cat?.slug || "tshirt",
-              first.scale ?? 0.52,
-              first.y ?? -0.05,
-              1.0
-            );
-            widthCm = dims.widthCm;
-            heightCm = dims.heightCm;
-            offsetCm = dims.offsetFromCollarCm;
-            placementSide = first.targetSide || "front";
-          }
-        }
-        const rawMaster = (design as any)?.masterAssetUrl as string | null;
-        if (rawMaster) {
-          try {
-            const parsed = JSON.parse(rawMaster);
-            if (typeof parsed === "object" && parsed !== null) {
-              masterUrl = (parsed[placementSide] as string) || (parsed.front as string) || null;
-            } else {
-              masterUrl = rawMaster;
+          const cat = await db.query.ApparelCategory.findFirst({
+            where: (t, { eq }) => eq(t.id, design.categoryId),
+            columns: { slug: true },
+          });
+          const rawMaster = (design as any)?.masterAssetUrl as string | null;
+          let masterMap: Record<string, string> = {};
+          if (rawMaster) {
+            try {
+              const parsed = JSON.parse(rawMaster);
+              if (typeof parsed === "object" && parsed !== null) masterMap = parsed;
+              else if (typeof rawMaster === "string") masterMap = { front: rawMaster };
+            } catch {
+              masterMap = { front: rawMaster };
             }
-          } catch {
-            masterUrl = rawMaster;
+          }
+          if (Array.isArray(decals)) {
+            // Cap 10 decal/item (selaras validasi checkout).
+            for (const d of decals.slice(0, 10)) {
+              const side = typeof d?.targetSide === "string" ? d.targetSide : "front";
+              let widthCm = 28.5;
+              let heightCm = 16.0;
+              let offsetCm = 7.5;
+              try {
+                const dims = computePhysicalPrintDimensions(
+                  cat?.slug || "tshirt",
+                  d?.scale ?? 0.11,
+                  d?.y ?? -0.05,
+                  1.0,
+                  side as any
+                );
+                widthCm = dims.widthCm;
+                heightCm = dims.heightCm;
+                offsetCm = dims.offsetFromCollarCm;
+              } catch (e) {
+                console.warn("Failed to compute dims for decal, using default", e);
+              }
+              await spawnOne({
+                side,
+                widthCm,
+                heightCm,
+                offsetCm,
+                masterUrl: masterMap[side] || masterMap.front || null,
+                label: `${side} — ${d?.name || "sablon"}`,
+              });
+              spawned++;
+            }
           }
         }
       }
     } catch (e) {
-      console.warn("Failed to compute dims for task, using default", e);
+      console.warn("Failed to spawn decal tasks, fallback single", e);
     }
-
-    await db.insert(ProductionTask).values({
-      id: nanoid(),
-      orderId: order.id,
-      orderItemId: item.id,
-      stage: "DESIGN_PREP",
-      priority: order.courierNotes?.includes("EXPRESS") ? 10 : 0,
-      notes: `Item: ${item.snapshotName} (${item.snapshotSize}, ${item.snapshotColorName})`,
-      printWidthCm: widthCm,
-      printHeightCm: heightCm,
-      placementSide,
-      offsetFromCollarCm: offsetCm,
-      printFileUrl: masterUrl,
-    });
+    if (spawned === 0) {
+      // Fallback lama: 1 task default (item katalog / desain tanpa decal).
+      await spawnOne({
+        side: "front",
+        widthCm: 28.5,
+        heightCm: 16.0,
+        offsetCm: 7.5,
+        masterUrl: null,
+        label: "default",
+      });
+    }
   }
 
   // Kurangi stok varian katalog HANYA bila cukup (anti oversell diam-diam).

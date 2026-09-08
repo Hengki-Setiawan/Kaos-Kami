@@ -970,17 +970,20 @@ export const CustomizerDrawer: React.FC = () => {
                           </div>
                         </div>
 
-                        {/* 4-Position Placement Selector (Front, Back, Left Sleeve, Right Sleeve) */}
+                        {/* Placement Selector (hood = hoodie saja) */}
                         <div className="space-y-1">
                           <span className="block text-[10px] font-mono text-text-muted font-bold uppercase">
                             POSISI PENEMPATAN SABLON:
                           </span>
-                          <div className="grid grid-cols-4 gap-1 font-mono text-[10px]">
+                          <div className="grid grid-cols-5 gap-1 font-mono text-[10px]">
                             {[
                               { id: "front", label: "👕 DADA" },
                               { id: "back", label: "🔙 PUNGGUNG" },
                               { id: "left_sleeve", label: "👈 LGN KIRI" },
                               { id: "right_sleeve", label: "👉 LGN KANAN" },
+                              ...(activeApparel === "hoodie"
+                                ? [{ id: "hood", label: "🧢 TUDUNG" }]
+                                : []),
                             ].map((side) => (
                               <button
                                 key={side.id}

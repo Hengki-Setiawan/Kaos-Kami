@@ -27,7 +27,9 @@ export const PrintZoneGuide: React.FC<PrintZoneGuideProps> = ({ surfaceZ = 0.155
   const boxCm =
     targetSide === "back"
       ? { w: spec?.maxBackWidthCm ?? 30.0, h: spec?.maxBackHeightCm ?? 42.0 }
-      : { w: spec?.maxFrontWidthCm ?? 30.0, h: spec?.maxFrontHeightCm ?? 42.0 };
+      : targetSide === "hood"
+        ? { w: spec?.maxHoodWidthCm ?? 18.0, h: spec?.maxHoodHeightCm ?? 14.0 }
+        : { w: spec?.maxFrontWidthCm ?? 30.0, h: spec?.maxFrontHeightCm ?? 42.0 };
   const boxWidthUnits = boxCm.w / mult;
   const boxHeightUnits = boxCm.h / mult;
   const edgeGeometry = useMemo(() => {
@@ -41,13 +43,18 @@ export const PrintZoneGuide: React.FC<PrintZoneGuideProps> = ({ surfaceZ = 0.155
   }
 
   // activeDecal/targetSide/isBack sudah dihitung di atas (sebelum hooks).
-  // Hanya tampilkan di dada atau punggung (karena lengan memiliki batas silindris sendiri)
+  // Hanya tampilkan di dada/punggung/tudung (lengan punya batas silindris sendiri).
+  // Box tudung diposisikan di jangkar hood (belakang atas), bukan dada.
+  const isHood = targetSide === "hood";
   if (targetSide === "left_sleeve" || targetSide === "right_sleeve") {
     return null;
   }
 
-  const zPos = isBack ? -(surfaceZ + 0.002) : surfaceZ + 0.002;
-  const rotY = isBack ? Math.PI : 0;
+  const hoodY = spec?.hoodAnchorY ?? 0.34;
+  const hoodZ = spec?.hoodAnchorZ ?? 0.095;
+  const zPos = isHood ? -(hoodZ + 0.002) : isBack ? -(surfaceZ + 0.002) : surfaceZ + 0.002;
+  const rotY = isBack || isHood ? Math.PI : 0;
+  const groupY = isHood ? hoodY + 0.02 : 0.02;
 
   // Cek apakah sablon aktif melampaui batas cetak SISI INI (bukan global).
   // Batas X = setengah lebar box sisi ini (konsisten-sendiri, bukan 0.08/0.35).
@@ -57,7 +64,7 @@ export const PrintZoneGuide: React.FC<PrintZoneGuideProps> = ({ surfaceZ = 0.155
   const lineColor = isOutOfSafeZone ? "#f43f5e" : "#10b981";
 
   return (
-    <group position={[0, 0.02, zPos]} rotation={[0, rotY, 0]}>
+    <group position={[0, groupY, zPos]} rotation={[0, rotY, 0]}>
       {/* Bingkai batas 3D — ukuran dunia nyata, ikut zoom dengan benar */}
       {/* eslint-disable-next-line react/no-unknown-property */}
       <lineSegments geometry={edgeGeometry}>

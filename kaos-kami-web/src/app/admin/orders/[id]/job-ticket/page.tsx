@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import { db } from "@/lib/db";
 import { Printer, ArrowLeft } from "lucide-react";
 import { PrintButton } from "@/components/ui/PrintButton";
+import { DECAL_SIDE_LABELS } from "@/lib/constants";
 
 interface JobTicketPageProps {
   params: Promise<{ id: string }>;
@@ -99,28 +100,29 @@ export default async function JobTicketPage({ params }: JobTicketPageProps) {
               </tr>
             </thead>
             <tbody>
-              {order.items.map((item, idx) => {
-                // Join eksplisit per item; tanpa fallback idx (anti salah baris).
-                const task = (order.productionTasks as any[]).find((t) => t.orderItemId === item.id);
+              {/* Satu baris per TASK produksi (= per sisi sablon), bukan per item —
+                  sablon lengan/hood kini terlihat operator (Fase 25). */}
+              {order.productionTasks.map((task: any, idx: number) => {
+                const item = order.items.find((it: any) => it.id === task.orderItemId);
+                const sideLabel =
+                  (DECAL_SIDE_LABELS as Record<string, string>)[task.placementSide] || task.placementSide || "Depan";
                 return (
-                  <tr key={item.id} className="border-b border-black">
+                  <tr key={task.id} className="border-b border-black">
                     <td className="p-2 border border-black font-bold">
-                      #{idx + 1}. {item.snapshotName} ({item.snapshotColorName})
+                      #{idx + 1}. {item?.snapshotName || "Item"} ({item?.snapshotColorName || "?"}) — {sideLabel}
                     </td>
-                    <td className="p-2 border border-black font-bold text-center">{item.snapshotSize}</td>
-                    <td className="p-2 border border-black font-bold text-center">{item.quantity} pcs</td>
+                    <td className="p-2 border border-black font-bold text-center">{item?.snapshotSize || "?"}</td>
+                    <td className="p-2 border border-black font-bold text-center">{item?.quantity || 1} pcs</td>
                     <td className="p-2 border border-black font-bold">
                       {task?.printWidthCm && task?.printHeightCm
-                        ? `${task.printWidthCm.toFixed(1)} × ${task.printHeightCm.toFixed(1)} cm (Maks 30cm)`
+                        ? `${task.printWidthCm.toFixed(1)} × ${task.printHeightCm.toFixed(1)} cm`
                         : "UKUR ULANG — data dimensi kosong"}
                     </td>
                     <td className="p-2 border border-black">
                       {!task?.placementSide ? (
                         <strong>⚠ POSISI BELUM DITENTUKAN — konfirmasi sebelum press</strong>
-                      ) : task.placementSide === "back" ? (
-                        <>Punggung ({task?.offsetFromCollarCm ? `~${task.offsetFromCollarCm.toFixed(1)} cm dari rib` : "offset belum terukur"})</>
                       ) : (
-                        <>Dada Depan ({task?.offsetFromCollarCm ? `~${task.offsetFromCollarCm.toFixed(1)} cm dari rib` : "offset belum terukur"})</>
+                        <>{sideLabel} ({task?.offsetFromCollarCm ? `~${task.offsetFromCollarCm.toFixed(1)} cm dari rib` : "offset belum terukur"})</>
                       )}
                     </td>
                   </tr>

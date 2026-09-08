@@ -13,11 +13,12 @@ import { getPatternSilhouette } from "@/lib/patternSilhouette";
 import { decalToFabric, fabricToDecal } from "@/lib/patternSync";
 import { fetchJson } from "@/lib/fetchJson";
 
-const PANELS: Array<{ id: PatternPanel; label: string }> = [
+const PANELS: Array<{ id: PatternPanel; label: string; hoodOnly?: boolean }> = [
   { id: "front", label: "Depan" },
   { id: "back", label: "Belakang" },
   { id: "left_sleeve", label: "Lengan Kiri" },
   { id: "right_sleeve", label: "Lengan Kanan" },
+  { id: "hood", label: "Tudung", hoodOnly: true },
 ];
 
 function silhouetteDataUrl(apparel: ApparelType, panel: PatternPanel): string {
@@ -379,9 +380,9 @@ export const PatternStudio: React.FC = () => {
         </span>
       </div>
 
-      {/* Tab panel */}
-      <div className="grid grid-cols-4 gap-1.5" role="tablist" aria-label="Panel pola">
-        {PANELS.map((p) => (
+      {/* Tab panel (tudung = hoodie saja) */}
+      <div className="grid grid-cols-5 gap-1.5" role="tablist" aria-label="Panel pola">
+        {PANELS.filter((p) => !p.hoodOnly || activeApparel === "hoodie").map((p) => (
           <button
             key={p.id}
             role="tab"

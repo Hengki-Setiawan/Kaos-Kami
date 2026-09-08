@@ -337,6 +337,7 @@ export async function POST(req: NextRequest) {
     });
   } catch (e: any) {
     console.error("Mobile checkout error:", e);
-    return NextResponse.json({ error: e?.message || "Internal error" }, { status: 500 });
+    const status = e?.status === 400 ? 400 : 500;
+    return NextResponse.json({ error: e?.message || "Internal error" }, { status });
   }
 }

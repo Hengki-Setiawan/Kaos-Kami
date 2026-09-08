@@ -127,8 +127,15 @@ export const DecalGizmo: React.FC<DecalGizmoProps> = ({ surfaceZ = 0.18 }) => {
 
     if (activeGizmoTool === "move") {
       // SSOT store ±0.35 (audit #4 — gizmo ±0.25 beda sendiri).
-      const nextX = Math.max(-0.35, Math.min(0.35, dragRef.current.initialX + dx));
-      const nextY = Math.max(-0.35, Math.min(0.35, dragRef.current.initialY - dy));
+      // Tudung: jepit ke area kain (x ±0.09, y ±0.06 dari jangkar).
+      // Lengan: geser-x jepit ±0.12 (lebih jauh = melayang dari lengkung).
+      const side = activeDecal.targetSide;
+      const isHoodMove = side === "hood";
+      const isSleeveMove = side === "left_sleeve" || side === "right_sleeve";
+      const bx = isHoodMove ? 0.09 : isSleeveMove ? 0.12 : 0.35;
+      const by = isHoodMove ? 0.06 : 0.35;
+      const nextX = Math.max(-bx, Math.min(bx, dragRef.current.initialX + dx));
+      const nextY = Math.max(-by, Math.min(by, dragRef.current.initialY - dy));
       updateDecal(activeDecal.id, { x: nextX, y: nextY });
     } else if (activeGizmoTool === "scale") {
       const deltaScale = 1 + dx * 1.5;
@@ -159,6 +166,7 @@ export const DecalGizmo: React.FC<DecalGizmoProps> = ({ surfaceZ = 0.18 }) => {
   const isBack = activeDecal.targetSide === "back";
   const isLeftSleeve = activeDecal.targetSide === "left_sleeve";
   const isRightSleeve = activeDecal.targetSide === "right_sleeve";
+  const isHood = activeDecal.targetSide === "hood";
 
   let gizmoPos: [number, number, number] = [activeDecal.x, activeDecal.y, surfaceZ + 0.01];
   let gizmoRot: [number, number, number] = [0, 0, 0];
@@ -184,6 +192,15 @@ export const DecalGizmo: React.FC<DecalGizmoProps> = ({ surfaceZ = 0.18 }) => {
   } else if (isRightSleeve) {
     gizmoPos = [sleeveX, activeDecal.y, sleeveSlide];
     gizmoRot = [0, 0, 0];
+  } else if (isHood) {
+    const hoodY = spec?.hoodAnchorY ?? 0.34;
+    const hoodZ = spec?.hoodAnchorZ ?? 0.095;
+    gizmoPos = [
+      Math.max(-0.09, Math.min(0.09, activeDecal.x)),
+      hoodY + Math.max(-0.06, Math.min(0.06, activeDecal.y)),
+      -(hoodZ + 0.01),
+    ];
+    gizmoRot = [0, Math.PI, 0];
   }
   // Lebar badge per sisi dari spek (audit #4 — maxFront untuk semua sisi salah).
   const sideMaxCm =
@@ -191,7 +208,9 @@ export const DecalGizmo: React.FC<DecalGizmoProps> = ({ surfaceZ = 0.18 }) => {
       ? (spec?.maxBackWidthCm ?? 30.0)
       : activeDecal.targetSide === "left_sleeve" || activeDecal.targetSide === "right_sleeve"
         ? (spec?.maxSleeveWidthCm ?? 8.5)
-        : (spec?.maxFrontWidthCm ?? 30.0);
+        : activeDecal.targetSide === "hood"
+          ? (spec?.maxHoodWidthCm ?? 18.0)
+          : (spec?.maxFrontWidthCm ?? 30.0);
   const widthCm = Math.min(
     sideMaxCm,
     Math.round(activeDecal.scale * (spec?.meshMultiplier ?? 101.8) * 10) / 10

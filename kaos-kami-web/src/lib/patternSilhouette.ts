@@ -55,6 +55,16 @@ export function getPatternSilhouette(apparel: ApparelType, panel: PatternPanel):
     return { viewBox: `0 0 ${w} ${h}`, body, details: [], stitches };
   }
 
+  if (panel === "hood") {
+    // Panel tudung: busur setengah-lingkaran (bentuk tudung terhampar) +
+    // garis tengah lipatan. Skematis, bukan pola jahit.
+    const cx = w / 2;
+    const r = Math.min(w / 2 - 1, h - 2);
+    const body = `M ${r2(cx - r)} ${r2(h - 1)} A ${r2(r)} ${r2(r)} 0 0 1 ${r2(cx + r)} ${r2(h - 1)} Z`;
+    const stitches = [`M ${r2(cx)} 2 L ${r2(cx)} ${r2(h - 1)}`];
+    return { viewBox: `0 0 ${w} ${h}`, body, details: [], stitches };
+  }
+
   const isBack = panel === "back";
   // Lengan panjang digambar proporsional (audit #18 — w*0.02 bikin lengan
   // 1cm tak terlihat). Sketsa skematis, bukan pola jahit.
