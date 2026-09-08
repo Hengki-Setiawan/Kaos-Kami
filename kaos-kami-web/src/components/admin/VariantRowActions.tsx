@@ -18,21 +18,41 @@ export function VariantRowActions({
   const router = useRouter();
   const [busy, setBusy] = useState(false);
   const [price, setPrice] = useState(String(priceIdr));
+  const [msg, setMsg] = useState<string | null>(null);
 
   const patch = async (body: object) => {
+    if (busy) return;
     setBusy(true);
+    setMsg(null);
     try {
+      const ctrl = new AbortController();
+      const t = setTimeout(() => ctrl.abort(), 15000);
       const res = await fetch("/api/admin/catalog", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
+        signal: ctrl.signal,
         body: JSON.stringify({ variantId: id, ...body }),
       });
-      const data = await res.json();
-      if (!res.ok || data.error) throw new Error(data.error || "Gagal");
+      clearTimeout(t);
+      const data = await res.json().catch(() => null);
+      if (!res.ok || !data || data.error) throw new Error(data?.error || "Gagal");
       router.refresh();
+    } catch (e: any) {
+      // Error diam (audit #31) → tampilkan + kembalikan harga.
+      setMsg(e?.message || "Gagal simpan");
+      setPrice(String(priceIdr));
     } finally {
       setBusy(false);
     }
+  };
+
+  const commitPrice = () => {
+    const n = Number(price);
+    if (!n || n <= 0) {
+      setPrice(String(priceIdr));
+      return;
+    }
+    if (n !== priceIdr) void patch({ priceIdr: n });
   };
 
   return (
@@ -61,14 +81,14 @@ export function VariantRowActions({
         <input
           value={price}
           onChange={(e) => setPrice(e.target.value.replace(/[^0-9]/g, "").slice(0, 9))}
-          onBlur={() => {
-            const n = Number(price);
-            if (n > 0 && n !== priceIdr) void patch({ priceIdr: n });
-            else setPrice(String(priceIdr));
+          onBlur={commitPrice}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") (e.target as HTMLInputElement).blur();
+            if (e.key === "Escape") setPrice(String(priceIdr));
           }}
           inputMode="numeric"
           className="w-24 px-2 py-1 rounded-lg bg-surface border border-white/10 text-white text-right"
-          aria-label="Harga"
+          aria-label="Harga, Enter untuk simpan"
         />
       </div>
       <button
@@ -82,6 +102,7 @@ export function VariantRowActions({
       >
         {isActive ? "AKTIF" : "MATI"}
       </button>
+      {msg && <span className="text-[11px] text-amber-300 w-full text-right">{msg}</span>}
     </div>
   );
 }

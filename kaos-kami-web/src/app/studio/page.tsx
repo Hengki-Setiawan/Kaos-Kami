@@ -21,6 +21,7 @@ export default function StudioPage() {
     decals,
     isGizmoVisible,
     toggleGizmoVisible,
+    syncStatus,
   } = useConfiguratorStore();
   const webglSupported = useWebglSupport();
 
@@ -65,6 +66,31 @@ export default function StudioPage() {
 
           <span className="hidden md:inline-block px-2.5 py-0.5 rounded-full text-[10px] font-mono tracking-widest uppercase bg-surface border border-border-subtle text-text-muted font-bold">
             STUDIO KUSTOM MAKASSAR
+          </span>
+
+          {/* Indikator autosave (audit #32) */}
+          <span
+            role="status"
+            title={
+              syncStatus === "saving"
+                ? "Menyimpan desain…"
+                : syncStatus === "saved"
+                  ? "Desain tersimpan"
+                  : syncStatus === "error"
+                    ? "Gagal sinkron — tersimpan lokal, coba lagi nanti"
+                    : "Autosave aktif"
+            }
+            className={`hidden md:inline-block px-2.5 py-0.5 rounded-full text-[10px] font-mono tracking-widest uppercase border font-bold ${
+              syncStatus === "saving"
+                ? "border-amber-500/40 text-amber-400"
+                : syncStatus === "saved"
+                  ? "border-emerald-500/40 text-emerald-400"
+                  : syncStatus === "error"
+                    ? "border-rose-500/40 text-rose-300"
+                    : "border-border-subtle text-text-muted"
+            }`}
+          >
+            {syncStatus === "saving" ? "● MENYIMPAN…" : syncStatus === "saved" ? "● TERSIMPAN" : syncStatus === "error" ? "● OFFLINE" : "○ AUTO-SAVE"}
           </span>
         </div>
 

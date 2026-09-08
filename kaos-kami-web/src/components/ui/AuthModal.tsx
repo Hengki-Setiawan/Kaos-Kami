@@ -1,9 +1,10 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { useSession, signIn, signUp, signOut } from "@/lib/auth-client";
 import { RegisterPhoneSchema, LoginPhoneSchema } from "@/lib/schemas/auth";
-import { X, User, Phone, Lock, Mail, ArrowRight, Loader2, CheckCircle2, LogOut, ShieldCheck, Chrome } from "lucide-react";
+import { X, User, Phone, Lock, Mail, ArrowRight, Loader2, CheckCircle2, LogOut, ShieldCheck, Chrome, Eye, EyeOff } from "lucide-react";
+import { shopWaLink } from "@/lib/shop";
 
 interface AuthModalProps {
   isOpen: boolean;
@@ -29,8 +30,39 @@ export const AuthModal: React.FC<AuthModalProps> = ({
   const [phoneNumber, setPhoneNumber] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+  const mounted = useRef(true);
+
+  useEffect(() => {
+    mounted.current = true;
+    return () => {
+      mounted.current = false;
+    };
+  }, []);
+
+  // Sinkron defaultMode tiap dibuka (audit #2 — sebelumnya mode basi).
+  // ESC + klik backdrop menutup.
+  useEffect(() => {
+    if (isOpen) {
+      setMode(defaultMode);
+      setErrorMessage(null);
+      setSuccessMessage(null);
+      const onKey = (e: KeyboardEvent) => {
+        if (e.key === "Escape") onClose();
+      };
+      document.addEventListener("keydown", onKey);
+      return () => document.removeEventListener("keydown", onKey);
+    }
+  }, [isOpen, defaultMode, onClose]);
 
   if (!isOpen) return null;
+
+  const later = (fn: () => void, ms: number) => {
+    // Timeout aman-unmount (audit #2/#39): jangan setState pasca-unmount.
+    setTimeout(() => {
+      if (mounted.current) fn();
+    }, ms);
+  };
 
   const resetForm = () => {
     setErrorMessage(null);
@@ -63,7 +95,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
         setErrorMessage(result.error.message || "Gagal masuk. Periksa nomor WhatsApp dan password Anda.");
       } else {
         setSuccessMessage("Berhasil masuk!");
-        setTimeout(() => {
+        later(() => {
           onSuccess?.();
           onClose();
         }, 1000);
@@ -100,7 +132,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
         setErrorMessage(result.error.message || "Gagal mendaftar. Nomor atau email mungkin sudah digunakan.");
       } else {
         setSuccessMessage("Pendaftaran berhasil! Selamat datang di Kaos Kami.");
-        setTimeout(() => {
+        later(() => {
           onSuccess?.();
           onClose();
         }, 1200);
@@ -113,9 +145,18 @@ export const AuthModal: React.FC<AuthModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-[100] overflow-y-auto bg-black/80 backdrop-blur-md animate-fadeIn flex min-h-full items-center justify-center p-4 sm:p-6">
+    <div
+      className="fixed inset-0 z-[100] overflow-y-auto bg-black/80 backdrop-blur-md animate-fadeIn flex min-h-full items-center justify-center p-4 sm:p-6"
+      onClick={onClose}
+      role="dialog"
+      aria-modal="true"
+      aria-label="Masuk atau daftar akun"
+    >
       {/* Modal Dialog */}
-      <div className="relative w-full max-w-md bg-[#161619] border border-white/10 rounded-2xl p-5 sm:p-7 shadow-2xl text-text-primary my-auto">
+      <div
+        className="relative w-full max-w-md bg-[#161619] border border-white/10 rounded-2xl p-5 sm:p-7 shadow-2xl text-text-primary my-auto"
+        onClick={(e) => e.stopPropagation()}
+      >
         {/* Decorative Top Accent Glow */}
         <div className="absolute top-0 left-1/2 -translate-x-1/2 w-48 h-1 bg-gradient-to-r from-transparent via-brand-accent to-transparent" />
 
@@ -139,7 +180,9 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                 Halo, {session.user.name || "Pelanggan Kaos Kami"}
               </h3>
               <p className="font-mono text-xs text-text-muted mt-1">
-                {session.user.email}
+                {(session.user.email || "").includes("@kaoskami.phone")
+                  ? "Akun WhatsApp terverifikasi"
+                  : (session.user.email || "").replace(/^(..).+(@.*)$/, "$1***$2")}
               </p>
             </div>
 
@@ -147,21 +190,23 @@ export const AuthModal: React.FC<AuthModalProps> = ({
               <div className="flex items-center justify-between text-text-muted">
                 <span>Status Akun</span>
                 <span className="flex items-center gap-1 text-emerald-400">
-                  <ShieldCheck size={13} /> Terverifikasi
+                  <ShieldCheck size={13} /> Aktif
                 </span>
-              </div>
-              <div className="flex items-center justify-between text-text-muted">
-                <span>ID Sesi</span>
-                <span className="text-text-primary truncate max-w-[160px]">{session.session.id}</span>
               </div>
             </div>
 
             <div className="pt-2 flex gap-3">
               <button
-                onClick={() => {
-                  signOut();
+                onClick={async () => {
+                  setLoading(true);
+                  try {
+                    await signOut();
+                  } finally {
+                    if (mounted.current) setLoading(false);
+                  }
                   onClose();
                 }}
+                disabled={loading}
                 className="flex-1 flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl font-mono text-xs font-bold border border-red-500/30 text-red-400 hover:bg-red-500/10 transition-all"
               >
                 <LogOut size={14} /> KELUAR
@@ -195,6 +240,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
             {/* Google OAuth — 1-klik, verifikasi via Google (tanpa OTP WA) */}
             <button
               type="button"
+              disabled={loading}
               onClick={async () => {
                 try {
                   setLoading(true);
@@ -275,7 +321,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                       value={name}
                       onChange={(e) => setName(e.target.value)}
                       placeholder="e.g. Andi Muhammad"
-                      className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-surface border border-white/10 focus:border-brand-accent text-sm text-white placeholder:text-neutral-600 focus:outline-none transition-all font-sans"
+                      className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-surface border border-white/10 focus:border-brand-accent text-base text-white placeholder:text-neutral-600 focus:outline-none transition-all font-sans"
                     />
                   </div>
                 </div>
@@ -293,7 +339,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                     value={phoneNumber}
                     onChange={(e) => setPhoneNumber(e.target.value)}
                     placeholder="081234567890"
-                    className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-surface border border-white/10 focus:border-brand-accent text-sm text-white placeholder:text-neutral-600 focus:outline-none transition-all font-mono"
+                    className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-surface border border-white/10 focus:border-brand-accent text-base text-white placeholder:text-neutral-600 focus:outline-none transition-all font-mono"
                   />
                 </div>
               </div>
@@ -310,7 +356,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
                       placeholder="nama@email.com"
-                      className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-surface border border-white/10 focus:border-brand-accent text-sm text-white placeholder:text-neutral-600 focus:outline-none transition-all font-sans"
+                      className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-surface border border-white/10 focus:border-brand-accent text-base text-white placeholder:text-neutral-600 focus:outline-none transition-all font-sans"
                     />
                   </div>
                 </div>
@@ -323,14 +369,35 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                 <div className="relative">
                   <Lock size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-text-muted" />
                   <input
-                    type="password"
+                    type={showPassword ? "text" : "password"}
                     required
+                    minLength={6}
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     placeholder="Minimal 6 karakter"
-                    className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-surface border border-white/10 focus:border-brand-accent text-sm text-white placeholder:text-neutral-600 focus:outline-none transition-all font-mono"
+                    autoComplete={mode === "login" ? "current-password" : "new-password"}
+                    className="w-full pl-10 pr-11 py-2.5 rounded-xl bg-surface border border-white/10 focus:border-brand-accent text-base text-white placeholder:text-neutral-600 focus:outline-none transition-all font-mono"
                   />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword((v) => !v)}
+                    aria-label={showPassword ? "Sembunyikan password" : "Tampilkan password"}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-text-muted hover:text-white p-1"
+                  >
+                    {showPassword ? <EyeOff size={15} /> : <Eye size={15} />}
+                  </button>
                 </div>
+                <p className="mt-1.5 font-mono text-[11px] text-text-muted">
+                  Lupa password?{" "}
+                  <a
+                    href={shopWaLink("Halo Kaos Kami, saya lupa password akun. Nomor WA saya: ")}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-brand-accent hover:underline font-bold"
+                  >
+                    Reset via WhatsApp workshop
+                  </a>
+                </p>
               </div>
 
               {/* Submit Button */}

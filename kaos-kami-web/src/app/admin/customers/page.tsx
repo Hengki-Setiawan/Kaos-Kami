@@ -1,5 +1,6 @@
 import { count } from "drizzle-orm";
 import Link from "next/link";
+import { headers } from "next/headers";
 import { db } from "@/lib/db";
 import { Design, Order, User } from "@/lib/drizzle-schema";
 import { and, desc, ilike, or } from "drizzle-orm";
@@ -28,6 +29,14 @@ export default async function AdminCustomersPage({
   const sp = await searchParams;
   const page = Math.max(1, Number(sp.page) || 1);
   const q = (sp.q || "").trim().slice(0, 40);
+
+  // Role pemanggil untuk filter opsi SUPER_ADMIN (server tetap guard final).
+  let myRole = "ADMIN";
+  try {
+    const { auth } = await import("@/lib/auth");
+    const session = await auth.api.getSession({ headers: (await headers()) as any });
+    myRole = (session?.user as any)?.role || "ADMIN";
+  } catch {}
 
   const where = q
     ? or(ilike(User.name, `%${q}%`), ilike(User.phoneNumber, `%${q}%`), ilike(User.email, `%${q}%`))
@@ -86,7 +95,7 @@ export default async function AdminCustomersPage({
           <div key={u.id} className="p-4 flex justify-between items-center gap-3">
             <div className="min-w-0">
               <span className="font-bold text-white block truncate">
-                {u.name || "-"} <CustomerRoleSelect userId={u.id} role={u.role} />
+                {u.name || "-"} <CustomerRoleSelect userId={u.id} role={u.role} myRole={myRole} />
               </span>
               {/* Mask PII di daftar (audit H16); full hanya di invoice/detail order. */}
               <span className="text-text-muted">

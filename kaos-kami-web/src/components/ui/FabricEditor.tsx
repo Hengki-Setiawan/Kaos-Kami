@@ -98,8 +98,8 @@ export const FabricEditor: React.FC<{
       {printInfo && (
         <p className="text-[10px] font-mono text-emerald-400">Master cetak: {printInfo} (siap AcroRIP)</p>
       )}
-      <div className="border border-white/10 rounded-xl overflow-hidden bg-[#0E0E10]">
-        <canvas ref={canvasRef} width={450} height={500} />
+      <div className="border border-white/10 rounded-xl overflow-hidden bg-[#0E0E10] max-w-full">
+        <canvas ref={canvasRef} width={450} height={500} className="max-w-full h-auto" />
       </div>
       {!isReady && <p className="text-[11px] font-mono text-text-muted">Memuat Fabric 7.4.0… (≈300KB, code-split, tidak blokir 3D)</p>}
       <p className="text-[10px] font-mono text-text-muted">Riset 2026: Fabric untuk design editor (Canva-like), Konva untuk UI, PixiJS untuk game. Dipilih Fabric karena butuh object model SVG & inline text editing — tapi di-split agar tidak melanggar 3MB worker.</p>

@@ -12,13 +12,21 @@ export const CartDrawer: React.FC = () => {
     useCartStore();
   const [isCheckoutModalOpen, setIsCheckoutModalOpen] = useState(false);
 
-  if (!isCartOpen) return null;
+  if (!isCartOpen && !isCheckoutModalOpen) return null;
 
   const totalCount = getTotalCount();
   const totalPrice = getTotalPrice();
 
   return (
     <>
+      {/* Modal checkout DI ATAS early-return (audit #35): closeCart() saat
+          klik checkout tidak boleh meng-unmount modal ini. */}
+      <CheckoutModal
+        isOpen={isCheckoutModalOpen}
+        onClose={() => setIsCheckoutModalOpen(false)}
+        checkoutMode="cart"
+      />
+      {isCartOpen && (
       <div className="fixed inset-0 z-50 flex justify-end">
         {/* Backdrop */}
         <div
@@ -41,7 +49,8 @@ export const CartDrawer: React.FC = () => {
             </div>
             <button
               onClick={closeCart}
-              className="p-1.5 rounded-lg bg-surface border border-white/10 text-text-muted hover:text-white"
+              aria-label="Tutup keranjang"
+              className="min-w-[44px] min-h-[44px] p-2.5 rounded-lg bg-surface border border-white/10 text-text-muted hover:text-white flex items-center justify-center"
             >
               <X size={16} />
             </button>
@@ -73,6 +82,8 @@ export const CartDrawer: React.FC = () => {
                     <img
                       src={item.image || "/lookbook/look-01.jpg"}
                       alt={item.name}
+                      width={128}
+                      height={160}
                       className="w-full h-full object-cover"
                       loading="lazy"
                     />
@@ -86,10 +97,11 @@ export const CartDrawer: React.FC = () => {
                           {item.name}
                         </span>
                         <button
-                          onClick={() => removeItem(item.id)}
-                          className="text-text-muted hover:text-red-400 p-0.5"
+                          onClick={() => removeItem(item.id, item.size)}
+                          aria-label={`Hapus ${item.name} ukuran ${item.size}`}
+                          className="text-text-muted hover:text-red-400 min-w-[44px] min-h-[44px] flex items-center justify-center"
                         >
-                          <Trash2 size={13} />
+                          <Trash2 size={15} />
                         </button>
                       </div>
                       <div className="text-[10px] text-text-muted mt-1 space-x-2">
@@ -106,17 +118,19 @@ export const CartDrawer: React.FC = () => {
                       {/* Quantity Toggles */}
                       <div className="flex items-center space-x-1">
                         <button
-                          onClick={() => updateQuantity(item.id, -1)}
-                          className="w-5 h-5 rounded bg-black/50 border border-white/10 text-white flex items-center justify-center hover:border-brand-accent"
+                          onClick={() => updateQuantity(item.id, item.size, -1)}
+                          aria-label="Kurangi jumlah"
+                          className="w-9 h-9 rounded bg-black/50 border border-white/10 text-white flex items-center justify-center hover:border-brand-accent"
                         >
-                          <Minus size={10} />
+                          <Minus size={12} />
                         </button>
                         <span className="w-6 text-center font-bold">{item.quantity}</span>
                         <button
-                          onClick={() => updateQuantity(item.id, 1)}
-                          className="w-5 h-5 rounded bg-black/50 border border-white/10 text-white flex items-center justify-center hover:border-brand-accent"
+                          onClick={() => updateQuantity(item.id, item.size, 1)}
+                          aria-label="Tambah jumlah"
+                          className="w-9 h-9 rounded bg-black/50 border border-white/10 text-white flex items-center justify-center hover:border-brand-accent"
                         >
-                          <Plus size={10} />
+                          <Plus size={12} />
                         </button>
                       </div>
                     </div>
@@ -138,7 +152,7 @@ export const CartDrawer: React.FC = () => {
 
               <p className="text-[10px] text-text-muted flex items-center gap-1">
                 <ShieldCheck size={13} className="text-emerald-400" />
-                <span>Pengiriman Flat Makassar Rp 15.000 / Ambil Gratis di Workshop.</span>
+                <span>Harga final dihitung server. Diantar gratis se-Makassar / ambil di workshop.</span>
               </p>
 
               <button
@@ -155,13 +169,7 @@ export const CartDrawer: React.FC = () => {
           )}
         </aside>
       </div>
-
-      {/* Checkout Modal Bridge */}
-      <CheckoutModal
-        isOpen={isCheckoutModalOpen}
-        onClose={() => setIsCheckoutModalOpen(false)}
-        checkoutMode="cart"
-      />
+      )}
     </>
   );
 };

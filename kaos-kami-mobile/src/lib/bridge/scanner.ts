@@ -1,5 +1,6 @@
 import { BarcodeScanner, BarcodeFormat } from '@capacitor-mlkit/barcode-scanning';
 import { haptic } from './haptics';
+import { promptText } from './dialogs';
 
 /**
  * M5.6 — Barcode & QRIS Scanner Engine (MLKit).
@@ -9,8 +10,8 @@ export async function scanJobTicketOrQris(): Promise<string | null> {
   haptic.tapMedium();
 
   if (typeof window !== 'undefined' && (window as any).Capacitor?.isNativePlatform?.() !== true) {
-    const mock = prompt('Mode Web: masukkan ID Pesanan manual:');
-    return mock || null;
+    // Web: prompt browser cukup. Native: JANGAN window.prompt (tak andal di WebView).
+    return promptText('Mode Web', 'Masukkan ID Pesanan manual:', 'cth: KK-20260908-0001');
   }
 
   try {

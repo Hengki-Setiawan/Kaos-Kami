@@ -27,6 +27,7 @@ import {
 
 import { useCartStore } from "@/store/useCartStore";
 import { TurnstileWidget } from "@/components/ui/TurnstileWidget";
+import { fetchJson } from "@/lib/fetchJson";
 
 interface CheckoutModalProps {
   isOpen: boolean;
@@ -118,20 +119,17 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
     setIsSendingOtp(true);
     setOtpMsg(null);
     try {
-      const res = await fetch("/api/auth/send-otp", {
+      const data = await fetchJson<{ success?: boolean; mock?: boolean; code?: string }>("/api/auth/send-otp", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ phoneNumber }),
       });
-      const data = await res.json();
-      if (data.success) {
-        setOtpSent(true);
-        // Kode mock HANYA tampil di dev lokal; server prod tidak pernah mengirim code.
-        const showMock = data.mock && data.code && process.env.NODE_ENV !== "production";
-        setOtpMsg(showMock ? `Kode mock: ${data.code} (Fonnte mock)` : "Kode OTP terkirim ke WA");
-      } else setOtpMsg(data.error || "Gagal kirim OTP");
-    } catch {
-      setOtpMsg("Gagal kirim OTP");
+      setOtpSent(true);
+      // Kode mock HANYA tampil di dev lokal; server prod tidak pernah mengirim code.
+      const showMock = data.mock && data.code && process.env.NODE_ENV !== "production";
+      setOtpMsg(showMock ? `Kode mock: ${data.code} (Fonnte mock)` : "Kode OTP terkirim ke WA");
+    } catch (e: any) {
+      setOtpMsg(e?.message || "Gagal kirim OTP");
     } finally {
       setIsSendingOtp(false);
     }
@@ -142,18 +140,15 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
       return;
     }
     try {
-      const res = await fetch("/api/auth/verify-otp", {
+      await fetchJson("/api/auth/verify-otp", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ phoneNumber, code: otpCode }),
       });
-      const data = await res.json();
-      if (data.success) {
-        setIsPhoneVerified(true);
-        setOtpMsg("✅ WA terverifikasi");
-      } else setOtpMsg(data.error || "Kode salah");
-    } catch {
-      setOtpMsg("Gagal verifikasi");
+      setIsPhoneVerified(true);
+      setOtpMsg("✅ WA terverifikasi");
+    } catch (e: any) {
+      setOtpMsg(e?.message || "Kode salah");
     }
   };
 
@@ -198,8 +193,12 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
     }
     setLocLoading(true);
     try {
-      const r = await fetch(`/api/shipping/locations?q=${encodeURIComponent(q.trim())}`);
-      const j = await r.json();
+      const j = await fetchJson<{ locations?: { postalCode: string; label: string }[] }>(
+        `/api/shipping/locations?q=${encodeURIComponent(q.trim())}`,
+        undefined,
+        10000
+      );
+      // 503 tanpa key = saran mati, user ketik manual (quote tetap jalan via zona).
       if (Array.isArray(j.locations)) setLocSuggest(j.locations.slice(0, 6));
       else setLocSuggest([]);
     } catch {
@@ -223,8 +222,7 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
         weightGrams: String(Math.max(250, totalQty * 250)),
       });
       if (selectedPostal) params.set("postalCode", selectedPostal);
-      const r = await fetch(`/api/shipping/quote?${params.toString()}`);
-      const j = await r.json();
+      const j = await fetchJson<any>(`/api/shipping/quote?${params.toString()}`, undefined, 20000);
       if (j.source === "live" && Array.isArray(j.rates)) {
         setQuoteSource("live");
         const opts: QuoteOption[] = j.rates.map((x: any, i: number) => ({
@@ -255,10 +253,10 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
         setSelectedQuoteKey(opts[0]?.key || "");
         if (!opts.length) setQuoteMsg("Tarif tidak ditemukan.");
       } else {
-        setQuoteMsg(j.error || "Gagal cek ongkir.");
+        setQuoteMsg("Respons ongkir tak dikenal. Coba lagi.");
       }
-    } catch {
-      setQuoteMsg("Gagal cek ongkir. Coba lagi.");
+    } catch (e: any) {
+      setQuoteMsg(e?.message || "Gagal cek ongkir. Coba lagi.");
     } finally {
       setQuoteLoading(false);
     }
@@ -275,17 +273,18 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
     navigator.geolocation.getCurrentPosition(
       async (pos) => {
         try {
-          const r = await fetch(
-            `/api/geocode/reverse?lat=${pos.coords.latitude}&lon=${pos.coords.longitude}`
+          const j = await fetchJson<{ result?: { displayName?: string; district?: string; city?: string } }>(
+            `/api/geocode/reverse?lat=${pos.coords.latitude}&lon=${pos.coords.longitude}`,
+            undefined,
+            12000
           );
-          const j = await r.json();
           const g = j?.result;
           if (g?.displayName) setFullAddress(g.displayName);
           if (g?.district && MAKASSAR_SUBDISTRICTS.includes(g.district)) setDistrict(g.district);
           if (g?.city && deliveryMethod === "EXPEDITION_MANUAL") handleDestSearch(g.city);
           setGpsMsg(g ? `Lokasi: ${[g.district, g.city].filter(Boolean).join(", ") || "terisi"}` : "Gagal baca lokasi. Isi manual.");
-        } catch {
-          setGpsMsg("Gagal baca lokasi. Isi manual.");
+        } catch (e: any) {
+          setGpsMsg(e?.message || "Gagal baca lokasi. Isi manual.");
         } finally {
           setGpsLoading(false);
         }
@@ -316,6 +315,10 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
     }
     if (!phoneNumber.trim() || phoneNumber.length < 9) {
       setErrorMessage("Nomor WhatsApp tidak valid.");
+      return;
+    }
+    if (email.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) {
+      setErrorMessage("Format email tidak valid.");
       return;
     }
     if (deliveryMethod !== "PICKUP" && !fullAddress.trim()) {
@@ -385,19 +388,16 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
         couponCode: couponCode.trim() || undefined,
       };
 
-      const res = await fetch("/api/checkout", {
+      const data = await fetchJson<{
+        orderId: string;
+        reference?: string;
+        paymentUrl?: string;
+        invoiceUrl?: string;
+      }>("/api/checkout", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
-      });
-
-      const data = await res.json();
-
-      if (!res.ok || data.error) {
-        setErrorMessage(data.error || "Gagal memproses pesanan.");
-        setIsLoading(false);
-        return;
-      }
+      }, 30000);
 
       if (isCartCheckout) {
         clearCart();
@@ -632,7 +632,7 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
                   value={recipientName}
                   onChange={(e) => setRecipientName(e.target.value)}
                   placeholder="e.g. Sultan Hasanuddin"
-                  className="w-full px-3.5 py-2.5 rounded-xl bg-surface border border-white/10 focus:border-brand-accent text-sm text-white focus:outline-none"
+                  className="w-full px-3.5 py-2.5 rounded-xl bg-surface border border-white/10 focus:border-brand-accent text-base text-white focus:outline-none"
                 />
               </div>
 
@@ -671,7 +671,7 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
                       onChange={(e) => setOtpCode(e.target.value)}
                       placeholder="6 digit OTP"
                       aria-label="Kode OTP 6 digit dari WhatsApp"
-                      className="flex-1 px-3 py-2 rounded-xl bg-surface border border-white/10 text-sm text-white font-mono focus:outline-none"
+                      className="flex-1 px-3 py-2 rounded-xl bg-surface border border-white/10 text-base text-white font-mono focus:outline-none"
                       maxLength={6}
                     />
                     <button type="button" onClick={handleVerifyOtp} className="px-3 py-2 rounded-xl bg-brand-accent text-canvas text-xs font-bold">
@@ -739,7 +739,7 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
                       value={destQuery}
                       onChange={(e) => handleDestSearch(e.target.value)}
                       placeholder="cth: Gowa, Jakarta, Surabaya"
-                      className="w-full px-3 py-2.5 rounded-xl bg-black/40 border border-white/10 focus:border-brand-accent text-xs text-white focus:outline-none"
+                      className="w-full px-3 py-2.5 rounded-xl bg-black/40 border border-white/10 focus:border-brand-accent text-base text-white focus:outline-none"
                     />
                     {locLoading && <p className="font-mono text-[11px] text-text-muted">Mencari kota...</p>}
                     {locSuggest.length > 0 && (
@@ -855,7 +855,7 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
                       value={courierNotes}
                       onChange={(e) => setCourierNotes(e.target.value)}
                       placeholder="e.g. Dekat Pintu 1 Unhas / Pagar Putih"
-                      className="w-full px-3.5 py-2.5 rounded-xl bg-surface border border-white/10 focus:border-brand-accent text-sm text-white focus:outline-none font-sans"
+                      className="w-full px-3.5 py-2.5 rounded-xl bg-surface border border-white/10 focus:border-brand-accent text-base text-white focus:outline-none font-sans"
                     />
                   </div>
 

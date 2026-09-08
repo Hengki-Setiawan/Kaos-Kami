@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 
 /** Form hero CMS: simpan judul + deskripsi ke R2 (tampil di beranda). */
 export function CmsHeroForm() {
@@ -8,6 +8,24 @@ export function CmsHeroForm() {
   const [subtitle, setSubtitle] = useState("");
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
+
+  // Muat nilai aktif dulu (audit #26 — tanpa ini admin rawan menimpa buta).
+  useEffect(() => {
+    let alive = true;
+    (async () => {
+      try {
+        const res = await fetch("/api/admin/cms");
+        const d = await res.json().catch(() => null);
+        if (alive && res.ok && d) {
+          if (typeof d.heroTitle === "string") setTitle(d.heroTitle);
+          if (typeof d.heroSubtitle === "string") setSubtitle(d.heroSubtitle);
+        }
+      } catch {}
+    })();
+    return () => {
+      alive = false;
+    };
+  }, []);
 
   const save = async () => {
     if (title.trim().length < 2) {

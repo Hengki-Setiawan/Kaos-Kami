@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
+import Link from "next/link";
 import { PRODUCT_COLORS, TECHNICAL_SPECS, SIZES, APPAREL_CATALOG, type ProductSize, type ProductColor } from "@/lib/constants";
 import { Check } from "lucide-react";
 
@@ -20,11 +21,13 @@ export const StaticShowcase: React.FC = () => {
   const [selectedSize, setSelectedSize] = useState<ProductSize>("L");
   const basePrice = APPAREL_CATALOG.tshirt?.basePriceIdr ?? 149000;
   const pigmentFee = selectedColor.isSpecialPigment ? 15000 : 0;
-  const sizeFee = selectedSize === "XXL" ? 10000 : 0;
+  // Selaras engine (pricingEngine: XXL +10k, XXXL +20k) — audit #18.
+  const sz = selectedSize as string;
+  const sizeFee = sz === "XXXL" || sz === "3XL" ? 20000 : sz === "XXL" ? 10000 : 0;
   const totalPrice = basePrice + pigmentFee + sizeFee;
 
   return (
-    <main className="min-h-screen bg-canvas text-text-primary px-6 md:px-16 py-24 max-w-6xl mx-auto space-y-20">
+    <div className="min-h-screen bg-canvas text-text-primary px-6 md:px-16 py-24 max-w-6xl mx-auto space-y-20">
       {/* Brand Header */}
       <section className="space-y-4">
         <p className="font-mono text-xs text-brand-accent tracking-widest uppercase">
@@ -98,10 +101,17 @@ export const StaticShowcase: React.FC = () => {
           </div>
         </div>
 
-        <button className="w-full py-4 rounded-xl bg-brand-accent text-canvas font-display font-black text-sm uppercase tracking-wider hover:brightness-110 transition-all shadow-[0_0_20px_rgba(230,81,0,0.3)]">
-          ACQUIRE PIECE — IDR {totalPrice.toLocaleString("id-ID")}
-        </button>
+        {/* Tombol hidup: lanjut ke katalog/studio (audit #18 — sebelumnya mati). */}
+        <Link
+          href="/catalog"
+          className="block text-center w-full py-4 rounded-xl bg-brand-accent text-canvas font-display font-black text-sm uppercase tracking-wider hover:brightness-110 transition-all shadow-[0_0_20px_rgba(230,81,0,0.3)]"
+        >
+          BELI MULAI IDR {totalPrice.toLocaleString("id-ID")} — BUKA KATALOG
+        </Link>
+        <p className="text-center text-[11px] font-mono text-text-muted">
+          Mode statis (tanpa 3D). Harga final dihitung server saat checkout.
+        </p>
       </section>
-    </main>
+    </div>
   );
 };

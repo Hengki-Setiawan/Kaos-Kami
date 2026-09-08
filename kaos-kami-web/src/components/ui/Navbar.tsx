@@ -4,13 +4,14 @@ import React from "react";
 import Link from "next/link";
 import { useConfiguratorStore } from "@/store/useConfiguratorStore";
 import { useCartStore } from "@/store/useCartStore";
-import { Sparkles, Sun, Moon, Maximize2, Minimize2, User as UserIcon, ShoppingBag } from "lucide-react";
+import { Sun, Moon, Menu, X, User as UserIcon, ShoppingBag } from "lucide-react";
 import { AuthModal } from "@/components/ui/AuthModal";
 import { CartDrawer } from "@/components/ui/CartDrawer";
 import { useSession } from "@/lib/auth-client";
 
 export const Navbar: React.FC = () => {
   const [isAuthOpen, setIsAuthOpen] = React.useState(false);
+  const [isMenuOpen, setIsMenuOpen] = React.useState(false);
   const { data: session } = useSession();
   const { getTotalCount, openCart } = useCartStore();
   const cartCount = getTotalCount();
@@ -50,7 +51,7 @@ export const Navbar: React.FC = () => {
         </div>
 
         {/* E-Commerce Navigation Links */}
-        <nav className="hidden md:flex items-center space-x-5 text-xs font-mono">
+        <nav className="hidden md:flex items-center space-x-5 text-xs font-mono" aria-label="Navigasi utama">
           <Link
             href="/catalog"
             className="text-text-muted hover:text-white transition-colors font-bold uppercase tracking-wider"
@@ -62,6 +63,12 @@ export const Navbar: React.FC = () => {
             className="text-text-muted hover:text-white transition-colors font-bold uppercase tracking-wider"
           >
             STUDIO 3D
+          </Link>
+          <Link
+            href="/track"
+            className="text-text-muted hover:text-white transition-colors font-bold uppercase tracking-wider"
+          >
+            LACAK PESANAN
           </Link>
         </nav>
       </div>
@@ -77,8 +84,8 @@ export const Navbar: React.FC = () => {
         >
           <ShoppingBag size={16} />
           {cartCount > 0 && (
-            <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-brand-accent text-canvas text-[9px] font-mono font-bold flex items-center justify-center">
-              {cartCount}
+            <span className="absolute -top-1 -right-1 min-w-4 h-4 px-0.5 rounded-full bg-brand-accent text-canvas text-[9px] font-mono font-bold flex items-center justify-center">
+              {cartCount > 99 ? "99+" : cartCount}
             </span>
           )}
         </button>
@@ -108,6 +115,16 @@ export const Navbar: React.FC = () => {
           <span className="hidden sm:inline font-bold">{session?.user ? session.user.name?.split(" ")[0] : "MASUK"}</span>
         </button>
 
+        {/* Mobile hamburger (audit #15): nav desktop disembunyikan di HP */}
+        <button
+          onClick={() => setIsMenuOpen((v) => !v)}
+          className="md:hidden p-2.5 rounded-full bg-surface border border-border-subtle text-text-muted hover:text-text-primary transition-all"
+          aria-label={isMenuOpen ? "Tutup menu" : "Buka menu"}
+          aria-expanded={isMenuOpen}
+        >
+          {isMenuOpen ? <X size={16} /> : <Menu size={16} />}
+        </button>
+
         {/* Enter 3D Sandbox Dedicated Page (Clean CTA, No Sparkles) */}
         <Link
           href="/studio"
@@ -124,6 +141,30 @@ export const Navbar: React.FC = () => {
 
       {/* Auth Dialog Modal */}
       <AuthModal isOpen={isAuthOpen} onClose={() => setIsAuthOpen(false)} />
+
+      {/* Mobile dropdown menu */}
+      {isMenuOpen && (
+        <nav
+          className="md:hidden absolute top-full left-0 right-0 bg-[#121214]/95 backdrop-blur-xl border-b border-border-subtle px-4 py-3 flex flex-col gap-1 text-xs font-mono"
+          aria-label="Menu mobile"
+        >
+          {[
+            { href: "/catalog", label: "KATALOG PRODUK" },
+            { href: "/studio", label: "STUDIO 3D" },
+            { href: "/track", label: "LACAK PESANAN" },
+            { href: "/dashboard/orders", label: "PESANANKU" },
+          ].map((l) => (
+            <Link
+              key={l.href}
+              href={l.href}
+              onClick={() => setIsMenuOpen(false)}
+              className="px-3 py-2.5 rounded-xl text-text-muted hover:text-white hover:bg-white/5 font-bold uppercase tracking-wider"
+            >
+              {l.label}
+            </Link>
+          ))}
+        </nav>
+      )}
     </header>
   );
 };

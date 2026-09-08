@@ -243,7 +243,7 @@ export function CheckoutSheet({ open, onOpenChange, onOrderSuccess, onNotify }: 
                 type="text"
                 value={customerName}
                 onChange={(e) => setCustomerName(e.target.value)}
-                className="w-full px-3.5 py-3 rounded-xl bg-zinc-900 border border-zinc-700/80 text-white text-xs outline-none focus:border-[#FF6B35]"
+                className="w-full px-3.5 py-3 rounded-xl bg-zinc-900 border border-zinc-700/80 text-white text-base outline-none focus:border-[#FF6B35]"
               />
             </div>
 
@@ -253,7 +253,7 @@ export function CheckoutSheet({ open, onOpenChange, onOrderSuccess, onNotify }: 
                 type="tel"
                 value={customerPhone}
                 onChange={(e) => setCustomerPhone(e.target.value)}
-                className="w-full px-3.5 py-3 rounded-xl bg-zinc-900 border border-zinc-700/80 text-white text-xs outline-none focus:border-[#FF6B35]"
+                className="w-full px-3.5 py-3 rounded-xl bg-zinc-900 border border-zinc-700/80 text-white text-base outline-none focus:border-[#FF6B35]"
               />
             </div>
 
@@ -263,7 +263,7 @@ export function CheckoutSheet({ open, onOpenChange, onOrderSuccess, onNotify }: 
                 rows={2}
                 value={customerAddress}
                 onChange={(e) => setCustomerAddress(e.target.value)}
-                className="w-full px-3.5 py-2.5 rounded-xl bg-zinc-900 border border-zinc-700/80 text-white text-xs outline-none focus:border-[#FF6B35]"
+                className="w-full px-3.5 py-2.5 rounded-xl bg-zinc-900 border border-zinc-700/80 text-white text-base outline-none focus:border-[#FF6B35]"
               />
               <button
                 type="button"
@@ -333,7 +333,7 @@ export function CheckoutSheet({ open, onOpenChange, onOrderSuccess, onNotify }: 
                     value={destCity}
                     onChange={(e) => { setDestCity(e.target.value); setSelectedZoneId(null); }}
                     placeholder="cth: Gowa, Jakarta, Surabaya"
-                    className="flex-1 px-3 py-2.5 rounded-xl bg-zinc-800 border border-zinc-700 text-white text-xs outline-none focus:border-[#FF6B35]"
+                    className="flex-1 px-3 py-2.5 rounded-xl bg-zinc-800 border border-zinc-700 text-white text-base outline-none focus:border-[#FF6B35]"
                   />
                   <input
                     type="text"
@@ -341,7 +341,7 @@ export function CheckoutSheet({ open, onOpenChange, onOrderSuccess, onNotify }: 
                     value={destPostal}
                     onChange={(e) => setDestPostal(e.target.value.replace(/[^0-9]/g, '').slice(0, 5))}
                     placeholder="Kode pos"
-                    className="w-24 px-3 py-2.5 rounded-xl bg-zinc-800 border border-zinc-700 text-white text-xs outline-none focus:border-[#FF6B35]"
+                    className="w-24 px-3 py-2.5 rounded-xl bg-zinc-800 border border-zinc-700 text-white text-base outline-none focus:border-[#FF6B35]"
                   />
                 </div>
                 <div className="flex gap-2">

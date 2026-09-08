@@ -90,3 +90,20 @@ body {
 ::-webkit-scrollbar-thumb:hover {
   background: var(--color-brand-accent);
 }
+/* Print scoping (audit #17): halaman cetak workshop (gang-sheet/job-ticket)
+   hanya mencetak area kertas — nav/aside/tombol disembunyikan. Elemen yang
+   memakai class Tailwind `print:hidden` ikut disembunyikan otomatis. */
+@media print {
+  aside,
+  nav,
+  header,
+  .no-print {
+    display: none !important;
+  }
+  body {
+    background: #fff !important;
+  }
+  main {
+    overflow: visible !important;
+  }
+}

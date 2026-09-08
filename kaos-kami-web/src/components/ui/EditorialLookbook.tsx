@@ -1,9 +1,9 @@
 "use client";
 
-import React from "react";
+import React, { useEffect, useState } from "react";
 import { LookbookImage } from "./LookbookImage";
 
-const LOOKS = [
+const FALLBACK_LOOKS = [
   { src: "/lookbook/look-01.jpg", caption: "Look 01 — Obsidian Carbon" },
   { src: "/lookbook/look-02.jpg", caption: "Look 02 — Chalk Raw Ecru" },
   { src: "/lookbook/look-03.jpg", caption: "Look 03 — Signal Acid Tangerine" },
@@ -11,6 +11,31 @@ const LOOKS = [
 ];
 
 export const EditorialLookbook: React.FC = () => {
+  // Foto R2 dari /admin CMS bila ada; fallback statis bila kosong/gagal.
+  const [looks, setLooks] = useState(FALLBACK_LOOKS);
+  useEffect(() => {
+    let alive = true;
+    (async () => {
+      try {
+        const ctrl = new AbortController();
+        const t = setTimeout(() => ctrl.abort(), 8000);
+        const res = await fetch("/api/lookbook", { signal: ctrl.signal });
+        clearTimeout(t);
+        const data = await res.json().catch(() => null);
+        if (alive && res.ok && Array.isArray(data?.items) && data.items.length > 0) {
+          setLooks(
+            data.items.slice(0, 8).map((it: any, i: number) => ({
+              src: it.url,
+              caption: `Look ${String(i + 1).padStart(2, "0")} — Koleksi Workshop`,
+            }))
+          );
+        }
+      } catch {}
+    })();
+    return () => {
+      alive = false;
+    };
+  }, []);
   return (
     <section className="relative z-20 bg-canvas px-6 md:px-12 py-28 border-t border-border-subtle">
       <div className="flex flex-col md:flex-row md:items-end justify-between mb-12 gap-6">
@@ -29,7 +54,7 @@ export const EditorialLookbook: React.FC = () => {
 
       {/* Lookbook 4-Column Image Grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        {LOOKS.map((look, i) => (
+        {looks.map((look, i) => (
           <div
             key={look.caption}
             className="group relative aspect-[3/4] overflow-hidden rounded-2xl border border-border-subtle bg-surface hover:border-brand-accent/50 transition-all duration-500 shadow-lg"

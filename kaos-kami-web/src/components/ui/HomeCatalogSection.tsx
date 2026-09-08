@@ -8,19 +8,50 @@ import { useConfiguratorStore } from "@/store/useConfiguratorStore";
 
 export const HomeCatalogSection: React.FC = () => {
   const [products, setProducts] = useState<any[]>([]);
+  const [failed, setFailed] = useState(false);
+  const [addedId, setAddedId] = useState<string | null>(null);
   const { addItem } = useCartStore();
   const { setSelectedColor, setSelectedSize, setViewMode } = useConfiguratorStore();
 
   useEffect(() => {
-    fetch("/api/catalog/variants")
-      .then((res) => res.json())
-      .then((data) => {
-        if (data.success && Array.isArray(data.variants)) {
-          setProducts(data.variants.slice(0, 3));
+    const ctrl = new AbortController();
+    const t = setTimeout(() => ctrl.abort(), 10000);
+    (async () => {
+      try {
+        const res = await fetch("/api/catalog/variants", { signal: ctrl.signal });
+        const data = await res.json().catch(() => null);
+        clearTimeout(t);
+        // Gagal fetch = sembunyikan section diam-diam? TIDAK (audit #12):
+        // tampilkan fallback link katalog agar beranda tak bolong.
+        if (!res.ok || !data?.success || !Array.isArray(data.variants)) {
+          setFailed(true);
+          return;
         }
-      })
-      .catch((err) => console.warn("Catalog fetch:", err));
+        setProducts(data.variants.slice(0, 3));
+      } catch {
+        clearTimeout(t);
+        setFailed(true);
+      }
+    })();
+    return () => {
+      clearTimeout(t);
+      ctrl.abort();
+    };
   }, []);
+
+  if (failed) {
+    return (
+      <section className="relative z-20 bg-[#0E0E10] px-6 md:px-12 py-16 border-t border-border-subtle text-center font-mono text-xs">
+        <p className="text-text-muted mb-3">Katalog tidak bisa dimuat saat ini.</p>
+        <Link
+          href="/catalog"
+          className="inline-block px-5 py-2.5 rounded-xl bg-brand-accent text-canvas font-bold uppercase"
+        >
+          BUKA KATALOG
+        </Link>
+      </section>
+    );
+  }
 
   if (products.length === 0) return null;
 
@@ -37,7 +68,7 @@ export const HomeCatalogSection: React.FC = () => {
               KOLEKSI SIAP BELI
             </h2>
             <p className="font-mono text-xs text-text-muted mt-2 max-w-lg">
-              Langsung diantar hari ini via kurir instan Maxim Makassar atau ekspedisi se-Sulawesi.
+              Langsung diantar gratis hari ini se-Kota Makassar atau ekspedisi nasional.
             </p>
           </div>
 
@@ -60,8 +91,10 @@ export const HomeCatalogSection: React.FC = () => {
               <div className="relative aspect-[4/5] rounded-xl overflow-hidden bg-black/50">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
-                  src={p.images[0] || "/lookbook/look-01.jpg"}
-                  alt={p.name}
+                  src={Array.isArray(p.images) && p.images[0] ? p.images[0] : "/lookbook/look-01.jpg"}
+                  alt={p.name || "Produk Kaos Kami"}
+                  width={600}
+                  height={750}
                   className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
                   loading="lazy"
                 />
@@ -81,7 +114,8 @@ export const HomeCatalogSection: React.FC = () => {
 
               <div className="grid grid-cols-2 gap-2 pt-2 border-t border-white/5 text-xs">
                 <button
-                  onClick={() =>
+                  onClick={() => {
+                    if ((p.stockQty ?? 1) <= 0) return;
                     addItem({
                       id: p.id,
                       name: p.name,
@@ -89,15 +123,18 @@ export const HomeCatalogSection: React.FC = () => {
                       size: p.size,
                       colorName: p.colorName,
                       colorHex: p.colorHex,
-                      image: p.images[0] || "/lookbook/look-01.jpg",
+                      image: Array.isArray(p.images) && p.images[0] ? p.images[0] : "/lookbook/look-01.jpg",
                       apparelSlug: p.category?.slug || "tshirt",
                       productVariantId: p.id,
-                    })
-                  }
-                  className="py-2.5 px-3 rounded-xl bg-surface border border-white/10 text-white font-bold hover:bg-brand-accent hover:text-canvas transition-all flex items-center justify-center space-x-1"
+                    });
+                    setAddedId(p.id);
+                    setTimeout(() => setAddedId((cur) => (cur === p.id ? null : cur)), 2000);
+                  }}
+                  disabled={(p.stockQty ?? 1) <= 0}
+                  className="py-2.5 px-3 rounded-xl bg-surface border border-white/10 text-white font-bold hover:bg-brand-accent hover:text-canvas transition-all flex items-center justify-center space-x-1 disabled:opacity-40"
                 >
                   <ShoppingBag size={12} />
-                  <span>+ BELI</span>
+                  <span>{(p.stockQty ?? 1) <= 0 ? "HABIS" : addedId === p.id ? "✓ DITAMBAH" : "+ BELI"}</span>
                 </button>
 
                 <Link

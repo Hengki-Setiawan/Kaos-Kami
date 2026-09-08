@@ -112,6 +112,9 @@ interface ConfiguratorState {
   saveCurrentDesign: (title?: string) => string;
   loadSavedDesign: (id: string) => void;
   deleteSavedDesign: (id: string) => void;
+  // Status autosave (indikator UI): idle | saving | saved | error.
+  syncStatus: "idle" | "saving" | "saved" | "error";
+  setSyncStatus: (s: "idle" | "saving" | "saved" | "error") => void;
 
   // Studio Environment Actions
   setStudioTheme: (theme: StudioTheme) => void;
@@ -142,15 +145,55 @@ interface ConfiguratorState {
   setAnimationSpeed: (s: number) => void;
 }
 
-const getInitialSavedDesigns = (): SavedMockupDesign[] => {
+const LS_DESIGNS_V1 = "kaos_kami_saved_designs_v1";
+const LS_DESIGNS_LEGACY = "kaoskami_saved_designs";
+const MAX_LOCAL_DESIGNS = 20;
+
+function readStoredDesigns(): SavedMockupDesign[] {
   if (typeof window === "undefined") return [];
   try {
-    const raw = localStorage.getItem("kaoskami_saved_designs");
-    return raw ? JSON.parse(raw) : [];
+    const raw = localStorage.getItem(LS_DESIGNS_V1);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (parsed && parsed.v === 1 && Array.isArray(parsed.items)) return parsed.items;
+    }
+    const legacy = localStorage.getItem(LS_DESIGNS_LEGACY);
+    if (legacy) {
+      const arr = JSON.parse(legacy);
+      if (Array.isArray(arr)) {
+        writeStoredDesigns(arr);
+        try {
+          localStorage.removeItem(LS_DESIGNS_LEGACY);
+        } catch {}
+        return arr.slice(0, MAX_LOCAL_DESIGNS);
+      }
+    }
+  } catch {}
+  return [];
+}
+
+function writeStoredDesigns(items: SavedMockupDesign[]) {
+  try {
+    localStorage.setItem(LS_DESIGNS_V1, JSON.stringify({ v: 1, items: items.slice(0, MAX_LOCAL_DESIGNS) }));
   } catch {
-    return [];
+    try {
+      localStorage.setItem(
+        LS_DESIGNS_V1,
+        JSON.stringify({ v: 1, items: items.slice(0, Math.floor(MAX_LOCAL_DESIGNS / 2)) })
+      );
+    } catch {}
   }
-};
+}
+
+function revokeBlobDecals(decals: { url?: string }[]) {
+  for (const l of decals || []) {
+    try {
+      if (typeof l?.url === "string" && l.url.startsWith("blob:")) URL.revokeObjectURL(l.url);
+    } catch {}
+  }
+}
+
+const getInitialSavedDesigns = (): SavedMockupDesign[] => readStoredDesigns();
 
 export const useConfiguratorStore = create<ConfiguratorState>((set, get) => ({
   viewMode: "story",
@@ -281,6 +324,8 @@ export const useConfiguratorStore = create<ConfiguratorState>((set, get) => ({
   },
 
   loadDecals: (decals) => set({ decals, selectedDecalId: null }),
+  syncStatus: "idle",
+  setSyncStatus: (s) => set({ syncStatus: s }),
 
   setSelectedDecalId: (id) => set({ selectedDecalId: id }),
 
@@ -363,11 +408,7 @@ export const useConfiguratorStore = create<ConfiguratorState>((set, get) => ({
     };
     const updated = [newDesign, ...state.savedDesigns];
     set({ savedDesigns: updated });
-    try {
-      localStorage.setItem("kaoskami_saved_designs", JSON.stringify(updated));
-    } catch (e) {
-      console.warn("LocalStorage save error", e);
-    }
+    writeStoredDesigns(updated.map((d) => ({ ...d, decals: d.decals.map((l) => (l.url.startsWith("blob:") ? { ...l, url: "" } : l)) })) as SavedMockupDesign[]);
     // Backend sync: POST /api/designs (fire-and-forget, non-blocking)
     try {
       const cat = state.activeApparel;
@@ -408,6 +449,8 @@ export const useConfiguratorStore = create<ConfiguratorState>((set, get) => ({
     const found = state.savedDesigns.find((d) => d.id === id);
     if (!found) return;
 
+    // Revoke blob lama sebelum diganti (anti bocor memori, audit #41).
+    revokeBlobDecals(state.decals);
     set({
       activeApparel: found.apparel,
       selectedColor: found.colorHex,
@@ -425,13 +468,11 @@ export const useConfiguratorStore = create<ConfiguratorState>((set, get) => ({
 
   deleteSavedDesign: (id) => {
     const state = get();
+    const target = state.savedDesigns.find((d) => d.id === id);
+    if (target) revokeBlobDecals(target.decals as { url?: string }[]);
     const updated = state.savedDesigns.filter((d) => d.id !== id);
     set({ savedDesigns: updated });
-    try {
-      localStorage.setItem("kaoskami_saved_designs", JSON.stringify(updated));
-    } catch (e) {
-      console.warn("LocalStorage delete error", e);
-    }
+    writeStoredDesigns(updated);
   },
 
   setStudioTheme: (theme) => {

@@ -1758,7 +1758,7 @@ export const CustomizerDrawer: React.FC = () => {
       {deviceTier.isMobile && !isDrawerCollapsed && (
         <BottomSheet>
           <div className="space-y-3 font-mono text-xs">
-            <div className="flex gap-1.5 overflow-x-auto pb-1">
+            <div className="flex gap-1.5 overflow-x-auto pb-1" role="tablist" aria-label="Tab studio">
               {[
                 { id: "apparel", label: "APPAREL" },
                 { id: "decals", label: `SABLON (${decals.length})` },
@@ -1769,8 +1769,10 @@ export const CustomizerDrawer: React.FC = () => {
               ].map((t) => (
                 <button
                   key={t.id}
+                  role="tab"
+                  aria-selected={activeTab === t.id}
                   onClick={() => setActiveTab(t.id as any)}
-                  className={`px-3 py-1.5 rounded-full border text-[10px] font-bold whitespace-nowrap ${
+                  className={`min-h-[44px] px-3 py-1.5 rounded-full border text-[10px] font-bold whitespace-nowrap ${
                     activeTab === t.id
                       ? "bg-brand-accent text-canvas border-brand-accent"
                       : "bg-surface border-white/10 text-text-muted"
@@ -1780,13 +1782,162 @@ export const CustomizerDrawer: React.FC = () => {
                 </button>
               ))}
             </div>
+
+            {/* Isi tab di HP (audit #7 — sebelumnya cuma ringkasan). */}
+            {activeTab === "apparel" && (
+              <div className="grid grid-cols-2 gap-2">
+                {(Object.keys(APPAREL_CATALOG) as Array<keyof typeof APPAREL_CATALOG>).map((type) => (
+                  <button
+                    key={type}
+                    onClick={() => setActiveApparel(type as any)}
+                    className={`min-h-[44px] px-3 py-2 rounded-xl border text-[11px] font-bold uppercase ${
+                      activeApparel === type
+                        ? "bg-brand-accent/15 border-brand-accent text-brand-accent"
+                        : "bg-surface border-white/10 text-white"
+                    }`}
+                  >
+                    {String(type)}
+                  </button>
+                ))}
+              </div>
+            )}
+
+            {activeTab === "decals" && (
+              <div className="space-y-2">
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => fileInputRef.current?.click()}
+                    className="flex-1 min-h-[44px] px-3 py-2 rounded-xl bg-brand-accent text-canvas font-bold text-[11px] uppercase"
+                  >
+                    + UPLOAD LOGO
+                  </button>
+                  <button
+                    onClick={() => setShowTextInput((v) => !v)}
+                    className="flex-1 min-h-[44px] px-3 py-2 rounded-xl bg-surface border border-white/10 text-white font-bold text-[11px] uppercase"
+                  >
+                    + TEKS
+                  </button>
+                </div>
+                {showTextInput && (
+                  <div className="flex gap-2">
+                    <input
+                      value={customTextString}
+                      onChange={(e) => setCustomTextString(e.target.value)}
+                      placeholder="Tulis teks sablon…"
+                      maxLength={24}
+                      className="flex-1 min-h-[44px] px-3 rounded-xl bg-surface border border-white/10 text-white text-base"
+                    />
+                    <button
+                      onClick={handleAddTextDecal}
+                      className="min-h-[44px] px-4 rounded-xl bg-brand-accent text-canvas font-bold text-[11px]"
+                    >
+                      OK
+                    </button>
+                  </div>
+                )}
+                {decals.length === 0 ? (
+                  <p className="text-[11px] text-text-muted">Belum ada sablon. Upload logo atau tambah teks.</p>
+                ) : (
+                  decals.map((d) => (
+                    <div
+                      key={d.id}
+                      className={`flex items-center justify-between p-2 rounded-xl border ${
+                        selectedDecalId === d.id ? "border-brand-accent bg-brand-accent/10" : "border-white/10 bg-surface"
+                      }`}
+                    >
+                      <button onClick={() => setSelectedDecalId(d.id)} className="flex-1 text-left text-[11px] text-white truncate min-h-[44px] flex items-center">
+                        {d.name}
+                      </button>
+                      <button
+                        onClick={() => removeDecal(d.id)}
+                        aria-label={`Hapus ${d.name}`}
+                        className="min-w-[44px] min-h-[44px] px-2 text-rose-300 font-bold"
+                      >
+                        ✕
+                      </button>
+                    </div>
+                  ))
+                )}
+              </div>
+            )}
+
+            {activeTab === "pattern" && <PatternStudioLazy />}
+
+            {activeTab === "sandbox" && (
+              <div className="flex gap-2">
+                {(["static", "wind", "walking"] as const).map((p) => (
+                  <button
+                    key={p}
+                    onClick={() => setAnimationPreset(p as any)}
+                    className={`flex-1 min-h-[44px] px-3 py-2 rounded-xl border text-[11px] font-bold uppercase ${
+                      animationPreset === p
+                        ? "bg-brand-accent/15 border-brand-accent text-brand-accent"
+                        : "bg-surface border-white/10 text-white"
+                    }`}
+                  >
+                    {p}
+                  </button>
+                ))}
+              </div>
+            )}
+
+            {activeTab === "saved" && (
+              <div className="space-y-2">
+                <div className="flex gap-2">
+                  <input
+                    value={designTitleInput}
+                    onChange={(e) => setDesignTitleInput(e.target.value.slice(0, 60))}
+                    placeholder="Nama desain…"
+                    maxLength={60}
+                    className="flex-1 min-h-[44px] px-3 rounded-xl bg-surface border border-white/10 text-white text-base"
+                  />
+                  <button
+                    onClick={handleSaveDesign}
+                    className="min-h-[44px] px-4 rounded-xl bg-brand-accent text-canvas font-bold text-[11px]"
+                  >
+                    SIMPAN
+                  </button>
+                </div>
+                {savedDesigns.length === 0 ? (
+                  <p className="text-[11px] text-text-muted">Belum ada desain tersimpan.</p>
+                ) : (
+                  savedDesigns.slice(0, 6).map((d) => (
+                    <button
+                      key={d.id}
+                      onClick={() => loadSavedDesign(d.id)}
+                      className="w-full min-h-[44px] p-2 rounded-xl border border-white/10 bg-surface text-left text-[11px] text-white truncate"
+                    >
+                      {d.title}
+                    </button>
+                  ))
+                )}
+              </div>
+            )}
+
+            {activeTab === "export" && (
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  onClick={() => handleExportPNG("front-view")}
+                  className="min-h-[44px] px-3 py-2 rounded-xl bg-surface border border-white/10 text-white font-bold text-[11px] uppercase"
+                >
+                  PNG DEPAN
+                </button>
+                <button
+                  onClick={() => handleExportPNG("back-view")}
+                  className="min-h-[44px] px-3 py-2 rounded-xl bg-surface border border-white/10 text-white font-bold text-[11px] uppercase"
+                >
+                  PNG BELAKANG
+                </button>
+              </div>
+            )}
+
             <div className="p-3 rounded-xl bg-surface/60 border border-white/10 flex justify-between items-center">
               <span className="text-[11px] text-text-muted">ESTIMASI</span>
               <span className="font-bold text-brand-accent">{pricing.formattedTotal}</span>
             </div>
             <button
               onClick={() => setIsCheckoutOpen(true)}
-              className="w-full py-3 rounded-xl bg-brand-accent text-canvas font-bold text-xs uppercase"
+              className="w-full min-h-[48px] py-3 rounded-xl bg-brand-accent text-canvas font-bold text-xs uppercase"
             >
               PESAN (DUITKU) — {pricing.formattedTotal}
             </button>

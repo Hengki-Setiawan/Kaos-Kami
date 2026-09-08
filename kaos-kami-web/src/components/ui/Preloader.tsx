@@ -28,9 +28,11 @@ export const Preloader: React.FC = () => {
 
   return (
     <div
+      role="status"
+      aria-live="polite"
+      aria-label="Memuat studio 3D"
       className="fixed inset-0 z-[100] flex flex-col items-center justify-center bg-canvas transition-opacity duration-500 pointer-events-none select-none"
       style={{ opacity: visible ? 1 : 0 }}
-      aria-hidden={!visible}
     >
       <div className="flex flex-col items-center space-y-4">
         {/* eslint-disable-next-line @next/next/no-img-element -- logo mungil lokal; images.unoptimized=true sehingga next/image tak menambah nilai */}

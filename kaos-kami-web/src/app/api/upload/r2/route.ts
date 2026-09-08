@@ -28,7 +28,7 @@ export async function POST(req: NextRequest) {
 
     // JSON base64 mode — validasi sama ketatnya dengan multipart.
     if (contentType.includes("application/json")) {
-      const { imageBase64 } = await req.json();
+      const { imageBase64, kind } = await req.json();
       if (typeof imageBase64 !== "string" || !imageBase64.startsWith("data:")) {
         return NextResponse.json({ error: "Missing imageBase64" }, { status: 400 });
       }
@@ -46,7 +46,9 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ error: "Isi file bukan gambar valid" }, { status: 400 });
       }
       // Key SELALU dari server (user-scoped) — client tidak boleh menentukan path.
-      const r2Key = `uploads/${user.id}/${Date.now()}-${Math.random().toString(36).slice(2, 6)}.${safeExt(mime)}`;
+      // kind "master" (ekspor 300 DPI studio) → prefix masters/, selain itu uploads/.
+      const prefix = kind === "master" ? `masters/${user.id}` : `uploads/${user.id}`;
+      const r2Key = `${prefix}/${Date.now()}-${Math.random().toString(36).slice(2, 6)}.${safeExt(mime)}`;
       const result = await uploadBase64ToR2(imageBase64, r2Key);
       if (!result.success) {
         return NextResponse.json({ error: result.error }, { status: 500 });

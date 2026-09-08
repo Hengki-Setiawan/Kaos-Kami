@@ -11,7 +11,7 @@ import {
 } from "@/lib/patternGeometry";
 import { getPatternSilhouette } from "@/lib/patternSilhouette";
 import { decalToFabric, fabricToDecal } from "@/lib/patternSync";
-import { uploadBase64ToR2 } from "@/lib/r2";
+import { fetchJson } from "@/lib/fetchJson";
 
 const PANELS: Array<{ id: PatternPanel; label: string }> = [
   { id: "front", label: "Depan" },
@@ -142,7 +142,22 @@ export const PatternStudio: React.FC = () => {
           } catch {}
         }
 
+        // Throttle rAF: event moving/scaling menembak tiap piksel (audit #40).
+        let rafPending = false;
+        let lastObj: any = null;
         const pushToStore = (obj: any) => {
+          lastObj = obj;
+          if (rafPending) return;
+          rafPending = true;
+          requestAnimationFrame(() => {
+            rafPending = false;
+            const target = lastObj;
+            lastObj = null;
+            if (!target || !mounted || !fabricRef.current) return;
+            pushToStoreSync(target);
+          });
+        };
+        const pushToStoreSync = (obj: any) => {
           const id = (obj as any).decalId as string | undefined;
           if (!id || syncingRef.current) return;
           const target = decalsRef.current.find((x) => x.id === id);
@@ -168,18 +183,32 @@ export const PatternStudio: React.FC = () => {
         canvas.on("selection:cleared", () => {});
         canvas.renderAll();
       } catch (e: any) {
-        setStatus(`Kanvas 2D gagal dimuat: ${e?.message || e}`);
+        if (mounted) setStatus(`Kanvas 2D gagal dimuat: ${e?.message || e}`);
       }
     })();
     return () => {
       mounted = false;
+      // Dispose kanvas Fabric saat unmount/ganti panel (audit #40 —
+      // sebelumnya listener + WebGL context bocor tiap rebuild).
+      try {
+        fabricRef.current?.dispose();
+      } catch {}
+      fabricRef.current = null;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeApparel, panel]);
 
+  const flashTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => {
+    return () => {
+      if (flashTimer.current) clearTimeout(flashTimer.current);
+    };
+  }, []);
+
   const flash = (msg: string) => {
     setStatus(msg);
-    setTimeout(() => setStatus(null), 3500);
+    if (flashTimer.current) clearTimeout(flashTimer.current);
+    flashTimer.current = setTimeout(() => setStatus(null), 3500);
   };
 
   const handleUpload = useCallback(async (file: File) => {
@@ -286,20 +315,22 @@ export const PatternStudio: React.FC = () => {
       minX = Math.max(0, minX - bleed); minY = Math.max(0, minY - bleed);
       maxX = Math.min(canvasW, maxX + bleed); maxY = Math.min(canvasH, maxY + bleed);
       const wPx = Math.max(10, maxX - minX), hPx = Math.max(10, maxY - minY);
-      // Faktor ke 300 DPI dari skala editor (px/cm).
+      // Faktor ke 300 DPI dari skala editor (px/cm), dibatasi maks 4000px/sisi
+      // agar HP kentang tak OOM (audit #40).
       const k = PX_PER_CM_300DPI / EDITOR_PX_PER_CM;
+      const kCapped = Math.min(k, 4000 / Math.max(wPx, hPx));
       const fabric = await import("fabric");
       const off = new (fabric as any).StaticCanvas(null, {
-        width: Math.round(wPx * k), height: Math.round(hPx * k),
+        width: Math.round(wPx * kCapped), height: Math.round(hPx * kCapped),
         backgroundColor: "rgba(0,0,0,0)",
       });
       // Salin objek terpotong bbox dengan skala k.
       const cloneObjs: any[] = [];
       for (const o of objs) {
         const c: any = await new Promise((res) => o.clone(res, ["decalId"]));
-        c.set({ left: (o.left - minX) * k, top: (o.top - minY) * k });
-        c.scaleX = (o.scaleX || 1) * k;
-        c.scaleY = (o.scaleY || 1) * k;
+        c.set({ left: (o.left - minX) * kCapped, top: (o.top - minY) * kCapped });
+        c.scaleX = (o.scaleX || 1) * kCapped;
+        c.scaleY = (o.scaleY || 1) * kCapped;
         cloneObjs.push(c);
       }
       for (const c of cloneObjs) off.add(c);
@@ -308,8 +339,18 @@ export const PatternStudio: React.FC = () => {
       off.dispose();
       const wCm = Math.round((wPx / EDITOR_PX_PER_CM) * 10) / 10;
       const hCm = Math.round((hPx / EDITOR_PX_PER_CM) * 10) / 10;
-      const up = await uploadBase64ToR2(dataUrl, `masters/${activeApparel}-${panel}-${Date.now()}-${Math.random().toString(36).slice(2, 6)}.png`);
-      if (!up.success) { flash(`Ekspor gagal upload: ${up.error || ""}`); return null; }
+      // Upload via server (token R2 TIDAK PERNAH ke browser — audit: direct
+      // upload dari client selalu gagal Missing token di prod).
+      const up = await fetchJson<{ success?: boolean; url?: string; error?: string }>(
+        "/api/upload/r2",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ imageBase64: dataUrl, kind: "master" }),
+        },
+        60000
+      );
+      if (!up.url) { flash("Ekspor gagal upload."); return null; }
       flash(`Master ${wCm}×${hCm}cm @300DPI tersimpan.`);
       return up.url;
     } catch (e: any) {

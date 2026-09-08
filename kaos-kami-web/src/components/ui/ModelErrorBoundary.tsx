@@ -9,21 +9,37 @@ interface Props {
 
 interface State {
   hasError: boolean;
+  message: string;
 }
 
 export class ModelErrorBoundary extends React.Component<Props, State> {
-  state: State = { hasError: false };
+  state: State = { hasError: false, message: "" };
 
-  static getDerivedStateFromError() {
-    return { hasError: true };
+  static getDerivedStateFromError(error: unknown) {
+    return { hasError: true, message: error instanceof Error ? error.message : String(error) };
   }
 
   componentDidCatch(error: unknown) {
-    // Expected when no external .glb is present in /public/models/ — smoothly falls back to procedural
-    console.info("[kaos-kami] Notice: External GLTF model not loaded. Activating procedural garment fallback.", error);
+    // Tampilkan error asli ke console (audit #14 — sebelumnya ditelan).
+    console.error("[kaos-kami] Model 3D gagal:", error);
   }
 
+  private retry = () => this.setState({ hasError: false, message: "" });
+
   render() {
-    return this.state.hasError ? this.props.fallback : this.props.children;
+    if (!this.state.hasError) return this.props.children;
+    // Retry dulu; fallback hanya bila user menyerah.
+    return (
+      <div className="flex flex-col items-center justify-center gap-3 p-6 text-center font-mono text-xs">
+        <p className="text-text-muted">Model 3D gagal dimuat{this.state.message ? `: ${this.state.message.slice(0, 120)}` : "."}</p>
+        <button
+          onClick={this.retry}
+          className="px-5 py-2.5 rounded-xl bg-brand-accent text-canvas font-bold uppercase"
+        >
+          Coba lagi
+        </button>
+        <div className="w-full">{this.props.fallback}</div>
+      </div>
+    );
   }
 }

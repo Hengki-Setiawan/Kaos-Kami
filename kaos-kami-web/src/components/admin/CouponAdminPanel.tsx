@@ -2,6 +2,7 @@
 
 import React, { useState } from "react";
 import { useRouter } from "next/navigation";
+import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 
 /** Panel kelola kupon: buat baru + aktif/nonaktif + hapus. */
 export function CouponAdminPanel() {
@@ -62,30 +63,55 @@ export function CouponAdminPanel() {
 export function CouponRowActions({ id, isActive }: { id: string; isActive: boolean }) {
   const router = useRouter();
   const [busy, setBusy] = useState(false);
+  const [askingDelete, setAskingDelete] = useState(false);
+  const [msg, setMsg] = useState<string | null>(null);
 
-  const act = async (body: object, confirmMsg?: string) => {
-    if (confirmMsg && !confirm(confirmMsg)) return;
+  const act = async (body: object) => {
     setBusy(true);
+    setMsg(null);
     try {
-      await fetch("/api/admin/coupons", {
+      const ctrl = new AbortController();
+      const t = setTimeout(() => ctrl.abort(), 15000);
+      const res = await fetch("/api/admin/coupons", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
+        signal: ctrl.signal,
         body: JSON.stringify({ id, ...body }),
       });
+      clearTimeout(t);
+      const data = await res.json().catch(() => null);
+      if (!res.ok || !data || data.error) throw new Error(data?.error || "Gagal");
       router.refresh();
+    } catch (e: any) {
+      // Gagal diam (audit #27) → tampilkan pesan, bukan diam.
+      setMsg(e?.message || "Gagal");
     } finally {
       setBusy(false);
     }
   };
 
   return (
-    <div className="flex gap-2">
+    <div className="flex gap-2 items-center">
       <button onClick={() => void act({ isActive: !isActive })} disabled={busy} className="px-2.5 py-1 rounded-lg bg-surface border border-white/10 text-white text-[11px] font-bold disabled:opacity-50">
         {isActive ? "NONAKTIFKAN" : "AKTIFKAN"}
       </button>
-      <button onClick={() => void act({ delete: true }, "Hapus kupon ini?")} disabled={busy} className="px-2.5 py-1 rounded-lg bg-red-500/10 border border-red-500/40 text-red-300 text-[11px] font-bold disabled:opacity-50">
+      <button onClick={() => setAskingDelete(true)} disabled={busy} className="px-2.5 py-1 rounded-lg bg-red-500/10 border border-red-500/40 text-red-300 text-[11px] font-bold disabled:opacity-50">
         HAPUS
       </button>
+      {msg && <span className="text-[11px] text-amber-300">{msg}</span>}
+      <ConfirmDialog
+        open={askingDelete}
+        title="Hapus kupon?"
+        message="Kode ini tak bisa dipakai lagi. Order lama tidak terpengaruh."
+        confirmLabel="YA, HAPUS"
+        danger
+        busy={busy}
+        onConfirm={() => {
+          setAskingDelete(false);
+          void act({ delete: true });
+        }}
+        onCancel={() => setAskingDelete(false)}
+      />
     </div>
   );
 }

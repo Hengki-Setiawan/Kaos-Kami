@@ -10,12 +10,15 @@ const DISMISS_KEY = "kk-app-banner-dismissed";
 
 /**
  * Banner "Download Aplikasi" pengganti PWA (keputusan Sep 2026):
- * - Hanya tampil di browser Android (bukan di dalam aplikasi Capacitor,
- *   bukan iOS/desktop).
+ * - Android: tawarkan APK (cek HEAD dulu — sembunyi bila file hilang).
+ * - iOS: tak ada APK → tawarkan versi web + "Add to Home Screen".
+ * - Di dalam aplikasi Capacitor: jangan tampilkan.
  * - Sekali ditutup → ingat selamanya (localStorage).
  */
 export function AppDownloadBanner() {
   const [visible, setVisible] = useState(false);
+  const [isIOS, setIsIOS] = useState(false);
+  const [apkOk, setApkOk] = useState(true);
 
   useEffect(() => {
     try {
@@ -24,9 +27,22 @@ export function AppDownloadBanner() {
       if (w.Capacitor?.isNativePlatform?.()) return;
       if (localStorage.getItem(DISMISS_KEY) === "1") return;
       const ua = navigator.userAgent || "";
+      const ios = /iPhone|iPad|iPod/i.test(ua);
       const isAndroid = /Android/i.test(ua);
-      if (!isAndroid) return;
+      if (!isAndroid && !ios) return;
+      setIsIOS(ios && !isAndroid);
       const t = setTimeout(() => setVisible(true), 2500);
+      // Cek ketersediaan APK (HEAD) agar tombol tak menunjuk file mati.
+      if (isAndroid) {
+        const ctrl = new AbortController();
+        const t2 = setTimeout(() => ctrl.abort(), 8000);
+        fetch(APK_URL, { method: "HEAD", signal: ctrl.signal })
+          .then((r) => {
+            clearTimeout(t2);
+            if (!r.ok) setApkOk(false);
+          })
+          .catch(() => clearTimeout(t2));
+      }
       return () => clearTimeout(t);
     } catch {
       return;
@@ -58,18 +74,22 @@ export function AppDownloadBanner() {
         />
         <div className="flex-1 min-w-0">
           <p className="font-bold text-white text-sm leading-tight">
-            Buka di Aplikasi Kaos Kami
+            {isIOS ? "Kaos Kami di iPhone" : "Buka di Aplikasi Kaos Kami"}
           </p>
           <p className="font-mono text-[11px] text-text-muted leading-tight mt-0.5">
-            Lebih cepat, hemat kuota + notifikasi status pesanan.
+            {isIOS
+              ? "Aplikasi iOS belum tersedia — pakai versi web + Add to Home Screen."
+              : "Lebih cepat, hemat kuota + notifikasi status pesanan."}
           </p>
         </div>
-        <a
-          href={APK_URL}
-          className="shrink-0 px-4 py-2 rounded-xl bg-brand-accent text-canvas font-bold text-xs uppercase tracking-wider active:scale-95 transition-transform"
-        >
-          Unduh
-        </a>
+        {!isIOS && apkOk && (
+          <a
+            href={APK_URL}
+            className="shrink-0 px-4 py-2 rounded-xl bg-brand-accent text-canvas font-bold text-xs uppercase tracking-wider active:scale-95 transition-transform"
+          >
+            Unduh
+          </a>
+        )}
         <button
           onClick={dismiss}
           aria-label="Tutup"

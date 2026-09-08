@@ -14,13 +14,25 @@ export const HeroOverlay: React.FC = () => {
   const [cmsTitle, setCmsTitle] = React.useState<string | null>(null);
   const [cmsSubtitle, setCmsSubtitle] = React.useState<string | null>(null);
   React.useEffect(() => {
-    fetch("/api/admin/cms")
-      .then((r) => r.json())
-      .then((d) => {
-        if (d?.heroTitle) setCmsTitle(d.heroTitle);
-        if (typeof d?.heroSubtitle === "string" && d.heroSubtitle) setCmsSubtitle(d.heroSubtitle);
-      })
-      .catch(() => {});
+    const ctrl = new AbortController();
+    const t = setTimeout(() => ctrl.abort(), 8000);
+    (async () => {
+      try {
+        const r = await fetch("/api/admin/cms", { signal: ctrl.signal });
+        const d = await r.json().catch(() => null);
+        clearTimeout(t);
+        if (!r.ok || !d) return;
+        // Sanitasi panjang (audit #11): judul CMS tak boleh merusak layout.
+        if (d?.heroTitle) setCmsTitle(String(d.heroTitle).slice(0, 80));
+        if (typeof d?.heroSubtitle === "string" && d.heroSubtitle) {
+          setCmsSubtitle(d.heroSubtitle.slice(0, 200));
+        }
+      } catch {}
+    })();
+    return () => {
+      clearTimeout(t);
+      ctrl.abort();
+    };
   }, []);
   const titleLines = (cmsTitle || "HEAVYWEIGHT BOXY TEE").split("\n");
   const subtitle = cmsSubtitle || "Katun combed tebal berkarakter boxy tegap dengan pola drop-shoulder modern & sablon DTF resolusi tinggi.";

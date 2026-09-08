@@ -31,6 +31,8 @@ export const LookbookImage: React.FC<LookbookImageProps> = ({
       src={resolvedSrc}
       onError={handleError}
       alt={caption}
+      width={600}
+      height={800}
       className={className}
       loading="lazy"
     />

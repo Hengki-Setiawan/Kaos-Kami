@@ -25,8 +25,9 @@ interface CartStore {
   closeCart: () => void;
   toggleCart: () => void;
   addItem: (item: Omit<CartProductItem, "quantity"> & { quantity?: number }) => void;
-  removeItem: (id: string) => void;
-  updateQuantity: (id: string, delta: number) => void;
+  // Kunci = id+size (varian beda size baris terpisah — audit #5).
+  removeItem: (id: string, size: string) => void;
+  updateQuantity: (id: string, size: string, delta: number) => void;
   clearCart: () => void;
   getTotalCount: () => number;
   getTotalPrice: () => number;
@@ -58,17 +59,17 @@ export const useCartStore = create<CartStore>((set, get) => ({
     });
   },
 
-  removeItem: (id) => {
+  removeItem: (id, size) => {
     set((state) => ({
-      items: state.items.filter((item) => item.id !== id),
+      items: state.items.filter((item) => !(item.id === id && item.size === size)),
     }));
   },
 
-  updateQuantity: (id, delta) => {
+  updateQuantity: (id, size, delta) => {
     set((state) => ({
       items: state.items
         .map((item) => {
-          if (item.id === id) {
+          if (item.id === id && item.size === size) {
             const newQty = item.quantity + delta;
             return newQty > 0 ? { ...item, quantity: newQty } : null;
           }
