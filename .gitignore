@@ -78,3 +78,5 @@ testworker.log
 
 # local DB backups (contain customer PII - never commit)
 backups/
+
+cap-upgrade.log
