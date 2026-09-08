@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
+import { fetchJson } from "@/lib/fetchJson";
 
 /** Bayar ulang: minta link Duitku baru lalu buka. Gagal → arahkan ke WA admin. */
 export function RepayButton({ orderId }: { orderId: string }) {
@@ -12,11 +13,8 @@ export function RepayButton({ orderId }: { orderId: string }) {
     setState("busy");
     setMsg("");
     try {
-      const res = await fetch(`/api/orders/${orderId}/repay`, { method: "POST" });
-      const data = await res.json();
-      if (!res.ok || data.error || !data.paymentUrl) {
-        throw new Error(data.error || "Gagal buat link baru");
-      }
+      const data = await fetchJson<{ paymentUrl?: string }>(`/api/orders/${orderId}/repay`, { method: "POST" }, 20000);
+      if (!data.paymentUrl) throw new Error("Link bayar tidak tersedia");
       window.location.href = data.paymentUrl;
     } catch (e: any) {
       setState("error");

@@ -13,6 +13,7 @@ export const BackGraphicOverlay: React.FC = () => {
 
   return (
     <section
+      aria-hidden={!isVisible}
       className={`min-h-screen w-full flex flex-col justify-center items-start md:items-end p-6 md:p-12 relative pointer-events-none select-none transition-all duration-700 ease-out ${
         isVisible
           ? "opacity-100 translate-y-0"

@@ -41,7 +41,7 @@ export const EditorialLookbook: React.FC = () => {
       <div className="flex flex-col md:flex-row md:items-end justify-between mb-12 gap-6">
         <div>
           <span className="block text-[11px] font-mono text-brand-accent uppercase tracking-widest mb-2">
-            ARSIP VISUAL & LOOKBOOK 2026
+            ARSIP VISUAL & LOOKBOOK {new Date().getFullYear()}
           </span>
           <h2 className="text-4xl sm:text-6xl font-display font-black uppercase text-text-primary">
             KATALOG FISIK
