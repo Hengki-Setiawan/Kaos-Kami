@@ -19,7 +19,7 @@ export interface CreateDuitkuChargeParams {
   orderNumber: string;
   amountIdr: number;
   customer: DuitkuCustomer;
-  paymentMethod?: string; // "SP" (ShopeePay/QRIS), "BC" (BCA VA), "M2" (Mandiri VA), "B1" (BNI VA), "BT" (BRI VA), "VC" (Credit Card)
+      paymentMethod?: string; // QRIS ONLY ("SP") — keputusan owner Sep 2026 (fee 0,7%, lunas-dulu).
   itemDetails?: DuitkuItemDetail[];
 }
 

@@ -1,11 +1,11 @@
 "use client";
 
-import React, { useState } from 'react';
-import { Check, ShieldCheck, MapPin, QrCode, CreditCard, Truck, ChevronRight } from 'lucide-react';
+import React, { useRef, useState } from 'react';
+import { Check, MapPin, QrCode, Truck, ChevronRight } from 'lucide-react';
 import { BottomSheet, HapticButton, Badge } from '@/components/ui';
 import { useMobileCartStore } from '@/store/useMobileCartStore';
 import { MAKASSAR_DELIVERY_OPTIONS, DeliveryOption } from '@/lib/shipping/deliveryOptionsMobile';
-import { mobileApiClient, quoteShipping, reverseGeocode } from '@/lib/api/mobileApiClient';
+import { mobileApiClient, quoteShipping, reverseGeocode, searchLocations, ShipLocation } from '@/lib/api/mobileApiClient';
 import { openDuitkuPaymentModal } from '@/lib/payments/duitkuMobile';
 import { haptic } from '@/lib/bridge/haptics';
 
@@ -16,11 +16,9 @@ export interface CheckoutSheetProps {
   onNotify?: (msg: string) => void;
 }
 
-const DELIVERY_TO_SERVER: Record<string, 'PICKUP' | 'FREE_MAKASSAR' | 'INSTANT_COURIER' | 'FLAT_MAKASSAR' | 'EXPEDITION_MANUAL'> = {
+const DELIVERY_TO_SERVER: Record<string, 'PICKUP' | 'FREE_MAKASSAR' | 'EXPEDITION_MANUAL'> = {
   WORKSHOP_PICKUP: 'PICKUP',
   FREE_MAKASSAR: 'FREE_MAKASSAR',
-  MAXIM_COD: 'INSTANT_COURIER',
-  FLAT_RATE_MAKASSAR: 'FLAT_MAKASSAR',
   EXPEDITION: 'EXPEDITION_MANUAL',
 };
 
@@ -46,7 +44,24 @@ export function CheckoutSheet({ open, onOpenChange, onOrderSuccess, onNotify }: 
   const [selectedZoneId, setSelectedZoneId] = useState<string | null>(null);
   const [gpsLoading, setGpsLoading] = useState(false);
   const [gpsMsg, setGpsMsg] = useState<string | null>(null);
-  const [selectedPayment, setSelectedPayment] = useState<'QRIS' | 'VA_BCA' | 'MAXIM_COD'>('QRIS');
+  const [locSuggest, setLocSuggest] = useState<ShipLocation[]>([]);
+  const [locLoading, setLocLoading] = useState(false);
+
+  // Autocomplete kota → kode pos (debounce hemat kuota).
+  const locTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const handleDestSearch = (q: string) => {
+    setDestCity(q);
+    setSelectedZoneId(null);
+    setLocSuggest([]);
+    if (locTimer.current) clearTimeout(locTimer.current);
+    if (q.trim().length < 3) return;
+    setLocLoading(true);
+    locTimer.current = setTimeout(async () => {
+      const list = await searchLocations(q);
+      setLocSuggest(list);
+      setLocLoading(false);
+    }, 500);
+  };
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
 
@@ -121,7 +136,7 @@ export function CheckoutSheet({ open, onOpenChange, onOrderSuccess, onNotify }: 
     setIsSubmitting(true);
     haptic.tapHeavy();
     try {
-      const isCod = selectedPayment === 'MAXIM_COD';
+      // QRIS ONLY (lunas-dulu, fee 0,7%) — tanpa cabang COD.
       const res = await mobileApiClient.checkout({
         recipientName: customerName.trim(),
         phoneNumber: customerPhone.trim(),
@@ -133,8 +148,7 @@ export function CheckoutSheet({ open, onOpenChange, onOrderSuccess, onNotify }: 
         expeditionZoneId: isExpedition && selectedZone?.zoneId ? selectedZone.zoneId : undefined,
         expeditionCourier: isExpedition && selectedZone?.courierCode ? selectedZone.courierCode : undefined,
         expeditionService: isExpedition && selectedZone?.serviceCode ? selectedZone.serviceCode : undefined,
-        paymentMethod: selectedPayment,
-        cod: isCod,
+        paymentMethod: 'QRIS',
         couponCode: couponCode.trim() || undefined,
         items: items.map((it) => ({
           apparelSlug: it.apparelType,
@@ -179,13 +193,11 @@ export function CheckoutSheet({ open, onOpenChange, onOrderSuccess, onNotify }: 
       clearCart();
       haptic.success();
       onOpenChange(false);
-      onOrderSuccess(res.orderId!, isCod ? undefined : res.paymentUrl);
-      if (!isCod && res.paymentUrl) {
+      onOrderSuccess(res.orderId!, res.paymentUrl);
+      if (res.paymentUrl) {
         openDuitkuPaymentModal(res.paymentUrl, () => {
           onNotify?.('Browser pembayaran ditutup. Status pesanan diperbarui otomatis.');
         });
-      } else {
-        onNotify?.('Pesanan COD tersimpan! Bayar tunai ke kurir saat tiba.');
       }
     } catch (e: any) {
       setFormError(e?.message || 'Checkout gagal. Coba lagi.');
@@ -331,7 +343,7 @@ export function CheckoutSheet({ open, onOpenChange, onOrderSuccess, onNotify }: 
                   <input
                     type="text"
                     value={destCity}
-                    onChange={(e) => { setDestCity(e.target.value); setSelectedZoneId(null); }}
+                    onChange={(e) => handleDestSearch(e.target.value)}
                     placeholder="cth: Gowa, Jakarta, Surabaya"
                     className="flex-1 px-3 py-2.5 rounded-xl bg-zinc-800 border border-zinc-700 text-white text-base outline-none focus:border-[#FF6B35]"
                   />
@@ -344,6 +356,26 @@ export function CheckoutSheet({ open, onOpenChange, onOrderSuccess, onNotify }: 
                     className="w-24 px-3 py-2.5 rounded-xl bg-zinc-800 border border-zinc-700 text-white text-base outline-none focus:border-[#FF6B35]"
                   />
                 </div>
+                {locLoading && <p className="text-[11px] text-zinc-500">Mencari kota…</p>}
+                {locSuggest.length > 0 && (
+                  <div className="space-y-1">
+                    {locSuggest.map((l) => (
+                      <button
+                        key={`${l.postalCode}-${l.label}`}
+                        type="button"
+                        onClick={() => {
+                          haptic.selection();
+                          setDestCity(l.label.split(',')[0] || l.label);
+                          setDestPostal(l.postalCode);
+                          setLocSuggest([]);
+                        }}
+                        className="w-full text-left px-3 py-2 rounded-xl bg-zinc-800 border border-zinc-700 text-[11px] text-white"
+                      >
+                        {l.label} <span className="text-[#FF6B35] font-bold">{l.postalCode}</span>
+                      </button>
+                    ))}
+                  </div>
+                )}
                 <div className="flex gap-2">
                   <HapticButton variant="primary" onClick={handleCheckOngkir} className="flex-1 text-xs px-3">
                     {zonesLoading ? '...' : 'Cek Ongkir'}
@@ -400,40 +432,18 @@ export function CheckoutSheet({ open, onOpenChange, onOrderSuccess, onNotify }: 
         {/* ========================================================= */}
         {step === 3 && (
           <div className="space-y-3">
-            <div className="space-y-2">
-              {[
-                { id: 'QRIS', title: 'QRIS Instant (Gojek, ShopeePay, Dana, BCA)', badge: 'Paling Populer', icon: QrCode },
-                { id: 'VA_BCA', title: 'BCA Virtual Account (Otomatis)', badge: 'Verifikasi Otomatis', icon: CreditCard },
-                { id: 'MAXIM_COD', title: 'Bayar Tunai ke Kurir Maxim (COD)', badge: 'Bayar saat Tiba', icon: ShieldCheck },
-              ].map((pm) => {
-                const isSelected = selectedPayment === pm.id;
-                const Icon = pm.icon;
-                return (
-                  <div
-                    key={pm.id}
-                    onClick={() => {
-                      haptic.selection();
-                      setSelectedPayment(pm.id as any);
-                    }}
-                    className={`p-3.5 rounded-2xl border cursor-pointer flex items-center justify-between transition-all ${
-                      isSelected
-                        ? 'bg-[#FF6B35]/15 border-[#FF6B35] ring-1 ring-orange-500/30'
-                        : 'bg-zinc-900 border-zinc-800 hover:border-zinc-700'
-                    }`}
-                  >
-                    <div className="flex items-center gap-2.5">
-                      <div className="w-8 h-8 rounded-xl bg-zinc-800 flex items-center justify-center text-[#FF6B35]">
-                        <Icon className="w-4 h-4" />
-                      </div>
-                      <div>
-                        <p className="text-xs font-bold text-white leading-tight">{pm.title}</p>
-                        <p className="text-[10px] text-zinc-400 mt-0.5">{pm.badge}</p>
-                      </div>
-                    </div>
-                    {isSelected && <Check className="w-4 h-4 text-[#FF6B35]" />}
-                  </div>
-                );
-              })}
+            {/* QRIS ONLY (lunas-dulu, fee 0,7%) — QR generatif sesuai total. */}
+            <div className="p-3.5 rounded-2xl border bg-[#FF6B35]/15 border-[#FF6B35] ring-1 ring-orange-500/30 flex items-center justify-between">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-xl bg-zinc-800 flex items-center justify-center text-[#FF6B35]">
+                  <QrCode className="w-4 h-4" />
+                </div>
+                <div>
+                  <p className="text-xs font-bold text-white leading-tight">QRIS — Scan untuk Bayar</p>
+                  <p className="text-[10px] text-zinc-400 mt-0.5">Semua e-wallet & m-banking • Lunas dulu, baru produksi</p>
+                </div>
+              </div>
+              <Check className="w-4 h-4 text-[#FF6B35]" />
             </div>
 
             {/* Total Summary */}

@@ -7,13 +7,14 @@ import { Design } from '@/lib/drizzle-schema';
 import { auth } from '@/lib/auth';
 import { headers } from 'next/headers';
 import { checkRateLimitAsync, getClientIp, rateLimitHeaders } from "@/lib/security/rateLimiter";
+import { DecalLayerSchema } from "@/lib/schemas/design";
 
 const AutosaveSchema = z.object({
   apparelSlug: z.string().min(1).max(32),
   colorHex: z.string().regex(/^#([0-9A-Fa-f]{3}|[0-9A-Fa-f]{6})$/).optional(),
   colorName: z.string().max(40).optional(),
   size: z.string().max(10).optional(),
-  decals: z.array(z.any()).max(10).optional(),
+  decals: z.array(DecalLayerSchema).max(10).optional(),
   studioTheme: z.string().max(20).optional(),
   materialFinishSlug: z.string().max(40).optional(),
 });

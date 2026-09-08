@@ -31,7 +31,7 @@ const CheckoutPayloadSchema = z.object({
   recipientName: z.string().min(2, "Nama penerima wajib diisi"),
   phoneNumber: z.string().min(10, "Nomor WhatsApp wajib diisi"),
   email: z.string().email().optional().or(z.literal("")),
-  deliveryMethod: z.enum(["PICKUP", "FREE_MAKASSAR", "INSTANT_COURIER", "FLAT_MAKASSAR", "EXPEDITION_MANUAL"]),
+  deliveryMethod: z.enum(["PICKUP", "FREE_MAKASSAR", "EXPEDITION_MANUAL"]),
   turnaroundTier: z.enum(["REGULER", "EXPRESS_24H"]).default("REGULER"),
   district: z.string().optional(),
   // Ekspedisi luar kota: kota tujuan + zona terpilih (harga FINAL di-resolve

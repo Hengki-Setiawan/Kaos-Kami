@@ -95,9 +95,9 @@ model Verification {
 enum DeliveryMethod {
   PICKUP              // Ambil di workshop Kaos Kami Makassar (Rp 0)
   FREE_MAKASSAR       // Diantar tim Kaos Kami, gratis se-Kota Makassar (Rp 0)
-  INSTANT_COURIER     // Maxim / GoSend / Grab (Ongkir COD bayar ke driver)
-  FLAT_MAKASSAR       // Kurir Internal Flat Rate Makassar (Rp 15.000)
   EXPEDITION_MANUAL   // Ekspedisi Luar Kota (JNE / J&T / SiCepat)
+  // DIHAPUS Sep 2026: INSTANT_COURIER (Maxim COD), FLAT_MAKASSAR (bayar),
+  // COD (lunas-dulu via QRIS). Order lama tetap terbaca (SQLite TEXT).
 }
 
 // ------------------------------------------------------------------

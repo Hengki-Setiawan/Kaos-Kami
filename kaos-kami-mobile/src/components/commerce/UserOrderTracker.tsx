@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { motion } from 'framer-motion';
 import {
   Clock,
@@ -27,7 +27,9 @@ export type OrderStatus =
   | 'QC_PACKED'
   | 'SHIPPED'
   | 'COMPLETED'
-  | 'REJECTED';
+  | 'REJECTED'
+  | 'CANCELLED'
+  | 'REFUNDED';
 
 export interface OrderItemData {
   id: string;
@@ -94,9 +96,11 @@ export function UserOrderTracker({
                   ? 'success'
                   : order.status === 'PENDING_PAYMENT'
                   ? 'warning'
+                  : order.status === 'CANCELLED' || order.status === 'REFUNDED' || order.status === 'REJECTED'
+                  ? 'neutral'
                   : 'production'
               }
-              pulse={order.status !== 'COMPLETED'}
+              pulse={order.status !== 'COMPLETED' && order.status !== 'CANCELLED' && order.status !== 'REFUNDED' && order.status !== 'REJECTED'}
             >
               {order.status === 'PENDING_DESIGN_APPROVAL'
                 ? 'Menunggu Review Admin'
@@ -108,6 +112,12 @@ export function UserOrderTracker({
                 ? 'Press Panas 160°C'
                 : order.status === 'SHIPPED'
                 ? 'Dalam Perjalanan'
+                : order.status === 'CANCELLED'
+                ? 'Dibatalkan'
+                : order.status === 'REFUNDED'
+                ? 'Dana Kembali'
+                : order.status === 'REJECTED'
+                ? 'Ditolak'
                 : 'Selesai'}
             </Badge>
           </div>
@@ -216,6 +226,8 @@ const SERVER_TO_TRACKER: Record<string, OrderStatus> = {
   SHIPPED: 'SHIPPED',
   DELIVERED: 'COMPLETED',
   COMPLETED: 'COMPLETED',
+  CANCELLED: 'CANCELLED',
+  REFUNDED: 'REFUNDED',
 };
 
 /**
@@ -233,22 +245,29 @@ export function UserOrderTrackerLive({
 }) {
   const [remote, setRemote] = useState<MobileOrderStatus | null>(null);
   const [offline, setOffline] = useState(false);
+  // Backoff polling (audit N12): gagal beruntun → interval 10s→30s→60s.
+  const failCount = useRef(0);
+  const [pollEvery, setPollEvery] = useState(10000);
 
   const poll = useCallback(async () => {
     const s = await mobileApiClient.pollOrderStatus(orderId);
     if (s) {
       setRemote(s);
       setOffline(false);
+      failCount.current = 0;
+      setPollEvery(10000);
     } else {
       setOffline(true);
+      failCount.current += 1;
+      setPollEvery(failCount.current >= 5 ? 60000 : failCount.current >= 2 ? 30000 : 10000);
     }
   }, [orderId]);
 
   useEffect(() => {
     poll();
-    const t = setInterval(poll, 10000);
+    const t = setInterval(poll, pollEvery);
     return () => clearInterval(t);
-  }, [poll]);
+  }, [poll, pollEvery]);
 
   if (!remote) {
     return (
@@ -259,6 +278,9 @@ export function UserOrderTrackerLive({
   }
 
   const mapped = SERVER_TO_TRACKER[remote.status] ?? 'PENDING_PAYMENT';
+  // Status final non-bayar (batal/refund) JANGAN pernah tampil "Siap Dibayar"
+  // + tombol bayar (audit N14 — risiko bayar ganda).
+  const isDead = mapped === 'CANCELLED' || mapped === 'REFUNDED' || mapped === 'REJECTED';
   const order: OrderItemData = {
     id: remote.id,
     orderNumber: remote.orderNumber,
@@ -286,11 +308,16 @@ export function UserOrderTrackerLive({
       <UserOrderTracker
         order={order}
         onPayNow={
-          mapped === 'PENDING_PAYMENT' && paymentUrl
+          !isDead && mapped === 'PENDING_PAYMENT' && paymentUrl
             ? () => openDuitkuPaymentModal(paymentUrl, () => poll())
             : undefined
         }
       />
+      {isDead && (
+        <p className="text-[11px] text-zinc-400 text-center">
+          {mapped === 'CANCELLED' ? 'Pesanan ini dibatalkan.' : mapped === 'REFUNDED' ? 'Dana pesanan ini sudah dikembalikan.' : 'Pesanan ini ditolak workshop.'}
+        </p>
+      )}
     </div>
   );
 }

@@ -5,6 +5,7 @@ import { db } from '@/lib/db';
 import { Design } from '@/lib/drizzle-schema';
 import { getAuthenticatedUser } from '@/lib/security/authGuard';
 import { checkRateLimitAsync, getClientIp, rateLimitHeaders } from "@/lib/security/rateLimiter";
+import { DecalLayerSchema } from "@/lib/schemas/design";
 
 const ClaimDesignSchema = z.object({
   title: z.string().min(1).max(60),
@@ -12,7 +13,7 @@ const ClaimDesignSchema = z.object({
   colorHex: z.string().regex(/^#([0-9A-Fa-f]{3}|[0-9A-Fa-f]{6})$/),
   colorName: z.string().min(1).max(40),
   size: z.string().min(1).max(10),
-  decals: z.array(z.any()).max(10).default([]),
+  decals: z.array(DecalLayerSchema).max(10).default([]),
   calculatedPriceIdr: z.number().int().positive().max(100_000_000).default(149000),
 });
 

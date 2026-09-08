@@ -1,5 +1,5 @@
 export interface DeliveryOption {
-  id: 'WORKSHOP_PICKUP' | 'FREE_MAKASSAR' | 'MAXIM_COD' | 'FLAT_RATE_MAKASSAR' | 'EXPEDITION';
+  id: 'WORKSHOP_PICKUP' | 'FREE_MAKASSAR' | 'EXPEDITION';
   name: string;
   description: string;
   price: number;
@@ -23,22 +23,6 @@ export const MAKASSAR_DELIVERY_OPTIONS: DeliveryOption[] = [
     price: 0,
     estimatedTime: '1 - 2 Hari setelah selesai sablon',
     badge: 'Gratis Rp 0',
-  },
-  {
-    id: 'MAXIM_COD',
-    name: 'Maxim Instant Kurir COD',
-    description: 'Ongkos kirim dibayar langsung ke driver Maxim saat pesanan tiba',
-    price: 0,
-    estimatedTime: '1 - 2 Jam setelah selesai sablon',
-    badge: 'Bayar di Tempat',
-  },
-  {
-    id: 'FLAT_RATE_MAKASSAR',
-    name: 'Kurir Internal Kaos Kami',
-    description: 'Tarif flat untuk Panakkukang, Rappocini, Tamalanrea, Biringkanaya, dll',
-    price: 15000,
-    estimatedTime: 'Same Day Delivery',
-    badge: 'Flat Rp 15.000',
   },
   {
     id: 'EXPEDITION',

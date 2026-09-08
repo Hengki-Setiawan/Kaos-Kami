@@ -195,3 +195,23 @@ export async function reverseGeocode(lat: number, lon: number): Promise<GeoResul
     return null;
   }
 }
+
+export interface ShipLocation {
+  postalCode: string;
+  label: string;
+}
+
+/** Autocomplete kecamatan → kode pos (tutup gap vs web). Gagal = [] (input manual). */
+export async function searchLocations(q: string): Promise<ShipLocation[]> {
+  try {
+    if (q.trim().length < 3) return [];
+    const response: HttpResponse = await CapacitorHttp.get({
+      url: `${BASE_API_URL}/api/shipping/locations?q=${encodeURIComponent(q.trim())}`,
+      ...HTTP_TIMEOUT,
+    });
+    const list = response.data?.locations;
+    return Array.isArray(list) ? list.slice(0, 5) : [];
+  } catch {
+    return [];
+  }
+}

@@ -680,7 +680,7 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
                   </div>
                 )}
                 {otpMsg && <p className="text-[11px] font-mono mt-1 text-amber-400">{otpMsg}</p>}
-                <p className="text-[10px] font-mono text-text-muted mt-1">OTP cuma saat bayar (hemat Fonnte) — login Google/Email tanpa WA</p>
+                <p className="text-[10px] font-mono text-text-muted mt-1">Opsional — pastikan nomor aktif agar notifikasi produksi masuk.</p>
               </div>
             </div>
           </div>
@@ -990,7 +990,7 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
             ) : (
               <>
                 <CreditCard size={15} />
-                <span>BAYAR SEKARANG (QRIS / GO-PAY / VA)</span>
+                <span>BAYAR VIA QRIS</span>
                 <ArrowRight size={14} />
               </>
             )}

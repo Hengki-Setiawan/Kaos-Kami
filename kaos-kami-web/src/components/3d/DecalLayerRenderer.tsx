@@ -4,6 +4,7 @@ import React from "react";
 import { Decal, useTexture } from "@react-three/drei";
 import { useConfiguratorStore } from "@/store/useConfiguratorStore";
 import { APPAREL_PHYSICAL_SPECS, maxDecalScaleUnits, REAL_WORLD_PRINT_LIMITS } from "@/lib/scaleCalibration";
+import { isSafeImageUrl } from "@/lib/safeUrl";
 import type { DecalLayer } from "@/lib/constants";
 
 const SingleDecalItem: React.FC<{
@@ -11,7 +12,9 @@ const SingleDecalItem: React.FC<{
   surfaceZ: number;
   order: number;
 }> = ({ decal, surfaceZ, order }) => {
-  const uploaded = useTexture(decal.url);
+  // URL DB tak tepercaya (audit B7) — tolak scheme aneh sebelum TextureLoader.
+  const safeUrl = isSafeImageUrl(decal.url) ? decal.url : "";
+  const uploaded = useTexture(safeUrl || "data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7");
 
   // JANGAN dispose: drei useTexture cache per-URL dipakai bersama —
   // dispose di sini = flicker/use-after-dispose di decal lain (audit #5c).

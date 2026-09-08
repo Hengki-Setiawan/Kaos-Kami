@@ -90,6 +90,14 @@ export const useMobileCartStore = create<MobileCartState>()(
     {
       name: 'kaoskami_mobile_cart',
       storage: preferencesJsonStorage(),
+      // Versi skema cache (audit N12): mismatch = buang cache lama agar
+      // bentuk item basi tak merusak checkout.
+      version: 1,
+      migrate: (persisted: any) => {
+        if (!persisted || typeof persisted !== 'object') return { items: [] } as any;
+        const items = Array.isArray((persisted as any).items) ? (persisted as any).items : [];
+        return { items } as any;
+      },
     }
   )
 );

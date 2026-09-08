@@ -26,6 +26,26 @@ export async function POST(req: NextRequest) {
       const status = msg.startsWith('Unauthorized') ? 401 : 403;
       return NextResponse.json({ error: msg }, { status });
     }
+    // Validasi referensi ada + aktif (audit B9 — sebelumnya ID ngarang lolos).
+    if (productVariantId) {
+      const v = await db.query.ProductVariant.findFirst({
+        where: (t, { eq }) => eq(t.id, productVariantId),
+        columns: { id: true, isActive: true },
+      });
+      if (!v || !v.isActive) return NextResponse.json({ error: 'Varian tidak tersedia' }, { status: 400 });
+    }
+    if (designId) {
+      const d = await db.query.Design.findFirst({
+        where: (t, { eq }) => eq(t.id, designId),
+        columns: { id: true, userId: true },
+      });
+      if (!d) return NextResponse.json({ error: 'Desain tidak ditemukan' }, { status: 404 });
+      try {
+        await assertResourceOwnerOrAdmin(d.userId || userId);
+      } catch (e: any) {
+        return NextResponse.json({ error: 'Bukan desain milikmu' }, { status: 403 });
+      }
+    }
     let cart = await db.query.Cart.findFirst({
       where: (t, { eq }) => eq(t.userId, userId),
     });

@@ -2,6 +2,7 @@
 
 import React, { useState } from "react";
 import { generatePlaceholderImage } from "@/lib/placeholderImage";
+import { isSafeImageUrl } from "@/lib/safeUrl";
 
 interface LookbookImageProps {
   src: string;
@@ -16,8 +17,9 @@ export const LookbookImage: React.FC<LookbookImageProps> = ({
   seed,
   className,
 }) => {
-  const [resolvedSrc, setResolvedSrc] = useState(src);
-  const [usedFallback, setUsedFallback] = useState(false);
+  const safe = isSafeImageUrl(src);
+  const [resolvedSrc, setResolvedSrc] = useState(safe ? src : generatePlaceholderImage(caption, seed));
+  const [usedFallback, setUsedFallback] = useState(!safe);
 
   const handleError = () => {
     if (usedFallback) return;

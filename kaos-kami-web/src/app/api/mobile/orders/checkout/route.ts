@@ -30,7 +30,7 @@ const MobileCheckoutSchema = z.object({
   recipientName: z.string().min(2),
   phoneNumber: z.string().min(10),
   email: z.string().email().optional().or(z.literal("")),
-  deliveryMethod: z.enum(["PICKUP", "FREE_MAKASSAR", "INSTANT_COURIER", "FLAT_MAKASSAR", "EXPEDITION_MANUAL"]),
+  deliveryMethod: z.enum(["PICKUP", "FREE_MAKASSAR", "EXPEDITION_MANUAL"]),
   district: z.string().optional(),
   destinationCity: z.string().max(80).optional(),
   expeditionZoneId: z.string().max(64).optional(),
@@ -39,10 +39,9 @@ const MobileCheckoutSchema = z.object({
   expeditionService: z.string().max(64).optional(),
   fullAddress: z.string().min(5),
   courierNotes: z.string().optional(),
-  // Metode yang didukung Duitku inquiry. Tak dikenal → QRIS default (SP),
-  // BUKAN collapse diam-diam (transparan di respons).
-  paymentMethod: z.enum(["QRIS", "VA_BCA", "VA_MANDIRI", "VA_BNI", "VA_BRI", "GOPAY", "SHOPEEPAY", "COD", "SP", "BC", "M2", "B1", "BT"]).optional(),
-  cod: z.boolean().optional(),
+  // QRIS ONLY (keputusan owner Sep 2026: sablon lunas-dulu, fee 0,7%).
+  // Nilai lain DITOLAK 400 (bukan collapse diam-diam).
+  paymentMethod: z.enum(["QRIS", "SP"]).optional(),
   couponCode: z.string().max(32).optional(),
   items: z.array(MobileItemSchema).min(1).max(20),
 });
@@ -67,7 +66,7 @@ export async function POST(req: NextRequest) {
     if (!validation.success) {
       return NextResponse.json({ error: validation.error.errors[0]?.message }, { status: 400 });
     }
-    const { recipientName, phoneNumber, email, deliveryMethod, district, destinationCity, expeditionZoneId, destinationPostalCode, expeditionCourier, expeditionService, fullAddress, courierNotes, paymentMethod, cod, couponCode, items } =
+    const { recipientName, phoneNumber, email, deliveryMethod, district, destinationCity, expeditionZoneId, destinationPostalCode, expeditionCourier, expeditionService, fullAddress, courierNotes, couponCode, items } =
       validation.data;
 
     let subtotalIdr = 0;
@@ -241,28 +240,9 @@ export async function POST(req: NextRequest) {
     };
 
     let charge;
-    const invoiceUrlEarly = `${siteUrl()}/orders/${order.id}`;
-    if (cod) {
-      // Bayar tunai ke kurir: tanpa Duitku, order menunggu konfirmasi admin.
-      await db.insert(Payment).values({
-        id: nanoid(),
-        orderId: order.id,
-        provider: "DUITKU",
-        providerRef: `COD-${order.orderNumber}`,
-        method: "COD",
-        amountIdr: totalIdr,
-        status: "PENDING",
-      });
-      charge = { reference: `COD-${order.orderNumber}`, paymentUrl: invoiceUrlEarly };
-    } else {
     try {
-      // Peta eksplisit metode HP → kode Duitku. Tak dikenal → SP (QRIS).
-      const DUITKU_METHOD_MAP: Record<string, string> = {
-        QRIS: "SP", SHOPEEPAY: "SP", SP: "SP", GOPAY: "SP",
-        VA_BCA: "BC", BC: "BC", VA_MANDIRI: "M2", M2: "M2",
-        VA_BNI: "B1", B1: "B1", VA_BRI: "BT", BT: "BT", COD: "SP",
-      };
-      const duitkuMethod = DUITKU_METHOD_MAP[paymentMethod || "QRIS"] || "SP";
+      // QRIS ONLY (Duitku kode SP). Tanpa cabang COD — sablon lunas-dulu.
+      const duitkuMethod = "SP";
       // Duitku: paymentAmount wajib == Σ item (lihat checkout web).
       const duitkuItems = [
         ...validatedItems.map((it) => ({
@@ -305,11 +285,10 @@ export async function POST(req: NextRequest) {
       orderId: order.id,
       provider: "DUITKU",
       providerRef: charge.reference,
-      method: paymentMethod || "DUITKU",
+      method: "QRIS",
       amountIdr: totalIdr,
       status: "PENDING",
     });
-    } // end else (non-COD)
 
     const invoiceUrl = `${siteUrl()}/orders/${order.id}`;
     sendWhatsAppNotification(

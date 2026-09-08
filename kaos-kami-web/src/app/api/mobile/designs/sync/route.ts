@@ -1,11 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { nanoid } from "nanoid";
-import { eq } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { ApparelCategory, Design } from "@/lib/drizzle-schema";
 import { assertResourceOwnerOrAdmin } from "@/lib/security/authGuard";
 import { checkRateLimitAsync, getClientIp, rateLimitHeaders } from "@/lib/security/rateLimiter";
+import { DecalLayerSchema } from "@/lib/schemas/design";
 
 const SyncDesignSchema = z.object({
   clientId: z.string().min(1).max(64),
@@ -14,7 +15,7 @@ const SyncDesignSchema = z.object({
   colorHex: z.string().min(1),
   colorName: z.string().min(1),
   size: z.string().min(1),
-  decals: z.array(z.any()).max(10).default([]),
+  decals: z.array(DecalLayerSchema).max(10).default([]),
   calculatedPriceIdr: z.number().int().nonnegative(),
   updatedAt: z.string().datetime().optional(),
 });
@@ -61,6 +62,7 @@ export async function POST(req: NextRequest) {
     }
 
     const results: Array<{ clientId: string; designId: string; action: "created" | "updated" | "kept-server" }> = [];
+    const failed: Array<{ clientId: string; error: string }> = [];
     // Preload kategori sekali (hindari N+1 ±150 query).
     const allCategories = await db.query.ApparelCategory.findMany({
       orderBy: (t, { asc }) => asc(t.sortOrder),
@@ -74,6 +76,7 @@ export async function POST(req: NextRequest) {
       if (!category) continue;
 
       // Harga dihitung ULANG di server (jangan percaya HP).
+      // Decal sudah divalidasi Zod ketat → tak ada fallback angka-HP lagi.
       let serverPrice = d.calculatedPriceIdr;
       try {
         const matched = PRODUCT_COLORS.find(
@@ -89,14 +92,34 @@ export async function POST(req: NextRequest) {
         });
         serverPrice = pricing.totalPriceIdr;
       } catch {
-        // Decal HP tak valid untuk engine → pakai angka HP apa adanya.
+        // Engine menolak (mis. sisi tak valid) → laporkan per-item, lanjutkan lainnya.
+        failed.push({ clientId: d.clientId, error: "Desain tak valid untuk engine harga" });
+        continue;
       }
 
-      const remoteUpdatedAt = d.updatedAt ? new Date(d.updatedAt) : new Date();
-      const existing = await db.query.Design.findFirst({
-        where: (t, { and, eq }) => and(eq(t.userId, userId), eq(t.title, d.title)),
+      // Clock-skew guard: jam HP masa depan dijepit ke sekarang (audit N10).
+      const now = new Date();
+      let remoteUpdatedAt = d.updatedAt ? new Date(d.updatedAt) : now;
+      if (isNaN(remoteUpdatedAt.getTime()) || remoteUpdatedAt.getTime() > now.getTime() + 5 * 60 * 1000) {
+        remoteUpdatedAt = now;
+      }
+      // Upsert by clientId (audit P1-14 — by-title menimpa judul kembar).
+      // clientId disimpan di priceBreakdown JSON (tanpa migrasi skema).
+      let existing = await db.query.Design.findFirst({
+        where: (t, { and, eq: e }) =>
+          and(
+            e(t.userId, userId),
+            sql`json_extract(${t.priceBreakdown}, '$.clientId') = ${d.clientId}`
+          ),
         orderBy: (t, { desc }) => desc(t.updatedAt),
       });
+      if (!existing) {
+        existing =
+          (await db.query.Design.findFirst({
+            where: (t, { and, eq: e }) => and(e(t.userId, userId), e(t.title, d.title)),
+            orderBy: (t, { desc }) => desc(t.updatedAt),
+          })) ?? undefined;
+      }
 
       // Last-Write-Wins: server menang jika lebih baru dari kiriman HP.
       if (existing && existing.updatedAt > remoteUpdatedAt) {
@@ -116,7 +139,7 @@ export async function POST(req: NextRequest) {
             size: d.size,
             decals: JSON.stringify(d.decals || []),
             calculatedPriceIdr: serverPrice,
-            priceBreakdown: JSON.stringify({ syncedFrom: "mobile", deviceId: deviceId || null, deviceUpdatedAt: remoteUpdatedAt }),
+            priceBreakdown: JSON.stringify({ syncedFrom: "mobile", deviceId: deviceId || null, deviceUpdatedAt: remoteUpdatedAt, clientId: d.clientId }),
             status: "SAVED",
           })
           .where(eq(Design.id, existing.id));
@@ -136,7 +159,7 @@ export async function POST(req: NextRequest) {
           size: d.size,
           decals: JSON.stringify(d.decals || []),
           calculatedPriceIdr: serverPrice,
-          priceBreakdown: JSON.stringify({ syncedFrom: "mobile", deviceId: deviceId || null, deviceUpdatedAt: remoteUpdatedAt }),
+          priceBreakdown: JSON.stringify({ syncedFrom: "mobile", deviceId: deviceId || null, deviceUpdatedAt: remoteUpdatedAt, clientId: d.clientId }),
           status: "SAVED",
         })
         .returning({ id: Design.id });
@@ -146,7 +169,7 @@ export async function POST(req: NextRequest) {
       results.push({ clientId: d.clientId, designId: saved.id, action: "created" });
     }
 
-    return NextResponse.json({ success: true, synced: results.length, results });
+    return NextResponse.json({ success: failed.length === 0, synced: results.length, results, failed });
   } catch (e: any) {
     return NextResponse.json({ error: e?.message || "Internal error" }, { status: 500 });
   }

@@ -1,11 +1,12 @@
-export type DeliveryMethod = "PICKUP" | "FREE_MAKASSAR" | "INSTANT_COURIER" | "FLAT_MAKASSAR" | "EXPEDITION_MANUAL";
+// Lunas-dulu via QRIS (keputusan owner Sep 2026): TANPA COD & TANPA kurir instan.
+// Opsi: PICKUP • antar tim GRATIS khusus se-Kota Makassar • ekspedisi luar kota.
+export type DeliveryMethod = "PICKUP" | "FREE_MAKASSAR" | "EXPEDITION_MANUAL";
 
 export interface DeliveryOption {
   method: DeliveryMethod;
   name: string;
   description: string;
   costIdr: number;
-  isCodShippingFee?: boolean;
 }
 
 export const MAKASSAR_DELIVERY_OPTIONS: DeliveryOption[] = [
@@ -20,19 +21,6 @@ export const MAKASSAR_DELIVERY_OPTIONS: DeliveryOption[] = [
     name: "Diantar Tim Kaos Kami — Gratis se-Kota Makassar (Rp 0)",
     description: "Tim kami antar langsung ke alamatmu di Kota Makassar, gratis tanpa minimal belanja (1-2 hari setelah produksi).",
     costIdr: 0,
-  },
-  {
-    method: "INSTANT_COURIER",
-    name: "Kurir Instan Makassar (Maxim / GoSend / Grab)",
-    description: "Langsung diantar setelah cetak selesai. Tarif ongkir dibayar langsung ke driver (COD).",
-    costIdr: 0,
-    isCodShippingFee: true,
-  },
-  {
-    method: "FLAT_MAKASSAR",
-    name: "Kurir Regular Flat Makassar (Rp 15.000)",
-    description: "Pengantaran flat rate ke seluruh penjuru Kota Makassar (1-2 hari setelah produksi).",
-    costIdr: 15000,
   },
   {
     method: "EXPEDITION_MANUAL",
