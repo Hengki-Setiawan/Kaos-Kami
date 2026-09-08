@@ -29,8 +29,9 @@ export default function StudioPage() {
   }, [setViewMode]);
 
   const isLight = studioTheme === "gallery";
-  const defaultCamPos = new Vector3(0, 0.05, 2.3);
-  const defaultLookAt = new Vector3(0, 0, 0);
+  // Stabil: jangan alokasi Vector3 tiap render (audit H5).
+  const defaultCamPos = React.useMemo(() => new Vector3(0, 0.05, 2.3), []);
+  const defaultLookAt = React.useMemo(() => new Vector3(0, 0, 0), []);
 
   return (
     <main className="relative bg-canvas text-text-primary h-screen w-screen overflow-hidden select-none">
@@ -74,6 +75,7 @@ export default function StudioPage() {
             onClick={() => setStudioTheme(isLight ? "obsidian" : "gallery")}
             className="p-2 rounded-full bg-surface border border-border-subtle text-text-muted hover:text-text-primary transition-all"
             title={isLight ? "Obsidian Dark Mode" : "Gallery Light Mode"}
+            aria-label={isLight ? "Ganti ke mode gelap" : "Ganti ke mode terang"}
           >
             {isLight ? <Moon size={14} className="text-neutral-800" /> : <Sun size={14} className="text-brand-accent" />}
           </button>
@@ -110,8 +112,27 @@ export default function StudioPage() {
         </div>
       </header>
 
-      {/* Fullscreen 3D WebGL Canvas Layer */}
-      {webglSupported && <CanvasStage camPos={defaultCamPos} lookAtPos={defaultLookAt} />}
+      {/* Fullscreen 3D WebGL Canvas Layer — dengan fallback non-WebGL (audit H5) */}
+      {webglSupported === false ? (
+        <div className="absolute inset-0 flex items-center justify-center p-6 text-center">
+          <div className="max-w-sm space-y-3 font-mono text-xs">
+            <p className="text-white font-bold text-sm">Perangkat tidak mendukung 3D</p>
+            <p className="text-text-muted">
+              Studio 3D butuh WebGL yang tidak tersedia di browser ini. Kamu tetap bisa pesan via katalog atau hubungi workshop langsung.
+            </p>
+            <div className="flex gap-2 justify-center">
+              <Link href="/catalog" className="px-5 py-2.5 rounded-xl bg-brand-accent text-canvas font-bold">
+                BUKA KATALOG
+              </Link>
+              <Link href="/" className="px-5 py-2.5 rounded-xl bg-surface border border-white/10 text-white font-bold">
+                BERANDA
+              </Link>
+            </div>
+          </div>
+        </div>
+      ) : (
+        <CanvasStage camPos={defaultCamPos} lookAtPos={defaultLookAt} />
+      )}
 
       {/* Deep-link desain tersimpan (?designId=) */}
       <Suspense fallback={null}>

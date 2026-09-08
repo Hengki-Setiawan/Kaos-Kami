@@ -8,13 +8,8 @@ import { CancelOrderButton } from "@/components/commerce/CancelOrderButton";
 import {
   CheckCircle2,
   Clock,
-  Package,
-  Truck,
   MessageCircle,
   ArrowLeft,
-  Calendar,
-  CreditCard,
-  ShieldCheck,
 } from "lucide-react";
 
 interface OrderReceiptPageProps {
@@ -66,10 +61,11 @@ export default async function OrderReceiptPage({ params, searchParams }: OrderRe
     return `${(u || "").slice(0, 2)}***@${d || "***"}`;
   };
 
-  const isSuccess =
-    sp.status === "success" ||
-    order.status === "PAYMENT_CONFIRMED" ||
-    order.status === "IN_PRODUCTION_QUEUE";
+  // Banner jujur: HANYA dari status server. ?status=success bisa dipalsu
+  // (link manual) dan IN_PRODUCTION_QUEUE bukan "berhasil" (baru antre).
+  // "DITERIMA" = lunas/jalan (bukan PENDING/CANCELLED/REFUNDED).
+  const isPaid = !["PENDING_PAYMENT", "CANCELLED", "REFUNDED"].includes(order.status);
+  const isSuccess = sp.status === "success" && isPaid;
 
   // WhatsApp manual fallback link
   const waMessage = encodeURIComponent(
@@ -124,9 +120,9 @@ export default async function OrderReceiptPage({ params, searchParams }: OrderRe
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 font-mono text-xs">
           <div className="p-4 rounded-xl bg-surface/50 border border-white/5 space-y-1.5">
             <span className="block text-[11px] text-text-muted uppercase">Penerima & Kontak</span>
-            <p className="font-bold text-white text-sm">{order.shippingAddress?.recipientName || order.user.name}</p>
-            <p className="text-text-muted">{maskPhone(order.user.phoneNumber || order.shippingAddress?.phoneNumber)}</p>
-            <p className="text-text-muted truncate">{maskEmail(order.user.email)}</p>
+            <p className="font-bold text-white text-sm">{order.shippingAddress?.recipientName || order.user?.name || "Pelanggan"}</p>
+            <p className="text-text-muted">{maskPhone(order.user?.phoneNumber || order.shippingAddress?.phoneNumber)}</p>
+            <p className="text-text-muted truncate">{maskEmail(order.user?.email)}</p>
           </div>
 
           <div className="p-4 rounded-xl bg-surface/50 border border-white/5 space-y-1.5">
@@ -142,7 +138,15 @@ export default async function OrderReceiptPage({ params, searchParams }: OrderRe
                 {canSeePII ? order.shippingAddress?.fullAddress : "Alamat disembunyikan untuk privasi pemilik"}
               </p>
             )}
-            {order.courierNotes && <p className="text-amber-400 text-[10px]">Catatan: {order.courierNotes}</p>}
+            {/* Catatan internal (patokan alamat) hanya pemilik/admin. Info ekspedisi
+                ("Ekspedisi ...") publik karena perlu diketahui penerima. */}
+            {(() => {
+              const segs = (order.courierNotes || "").split(" | ").filter(Boolean);
+              const pub = segs.filter((s) => s.startsWith("Ekspedisi "));
+              const shown = canSeePII ? segs : pub;
+              if (shown.length === 0) return null;
+              return <p className="text-amber-400 text-[10px]">Catatan: {shown.join(" | ")}</p>;
+            })()}
             {order.trackingNumber && (
               <p className="text-emerald-400 text-[11px]">
                 No. Resi: <span className="font-bold select-all">{order.trackingNumber}</span>

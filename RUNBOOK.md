@@ -48,3 +48,13 @@
 - **AAB:** `npm --workspace=kaos-kami-mobile run cap:build:aab` (butuh `JAVA_HOME` = JDK 17–21, BUKAN 24; hasil: `android/app/build/outputs/bundle/release/app-release.aab` ±19 MB, terbukti 07 Sep 2026).
 - **Firebase (`google-services.json`):** SUDAH ADA di `kaos-kami-mobile/android/app/` (dibuat owner 07 Sep 2026) + `firebase-bom:34.18.0` & `firebase-messaging` di `app/build.gradle` → AAB 07 Sep 2026 sudah include FCM. File ini BOLEH di-commit (isinya identifier publik yang memang ikut terkirim di dalam APK; bukan secret).
 - **Catatan Capacitor 8:** semua `@capacitor/*` WAJIB se-major dengan core (keyboard v7 gagal kompilasi di core v8 → upgrade ke v8).
+
+## 8. DEPLOY/PUSH GATE � tanya owner dulu (aturan Sep 2026)
+- JANGAN opennextjs-cloudflare deploy, wrangler deploy, atau git push tanpa perintah eksplisit owner. Pola kerja: banyak build + validasi lokal dulu (
+px tsc --noEmit web+mobile, 
+pm run build, 
+pm run mobile:build), push/deploy SEKALIGUS saat disuruh.
+- Deploy benar = 
+pm run deploy dari kaos-kami-web/ (opennext build + deploy). 
+px wrangler deploy langsung = bundle .open-next BASI (rute baru 404, terbukti 08 Sep 2026).
+- Setelah deploy yang diminta: probe /api/health + 1 endpoint baru + catat Version ID ke tracker.

@@ -1,13 +1,23 @@
 import Link from "next/link";
+import { Navbar } from "@/components/ui/Navbar";
+import { Footer } from "@/components/ui/Footer";
 
 export const metadata = {
   title: "Kebijakan Privasi — Kaos Kami Makassar",
   description: "Kebijakan privasi platform sablon DTF Kaos Kami.",
 };
 
+// Tanggal dinamis (audit H3) — mengikuti waktu build, bukan hardcode.
+const UPDATED = new Date().toLocaleDateString("id-ID", {
+  month: "long",
+  year: "numeric",
+});
+
 export default function PrivacyPage() {
   return (
-    <main className="min-h-screen bg-canvas text-text-primary px-4 py-12 max-w-3xl mx-auto space-y-6">
+    <div className="min-h-screen bg-canvas text-text-primary flex flex-col">
+      <Navbar />
+      <main className="flex-1 px-4 py-12 max-w-3xl mx-auto space-y-6 w-full">
       <Link href="/" className="font-mono text-xs text-text-muted hover:text-brand-accent">
         ← KEMBALI KE BERANDA
       </Link>
@@ -15,7 +25,7 @@ export default function PrivacyPage() {
         Kebijakan Privasi
       </h1>
       <p className="font-mono text-xs text-text-muted">
-        Terakhir diperbarui: September 2026 — Kaos Kami, Kota Makassar.
+        Terakhir diperbarui: {UPDATED} — Kaos Kami, Kota Makassar.
       </p>
       <div className="space-y-4 font-mono text-xs leading-relaxed text-text-muted">
         <section className="space-y-1.5">
@@ -51,6 +61,8 @@ export default function PrivacyPage() {
           </p>
         </section>
       </div>
-    </main>
+      </main>
+      <Footer />
+    </div>
   );
 }

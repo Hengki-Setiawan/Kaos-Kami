@@ -75,11 +75,11 @@ export default async function JobTicketPage({ params }: JobTicketPageProps) {
         <div className="grid grid-cols-2 gap-4 border-b pb-4">
           <div>
             <span className="block text-gray-500 text-[10px]">NAMA PEMESAN:</span>
-            <strong className="text-sm">{order.shippingAddress?.recipientName || order.user.name}</strong>
+            <strong className="text-sm">{order.shippingAddress?.recipientName || (order as any).user?.name || "Pelanggan"}</strong>
           </div>
           <div>
             <span className="block text-gray-500 text-[10px]">NO. WHATSAPP:</span>
-            <strong className="text-sm">{order.user.phoneNumber || "-"}</strong>
+            <strong className="text-sm">{(order as any).user?.phoneNumber || "-"}</strong>
           </div>
         </div>
 
@@ -100,7 +100,8 @@ export default async function JobTicketPage({ params }: JobTicketPageProps) {
             </thead>
             <tbody>
               {order.items.map((item, idx) => {
-                const task = (order.productionTasks as any[]).find((t) => t.orderItemId === item.id) || (order.productionTasks as any[])[idx];
+                // Join eksplisit per item; tanpa fallback idx (anti salah baris).
+                const task = (order.productionTasks as any[]).find((t) => t.orderItemId === item.id);
                 return (
                   <tr key={item.id} className="border-b border-black">
                     <td className="p-2 border border-black font-bold">
@@ -114,7 +115,13 @@ export default async function JobTicketPage({ params }: JobTicketPageProps) {
                         : "UKUR ULANG — data dimensi kosong"}
                     </td>
                     <td className="p-2 border border-black">
-                      {(task?.placementSide || "front") === "back" ? "Punggung" : "Dada Depan"} ({task?.offsetFromCollarCm ? `~${task.offsetFromCollarCm.toFixed(1)} cm dari rib` : "offset belum terukur"})
+                      {!task?.placementSide ? (
+                        <strong>⚠ POSISI BELUM DITENTUKAN — konfirmasi sebelum press</strong>
+                      ) : task.placementSide === "back" ? (
+                        <>Punggung ({task?.offsetFromCollarCm ? `~${task.offsetFromCollarCm.toFixed(1)} cm dari rib` : "offset belum terukur"})</>
+                      ) : (
+                        <>Dada Depan ({task?.offsetFromCollarCm ? `~${task.offsetFromCollarCm.toFixed(1)} cm dari rib` : "offset belum terukur"})</>
+                      )}
                     </td>
                   </tr>
                 );

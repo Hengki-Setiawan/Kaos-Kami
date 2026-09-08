@@ -6,7 +6,7 @@ import { Navbar } from "@/components/ui/Navbar";
 import { Footer } from "@/components/ui/Footer";
 import { useCartStore } from "@/store/useCartStore";
 import { useConfiguratorStore } from "@/store/useConfiguratorStore";
-import { ShoppingBag, Sparkles, Check, Filter, Layers, ArrowRight } from "lucide-react";
+import { ShoppingBag, Filter } from "lucide-react";
 
 interface ProductVariantItem {
   id: string;
@@ -28,6 +28,8 @@ interface ProductVariantItem {
 export default function CatalogPage() {
   const [products, setProducts] = useState<ProductVariantItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [fetchError, setFetchError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
   const [selectedFilter, setSelectedFilter] = useState<string>("ALL");
   const [selectedSizeFilter, setSelectedSizeFilter] = useState<string>("ALL");
 
@@ -38,12 +40,16 @@ export default function CatalogPage() {
     async function fetchProducts() {
       try {
         const res = await fetch("/api/catalog/variants");
-        const data = await res.json();
-        if (data.success && Array.isArray(data.variants)) {
+        const data = await res.json().catch(() => null);
+        if (res.ok && data?.success && Array.isArray(data.variants)) {
           setProducts(data.variants);
+        } else {
+          // Jujur: bedakan API down vs filter kosong (audit H2).
+          setFetchError(data?.error || `Server katalog bermasalah (HTTP ${res.status}). Coba muat ulang.`);
         }
       } catch (err) {
         console.error("Gagal mengambil data produk katalog:", err);
+        setFetchError("Koneksi ke server putus. Periksa internet lalu muat ulang.");
       } finally {
         setIsLoading(false);
       }
@@ -59,6 +65,12 @@ export default function CatalogPage() {
   });
 
   const handleQuickBuy = (product: ProductVariantItem) => {
+    // Jangan biarkan stok habis masuk keranjang (server tetap menolak,
+    // tapi UX harus jujur di depan, bukan gagal diam-diam saat bayar).
+    if ((product.stockQty || 0) <= 0) {
+      setNotice(`Stok ${product.name} (${product.size}) habis. Pilih ukuran lain.`);
+      return;
+    }
     addItem({
       id: product.id,
       name: product.name,
@@ -67,12 +79,20 @@ export default function CatalogPage() {
       colorName: product.colorName,
       colorHex: product.colorHex,
       image: product.images[0] || "/lookbook/look-01.jpg",
-      apparelSlug: (product.category?.slug as any) || "tshirt",
+                      apparelSlug: product.category?.slug || "tshirt",
       productVariantId: product.id,
     });
   };
 
   const handleOpenInStudio = (product: ProductVariantItem) => {
+    // Teruskan pilihan katalog ke Studio (warna + ukuran + jenis apparel).
+    const slug = (product.category?.slug || "").toLowerCase();
+    const apparel = (["tshirt", "longsleeve", "crewneck", "hoodie"].includes(slug)
+      ? slug
+      : slug === "jacket"
+        ? "shirt"
+        : "tshirt") as "tshirt" | "longsleeve" | "crewneck" | "hoodie" | "shirt";
+    setActiveApparel(apparel);
     setSelectedColor(product.colorHex);
     setSelectedSize(product.size);
     setViewMode("studio");
@@ -118,6 +138,7 @@ export default function CatalogPage() {
               <button
                 key={f.id}
                 onClick={() => setSelectedFilter(f.id)}
+                aria-pressed={selectedFilter === f.id}
                 className={`px-3 py-1.5 rounded-full border transition-all ${
                   selectedFilter === f.id
                     ? "bg-brand-accent text-canvas border-brand-accent font-bold"
@@ -132,10 +153,12 @@ export default function CatalogPage() {
           {/* Size Filter */}
           <div className="flex items-center space-x-1.5">
             <span className="text-text-muted font-bold mr-1">UKURAN:</span>
-            {["ALL", "S", "M", "L", "XL"].map((sz) => (
+            {["ALL", "S", "M", "L", "XL", "XXL", "XXXL"].map((sz) => (
               <button
                 key={sz}
                 onClick={() => setSelectedSizeFilter(sz)}
+                aria-pressed={selectedSizeFilter === sz}
+                aria-label={sz === "ALL" ? "Semua ukuran" : `Ukuran ${sz}`}
                 className={`w-7 h-7 rounded-lg border flex items-center justify-center font-bold text-[11px] transition-all ${
                   selectedSizeFilter === sz
                     ? "bg-brand-accent text-canvas border-brand-accent"
@@ -149,10 +172,29 @@ export default function CatalogPage() {
         </div>
 
         {/* Products Grid */}
+        {notice && (
+          <div className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/30 font-mono text-xs text-amber-300 flex justify-between items-center">
+            <span>{notice}</span>
+            <button onClick={() => setNotice(null)} className="font-bold px-2" aria-label="Tutup peringatan">
+              ✕
+            </button>
+          </div>
+        )}
         {isLoading ? (
           <div className="py-24 text-center font-mono text-xs text-text-muted space-y-2">
             <div className="w-8 h-8 rounded-full border-2 border-brand-accent border-t-transparent animate-spin mx-auto" />
             <p>Memuat koleksi produk pakaian...</p>
+          </div>
+        ) : fetchError ? (
+          <div className="py-24 text-center font-mono text-xs text-rose-300 p-8 rounded-2xl bg-rose-500/5 border border-rose-500/20 space-y-3">
+            <p className="font-bold">Katalog tidak bisa dimuat</p>
+            <p className="text-text-muted">{fetchError}</p>
+            <button
+              onClick={() => window.location.reload()}
+              className="px-5 py-2.5 rounded-xl bg-brand-accent text-canvas font-bold"
+            >
+              MUAT ULANG
+            </button>
           </div>
         ) : filteredProducts.length === 0 ? (
           <div className="py-24 text-center font-mono text-xs text-text-muted p-8 rounded-2xl bg-surface/50 border border-border-subtle">
@@ -171,6 +213,8 @@ export default function CatalogPage() {
                   <img
                     src={p.images[0] || "/lookbook/look-01.jpg"}
                     alt={p.name}
+                    width={800}
+                    height={1000}
                     className="w-full h-full object-cover transition-transform duration-700 ease-out group-hover:scale-105"
                     loading="lazy"
                   />
@@ -213,10 +257,11 @@ export default function CatalogPage() {
                   <div className="grid grid-cols-2 gap-2 pt-3 border-t border-border-subtle">
                     <button
                       onClick={() => handleQuickBuy(p)}
-                      className="py-2.5 px-3 rounded-xl bg-surface border border-white/10 hover:border-brand-accent hover:text-brand-accent text-white font-mono text-[11px] font-bold uppercase transition-all flex items-center justify-center space-x-1.5 active:scale-95"
+                      disabled={(p.stockQty || 0) <= 0}
+                      className="py-2.5 px-3 rounded-xl bg-surface border border-white/10 hover:border-brand-accent hover:text-brand-accent text-white font-mono text-[11px] font-bold uppercase transition-all flex items-center justify-center space-x-1.5 active:scale-95 disabled:opacity-40 disabled:pointer-events-none"
                     >
                       <ShoppingBag size={13} />
-                      <span>+ KERANJANG</span>
+                      <span>{(p.stockQty || 0) <= 0 ? "HABIS" : "+ KERANJANG"}</span>
                     </button>
 
                     <Link

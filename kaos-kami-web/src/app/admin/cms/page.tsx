@@ -1,5 +1,7 @@
 import { db } from "@/lib/db";
+import Link from "next/link";
 import { CmsHeroForm } from "@/components/admin/CmsHeroForm";
+import { LookbookManager } from "@/components/admin/LookbookManager";
 export const dynamic = "force-dynamic";
 
 // CMS kelola seluruh website — hero, lookbook, banner, SEO via R2 + DB (tanpa deploy)
@@ -18,23 +20,12 @@ export default async function AdminCMSPage() {
       <div className="grid md:grid-cols-2 gap-4">
         <CmsHeroForm />
 
-        <div className="bg-[#141416] border border-white/5 rounded-2xl p-5 space-y-3">
-          <h3 className="font-bold text-white">LOOKBOOK (R2)</h3>
-          <div className="grid grid-cols-3 gap-2">
-            {[1,2,3,4].map(i=>(
-              <div key={i} className="aspect-[4/5] bg-black/40 border border-white/10 rounded-xl flex items-center justify-center text-text-muted">
-                look-0{i}.jpg
-              </div>
-            ))}
-          </div>
-          <input type="file" accept="image/*" className="w-full text-xs text-text-muted" />
-          <button className="px-4 py-2 rounded-xl bg-surface border border-white/10 text-white font-bold">UPLOAD KE R2 `lookbook/`</button>
-        </div>
+        <LookbookManager />
       </div>
 
       <div className="bg-[#141416] border border-white/5 rounded-2xl p-5 space-y-3">
         <h3 className="font-bold text-white">KATALOG CEPAT — {cats.length} kategori, {colors.length} warna</h3>
-        <p className="text-text-muted">Kelola di <a href="/admin/catalog" className="text-brand-accent underline">/admin/catalog</a> — tambah varian, stok, harga, gambar R2</p>
+        <p className="text-text-muted">Kelola di <Link href="/admin/catalog" className="text-brand-accent underline">/admin/catalog</Link> — tambah varian, stok, harga, gambar R2</p>
         <div className="flex gap-2 flex-wrap">
           {cats.map((c:any)=>(<span key={c.id} className="px-2 py-1 rounded-full bg-surface border border-white/10 text-white text-[11px]">{c.slug} {c.basePriceIdr.toLocaleString("id-ID")}</span>))}
         </div>

@@ -102,6 +102,8 @@ interface ConfiguratorState {
   addDecal: (decal: Omit<DecalLayer, "id">) => string;
   updateDecal: (id: string, partial: Partial<DecalLayer>) => void;
   removeDecal: (id: string) => void;
+  // Bulk-load (dipakai inspector admin): ganti seluruh layers sekaligus.
+  loadDecals: (decals: DecalLayer[]) => void;
   setSelectedDecalId: (id: string | null) => void;
   setFrontGraphicUrl: (url: string | null) => void;
   setBackGraphicUrl: (url: string | null) => void;
@@ -277,6 +279,8 @@ export const useConfiguratorStore = create<ConfiguratorState>((set, get) => ({
       selectedDecalId: state.selectedDecalId === id ? null : state.selectedDecalId,
     });
   },
+
+  loadDecals: (decals) => set({ decals, selectedDecalId: null }),
 
   setSelectedDecalId: (id) => set({ selectedDecalId: id }),
 

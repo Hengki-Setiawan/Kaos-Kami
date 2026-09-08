@@ -1,6 +1,7 @@
 import { db } from "@/lib/db";
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { PrintButton } from "@/components/ui/PrintButton";
 export const dynamic = "force-dynamic";
 
 // Gang Sheet A3 30cm — susun semua decal order jadi 1 lembar film DTF siap print (Cethak workflow)
@@ -35,7 +36,7 @@ export default async function GangSheetPage({ params }: { params: Promise<{ id: 
         <p className="text-[9px] text-zinc-500 mt-2 text-center">Cetak: Film PET 30cm → tabur powder → oven 160°C 120s → press 165°C 15s — via R2 `printFileUrl`</p>
       </div>
       <div className="flex gap-2 justify-center print:hidden">
-        <button onClick={()=>window.print()} className="px-4 py-2 rounded-xl bg-brand-accent text-canvas font-bold">CETAK GANG SHEET PDF</button>
+        <PrintButton label="CETAK GANG SHEET PDF" />
         <a href={`/admin/orders/${order.id}/job-ticket`} className="px-4 py-2 rounded-xl bg-surface border border-white/10 text-white font-bold">JOB TICKET</a>
       </div>
     </div>

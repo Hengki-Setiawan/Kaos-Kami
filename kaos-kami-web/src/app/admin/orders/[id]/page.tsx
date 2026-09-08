@@ -9,11 +9,9 @@ import {
   Clock,
   CheckCircle2,
   Package,
-  MapPin,
   MessageCircle,
   ArrowLeft,
   Ruler,
-  AlertCircle,
   Eye,
   Layers,
 } from "lucide-react";
@@ -31,7 +29,7 @@ export default async function AdminOrderDetailPage({ params }: AdminOrderDetailP
   const order = await db.query.Order.findFirst({
     where: (t, { eq }) => eq(t.id, id),
     with: {
-      items: true,
+      items: { with: { design: true } },
       productionTasks: true,
       user: true,
       shippingAddress: true,
@@ -46,10 +44,39 @@ export default async function AdminOrderDetailPage({ params }: AdminOrderDetailP
     notFound();
   }
 
+  // Seed inspector: desain asli item pertama (decals + warna + ukuran).
+  // Parse defensif: JSON rusak = inspector generik, bukan crash.
+  let inspectorSeed: {
+    decals: any[];
+    colorHex: string;
+    colorName: string;
+    size: string;
+    apparel: "tshirt" | "longsleeve" | "crewneck" | "hoodie" | "shirt";
+  } | null = null;
+  try {
+    const first = order.items[0];
+    const d: any = (first as any)?.design;
+    if (d?.decals) {
+      const decals = JSON.parse(d.decals);
+      if (Array.isArray(decals)) {
+        const slug = String((first as any)?.snapshotName || "").toLowerCase();
+        inspectorSeed = {
+          decals,
+          colorHex: String((first as any)?.snapshotColorHex || d.colorHex || "#121214"),
+          colorName: String((first as any)?.snapshotColorName || d.colorName || "Custom"),
+          size: String((first as any)?.snapshotSize || "L"),
+          apparel: (["tshirt", "longsleeve", "crewneck", "hoodie"].includes(d.categoryId) ? d.categoryId : slug.includes("hoodie") ? "hoodie" : slug.includes("jacket") ? "shirt" : "tshirt") as any,
+        };
+      }
+    }
+  } catch {}
+
+  // wa.me/undefined guard: nomor kosong/invalid = tanpa link WA (audit H12).
+  const waDigits = (order.user?.phoneNumber || order.shippingAddress?.phoneNumber || "").replace(/[^0-9]/g, "");
   const waMessage = encodeURIComponent(
-    `*Halo ${order.user.name || "Pelanggan"}*, update dari Workshop Kaos Kami mengenai pesanan Anda *${order.orderNumber}*:`
+    `*Halo ${order.user?.name || "Pelanggan"}*, update dari Workshop Kaos Kami mengenai pesanan Anda *${order.orderNumber}*:`
   );
-  const waLink = `https://wa.me/${order.user.phoneNumber?.replace(/[^0-9]/g, "")}?text=${waMessage}`;
+  const waLink = waDigits.length >= 10 ? `https://wa.me/${waDigits}?text=${waMessage}` : null;
 
   return (
     <div className="p-5 sm:p-8 space-y-6 max-w-6xl mx-auto font-mono text-xs">
@@ -79,7 +106,7 @@ export default async function AdminOrderDetailPage({ params }: AdminOrderDetailP
         </div>
 
         <div className="flex flex-wrap gap-2">
-          {order.user.phoneNumber && (
+          {waLink ? (
             <a
               href={waLink}
               target="_blank"
@@ -89,6 +116,10 @@ export default async function AdminOrderDetailPage({ params }: AdminOrderDetailP
               <MessageCircle size={14} />
               <span>CHAT WA CUSTOMER</span>
             </a>
+          ) : (
+            <span className="py-2.5 px-3.5 rounded-xl bg-white/5 border border-white/10 text-text-muted font-bold">
+              NO. WA TIDAK TERSEDIA
+            </span>
           )}
 
           <a
@@ -118,13 +149,15 @@ export default async function AdminOrderDetailPage({ params }: AdminOrderDetailP
           <span>INSPEKSI VISUAL 360° — VERIFIKASI MODEL 3D PESANAN</span>
         </h2>
         <div className="h-[420px] rounded-xl overflow-hidden border border-white/10 bg-[#0E0E10] relative">
-          <OrderInspector3D />
+          <OrderInspector3D seed={inspectorSeed} />
           <div className="absolute bottom-2 left-2 px-2 py-1 rounded bg-black/70 text-[10px] font-mono text-white border border-white/10">
             Drag untuk rotasi 360° • Scroll untuk zoom • Cocokkan dengan Job Ticket dimensi
           </div>
         </div>
         <p className="text-[11px] font-mono text-text-muted">
-          Menampilkan prediktif mockup 3D sesuai warna & ukuran pesanan. Gunakan untuk konfirmasi penempatan sablon sebelum film DTF dicetak.
+          {inspectorSeed
+            ? "Menampilkan desain asli pesanan (warna, ukuran & sablon item pertama). Cocokkan dengan Job Ticket sebelum film DTF dicetak."
+            : "Desain kustom tidak tersimpan — tampil model generik. Cocokkan manual dengan Job Ticket."}
         </p>
       </div>
 
@@ -164,7 +197,9 @@ export default async function AdminOrderDetailPage({ params }: AdminOrderDetailP
 
                   {/* Physical DTF Calibration Limits — now from ProductionTask real dims */}
                   {(() => {
-                    const task = order.productionTasks.find((t: any) => t.orderItemId === item.id) || order.productionTasks[idx];
+                    // Join eksplisit per item; TANPA fallback idx (audit H12/H14 —
+                    // fallback bisa pasang dimensi item lain ke baris ini).
+                    const task = order.productionTasks.find((t: any) => t.orderItemId === item.id);
                     return (
                       <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 p-3 rounded-lg bg-black/50 border border-white/5 text-[11px]">
                         <div>
@@ -200,7 +235,7 @@ export default async function AdminOrderDetailPage({ params }: AdminOrderDetailP
                   {/* High-Res Asset Download for AcroRIP — R2 rawAssetUrl or 3D snapshot */}
                   <div className="pt-2 flex flex-wrap gap-2">
                     {(() => {
-                      const task = order.productionTasks.find((t: any) => t.orderItemId === item.id) || order.productionTasks[idx];
+                      const task = order.productionTasks.find((t: any) => t.orderItemId === item.id);
                       const rawUrl = (task as any)?.rawAssetUrl || (task as any)?.mockupPreviewUrl || (task as any)?.printFileUrl;
                       return rawUrl ? (
                         <a
@@ -247,8 +282,10 @@ export default async function AdminOrderDetailPage({ params }: AdminOrderDetailP
                     <span className="font-bold text-white block">{hist.status}</span>
                     <span className="text-text-muted">{hist.note || "Perubahan status sistem"}</span>
                   </div>
-                  <span className="text-text-muted">
-                    {new Date(hist.createdAt).toLocaleTimeString("id-ID", {
+                  <span className="text-text-muted whitespace-nowrap">
+                    {new Date(hist.createdAt).toLocaleString("id-ID", {
+                      day: "2-digit",
+                      month: "short",
                       hour: "2-digit",
                       minute: "2-digit",
                     })}
@@ -272,13 +309,15 @@ export default async function AdminOrderDetailPage({ params }: AdminOrderDetailP
               <div>
                 <span className="block text-text-muted text-[10px]">NAMA PEMESAN:</span>
                 <span className="font-bold text-white text-sm">
-                  {order.shippingAddress?.recipientName || order.user.name}
+                <span className="font-bold text-white text-sm">
+                  {order.shippingAddress?.recipientName || order.user?.name || "Pelanggan"}
+                </span>
                 </span>
               </div>
               <div>
                 <span className="block text-text-muted text-[10px]">WHATSAPP:</span>
                 <span className="font-bold text-brand-accent">
-                  {order.user.phoneNumber || order.shippingAddress?.phoneNumber}
+                  {order.user?.phoneNumber || order.shippingAddress?.phoneNumber || "-"}
                 </span>
               </div>
               <div>

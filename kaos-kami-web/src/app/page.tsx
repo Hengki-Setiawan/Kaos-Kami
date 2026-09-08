@@ -1,8 +1,8 @@
 "use client";
 
-import React, { useEffect } from "react";
-import Link from "next/link";
+import React, { useEffect, useRef } from "react";
 import { CanvasStage } from "@/components/3d/CanvasStage";
+import { JsonLd, CanvasErrorBoundary } from "@/components/ui/JsonLd";
 import { Navbar } from "@/components/ui/Navbar";
 import { Footer } from "@/components/ui/Footer";
 import { HeroOverlay } from "@/components/ui/HeroOverlay";
@@ -16,7 +16,6 @@ import { useScrollPhases } from "@/hooks/useScrollPhases";
 import { useWebglSupport } from "@/hooks/useWebglSupport";
 import { useDeviceTier } from "@/hooks/useDeviceTier";
 import { useConfiguratorStore } from "@/store/useConfiguratorStore";
-import { PRODUCT_DETAILS } from "@/lib/constants";
 
 export default function Home() {
   const { camPos, lookAtPos } = useScrollPhases();
@@ -24,40 +23,25 @@ export default function Home() {
   const deviceTier = useDeviceTier();
   const { isHideWebsiteUI, setViewMode, setActivePhase } = useConfiguratorStore();
 
+  // Simpan viewMode sebelumnya; kembalikan saat unmount agar back-nav cepat
+  // tidak menimpa state Studio (audit H1).
+  const prevViewMode = useRef<"story" | "studio" | null>(null);
+
   // Reset to Story Mode on landing page mount
   useEffect(() => {
+    prevViewMode.current = useConfiguratorStore.getState().viewMode;
     setViewMode("story");
     setActivePhase(1);
+    return () => {
+      const prev = prevViewMode.current;
+      if (prev) useConfiguratorStore.getState().setViewMode(prev);
+    };
   }, [setViewMode, setActivePhase]);
-
-  // Structured Data (JSON-LD) for SEO
-  const jsonLd = {
-    "@context": "https://schema.org",
-    "@type": "Product",
-    name: PRODUCT_DETAILS.productTitle,
-    description: "Heavyweight 240 & 280 GSM Cotton Combed Oversized Streetwear Apparel 3D Sandbox.",
-    brand: {
-      "@type": "Brand",
-      name: PRODUCT_DETAILS.brand,
-    },
-    sku: PRODUCT_DETAILS.sku,
-    offers: {
-      "@type": "Offer",
-      url: "https://kaoskami.com",
-      priceCurrency: PRODUCT_DETAILS.currency,
-      price: PRODUCT_DETAILS.priceIdr,
-      availability: "https://schema.org/InStock",
-      itemCondition: "https://schema.org/NewCondition",
-    },
-  };
 
   if (webglSupported === false || deviceTier.tier === "no-webgl") {
     return (
       <>
-        <script
-          type="application/ld+json"
-          dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
-        />
+        <JsonLd />
         <Navbar />
         <StaticShowcase />
         <Footer />
@@ -68,15 +52,14 @@ export default function Home() {
   return (
     <main className="relative bg-canvas text-text-primary min-h-screen">
       {/* Schema.org Structured Data */}
-      <script
-        type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
-      />
+      <JsonLd />
 
       <Navbar />
 
-      {/* 3D WebGL Canvas Layer */}
-      {webglSupported && <CanvasStage camPos={camPos} lookAtPos={lookAtPos} />}
+      {/* 3D WebGL Canvas Layer (boundary: crash = fallback statis, bukan hitam) */}
+      <CanvasErrorBoundary fallback={<StaticShowcase />}>
+        {webglSupported && <CanvasStage camPos={camPos} lookAtPos={lookAtPos} />}
+      </CanvasErrorBoundary>
 
       {/* 4-Phase Story Scroll Container (Only mounted in story / normal mode) */}
       {!isHideWebsiteUI && (

@@ -3,6 +3,9 @@
 export const SHOP_WHATSAPP =
   process.env.SHOP_CONTACT_WHATSAPP || "6281244002026";
 
+// Alias nama-env (kompatibilitas impor lama).
+export const SHOP_CONTACT_WHATSAPP = SHOP_WHATSAPP;
+
 export const SHOP_WORKSHOP_ADDRESS =
   process.env.SHOP_WORKSHOP_ADDRESS ||
   "Jl. Galangan Kapal Lrg. Permandian 1, Kaluku Bodoa, Kec. Tallo, Kota Makassar, Sulawesi Selatan";

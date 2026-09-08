@@ -9,8 +9,7 @@ const R2_PUBLIC_URL = process.env.R2_PUBLIC_URL || "";
 const CF_ACCOUNT_ID = process.env.CLOUDFLARE_ACCOUNT_ID || "";
 const CF_TOKEN = process.env.CLOUDFLARE_API_TOKEN || "";
 
-export function getR2PublicUrl(key: string): string {
-  // Tanpa R2_PUBLIC_URL, URL publik tidak bisa dibentuk — return key mentah agar
+export function getR2PublicUrl(key: string): string {  // Tanpa R2_PUBLIC_URL, URL publik tidak bisa dibentuk — return key mentah agar
   // caller sadar (jangan karang domain publik).
   if (!R2_PUBLIC_URL) return key.replace(/^\/+/, "");
   const cleanKey = key.replace(/^\/+/, "");
@@ -90,6 +89,27 @@ export async function deleteFromR2(key: string) {  if (!CF_TOKEN || !CF_ACCOUNT_
     return { success: res.ok && data.success !== false, error: data.errors?.[0]?.message };
   } catch (e: any) {
     return { success: false, error: e?.message };
+  }
+}
+
+/**
+ * List objek R2 per prefix (dipakai CMS lookbook). Max 1000/entri pertama.
+ */
+export async function listR2Objects(
+  prefix: string
+): Promise<{ success: boolean; keys: string[]; error?: string }> {
+  if (!CF_TOKEN || !CF_ACCOUNT_ID) return { success: false, keys: [], error: "Missing token" };
+  try {
+    const url = `https://api.cloudflare.com/client/v4/accounts/${CF_ACCOUNT_ID}/r2/buckets/${R2_BUCKET}/objects?prefix=${encodeURIComponent(prefix)}&per_page=100`;
+    const res = await fetch(url, { headers: { Authorization: `Bearer ${CF_TOKEN}` } });
+    const data: any = await res.json().catch(() => ({}));
+    if (!res.ok || data.success === false) {
+      return { success: false, keys: [], error: data.errors?.[0]?.message || `R2 list failed ${res.status}` };
+    }
+    const objs = data.result?.objects || [];
+    return { success: true, keys: objs.map((o: any) => String(o.key)).filter((k: string) => !k.endsWith("/")) };
+  } catch (e: any) {
+    return { success: false, keys: [], error: e?.message };
   }
 }
 

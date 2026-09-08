@@ -1,15 +1,20 @@
+import { SHOP_CONTACT_WHATSAPP, SHOP_POSTAL_CODE, SHOP_WORKSHOP_ADDRESS } from "@/lib/shop";
+
 export const dynamic = "force-dynamic";
+// Halaman INFO SISTEM (read-only, audit H19): nilai operasional non-rahasia.
+// Secret (API key/token) TIDAK PERNAH ditampilkan di sini.
 export default function AdminSettingsPage() {
-  const shopAddress = process.env.SHOP_WORKSHOP_ADDRESS || "Workshop Kaos Kami, Makassar";
-  const shopWa = process.env.SHOP_CONTACT_WHATSAPP || "6281244002026";
+  const shopAddress = SHOP_WORKSHOP_ADDRESS;
+  const shopWa = SHOP_CONTACT_WHATSAPP;
+  const shopPostal = SHOP_POSTAL_CODE;
   const r2Bucket = process.env.R2_BUCKET_NAME || "kaos-kami-assets";
   const r2Url = process.env.R2_PUBLIC_URL || "https://pub-...r2.dev";
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
   return (
     <div className="p-5 sm:p-8 space-y-6 max-w-5xl mx-auto font-mono text-xs">
       <div className="pb-4 border-b border-white/5">
-        <h1 className="font-display text-2xl sm:text-3xl font-black uppercase text-white">WORKSHOP SETTINGS</h1>
-        <p className="text-text-muted">Konfigurasi toko • template WhatsApp • R2 • Duitku</p>
+        <h1 className="font-display text-2xl sm:text-3xl font-black uppercase text-white">INFO SISTEM</h1>
+        <p className="text-text-muted">Konfigurasi aktif (read-only) • template WhatsApp • R2 • Duitku</p>
       </div>
 
       <div className="grid md:grid-cols-2 gap-4">
@@ -17,6 +22,7 @@ export default function AdminSettingsPage() {
           <h3 className="font-bold text-white">INFO TOKO</h3>
           <div className="space-y-2 text-[11px]">
             <div><span className="block text-text-muted">ALAMAT WORKSHOP</span><span className="text-white font-bold">{shopAddress}</span></div>
+            <div><span className="block text-text-muted">KODE POS ASAL (ONGKIR)</span><span className="text-white font-bold">{shopPostal}</span></div>
             <div><span className="block text-text-muted">WHATSAPP</span><span className="text-brand-accent font-bold">{shopWa}</span></div>
             <div><span className="block text-text-muted">SITE URL</span><span className="text-white">{siteUrl}</span></div>
             <div><span className="block text-text-muted">R2 BUCKET</span><span className="text-white">{r2Bucket} → {r2Url}</span></div>

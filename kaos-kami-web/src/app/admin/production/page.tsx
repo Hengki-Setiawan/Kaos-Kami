@@ -24,7 +24,6 @@ import {
 import { CSS } from "@dnd-kit/utilities";
 import {
   Layers,
-  Clock,
   Printer,
   Flame,
   CheckCircle2,
@@ -34,7 +33,6 @@ import {
   ChevronRight,
   ExternalLink,
   Search,
-  Filter,
 } from "lucide-react";
 
 interface ProductionTaskItem {
@@ -166,21 +164,19 @@ export default function ProductionKanbanPage() {
 
   const handleDragEnd = (event: DragEndEvent) => {
     setActiveTask(null);
+    setActionError(null);
     const { active, over } = event;
     if (!over) return;
     const activeId = active.id as string;
     const overId = over.id as string;
-    // over could be column id or task id; determine target stage
+    // over bisa kolom ATAU task: baca stage dari over.data (audit H10 —
+    // drop ke task tanpa ini gagal diam-diam).
     let targetStage = overId;
-    // If over is a task, find its stage
     const overTask = (over.data.current as any)?.task as ProductionTaskItem | undefined;
     if (overTask) targetStage = overTask.stage;
-    // Validate stage exists
     if (!STAGES.find((s) => s.id === targetStage)) {
-      // Check if overId is column id
-      const col = STAGES.find((s) => s.id === overId);
-      if (col) targetStage = col.id;
-      else return;
+      setActionError("Drop di luar kolom stage — seret ke salah satu kolom tahapan.");
+      return;
     }
     const activeTaskData = tasks.find((t) => t.id === activeId);
     if (!activeTaskData || activeTaskData.stage === targetStage) return;
@@ -190,13 +186,16 @@ export default function ProductionKanbanPage() {
   const tasks = data?.tasks || [];
 
   const filteredTasks = tasks.filter((t) => {
-    const q = searchTerm.toLowerCase();
-    const firstItemName = t.order?.items?.[0]?.snapshotName || "";
-    return (
-      t.order.orderNumber.toLowerCase().includes(q) ||
-      t.order.user.name.toLowerCase().includes(q) ||
-      firstItemName.toLowerCase().includes(q)
-    );
+    const q = searchTerm.trim().toLowerCase();
+    if (!q) return true;
+    const hay = [
+      t.order?.orderNumber || "",
+      t.order?.user?.name || "",
+      ...(t.order?.items || []).map((it: any) => it?.snapshotName || ""),
+    ]
+      .join(" ")
+      .toLowerCase();
+    return hay.includes(q);
   });
 
   return (
@@ -241,6 +240,17 @@ export default function ProductionKanbanPage() {
       )}
 
       {/* Kanban Board Horizontal Columns — Drag & Drop via @dnd-kit (BLUEPRINT-03 §3) */}
+      {isLoading ? (
+        <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-7 gap-4 pb-4 items-start" aria-busy="true" aria-label="Memuat antrean produksi">
+          {STAGES.map((col) => (
+            <div key={col.id} className="bg-[#141416] border border-white/5 rounded-2xl p-4 space-y-3 min-w-[260px] animate-pulse">
+              <div className="h-4 rounded bg-white/10 w-2/3" />
+              <div className="h-24 rounded-xl bg-white/5" />
+              <div className="h-24 rounded-xl bg-white/5" />
+            </div>
+          ))}
+        </div>
+      ) : (
       <DndContext sensors={sensors} collisionDetection={closestCenter} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
         <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-7 gap-4 overflow-x-auto pb-4 items-start min-h-[600px]">
           {STAGES.map((col, colIdx) => {
@@ -326,7 +336,7 @@ export default function ProductionKanbanPage() {
 
                           {/* Customer & Courier */}
                           <div className="text-[10px] text-text-muted flex justify-between border-t border-white/5 pt-2">
-                            <span>{task.order.user.name}</span>
+                            <span>{task.order.user?.name || "Pelanggan"}</span>
                             <span className="text-white font-bold">{task.order.deliveryMethod}</span>
                           </div>
 
@@ -400,6 +410,7 @@ export default function ProductionKanbanPage() {
           ) : null}
         </DragOverlay>
       </DndContext>
+      )}
     </div>
   );
 }

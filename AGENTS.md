@@ -27,14 +27,18 @@ All design decisions, schemas, and API contracts are formally documented in the 
 3. **Physical Scale Calibration (DTF Sablon Standard):**
    - Maximum printable width is strictly clamped to **30.0 cm** (matching physical DTF printhead limits).
    - Real-world dimensions (`printWidthCm`, `printHeightCm`, `offsetFromCollarCm`) must always be calculated and displayed to users and stored in `ProductionTask`.
-4. **Fulfillment (Makassar Hyperlocal):**
-   - Do NOT use RajaOngkir API.
-   - Use Makassar native options: Pick-up at Workshop (Rp 0), Instant Courier Maxim COD, Flat Rate Makassar (Rp 15.000).
+4. **Fulfillment (Makassar Hyperlocal + Ekspedisi Nasional):**
+    - PICKUP (alamat workshop di invoice) • FREE_MAKASSAR antar tim Rp 0 • Luar kota = AgenWebsite Rate API live (user pilih termurah), fallback tabel `ExpeditionZone` → flat. Detail: `Blueprint/PENGIRIMAN.md`.
+    - Key `AGENWEBSITE_RATE_API_KEY` hanya via secret/env, tidak pernah di-commit.
 5. **WhatsApp Notifications:**
    - Automated via Fonnte with **Fail-Safe / Graceful Fallback**: wrapped in try/catch so checkout 100% succeeds, with web invoice + direct `wa.me` manual button.
 6. **Cloudflare 3MB Worker Limit:**
-   - Keep 3D libraries (`three`, `@react-three/fiber`, `@react-three/drei`, `gsap`) strictly on the client side (`use client` + dynamic imports).
-   - The server Worker must remain lean (< 1.2 MB).
+    - Keep 3D libraries (`three`, `@react-three/fiber`, `@react-three/drei`, `gsap`) strictly on the client side (`use client` + dynamic imports).
+    - The server Worker must remain lean (< 1.2 MB).
+7. **DEPLOY/PUSH GATE (aturan owner, Sep 2026):**
+    - JANGAN deploy ke Cloudflare (`opennextjs-cloudflare deploy`, `wrangler deploy`) atau `git push` tanpa perintah eksplisit owner. Selesaikan banyak build/validasi lokal dulu (`tsc`, `next build`, `mobile:build`), push/deploy SEKALIGUS saat disuruh.
+    - Sebelum deploy yang diminta: selalu tanya/konfirmasi dulu ke owner.
+    - Deploy benar = `npm run deploy` (opennext build + deploy). `wrangler deploy` langsung = bundle `.open-next` BASI (rute baru 404).
 
 ---
 

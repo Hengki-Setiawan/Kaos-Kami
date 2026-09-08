@@ -8,11 +8,8 @@ import {
   Package,
   Layers,
   Clock,
-  ArrowUpRight,
   TrendingUp,
-  AlertTriangle,
   ChevronRight,
-  Calendar,
 } from "lucide-react";
 
 export const revalidate = 0; // Dynamic server component
