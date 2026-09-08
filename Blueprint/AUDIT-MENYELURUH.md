@@ -243,3 +243,40 @@ Tolak=COMPLETED; approve tanpa PATCH (klaim sukses palsu); mapping stage melompa
 - Yang DIVERIFIKASI via kode/probe/live: semua P0 + P1-01..05, P1-08..10, P1-15, P1-17 (kode), backup exposure, coupon FIXED, role parse, kanban drop, gang-sheet (404 routing hidup; render aktual butuh order beneran).
 - Yang KLAIM AGEN (wajar, belum dibuktikan live): perilaku visual 3D di HP fisik, performa HP low, OOM ekspor 17MP di Safari, timing rayapan crawler, isi notifikasi Fonnte terkirim.
 - Estimasi total: P0 ≈ 3–4 hari, P1 ≈ 8–12 hari, P2 ≈ 10–15 hari (termasuk uji). Tanpa ubah skema DB kecuali noted.
+
+---
+
+## 6. PUTARAN 2 — VERIFIKASI ULANG & TEMUAN BARU (8 Sep 2026, malam)
+
+### 6.1 Koreksi hasil verifikasi (kejujuran audit)
+- ❌ GUGUR — "register unlink pemilik lama": `mapUpdateSet` Drizzle (`utils.js`) MEMFILTER `undefined`. `set({userId: undefined})` tidak menyentuh kolom. Bukan bug.
+- ❌ GUGUR — "pola header cache GLB invalid": probe live `Cache-Control: public,max-age=31536000,immutable` Tampil benar di prod. Bukan bug.
+- ❌ GUGUR sebagian — "KV tak aktif": binding `RATE_LIMIT_KV` SUDAH aktif di prod (Fase 17). Sisa: fail-open + non-atomik + IP spoof (tetap valid).
+- ❌ GUGUR sebagian — "campur React19×Next14": branch Next 15 digabung; monorepo kini satu pohon React 19. Sisa: 12 plugin Capacitor v7 vs core v8 (mobile), perlu regresi HP fisik.
+- ❌ GUGUR — "keystore ter-commit": `git ls-files` BERSIH (hanya `google-services.json` yang disengaja + didokumentasikan).
+- ✅ BERTAHAN — semua P0 (repay UNIQUE, dashboard IDOR, admin fail-open, role input, backup publik, cap legacy, box 30×42, render/gang-sheet, data pribadi HP).
+
+### 6.2 Temuan BARU terverifikasi (batch deep-read 4 tim + verifikasi silang)
+**Kritis:**
+- **N1. Checkout keranjang MATI TOTAL** (`CartDrawer.tsx:15` + `160-164`): `if (!isCartOpen) return null` meng-unmount `CheckoutModal` di dalamnya; klik PROSES CHECKOUT → `closeCart()` → modal hilang → user tak pernah bisa bayar via cart. Hanya jalur studio-langsung yang hidup. Obat: angkat modal ke atas early-return. Estimasi: 1 jam. ✅ kode.
+- **N2. PATCH ubah-qty mati total** (`cart/items` `UpdateQtySchema itemId: z.string().cuid()` vs ID `nanoid()`): validasi selalu 400. ✅ kode. Obat: `z.string().min(1)`. 15 mnt.
+- **N3. Turnstile fail-OPEN saat exception** (`lib/turnstile.ts:61-67` catch → `success:true`): Cloudflare challenge down/timeout = bot lolos di jalur uang. (Missing-secret sudah fail-closed benar.) Obat: catch → `success:false`. 15 mnt.
+- **N4. Data pribadi dev di 5 file mobile** (nama + `0882-0206-85076` + alamat + dual nomor WA vs `.env`): tampil ke semua pengguna. Obat: akun login + env tunggal. 2–3 jam.
+- **N5. Admin HP bohong** (tolak=COMPLETED; approve tanpa PATCH klaim sukses): laporan produksi palsu. Obat: REJECTED + mapping + taskId. 4–6 jam.
+**Penting:**
+- N6. Web checkout tanpa `.max()` items (mobile ada 20) → DoS/latensi; tanpa `isSafeInteger`/cap Rp → total fiktif ke Duitku.
+- N7. OrderNumber tanggal UTC (00–08 WITA mundur sehari) → pakai `Asia/Makassar`.
+- N8. Fallback `localhost:3000` untuk invoiceUrl (bocor topologi + link WA rusak bila env hilang) → fail-closed.
+- N9. Mobile collapse semua metode ke SP (QRIS/VA lain salah charge) → whitelist map + 400.
+- N10. Sync: `deviceId` dibuang; harga HP dipercaya bulat; `designId:""` sukses palsu; N+1 ±150 query serial; autosave sukses-palsu saat validasi gagal; `z.any` raksasa; DRAFT tunggal tertimpa antar-tab; DELETE tanpa guard + `existing.cart` tanpa `?.`; GET menulis DB tanpa limiter; OTP oracle (salah vs kadaluarsa) + delete fail-open; send-otp tanpa Zod.
+- N11. Kupon: `consume` tanpa cek aktif/expired (TOCTOU); `new Date()` UTC aman (klaim "16 jam" agen SALAH — banding Date tz-agnostic).
+- N12. Mobile: platform hardcode android; tanpa timeout/retry; listener Duitku bocor; polling boros; `nanoid` vs cuid (sama N2); camera triple-copy; network error dikira online; store tanpa version/migrate; TileService API 23 vs minSdk 23 (butuh 24); permission timpang; FileProvider over-broad; backup tanpa rules; deeplink tanpa host; versionCode statis; minify off + R8 tak lengkap.
+- N13. Infra: DB host + Account ID plaintext di `wrangler.jsonc` (pindah ke secret + binding R2 aset); tanpa limits/placement/observability/triggers; health dangkal (SELECT 1, tanpa tulis/KV/R2/latensi, bisa di-cache, bocorkan uptime); db.ts dummy membingungkan + raw client bocor soket.
+- N14. Drift mobile-vs-web: enum ongkir, katalog (crewneck hilang, kunci jacket vs shirt, sablon flat 35rb vs tier), tracker mapping (CANCELLED tampil Siap Dibayar + tombol bayar → risiko bayar ganda!), Rp0/0x0cm hardcode.
+- N15. UI/UX batch: touch target <44px; input <16px (auto-zoom iOS); import/store mati (bundle); navbar tutupi kanvas; badge >99; Google double-submit; password tanpa minLength/show; badge Terverifikasi palsu + session ID dipajang; Footer NOL link; Navbar tanpa /track + tanpa nav mobile; BottomSheet tanpa drag; export blank; share tanpa state; static showcase mati; multi-part mati; file 35KB; timeout/absen.
+- N16. 3D batch: legacy cap, depthTest, dispose share, Z lengan, gizmo 3-angka, box per-side, leak Hoodie/Shirt, center() geser, wind ganda/X-only, knit scale, tier-low, kamera literal, Draco, exposure, rotasi hilang, offset 2cm, OOM ekspor, printUV stretch, compress PNG, removeBG interior, textDecal 3:1, dpi 1-sumbu, verlet tuning, ClothLab render-side-effect, PatternStudio dispose/listener/timeout, sync 60Hz thrash, ID lemah, anchor unduhan, kanvas salah, scroll magic, activeDecal null, hex desync, dialog a11y.
+- N17. Daftar sebelumnya (putaran 1) tetap berlaku kecuali yang digugurkan di §6.1.
+
+### 6.3 Urutan obat yang disarankan (revisi)
+1. N1+N2 (checkout cart mati + qty mati — uang!) → 2. P0-2+P0-1+P0-5 (akses) → 3. P0-3 (backup) → 4. P0-4 (repay) + N3 (turnstile) → 5. N4+N5 (mobile jujur) → 6. Batch API (N6–N11) → 7. Batch 3D (N16) → 8. Batch UI (N15) → 9. Infra (N13) + drift (N14) → 10. Sisa P2.
+
