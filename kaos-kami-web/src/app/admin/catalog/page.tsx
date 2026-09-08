@@ -2,6 +2,7 @@ import React from "react";
 import { count } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { ProductVariant } from "@/lib/drizzle-schema";
+import { VariantRowActions } from "@/components/admin/VariantRowActions";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -50,9 +51,9 @@ export default async function AdminCatalogPage() {
         <h2 className="font-bold text-white uppercase">Product Variants (Ready Stock) — {variants.length}</h2>
         <div className="bg-[#141416] border border-white/5 rounded-2xl overflow-hidden divide-y divide-white/5">
           {variants.map((v: any) => (
-            <div key={v.id} className="p-4 flex justify-between">
+            <div key={v.id} className="p-4 flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3">
               <span className="text-white font-bold">{v.sku} — {v.name} ({v.size} • {v.colorName})</span>
-              <span className="text-brand-accent font-bold">Rp {v.priceIdr.toLocaleString("id-ID")} • {v.stockQty} pcs</span>
+              <VariantRowActions id={v.id} stockQty={v.stockQty} priceIdr={v.priceIdr} isActive={!!v.isActive} />
             </div>
           ))}
         </div>

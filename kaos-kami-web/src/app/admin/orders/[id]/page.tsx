@@ -20,6 +20,10 @@ import {
 import dynamic from "next/dynamic";
 
 const OrderInspector3D = dynamic(() => import("@/components/admin/OrderInspector3D"), { ssr: false });
+const OrderAdminActions = dynamic(
+  () => import("@/components/admin/OrderAdminActions").then((m) => m.OrderAdminActions),
+  { ssr: false }
+);
 
 interface AdminOrderDetailPageProps {
   params: { id: string };
@@ -100,6 +104,7 @@ export default async function AdminOrderDetailPage({ params }: AdminOrderDetailP
             <span>CETAK JOB TICKET (PDF)</span>
           </a>
         </div>
+        <OrderAdminActions orderId={order.id} currentTracking={order.trackingNumber} />
       </div>
 
       {/* 360° 3D Inspector (BLUEPRINT-03 §5) — Orbit untuk verifikasi visual operator */}

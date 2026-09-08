@@ -69,6 +69,9 @@ export class DuitkuPaymentProvider {
   /**
    * Verifies MD5 signature from Duitku Callback Webhook:
    * MD5(merchantCode + amount + merchantOrderId + apiKey)
+   * PLUS HMAC-SHA256 varian dokumentasi baru (merchantCode+amount+orderId).
+   * Dua-duanya diterima: jika Duitku migrasi format, callback asli tetap lolos
+   * (terverifikasi: sandbox masih MD5; HMAC disiapkan untuk rotasi).
    */
   public verifyCallbackSignature(
     merchantCode: string,
@@ -76,9 +79,22 @@ export class DuitkuPaymentProvider {
     merchantOrderId: string,
     signature: string
   ): boolean {
-    const raw = `${merchantCode}${amount}${merchantOrderId}${this.apiKey}`;
-    const expected = crypto.createHash("md5").update(raw).digest("hex");
-    return expected.toLowerCase() === signature.toLowerCase();
+    const sig = (signature || "").toLowerCase();
+    const md5 = crypto
+      .createHash("md5")
+      .update(`${merchantCode}${amount}${merchantOrderId}${this.apiKey}`)
+      .digest("hex")
+      .toLowerCase();
+    if (md5 === sig) return true;
+    try {
+      const hmac = crypto
+        .createHmac("sha256", this.apiKey)
+        .update(`${merchantCode}${amount}${merchantOrderId}`)
+        .digest("hex")
+        .toLowerCase();
+      if (hmac === sig) return true;
+    } catch {}
+    return false;
   }
 
   /**
@@ -155,6 +171,43 @@ export class DuitkuPaymentProvider {
       console.error("Duitku createCharge error:", err);
       throw new Error(`Duitku charge gagal: ${err?.message || "unknown error"}`);
     }
+  }
+
+  /**
+   * Cek status transaksi ke Duitku (server-to-server, read-only):
+   * "00"=lunas, "01"=proses, "02"=gagal/kedaluarsa.
+   * Dipakai bayar-ulang untuk memastikan tidak menagih order yang ternyata
+   * sudah lunas (webhook telat/hilang). Rumus signature terverifikasi sandbox:
+   * MD5(merchantCode + merchantOrderId + apiKey).
+   */
+  public async checkTransactionStatus(
+    merchantOrderId: string
+  ): Promise<{ statusCode: string; statusMessage: string; reference?: string; amount?: string }> {
+    this.assertConfigured();
+    const url = this.isProduction
+      ? "https://passport.duitku.com/webapi/api/merchant/transactionStatus"
+      : "https://sandbox.duitku.com/webapi/api/merchant/transactionStatus";
+    const signature = crypto
+      .createHash("md5")
+      .update(`${this.merchantCode}${merchantOrderId}${this.apiKey}`)
+      .digest("hex");
+    const form = new URLSearchParams({
+      merchantCode: this.merchantCode,
+      merchantOrderId,
+      signature,
+    });
+    const res = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: form.toString(),
+    });
+    const data = await res.json();
+    return {
+      statusCode: data.statusCode || "",
+      statusMessage: data.statusMessage || data.Message || "",
+      reference: data.reference,
+      amount: data.amount,
+    };
   }
 }
 

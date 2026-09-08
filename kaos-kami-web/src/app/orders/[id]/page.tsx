@@ -2,6 +2,8 @@ import React from "react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { db } from "@/lib/db";
+import { RepayButton } from "@/components/commerce/RepayButton";
+import { CancelOrderButton } from "@/components/commerce/CancelOrderButton";
 import {
   CheckCircle2,
   Clock,
@@ -74,6 +76,16 @@ export default async function OrderReceiptPage({ params, searchParams }: OrderRe
       `Mohon dibantu proses antrean sablonnya. Terima kasih!`
   );
   const waLink = `https://wa.me/6281244002026?text=${waMessage}`;
+
+  // Link bayar hilang/kedaluarsa → minta baru via WA (tanpa risiko tagih ganda).
+  const waPayMessage = encodeURIComponent(
+    `*Halo Kaos Kami, link bayar saya hilang:*\n` +
+      `No. Pesanan: ${order.orderNumber}\n` +
+      `Total: Rp ${order.totalIdr.toLocaleString("id-ID")}\n\n` +
+      `Mohon kirim ulang link pembayarannya. Terima kasih!`
+  );
+  const waPayLink = `https://wa.me/6281244002026?text=${waPayMessage}`;
+  const needsPayLink = order.status === "PENDING_PAYMENT";
 
   return (
     <div className="min-h-screen bg-canvas text-text-primary px-4 py-12 sm:py-20 max-w-3xl mx-auto space-y-6">
@@ -165,6 +177,19 @@ export default async function OrderReceiptPage({ params, searchParams }: OrderRe
 
         {/* Fail-Safe Direct WhatsApp Fallback Button */}
         <div className="pt-2 flex flex-col sm:flex-row gap-3">
+          {needsPayLink && (
+            <div className="flex-1 space-y-2">
+              <RepayButton orderId={order.id} />
+              <a
+                href={waPayLink}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="block text-center font-mono text-[11px] text-text-muted hover:text-white transition-colors"
+              >
+                atau minta link via WhatsApp →
+              </a>
+            </div>
+          )}
           <a
             href={waLink}
             target="_blank"
@@ -182,6 +207,9 @@ export default async function OrderReceiptPage({ params, searchParams }: OrderRe
             BUAT DESAIN LAIN
           </Link>
         </div>
+        {canSeePII && order.status === "PENDING_PAYMENT" && (
+          <CancelOrderButton orderId={order.id} />
+        )}
       </div>
     </div>
   );

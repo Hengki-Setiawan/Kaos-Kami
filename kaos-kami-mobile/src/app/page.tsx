@@ -165,6 +165,14 @@ export default function MobileApp() {
       const res = await mobileApiClient.syncDesigns({ userId, designs });
       if (!res.success) throw new Error(res.error || 'sync gagal');
       setToastMessage(`Sinkronisasi ${res.synced ?? designs.length} desain offline berhasil!`);
+      // Tipe yang belum didukung replay (SUBMIT_ORDER/UPDATE_CART) JANGAN
+      // dibuang diam-diam: lempar agar antrean dipertahankan + tercatat.
+      // Replay server bersifat idempoten (LWW-update per judul) sehingga
+      // pengulangan desain aman.
+      const unsupported = mutations.filter((m) => m.type !== 'SAVE_DESIGN');
+      if (unsupported.length > 0) {
+        throw new Error(`${unsupported.length} mutasi ${unsupported[0].type} belum didukung replay — tetap antre`);
+      }
     });
     // Registrasi token push → UserDevice server (M10).
     registerPushNotificationHandlers(

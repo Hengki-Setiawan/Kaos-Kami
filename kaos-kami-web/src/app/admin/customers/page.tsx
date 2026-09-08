@@ -1,6 +1,7 @@
 import { count } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { Design, Order } from "@/lib/drizzle-schema";
+import { CustomerRoleSelect } from "@/components/admin/CustomerRoleSelect";
 
 export const dynamic = "force-dynamic";
 
@@ -24,7 +25,7 @@ export default async function AdminCustomersPage() {
         {usersWithCounts.map((u: any) => (
           <div key={u.id} className="p-4 flex justify-between items-center">
             <div>
-              <span className="font-bold text-white block">{u.name || "-"} ({u.role})</span>
+              <span className="font-bold text-white block">{u.name || "-"} <CustomerRoleSelect userId={u.id} role={u.role} /></span>
               <span className="text-text-muted">{u.phoneNumber || "-"} • {u.email || "-"}</span>
             </div>
             <div className="text-right">

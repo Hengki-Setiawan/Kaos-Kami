@@ -1,6 +1,7 @@
 import React from "react";
 import Link from "next/link";
 import { db } from "@/lib/db";
+import { ReorderButton } from "@/components/commerce/ReorderButton";
 import { Navbar } from "@/components/ui/Navbar";
 import { Footer } from "@/components/ui/Footer";
 import {
@@ -115,6 +116,15 @@ export default async function CustomerDashboardPage() {
                       Rp {order.totalIdr.toLocaleString("id-ID")}
                     </span>
 
+                    <ReorderButton
+                      userId={order.userId}
+                      items={order.items.map((it) => ({
+                        productVariantId: it.productVariantId,
+                        designId: it.designId,
+                        quantity: it.quantity,
+                        unitPriceIdr: it.unitPriceIdr,
+                      }))}
+                    />
                     <Link
                       href={`/orders/${order.id}`}
                       className="px-3.5 py-1.5 rounded-xl bg-surface border border-white/10 hover:border-brand-accent text-white font-bold hover:text-brand-accent transition-all flex items-center gap-1 text-[11px]"
@@ -172,7 +182,7 @@ export default async function CustomerDashboardPage() {
                   </div>
 
                   <Link
-                    href="/studio"
+                    href={`/studio?designId=${design.id}`}
                     className="w-full py-2 rounded-xl bg-surface border border-white/10 hover:border-brand-accent text-white font-bold text-center block transition-all hover:text-brand-accent text-[11px]"
                   >
                     BUKA DI 3D STUDIO

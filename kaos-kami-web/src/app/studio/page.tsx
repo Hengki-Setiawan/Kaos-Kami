@@ -1,10 +1,11 @@
 "use client";
 
-import React, { useEffect } from "react";
+import React, { Suspense, useEffect } from "react";
 import Link from "next/link";
 import { ArrowLeft, Sparkles, Sun, Moon, Maximize2, Minimize2, Move } from "lucide-react";
 import { CanvasStage } from "@/components/3d/CanvasStage";
 import { CustomizerDrawer } from "@/components/ui/CustomizerDrawer";
+import { StudioDesignLoader } from "@/components/studio/StudioDesignLoader";
 import { useConfiguratorStore } from "@/store/useConfiguratorStore";
 import { useWebglSupport } from "@/hooks/useWebglSupport";
 import { Vector3 } from "three";
@@ -111,6 +112,11 @@ export default function StudioPage() {
 
       {/* Fullscreen 3D WebGL Canvas Layer */}
       {webglSupported && <CanvasStage camPos={defaultCamPos} lookAtPos={defaultLookAt} />}
+
+      {/* Deep-link desain tersimpan (?designId=) */}
+      <Suspense fallback={null}>
+        <StudioDesignLoader />
+      </Suspense>
 
       {/* Floating Customizer Drawer */}
       <CustomizerDrawer />

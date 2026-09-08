@@ -46,6 +46,9 @@ interface ProductionTaskItem {
   printWidthCm: number | null;
   printHeightCm: number | null;
   placementSide: string | null;
+  printFileUrl: string | null;
+  dueDate: string | null;
+  assignedToUserId: string | null;
   order: {
     orderNumber: string;
     deliveryMethod: string;
@@ -100,6 +103,7 @@ export default function ProductionKanbanPage() {
   const queryClient = useQueryClient();
   const [searchTerm, setSearchTerm] = useState("");
   const [activeTask, setActiveTask] = useState<ProductionTaskItem | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
@@ -116,17 +120,42 @@ export default function ProductionKanbanPage() {
     refetchInterval: 10000,
   });
 
-  const moveTaskMutation = useMutation({
-    mutationFn: async ({ taskId, stage }: { taskId: string; stage: string }) => {
+  const moveTaskMutation = useMutation({    mutationFn: async ({ taskId, stage }: { taskId: string; stage: string }) => {
       const res = await fetch("/api/admin/production-tasks", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ taskId, stage }),
       });
-      return res.json();
+      const data = await res.json();
+      if (!res.ok || data.error) throw new Error(data.error || `Gagal pindah (${res.status})`);
+      return data;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["production-tasks"] });
+    },
+    onError: (e: any) => {
+      setActionError(e?.message || "Gagal memindahkan task. Cek koneksi lalu coba lagi.");
+      setTimeout(() => setActionError(null), 4000);
+    },
+  });
+
+  const claimTaskMutation = useMutation({
+    mutationFn: async ({ taskId }: { taskId: string }) => {
+      const res = await fetch("/api/admin/production-tasks", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ taskId, claim: true }),
+      });
+      const data = await res.json();
+      if (!res.ok || data.error) throw new Error(data.error || `Gagal ambil (${res.status})`);
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["production-tasks"] });
+    },
+    onError: (e: any) => {
+      setActionError(e?.message || "Gagal mengambil task.");
+      setTimeout(() => setActionError(null), 4000);
     },
   });
 
@@ -205,6 +234,11 @@ export default function ProductionKanbanPage() {
           </button>
         </div>
       </div>
+      {actionError && (
+        <div className="p-3 rounded-xl bg-red-500/10 border border-red-500/40 text-red-300 font-mono text-xs" role="alert">
+          ⚠️ {actionError}
+        </div>
+      )}
 
       {/* Kanban Board Horizontal Columns — Drag & Drop via @dnd-kit (BLUEPRINT-03 §3) */}
       <DndContext sensors={sensors} collisionDetection={closestCenter} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
@@ -252,10 +286,13 @@ export default function ProductionKanbanPage() {
                           <div>
                             <p className="font-bold text-white leading-tight">
                               {task.order.items?.[0]?.snapshotName || "Sablon DTF Apparel"}
+                              {(task.order.items?.length || 0) > 1 && (
+                                <span className="text-brand-accent"> +{(task.order.items?.length || 1) - 1} item</span>
+                              )}
                             </p>
                             <p className="text-[11px] text-text-muted mt-0.5">
                               {task.order.items?.[0]?.snapshotSize || "L"} · {task.order.items?.[0]?.snapshotColorName || "Hitam"} ·{" "}
-                              {task.order.items?.[0]?.quantity || 1} pcs
+                              {task.order.items?.reduce((a, it) => a + (it.quantity || 0), 0) || 1} pcs
                             </p>
                           </div>
 
@@ -268,6 +305,22 @@ export default function ProductionKanbanPage() {
                               </span>
                             ) : (
                               <span className="font-bold text-amber-400 block">⚠ Belum terukur</span>
+                            )}
+                            {task.printFileUrl && (
+                              <a
+                                href={task.printFileUrl}
+                                target="_blank"
+                                rel="noreferrer"
+                                onClick={(e) => e.stopPropagation()}
+                                className="inline-flex items-center gap-1 mt-1 px-2 py-1 rounded bg-emerald-500/15 border border-emerald-500/40 text-emerald-300 font-bold hover:bg-emerald-500/25 transition-all"
+                              >
+                                <span>📄 FILE CETAK 300DPI</span>
+                              </a>
+                            )}
+                            {task.dueDate && (
+                              <span className="block text-text-muted mt-1">
+                                🎯 Deadline: {new Date(task.dueDate).toLocaleDateString("id-ID", { day: "numeric", month: "short" })}
+                              </span>
                             )}
                           </div>
 
@@ -288,22 +341,40 @@ export default function ProductionKanbanPage() {
                               <ExternalLink size={10} />
                             </a>
 
-                            {colIdx < STAGES.length - 1 && (
-                              <button
-                                type="button"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  moveTaskMutation.mutate({
-                                    taskId: task.id,
-                                    stage: STAGES[colIdx + 1]?.id ?? "DONE",
-                                  });
-                                }}
-                                className="px-2.5 py-1 rounded bg-brand-accent text-canvas font-bold text-[10px] hover:brightness-110 active:scale-95 transition-all flex items-center gap-1"
-                              >
-                                <span>LANJUT</span>
-                                <ChevronRight size={10} />
-                              </button>
-                            )}
+                            <div className="flex items-center gap-1.5">
+                              {!task.assignedToUserId ? (
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    claimTaskMutation.mutate({ taskId: task.id });
+                                  }}
+                                  className="px-2.5 py-1 rounded bg-surface border border-white/15 text-white font-bold text-[10px] hover:border-brand-accent transition-all"
+                                >
+                                  <span>AMBIL</span>
+                                </button>
+                              ) : (
+                                <span className="px-2 py-1 rounded bg-emerald-500/10 border border-emerald-500/30 text-emerald-300 text-[9px] font-bold">
+                                  DIPEGANG
+                                </span>
+                              )}
+                              {colIdx < STAGES.length - 1 && (
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    moveTaskMutation.mutate({
+                                      taskId: task.id,
+                                      stage: STAGES[colIdx + 1]?.id ?? "DONE",
+                                    });
+                                  }}
+                                  className="px-2.5 py-1 rounded bg-brand-accent text-canvas font-bold text-[10px] hover:brightness-110 active:scale-95 transition-all flex items-center gap-1"
+                                >
+                                  <span>LANJUT</span>
+                                  <ChevronRight size={10} />
+                                </button>
+                              )}
+                            </div>
                           </div>
                         </div>
                       </SortableTaskCard>

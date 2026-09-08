@@ -1,11 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
-import { and, eq, sql } from "drizzle-orm";
-import { nanoid } from "nanoid";
+import { eq } from "drizzle-orm";
 import { db } from "@/lib/db";
-import { Order, OrderStatusEvent, Payment, ProductionTask, ProductVariant } from "@/lib/drizzle-schema";
+import { Payment } from "@/lib/drizzle-schema";
 import { duitkuProvider } from "@/lib/payments/duitku";
-import { sendWhatsAppNotification, buildProductionStatusMessage } from "@/lib/notifications/whatsapp";
-import { computePhysicalPrintDimensions } from "@/lib/scaleCalibration";
+import { confirmOrderPaid } from "@/lib/payments/confirmOrder";
 
 export async function POST(req: NextRequest) {
   try {
@@ -98,120 +96,9 @@ export async function POST(req: NextRequest) {
       .where(eq(Payment.orderId, order.id));
 
     // 6. On Successful Payment: Update Order & Spawn ProductionTasks
+    // (satu pintu via confirmOrderPaid — idempoten, anti spawn ganda).
     if (isPaymentSuccess) {
-      const race = await db
-        .update(Order)
-        .set({ status: "PAYMENT_CONFIRMED" })
-        .where(and(eq(Order.id, order.id), eq(Order.status, "PENDING_PAYMENT")));
-      // Hanya pemenang race yang lanjut (spawn task + WA sekali).
-      if ((race.rowsAffected ?? 0) === 0) {
-        return new Response("SUCCESS", { status: 200 });
-      }
-      await db.insert(OrderStatusEvent).values({
-        id: nanoid(),
-        orderId: order.id,
-        status: "PAYMENT_CONFIRMED",
-        note: `Pembayaran Duitku lunas via ${paymentCode || "Duitku"} (Ref: ${reference || "-"}).`,
-      });
-
-      // Spawn ProductionTask for each order item (Calibrated 30.0 cm DTF Sablon)
-      for (const item of order.items) {
-        let widthCm = 28.5;
-        let heightCm = 16.0;
-        let placementSide = "front";
-        let offsetCm = 7.5;
-        // Master 300 DPI dari Pola 2D (jika desainer mengekspornya) → file
-        // yang dibuka operator press. Bentuk: URL tunggal atau JSON map
-        // per panel {"front": url, ...} — pakai sisi item ini.
-        let masterUrl: string | null = null;
-
-        try {
-          if ((item as any).designId) {
-            const design = await db.query.Design.findFirst({
-              where: (t, { eq }) => eq(t.id, (item as any).designId),
-              columns: { decals: true, categoryId: true, masterAssetUrl: true },
-            });
-            if (design?.decals) {
-              const decals = JSON.parse(design.decals as unknown as string);
-              const first = Array.isArray(decals) && decals.length > 0 ? decals[0] : null;
-              if (first) {
-                const cat = await db.query.ApparelCategory.findFirst({
-                  where: (t, { eq }) => eq(t.id, design.categoryId),
-                  columns: { slug: true },
-                });
-                const dims = computePhysicalPrintDimensions(
-                  cat?.slug || "tshirt",
-                  first.scale ?? 0.52,
-                  first.y ?? -0.05,
-                  1.0
-                );
-                widthCm = dims.widthCm;
-                heightCm = dims.heightCm;
-                offsetCm = dims.offsetFromCollarCm;
-                placementSide = first.targetSide || "front";
-              }
-            }
-            // Master 300 DPI: pilih sisi item ini (placementSide sudah final).
-            const rawMaster = (design as any)?.masterAssetUrl as string | null;
-            if (rawMaster) {
-              try {
-                const parsed = JSON.parse(rawMaster);
-                if (typeof parsed === "object" && parsed !== null) {
-                  masterUrl =
-                    (parsed[placementSide] as string) || (parsed.front as string) || null;
-                } else {
-                  masterUrl = rawMaster;
-                }
-              } catch {
-                masterUrl = rawMaster;
-              }
-            }
-          }
-        } catch (e) {
-          console.warn("Failed to compute dims for task, using default", e);
-        }
-
-        await db.insert(ProductionTask).values({
-          id: nanoid(),
-          orderId: order.id,
-          orderItemId: item.id,
-          stage: "DESIGN_PREP",
-          priority: order.courierNotes?.includes("EXPRESS") ? 10 : 0,
-          notes: `Item: ${item.snapshotName} (${item.snapshotSize}, ${item.snapshotColorName})`,
-          printWidthCm: widthCm,
-          printHeightCm: heightCm,
-          placementSide,
-          offsetFromCollarCm: offsetCm,
-          printFileUrl: masterUrl,
-        });
-      }
-
-      // Kurangi stok varian katalog yang terjual (clamp >= 0, SQLite serial).
-      for (const item of order.items) {
-        const variantId = (item as any).productVariantId as string | null;
-        const qty = (item as any).quantity as number;
-        if (variantId && qty > 0) {
-          await db
-            .update(ProductVariant)
-            .set({ stockQty: sql`max(0, ${ProductVariant.stockQty} - ${qty})` })
-            .where(eq(ProductVariant.id, variantId))
-            .catch((e) => console.warn("Stok decrement gagal:", variantId, e?.message));
-        }
-      }
-
-      // Notify customer via WhatsApp
-      const invoiceUrl = `${process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000"}/orders/${order.id}`;
-      if (order.user?.phoneNumber) {        sendWhatsAppNotification(
-          order.user.phoneNumber,
-          buildProductionStatusMessage({
-            orderNumber: order.orderNumber,
-            recipientName: order.user.name || "Pelanggan",
-            stageName: "Pembayaran Dikonfirmasi — Antrean Sablon DTF",
-            note: "Pesanan Anda telah lunas via Duitku dan masuk antrean workshop produksi sablon Kaos Kami.",
-            invoiceUrl,
-          })
-        ).catch((err) => console.warn("Duitku Webhook WA notify error:", err));
-      }
+      await confirmOrderPaid(order.id, { paymentCode, reference, via: "webhook" });
     }
 
     return new Response("SUCCESS", { status: 200 });

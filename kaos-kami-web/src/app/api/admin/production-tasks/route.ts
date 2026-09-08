@@ -67,6 +67,7 @@ export async function PATCH(req: NextRequest) {
       return NextResponse.json({ error: "Rate limited" }, { status: 429, headers: rateLimitHeaders(rl, 30) });
 
     // RBAC: selalu enforce di semua env (dev fail-open = WA palsu + stage palsu).
+    let actorUserId: string | null = null;
     try {
       const { auth } = await import("@/lib/auth");
       const hdrs = await headers();
@@ -78,20 +79,37 @@ export async function PATCH(req: NextRequest) {
       if (!["ADMIN", "SUPER_ADMIN", "PRODUCTION_STAFF"].includes(role)) {
         return NextResponse.json({ error: "Forbidden: insufficient role" }, { status: 403 });
       }
+      actorUserId = (session?.user as any)?.id || null;
     } catch {
       return NextResponse.json({ error: "Unauthorized: silakan login" }, { status: 401 });
     }
     const body = await req.json();
     const parsed = z.object({
       taskId: z.string().min(1),
-      stage: z.enum(["DESIGN_PREP", "SCREEN_PRINT_SETUP", "PRINTING", "PRESSING", "QUALITY_CHECK", "PACKAGING", "DONE"]),
+      stage: z.enum(["DESIGN_PREP", "SCREEN_PRINT_SETUP", "PRINTING", "PRESSING", "QUALITY_CHECK", "PACKAGING", "DONE"]).optional(),
       notes: z.string().max(500).optional(),
+      claim: z.boolean().optional(),
     }).safeParse(body);
 
     if (!parsed.success) {
       return NextResponse.json({ error: parsed.error.errors[0]?.message || "Invalid input" }, { status: 400 });
     }
-    const { taskId, stage, notes } = parsed.data;
+    const { taskId, stage, notes, claim } = parsed.data;
+
+    // Ambil alih task ke diri sendiri (operator).
+    if (claim) {
+      if (!actorUserId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      const [claimed] = await db
+        .update(ProductionTask)
+        .set({ assignedToUserId: actorUserId })
+        .where(eq(ProductionTask.id, taskId))
+        .returning({ id: ProductionTask.id });
+      if (!claimed) return NextResponse.json({ error: "Task tidak ditemukan" }, { status: 404 });
+      return NextResponse.json({ success: true, claimed: true });
+    }
+    if (!stage) {
+      return NextResponse.json({ error: "stage wajib diisi" }, { status: 400 });
+    }
 
     const [updatedTask] = await db
       .update(ProductionTask)
