@@ -108,3 +108,38 @@ Merata + Retry-After benar. Masalah: per-isolate (KV aktif sejak Fase 17 — mem
 
 1. P0-2 (role) → 2. P0-1 (dashboard redirect) → 3. P0-5 (admin fail-closed) → 4. P0-3 (bucket privat) → 5. P0-4 (repay) → 6. P1 backend batch → 7. P1 3D batch → 8. Mobile batch → 9. P2 UI batch.
 Estimasi total: P0 ≈ 3–4 hari, P1 ≈ 8–12 hari, P2 ≈ 10–15 hari (termasuk uji). Tanpa ubah skema kecuali noted.
+
+---
+
+## M. PUTARAN 2 — TEMUAN BARU TERVERIFIKASI (8 Sep, malam)
+
+### Koreksi
+- GUGUR: unlink `undefined` (Drizzle filter), pola header GLB (probe 200 + immutable benar), KV mati (aktif Fase 17), campur React (satu pohon pasca-merge), keystore ter-commit (bersih; hanya google-services.json yang disengaja).
+
+### API baru (semua lokasi file:baris terverifikasi baca kode)
+- **Items tanpa max (web)** vs mobile max(20) → DoS/latensi. Samakan + cap qty.
+- **OrderNumber tanggal UTC** (00–08 WITA mundur sehari) → `Asia/Makassar`.
+- **Fallback localhost** untuk invoiceUrl → fail-closed + validasi boot.
+- **Tanpa isSafeInteger/cap Rp** → total fiktif ke Duitku. Tolak >Rp500jt.
+- **Mobile collapse ke SP** → whitelist metode + 400.
+- **DTO gagal drift** (userId vs detail) → satu tipe `CheckoutFailure`.
+- **deviceId dibuang** → simpan ke audit.
+- **Harga HP dipercaya** → hitung ulang server.
+- **`designId:""` sukses palsu** → throw + 207 per-item.
+- **N+1 ±150 query serial** → preload categories + bulk.
+- **Autosave sukses-palsu + z.any + DRAFT tertimpa + cuid-vs-nanoid PATCH mati + DELETE tanpa guard + GET menulis + OTP oracle + delete fail-open + send tanpa Zod.**
+- **Kupon TOCTOU** (consume tanpa cek aktif/expired). Klaim "16 jam" SALAH (Date tz-agnostic).
+- **Register unlink: BUKAN bug** (terbukti di kode Drizzle).
+
+### Mobile baru (lokasi terverifikasi)
+- Manifest: backup tanpa rules (token ke Drive); deeplink tanpa host (spoof hasil bayar); TileService API 23 vs butuh 24; permission timpang; FileProvider over-broad.
+- Build: versionCode statis; minify off + R8 tak lengkap.
+- Wrangler: host DB + Account ID plaintext (pindah secret + binding R2); tanpa limits/placement/observability/triggers.
+- Health dangkal (tanpa tulis/KV/R2/latensi, bisa di-cache, bocor uptime).
+- db.ts: dummy membingungkan + raw client bocor soket.
+- Drift: enum ongkir, katalog (crewneck hilang, jacket-vs-shirt, flat 35rb), tracker (CANCELLED tampil Siap Dibayar + tombol bayar → risiko bayar ganda!), Rp0/0x0cm.
+- Camera triple-copy; network error = online; store tanpa version; scanner prompt; biometrik tanpa PIN.
+
+### 3D baru (terverifikasi baca kode)
+- Gizmo 3-angka beda; box per-side; leak Hoodie/Shirt; center() geser; wind ganda/X-only; knit scale; tier-low; kamera literal; Draco; exposure; rotasi hilang; offset 2cm; OOM ekspor; printUV stretch; compress PNG; removeBG interior; textDecal 3:1; dpi 1-sumbu; verlet tuning; ClothLab render-side-effect; PatternStudio dispose/listener/timeout; sync 60Hz; ID lemah; anchor unduhan; kanvas salah; scroll magic; activeDecal null; hex desync; dialog a11y. (Detail: AUDIT-OTAK-3D.)
+

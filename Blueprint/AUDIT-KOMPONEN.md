@@ -119,3 +119,28 @@ Fire-and-forget; guard hanya tshirt; slider picu effect; tanpa indikator sync. O
 
 ### 34. `SmoothScrollProvider.tsx` — 3/5
 Global termasuk studio (rebut orbit); konversi `*1000` verifikasi; tanpa refresh; hijack wheel. Hormati reduced-motion (baik). Obat: kecualikan studio + verifikasi. Kecil.
+
+---
+
+## E. PUTARAN 2 — TEMUAN BARU TERVERIFIKASI (8 Sep, malam)
+
+### 35. `CartDrawer.tsx:15+160` — Checkout keranjang MATI TOTAL — KRITIS
+`if (!isCartOpen) return null` meng-unmount `CheckoutModal` di dalamnya; klik PROSES CHECKOUT → `closeCart()` → modal hilang. Hanya jalur studio-langsung yang hidup. Obat: angkat modal ke atas early-return. 1 jam.
+
+### 36. Touch target <44px massal + input <16px (auto-zoom iOS)
+Tombol qty/close 20–36px; input tel/email/password 12–14px → Safari zoom tiap fokus. Obat: min 44px + `text-base` mobile. 1–1,5 jam.
+
+### 37. `fetch()` tanpa timeout/validasi di seluruh UI toko
+CheckoutModal (OTP, checkout, Nominatim), HomeCatalog, Hero CMS. 502 HTML meledak di `res.json()`; request gantung; 401/429 tak dibedakan. Obat: helper `fetchJson` + timeout 8dtk + cek `res.ok`. 1–2 jam.
+
+### 38. Inkonsistensi + data basi UI
+Subtotal cart vs rincian beda sumber; breakdown 0-pcs lolos (order kosong); deteksi mock via substring; kupon buang `-_` diam-diam; key list tabrakan varian; GPS append ganda; Nominatim tanpa UA/timeout; impor/store mati (bundle); navbar tutupi kanvas; badge >99; Google double-submit; password tanpa minLength/show; badge Terverifikasi palsu + session ID dipajang; pesan campur bahasa. Obat per item kecil (total ~0,5 hari).
+
+### 39. State/efek bocor
+`setTimeout` tanpa clear (pesan tertimpa, setState pasca-unmount); stream video + interval bocor; `syncingRef` mati (guard loop tak jalan); ID `Date.now()+random` tabrakan; anchor unduhan detached; kanvas salah (`querySelector("canvas")` bisa dapat Fabric); scroll magic + refresh tiap piksel; `activeDecal ?? decals[0]` edit layer salah; hex desync; drawer tanpa dialog/ESC/focus. Obat: helper timeout + cleanup + debounce + guard. ~1 hari.
+
+### 40. PatternStudio/ClothLab lifecycle
+Canvas/listeners tak dispose; slider picu effect; normals tiap frame; tanpa substep; wind assignment saat render; ekspor tanpa cap. Obat: dispose + throttle + cap. 0,5–1 hari.
+
+### 41. DesignSync/store
+Fire-and-forget tanpa catch; guard hanya tshirt; blob URL bocor saat load; localStorage tanpa versi (blob mati pasca-reload, kuota penuh diam); saver kirim breakdown minim; master sukses-palsu. Obat: versi + migrasi + thumbnail + toast. 0,5–1 hari.
