@@ -82,3 +82,5 @@ backups/
 cap-upgrade.log
 
 dev-*.log
+
+*.tmp.mjs
