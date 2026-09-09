@@ -23,7 +23,7 @@ User pilih kurir → /api/shipping/quote → checkout resolve server-side
 Harga FINAL selalu dihitung server (`checkout/route.ts` + `mobile/.../checkout`),
 tidak pernah percaya angka dari client (prinsip sama seperti harga kaos).
 
-## Metode pengiriman (5)
+## Metode pengiriman (3)
 
 | Method | Biaya | Keterangan |
 |---|---|---|

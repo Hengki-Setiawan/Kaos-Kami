@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createHash } from "crypto";
 import { db } from "@/lib/db";
+import { safeJsonArray } from "@/lib/json";
 
 /**
  * M10.1 — GET /api/mobile/catalog
@@ -31,7 +32,7 @@ export async function GET(req: NextRequest) {
       tagline: c.tagline,
       weightGsm: c.weightGsm,
       basePriceIdr: c.basePriceIdr,
-      sizes: JSON.parse(c.sizes || "[]"),
+      sizes: safeJsonArray(c.sizes),
       model3dPath: c.model3dPath,
     }));
 

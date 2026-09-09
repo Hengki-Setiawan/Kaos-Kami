@@ -29,7 +29,7 @@ export default async function AdminOrderDetailPage({ params }: AdminOrderDetailP
   const order = await db.query.Order.findFirst({
     where: (t, { eq }) => eq(t.id, id),
     with: {
-      items: { with: { design: true } },
+      items: { with: { design: { with: { category: true } } } },
       productionTasks: true,
       user: true,
       shippingAddress: true,
@@ -59,13 +59,13 @@ export default async function AdminOrderDetailPage({ params }: AdminOrderDetailP
     if (d?.decals) {
       const decals = JSON.parse(d.decals);
       if (Array.isArray(decals)) {
-        const slug = String((first as any)?.snapshotName || "").toLowerCase();
+        const slug = String((d as any)?.category?.slug || "").toLowerCase();
         inspectorSeed = {
           decals,
           colorHex: String((first as any)?.snapshotColorHex || d.colorHex || "#121214"),
           colorName: String((first as any)?.snapshotColorName || d.colorName || "Custom"),
           size: String((first as any)?.snapshotSize || "L"),
-          apparel: (["tshirt", "longsleeve", "crewneck", "hoodie"].includes(d.categoryId) ? d.categoryId : slug.includes("hoodie") ? "hoodie" : slug.includes("jacket") ? "shirt" : "tshirt") as any,
+          apparel: (["tshirt", "longsleeve", "crewneck", "hoodie", "shirt"].includes(slug) ? slug : "tshirt") as any,
         };
       }
     }

@@ -163,8 +163,8 @@ export default function TrackPage() {
             {busy ? "Memeriksa…" : "Lihat pesananku"}
           </button>
           <div className="flex justify-between">
-            <button type="button" onClick={sendOtp} disabled={busy} className="font-mono text-[11px] text-brand-accent hover:underline disabled:opacity-50">
-              Kirim ulang kode
+            <button type="button" onClick={sendOtp} disabled={busy || otpLeft > 240} className="font-mono text-[11px] text-brand-accent hover:underline disabled:opacity-50">
+              {otpLeft > 240 ? `Kirim ulang (${mm}:${ss})` : "Kirim ulang kode"}
             </button>
             <button type="button" onClick={() => setStep(1)} className="font-mono text-[11px] text-text-muted hover:text-white">
               Ganti nomor

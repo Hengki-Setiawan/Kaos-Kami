@@ -17,6 +17,11 @@ interface OrderReceiptPageProps {
   searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
 }
 
+// Invoice privat: jangan biarkan terindeks bila URL bocor (audit).
+export const metadata = {
+  robots: { index: false, follow: false },
+};
+
 export default async function OrderReceiptPage({ params, searchParams }: OrderReceiptPageProps) {
   // Next 15: params & searchParams async.
   const { id } = await params;

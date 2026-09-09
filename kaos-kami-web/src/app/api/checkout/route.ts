@@ -3,7 +3,7 @@ import { nanoid } from "nanoid";
 import { eq } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { siteUrl } from "@/lib/siteUrl";
-import { Address, Order, OrderItem, OrderStatusEvent, Payment, User } from "@/lib/drizzle-schema";
+import { Address, ApparelCategory, Design, Order, OrderItem, OrderStatusEvent, Payment, User } from "@/lib/drizzle-schema";
 import { calculate6VariablePrice } from "@/lib/pricingEngine";
 import { PRODUCT_COLORS } from "@/lib/constants";
 import { duitkuProvider } from "@/lib/payments/duitku";
@@ -16,7 +16,7 @@ import { verifyTurnstileToken } from "@/lib/turnstile";
 
 const CheckoutItemSchema = z.object({
   apparelSlug: z.enum(["tshirt", "longsleeve", "crewneck", "hoodie", "shirt"]),
-  productVariantId: z.string().cuid().optional(),
+  productVariantId: z.string().min(1).max(64).optional(),
   designId: z.string().cuid().optional(),
   fabricThicknessSlug: z.enum(["combed-30s", "combed-24s", "combed-20s", "combed-16s", "french-terry-380"]).optional(),
   colorHex: z.string().regex(/^#([0-9A-Fa-f]{3,6})$/, "HEX invalid"),
@@ -282,7 +282,13 @@ export async function POST(req: NextRequest) {
             discountIdr,
             totalIdr: computedTotalIdr,
             shippingAddressId: address?.id,
-            courierNotes: [courierNotes, expeditionLabel, turnaroundTier === "EXPRESS_24H" ? "EXPRESS 24H" : ""]
+            // Marker tier SERVER-ONLY: notes user dibersihkan dari pola [TIER:*]
+            // agar tak bisa klaim prioritas gratis (audit: substring EXPRESS).
+            courierNotes: [
+              (courierNotes || "").replace(/\[TIER:[^\]]*\]/g, "").trim(),
+              expeditionLabel,
+              turnaroundTier === "EXPRESS_24H" ? "EXPRESS 24H [TIER:EXPRESS_24H]" : "",
+            ]
               .filter(Boolean)
               .join(" | "),
           })
@@ -299,7 +305,7 @@ export async function POST(req: NextRequest) {
     // terbuat (libsql/web tanpa transaksi interaktif), hapus order-nya agar
     // tidak ada order tanpa item di admin. Kegagalan kompensasi di-log saja.
     try {
-      await db.insert(OrderItem).values(
+      const insertedItems = await db.insert(OrderItem).values(
         validatedItems.map((item) => ({
           id: nanoid(),
           orderId: orderRow.id,
@@ -312,6 +318,45 @@ export async function POST(req: NextRequest) {
           snapshotSize: item.size,
           snapshotColorName: item.colorName,
         })),
+      ).returning({ id: OrderItem.id });
+      // Arsipkan desain kustom ke tabel Design + tautkan item (audit E2E:
+      // sebelumnya custom-decals TAK PERNAH sampai produksi — task selalu
+      // fallback 28.5×16 front tanpa master).
+      const rowIds = (insertedItems as any[]).map((r: any) => r.id);
+      await Promise.all(
+        validatedItems.map(async (item, idx) => {
+          if (item.designId || item.productVariantId) return;
+          if (!Array.isArray(item.decals) || item.decals.length === 0) return;
+          try {
+            const cat = await db.query.ApparelCategory.findFirst({
+              where: (t, { eq }) => eq(t.slug, item.apparelSlug),
+              columns: { id: true },
+            });
+            if (!cat) return;
+            const [design] = await db
+              .insert(Design)
+              .values({
+                id: nanoid(),
+                userId: user.id,
+                categoryId: cat.id,
+                title: item.title || `Custom ${item.apparelSlug.toUpperCase()} ${orderRow.orderNumber}`,
+                colorHex: item.colorHex,
+                colorName: item.colorName,
+                size: item.size,
+                decals: JSON.stringify(item.decals),
+                calculatedPriceIdr: item.lineTotalIdr,
+                priceBreakdown: JSON.stringify(item.pricingSnapshot || {}),
+                status: "ORDERED",
+              })
+              .returning({ id: Design.id });
+            if (design && rowIds[idx]) {
+              await db.update(OrderItem).set({ designId: (design as any).id }).where(eq(OrderItem.id, rowIds[idx]));
+            }
+          } catch (e: any) {
+            // Arsip best-effort: checkout TETAP sukses (produksi fallback lama).
+            console.warn("Arsip desain order gagal:", orderRow.id, e?.message);
+          }
+        })
       );
       await db.insert(OrderStatusEvent).values({
         id: nanoid(),

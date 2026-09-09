@@ -41,8 +41,10 @@ export default function OrderInspector3D({ seed }: { seed: InspectorSeed | null 
       cur.setSelectedSize(snap.selectedSize);
       cur.loadDecals(snap.decals);
     };
+    // Seed sebagai dep: ganti order = ganti desain (audit: deps [] basi).
+    // Snapshot diambil dari state saat seed berubah (bukan snapshot lama).
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [seed]);
 
   return <CanvasStage camPos={camPos} lookAtPos={lookAt} />;
 }

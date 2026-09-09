@@ -1,10 +1,13 @@
 "use client";
 
-import React from 'react';
+import React, { useState } from 'react';
 import { Printer, Download, X, FileText } from 'lucide-react';
 import { BottomSheet, HapticButton, Badge } from '@/components/ui';
 import { generateTechPackHtml, TechPackData } from '@/lib/techpack/generateTechPack';
 import { haptic } from '@/lib/bridge/haptics';
+import { Filesystem, Directory } from '@capacitor/filesystem';
+import { Share } from '@capacitor/share';
+import { Capacitor } from '@capacitor/core';
 
 export function TechPackModal({
   open,
@@ -17,16 +20,42 @@ export function TechPackModal({
 }) {
   const htmlContent = generateTechPackHtml(data);
 
-  const handlePrintOrDownload = () => {
+  const [busy, setBusy] = useState(false);
+  const [msg, setMsg] = useState<string | null>(null);
+
+  const handlePrintOrDownload = async () => {
     haptic.tapHeavy();
-    const win = window.open('', '_blank');
-    if (win) {
-      win.document.write(htmlContent);
-      win.document.close();
-      win.focus();
-      setTimeout(() => {
-        win.print();
-      }, 300);
+    setMsg(null);
+    // WebView tak bisa window.open+print (audit: no-op di Android) → simpan
+    // HTML ke file + Share sheet native (atau unduh di browser).
+    try {
+      setBusy(true);
+      const fileName = `techpack-${data.orderId.replace(/[^A-Za-z0-9-]/g, '') || 'order'}.html`;
+      if (Capacitor.isNativePlatform()) {
+        const saved = await Filesystem.writeFile({
+          path: fileName,
+          data: btoa(unescape(encodeURIComponent(htmlContent))),
+          directory: Directory.Cache,
+        });
+        await Share.share({
+          title: 'Tech Pack DTF',
+          text: `Lembar spesifikasi ${data.orderId}`,
+          url: saved.uri,
+          dialogTitle: 'Bagikan / cetak tech pack',
+        });
+      } else {
+        const blob = new Blob([htmlContent], { type: 'text/html' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = fileName;
+        a.click();
+        setTimeout(() => URL.revokeObjectURL(url), 5000);
+      }
+    } catch (e: any) {
+      setMsg(e?.message || 'Gagal simpan tech pack');
+    } finally {
+      setBusy(false);
     }
   };
 
@@ -71,12 +100,14 @@ export function TechPackModal({
           hapticStyle="success"
           icon={<Printer className="w-4 h-4" />}
           onClick={handlePrintOrDownload}
+          loading={busy}
           className="w-full py-4 text-sm font-bold shadow-xl shadow-orange-600/40"
         >
-          Cetak / Simpan PDF (Dialog Sistem)
+          Simpan & Bagikan Tech Pack
         </HapticButton>
+        {msg && <p className="text-[11px] text-rose-300 text-center">{msg}</p>}
         <p className="text-[10px] text-zinc-500 text-center">
-          Di Android pilih “Simpan sebagai PDF”; di workshop colok printer thermal/inkjet.
+          Tersimpan sebagai file HTML — bagikan via WA atau buka di browser lalu cetak PDF.
         </p>
       </div>
     </BottomSheet>

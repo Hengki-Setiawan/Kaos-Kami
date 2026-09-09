@@ -10,10 +10,13 @@ interface Props {
 interface State {
   hasError: boolean;
   message: string;
+  // Key remount: retry tanpa ini = cache drei lempar error yang sama lagi
+  // (audit: loop crash instan). Key baru = pohon 3D dibangun ulang bersih.
+  retryKey: number;
 }
 
 export class ModelErrorBoundary extends React.Component<Props, State> {
-  state: State = { hasError: false, message: "" };
+  state: State = { hasError: false, message: "", retryKey: 0 };
 
   static getDerivedStateFromError(error: unknown) {
     return { hasError: true, message: error instanceof Error ? error.message : String(error) };
@@ -24,10 +27,16 @@ export class ModelErrorBoundary extends React.Component<Props, State> {
     console.error("[kaos-kami] Model 3D gagal:", error);
   }
 
-  private retry = () => this.setState({ hasError: false, message: "" });
+  private retry = () => {
+    // Bersihkan cache GLB drei agar fetch+parse diulang (bukan rethrow).
+    import("@react-three/drei")
+      .then((m: any) => m?.useGLTF?.clear?.())
+      .catch(() => {});
+    this.setState((s) => ({ hasError: false, message: "", retryKey: s.retryKey + 1 }));
+  };
 
   render() {
-    if (!this.state.hasError) return this.props.children;
+    if (!this.state.hasError) return <React.Fragment key={this.state.retryKey}>{this.props.children}</React.Fragment>;
     // Retry dulu; fallback hanya bila user menyerah.
     return (
       <div className="flex flex-col items-center justify-center gap-3 p-6 text-center font-mono text-xs">

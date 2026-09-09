@@ -10,7 +10,9 @@ export async function DELETE(req: NextRequest) {
   try {
     const viewer = await getAuthenticatedUser().catch(() => null);
     if (!viewer) return NextResponse.json({ error: "Unauthorized: silakan login" }, { status: 401 });
-    const { id } = z.object({ id: z.string().min(1) }).parse(await req.json().catch(() => ({})));
+    const parsed = z.object({ id: z.string().min(1).max(64) }).safeParse(await req.json().catch(() => ({})));
+    if (!parsed.success) return NextResponse.json({ error: "ID alamat tidak valid" }, { status: 400 });
+    const { id } = parsed.data;
     const addr = await db.query.Address.findFirst({
       where: (t, { eq }) => eq(t.id, id),
       columns: { id: true, userId: true },

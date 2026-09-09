@@ -4,7 +4,7 @@ import { nanoid } from "nanoid";
 import { eq } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { siteUrl } from "@/lib/siteUrl";
-import { Address, Order, OrderItem, OrderStatusEvent, Payment, User } from "@/lib/drizzle-schema";
+import { Address, ApparelCategory, Design, Order, OrderItem, OrderStatusEvent, Payment, User } from "@/lib/drizzle-schema";
 import { calculate6VariablePrice } from "@/lib/pricingEngine";
 import { PRODUCT_COLORS } from "@/lib/constants";
 import { duitkuProvider } from "@/lib/payments/duitku";
@@ -140,6 +140,10 @@ export async function POST(req: NextRequest) {
       }
     }
     const totalIdr = subtotalIdr - discountIdr + shippingIdr;
+    // Paritas web: batas wajar transaksi tunggal (audit).
+    if (!Number.isSafeInteger(totalIdr) || totalIdr < 10000 || totalIdr > 500_000_000) {
+      return NextResponse.json({ error: "Total transaksi di luar batas wajar" }, { status: 400 });
+    }
     const cleanPhone = phoneNumber.replace(/[^0-9]/g, "");
     const guestEmail = email || `${cleanPhone}@kaoskami.customer`;
 
@@ -192,7 +196,11 @@ export async function POST(req: NextRequest) {
             discountIdr,
             totalIdr,
             shippingAddressId: address?.id,
-            courierNotes: [courierNotes, expeditionLabel].filter(Boolean).join(" | ") || undefined,
+            courierNotes: [courierNotes, expeditionLabel]
+              .filter(Boolean)
+              .join(" | ")
+              .replace(/\[TIER:[^\]]*\]/g, "")
+              .trim() || undefined,
           })
           .returning();
         createdOrder = row!;
@@ -205,7 +213,7 @@ export async function POST(req: NextRequest) {
     const orderRow = createdOrder;
     // Kompensasi order yatim (lihat checkout web untuk alasan).
     try {
-      await db.insert(OrderItem).values(
+      const insertedItems = await db.insert(OrderItem).values(
         validatedItems.map((item) => ({
           id: nanoid(),
           orderId: orderRow.id,
@@ -216,6 +224,41 @@ export async function POST(req: NextRequest) {
           snapshotSize: item.size,
           snapshotColorName: item.colorName,
         })),
+      ).returning({ id: OrderItem.id });
+      // Arsip desain kustom (sama seperti checkout web — produksi butuh decals).
+      const rowIds = (insertedItems as any[]).map((r: any) => r.id);
+      await Promise.all(
+        validatedItems.map(async (item, idx) => {
+          if (!Array.isArray(item.decals) || item.decals.length === 0) return;
+          try {
+            const cat = await db.query.ApparelCategory.findFirst({
+              where: (t, { eq }) => eq(t.slug, item.apparelSlug),
+              columns: { id: true },
+            });
+            if (!cat) return;
+            const [design] = await db
+              .insert(Design)
+              .values({
+                id: nanoid(),
+                userId: user.id,
+                categoryId: cat.id,
+                title: item.title || `Custom ${item.apparelSlug.toUpperCase()} ${orderRow.orderNumber}`,
+                colorHex: item.colorHex,
+                colorName: item.colorName,
+                size: item.size,
+                decals: JSON.stringify(item.decals),
+                calculatedPriceIdr: item.lineTotalIdr,
+                priceBreakdown: JSON.stringify(item.pricingSnapshot || {}),
+                status: "ORDERED",
+              })
+              .returning({ id: Design.id });
+            if (design && rowIds[idx]) {
+              await db.update(OrderItem).set({ designId: (design as any).id }).where(eq(OrderItem.id, rowIds[idx]));
+            }
+          } catch (e: any) {
+            console.warn("Arsip desain mobile gagal:", orderRow.id, e?.message);
+          }
+        })
       );
       await db.insert(OrderStatusEvent).values({
         id: nanoid(),

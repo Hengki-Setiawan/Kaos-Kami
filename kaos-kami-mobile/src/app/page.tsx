@@ -43,7 +43,7 @@ import {
   openInAppBrowser,
 } from '@/lib/bridge';
 import { initOfflineSyncQueue, enqueueOfflineMutation } from '@/lib/offline/syncQueue';
-import { mobileApiClient } from '@/lib/api/mobileApiClient';
+import { mobileApiClient, API_BASE_URL } from '@/lib/api/mobileApiClient';
 import { SHOP_WHATSAPP } from '@/lib/shop';
 import { App as CapacitorApp } from '@capacitor/app';
 import { Keyboard } from '@capacitor/keyboard';
@@ -123,10 +123,13 @@ export default function MobileApp() {
       return null;
     }
   });
+  const [pendingInvoiceUrl, setPendingInvoiceUrl] = useState<string | null>(null);
 
-  const persistActiveOrder = (orderId: string | null, paymentUrl?: string | null) => {
+  const persistActiveOrder = (orderId: string | null, urls?: { paymentUrl?: string | null; invoiceUrl?: string | null }) => {
+    const paymentUrl = urls?.paymentUrl ?? null;
     setActiveOrderId(orderId);
-    setPendingPaymentUrl(paymentUrl ?? null);
+    setPendingPaymentUrl(paymentUrl);
+    setPendingInvoiceUrl(urls?.invoiceUrl ?? null);
     try {
       if (orderId) localStorage.setItem('kaoskami_active_order', orderId);
       else localStorage.removeItem('kaoskami_active_order');
@@ -184,15 +187,46 @@ export default function MobileApp() {
       () => {}
     );
     // Deep link kaoskami:// (M9): tile QS & return pembayaran.
+    // Parse query (?orderId&status) + bersihkan pending basi (audit).
     let appUrlListener: { remove: () => void } | null = null;
     try {
-      CapacitorApp.addListener('appUrlOpen', (data: { url: string }) => {
+      CapacitorApp.addListener('appUrlOpen', async (data: { url: string }) => {
         const url = data.url || '';
         if (url.startsWith('kaoskami://studio')) {
           setActiveTab('studio');
+        } else if (url.startsWith('kaoskami://auth/callback')) {
+          // Kembali dari login Google: tutup browser + segarkan status login.
+          try {
+            const { closeInAppBrowser } = await import('@/lib/bridge/browser');
+            await closeInAppBrowser();
+          } catch {}
+          setToastMessage('Login berhasil. Memuat akun…');
+          setActiveTab('profile');
         } else if (url.startsWith('kaoskami://payment')) {
-          setActiveTab('orders');
-          setToastMessage('Kembali dari pembayaran. Status diperbarui otomatis.');
+          try {
+            const q = url.split('?')[1] || '';
+            const params = new URLSearchParams(q);
+            const oid = params.get('orderId');
+            const st = (params.get('status') || '').toUpperCase();
+            if (oid) {
+              persistActiveOrder(oid);
+              setActiveTab('orders');
+              if (st === 'COMPLETED' || st === 'CANCELLED') {
+                try { localStorage.removeItem('kaoskami_pending_payment'); } catch {}
+                setPendingPaymentUrl(null);
+              }
+              setToastMessage(
+                st === 'COMPLETED' ? 'Pembayaran sukses. Pesanan masuk produksi.' :
+                st === 'CANCELLED' ? 'Pembayaran dibatalkan.' :
+                'Kembali dari pembayaran. Status diperbarui otomatis.'
+              );
+            } else {
+              setActiveTab('orders');
+              setToastMessage('Kembali dari pembayaran. Status diperbarui otomatis.');
+            }
+          } catch {
+            setActiveTab('orders');
+          }
         }
       }).then((h) => {
         appUrlListener = h;
@@ -639,7 +673,6 @@ export default function MobileApp() {
                 Simulasi iOS Dynamic Island & Lock Screen
               </p>
               <DynamicIslandPreview
-                status="PENDING_PAYMENT"
                 orderNumber={activeOrderId ? `#${activeOrderId.slice(-6).toUpperCase()}` : '#-'}
                 apparelTitle="Pesanan Sablon DTF"
               />
@@ -660,6 +693,15 @@ export default function MobileApp() {
                     className="w-full py-3 text-xs font-bold"
                   >
                     Lanjutkan Pembayaran
+                  </HapticButton>
+                )}
+                {!pendingPaymentUrl && pendingInvoiceUrl && (
+                  <HapticButton
+                    variant="secondary"
+                    onClick={() => openDuitkuPaymentModal(pendingInvoiceUrl)}
+                    className="w-full py-3 text-xs font-bold"
+                  >
+                    Buka Invoice (Bayar Manual via WA)
                   </HapticButton>
                 )}
               </>
@@ -739,7 +781,9 @@ export default function MobileApp() {
                 hapticStyle="tapMedium"
                 onClick={() => {
                   haptic.tap();
-                  openInAppBrowser('https://kaos-kami-3d.hengkisetiawan461.workers.dev/api/auth/signin/google');
+                  // Callback kembali via deeplink kaoskami://auth/callback
+                  // (ditangani appUrlOpen → sesi dibaca ulang).
+                  openInAppBrowser(`${API_BASE_URL}/api/auth/signin/google?callbackURL=kaoskami://auth/callback`);
                 }}
                 className="w-full flex items-center justify-center gap-2.5 py-3 border-zinc-700/80 hover:border-[#FF6B35]/60 text-xs font-bold"
               >
@@ -858,12 +902,12 @@ export default function MobileApp() {
       <CheckoutSheet
         open={checkoutOpen}
         onOpenChange={setCheckoutOpen}
-        onOrderSuccess={(orderId, paymentUrl) => {
-          persistActiveOrder(orderId, paymentUrl);
+        onOrderSuccess={(orderId, urls) => {
+          persistActiveOrder(orderId, urls);
           setActiveTab('orders');
           triggerToast(
-            paymentUrl
-              ? 'Pesanan dibuat! Selesaikan pembayaran QRIS/VA.'
+            urls.paymentUrl
+              ? 'Pesanan dibuat! Selesaikan pembayaran QRIS.'
               : 'Pesanan tersimpan! Pantau status di tab Pesanan.'
           );
         }}
@@ -937,7 +981,7 @@ export default function MobileApp() {
       <TabBar
         activeTab={activeTab}
         onTabChange={setActiveTab}
-        orderBadgeCount={items.length > 0 ? items.length : 1}
+        orderBadgeCount={items.length}
       />
     </div>
   );

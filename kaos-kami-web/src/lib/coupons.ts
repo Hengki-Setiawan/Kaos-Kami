@@ -26,19 +26,22 @@ export async function validateCoupon(rawCode: string, subtotalIdr: number): Prom
     throw new Error("Kuota kupon habis");
   const discountIdr =
     coupon.discountType === "PERCENT"
-      ? Math.floor((subtotalIdr * coupon.discountValue) / 100)
+      ? Math.min(subtotalIdr, Math.floor((subtotalIdr * coupon.discountValue) / 100))
       : Math.min(coupon.discountValue, subtotalIdr);
   return { couponId: coupon.id, code: coupon.code, discountIdr };
 }
 
 /** Tambah usedCount atomik (gagal false jika kuota habis tepat bersamaan). */
 export async function consumeCoupon(code: string): Promise<boolean> {
+  // Normalisasi SAMA seperti validate (audit: lowercase lolos kuota selamanya).
+  const norm = code.trim().toUpperCase();
+  if (!norm) return false;
   const res = await db
     .update(Coupon)
     .set({ usedCount: sql`${Coupon.usedCount} + 1` })
     .where(
       and(
-        eq(Coupon.code, code),
+        eq(Coupon.code, norm),
         or(isNull(Coupon.maxUses), lt(Coupon.usedCount, Coupon.maxUses))
       )
     );

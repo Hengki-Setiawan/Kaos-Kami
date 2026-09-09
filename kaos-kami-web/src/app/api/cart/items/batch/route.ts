@@ -71,7 +71,39 @@ export async function POST(req: NextRequest) {
           skipped++;
           continue;
         }
-        unitPriceIdr = d.calculatedPriceIdr;
+        // Desain harus milik sendiri (audit: tambah desain orang ke cart).
+        try {
+          await assertResourceOwnerOrAdmin(d.userId || userId);
+        } catch {
+          skipped++;
+          continue;
+        }
+        // Harga dihitung ULANG dari decals (audit: harga tersimpan bisa
+        // diracuni via save/claim lama) — jangan percaya kolom DB.
+        try {
+          const { calculate6VariablePrice } = await import("@/lib/pricingEngine");
+          const { PRODUCT_COLORS } = await import("@/lib/constants");
+          const { ApparelCategory } = await import("@/lib/drizzle-schema");
+          const cat = await db.query.ApparelCategory.findFirst({
+            where: (t, { eq: e }) => e(t.id, (d as any).categoryId),
+          });
+          const decals = JSON.parse((d as any).decals || "[]");
+          const matched = PRODUCT_COLORS.find(
+            (c: any) => String(c.hex).toLowerCase() === String((d as any).colorHex).toLowerCase()
+          );
+          const pricing = calculate6VariablePrice({
+            apparelSlug: (cat?.slug || "tshirt") as any,
+            size: (d as any).size || "L",
+            colorHex: (d as any).colorHex || "#121214",
+            isSpecialPigment: !!matched?.isSpecialPigment,
+            decals: Array.isArray(decals) ? decals : [],
+            quantity: 1,
+          });
+          unitPriceIdr = pricing.totalPriceIdr;
+        } catch {
+          skipped++;
+          continue;
+        }
       }
       if (unitPriceIdr == null) {
         skipped++;

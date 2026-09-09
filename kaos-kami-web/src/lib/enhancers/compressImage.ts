@@ -57,7 +57,7 @@ export function compressImageClient(
             format: "jpeg",
             width: img.width,
             height: img.height,
-            previewDpiAt30cm: Math.round(Math.max(img.width, img.height) / (30 / 2.54)),
+            previewDpiAt30cm: Math.round(Math.min(img.width, img.height) / (30 / 2.54)),
           });
           return;
         }
@@ -79,7 +79,9 @@ export function compressImageClient(
           format: srcIsPng ? "png" : "jpeg",
           width,
           height,
-          previewDpiAt30cm: Math.round(Math.max(width, height) / (30 / 2.54)),
+          // Sumbu TERKECIL (audit: long-side menipu 2x untuk portrait —
+          // konsisten dengan dpiAnalyzer 2-sumbu).
+          previewDpiAt30cm: Math.round(Math.min(width, height) / (30 / 2.54)),
         });
       };
 

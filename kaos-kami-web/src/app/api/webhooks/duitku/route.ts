@@ -5,9 +5,17 @@ import { db } from "@/lib/db";
 import { OrderStatusEvent, Payment } from "@/lib/drizzle-schema";
 import { duitkuProvider } from "@/lib/payments/duitku";
 import { confirmOrderPaid } from "@/lib/payments/confirmOrder";
+import { checkRateLimitAsync, getClientIp, rateLimitHeaders } from "@/lib/security/rateLimiter";
+
+const MAX_WEBHOOK_BYTES = 16 * 1024;
 
 export async function POST(req: NextRequest) {
   try {
+    // Throttle + cap body (audit: callback palsu tiap hit = query DB).
+    const rl = await checkRateLimitAsync(`webhook:ip:${getClientIp(req)}`, 30, 60);
+    if (rl.isLimited) {
+      return NextResponse.json({ error: "Rate limited" }, { status: 429, headers: rateLimitHeaders(rl, 30) });
+    }
     let payload: Record<string, any> = {};
 
     const contentType = req.headers.get("content-type") || "";
@@ -15,10 +23,21 @@ export async function POST(req: NextRequest) {
     if (contentType.includes("application/x-www-form-urlencoded")) {
       const formData = await req.formData();
       formData.forEach((value, key) => {
-        payload[key] = value.toString();
+        payload[key] = value.toString().slice(0, 512);
       });
     } else {
-      payload = await req.json();
+      const text = await req.text();
+      if (text.length > MAX_WEBHOOK_BYTES) {
+        return NextResponse.json({ error: "Payload too large" }, { status: 413 });
+      }
+      try {
+        payload = JSON.parse(text);
+      } catch {
+        return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
+      }
+      if (typeof payload !== "object" || payload === null || Array.isArray(payload)) {
+        return NextResponse.json({ error: "Invalid payload" }, { status: 400 });
+      }
     }
 
     const {
@@ -113,7 +132,7 @@ export async function POST(req: NextRequest) {
 
     return new Response("SUCCESS", { status: 200 });
   } catch (error: any) {
-    console.error("Duitku Webhook Exception:", error);
-    return NextResponse.json({ error: error?.message || "Webhook processing error" }, { status: 500 });
+    console.error("Duitku Webhook Exception:", error?.message || error);
+    return NextResponse.json({ error: "Webhook processing error" }, { status: 500 });
   }
 }

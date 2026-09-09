@@ -100,6 +100,13 @@ export default async function JobTicketPage({ params }: JobTicketPageProps) {
               </tr>
             </thead>
             <tbody>
+              {order.productionTasks.length === 0 && (
+                <tr>
+                  <td colSpan={5} className="p-4 border border-black text-center font-bold">
+                    UKUR ULANG — belum ada task produksi (order belum lunas / task belum spawn)
+                  </td>
+                </tr>
+              )}
               {/* Satu baris per TASK produksi (= per sisi sablon), bukan per item —
                   sablon lengan/hood kini terlihat operator (Fase 25). */}
               {order.productionTasks.map((task: any, idx: number) => {

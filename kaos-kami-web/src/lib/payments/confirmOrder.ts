@@ -14,7 +14,7 @@ export type ConfirmResult = "confirmed" | "already" | "not-pending";
 
 export async function confirmOrderPaid(
   orderId: string,
-  opts: { paymentCode?: string; reference?: string; via: string }
+  opts: { paymentCode?: string; reference?: string; via: string; express?: boolean }
 ): Promise<ConfirmResult> {
   const order = await db.query.Order.findFirst({
     where: (t, { eq }) => eq(t.id, orderId),
@@ -38,6 +38,12 @@ export async function confirmOrderPaid(
     note: `Pembayaran Duitku lunas via ${paymentCode || "Duitku"} (Ref: ${reference || "-"}, via ${via}).`,
   });
 
+  // Prioritas antrean dari tier TERSTRUKTUR (audit: substring "EXPRESS" di
+  // notes bisa ditulis pembeli untuk nyerobot tanpa bayar surcharge).
+  // Sumber: opts eksplisit > marker server [TIER:EXPRESS_24H] (user tak bisa
+  // tulis pola ini — checkout menghapusnya dari notes).
+  const isExpress =
+    opts.express === true || order.courierNotes?.includes("[TIER:EXPRESS_24H]") === true;
   // Spawn ProductionTask PER DECAL (bukan per item — audit lengan/hood:
   // sebelumnya hanya decal pertama yang masuk produksi, sablon lengan/hood
   // tak terlihat admin). Item katalog tanpa desain = 1 task default.
@@ -55,7 +61,7 @@ export async function confirmOrderPaid(
         orderId: order.id,
         orderItemId: item.id,
         stage: "DESIGN_PREP",
-        priority: order.courierNotes?.includes("EXPRESS") ? 10 : 0,
+        priority: isExpress ? 10 : 0,
         notes: `Item: ${item.snapshotName} (${item.snapshotSize}, ${item.snapshotColorName}) — ${opts.label}`,
         printWidthCm: opts.widthCm,
         printHeightCm: opts.heightCm,
@@ -97,11 +103,14 @@ export async function confirmOrderPaid(
               let heightCm = 16.0;
               let offsetCm = 7.5;
               try {
+                const pw = Number((d as any)?.printPx?.w);
+                const ph = Number((d as any)?.printPx?.h);
+                const aspect = pw > 0 && ph > 0 ? pw / ph : 1.0;
                 const dims = computePhysicalPrintDimensions(
                   cat?.slug || "tshirt",
                   d?.scale ?? 0.11,
                   d?.y ?? -0.05,
-                  1.0,
+                  aspect,
                   side as any
                 );
                 widthCm = dims.widthCm;
@@ -115,7 +124,8 @@ export async function confirmOrderPaid(
                 widthCm,
                 heightCm,
                 offsetCm,
-                masterUrl: masterMap[side] || masterMap.front || null,
+                // TANPA fallback front (audit: artwork dada pernah ke-press di hood).
+                masterUrl: masterMap[side] || null,
                 label: `${side} — ${d?.name || "sablon"}`,
               });
               spawned++;

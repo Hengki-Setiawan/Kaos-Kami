@@ -94,8 +94,16 @@ export function calculate6VariablePrice(input: CalculatePricingInput): PricingBr
   const sleeveSurchargeIdr = isLongsleeve ? 20000 : 0;
 
   // 4. Per-Decal Print Area Tier (SSOT printTiers.ts, terkalibrasi Maks 30cm DTF)
+  // Aspek RIIL dari printPx bila ada (audit: aspect 1.0 hardcoded = undercharge
+  // artwork portrait + dimensi workshop salah).
+  const aspectOf = (d: any): number => {
+    const w = Number(d?.printPx?.w);
+    const h = Number(d?.printPx?.h);
+    if (w > 0 && h > 0) return w / h;
+    return 1.0;
+  };
   const decalLayers = decals.map((d, index) => {
-    const physical = computePhysicalPrintDimensions(apparelSlug, d.scale, d.y, 1.0, d.targetSide);
+    const physical = computePhysicalPrintDimensions(apparelSlug, d.scale, d.y, aspectOf(d), d.targetSide);
     const maxDimension = Math.max(physical.widthCm, physical.heightCm);
 
     const tier = classifyPrintTierByCm(maxDimension);
@@ -133,9 +141,11 @@ export function calculate6VariablePrice(input: CalculatePricingInput): PricingBr
     sizeSurchargeIdr +
     colorTreatmentSurchargeIdr;
 
-  // 6. Volume Wholesale Discounts
+  // 6. Volume Wholesale Discounts (Blueprint 01 §10: 6+ = 5%, 13+ = 12%, >50 = 20%).
+  // Batas ATAS eksklusif: qty=50 tepat masih 12% (audit: >=50 memberi 20%
+  // senilai 800rb/order — ikut spek tertulis).
   let discountPercentage = 0;
-  if (quantity >= 50) discountPercentage = 20; // Partai Besar / Event
+  if (quantity > 50) discountPercentage = 20; // Partai Besar / Event
   else if (quantity >= 13) discountPercentage = 12; // Komunitas / Kelas
   else if (quantity >= 6) discountPercentage = 5; // Lusinan Mini-Bulk
 

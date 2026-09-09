@@ -60,17 +60,26 @@ export default function AdminShippingPage() {
 
   const post = async (url: string, method: string, body?: any) => {
     setMsg(null);
-    const res = await fetch(url, {
-      method,
-      headers: { "Content-Type": "application/json" },
-      body: body ? JSON.stringify(body) : undefined,
-    });
-    const data = await res.json().catch(() => ({}));
-    if (!res.ok) {
-      setMsg(data.error || "Gagal simpan");
+    try {
+      const ctrl = new AbortController();
+      const t = setTimeout(() => ctrl.abort(), 15000);
+      const res = await fetch(url, {
+        method,
+        headers: { "Content-Type": "application/json" },
+        signal: ctrl.signal,
+        body: body ? JSON.stringify(body) : undefined,
+      });
+      clearTimeout(t);
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setMsg(data.error || "Gagal simpan");
+        return null;
+      }
+      return data;
+    } catch {
+      setMsg("Gagal koneksi server");
       return null;
     }
-    return data;
   };
 
   const handleAdd = async (e: React.FormEvent) => {
@@ -157,12 +166,12 @@ export default function AdminShippingPage() {
 
       {/* Tambah zona */}
       <form onSubmit={handleAdd} className="p-4 rounded-xl bg-surface/50 border border-white/5 grid grid-cols-2 sm:grid-cols-4 gap-2 font-mono text-xs">
-        <input value={form.city} onChange={(e) => setForm({ ...form, city: e.target.value })} placeholder="Kota *" required className="px-2 py-2 rounded-lg bg-black/40 border border-white/10 text-white" />
-        <input value={form.province} onChange={(e) => setForm({ ...form, province: e.target.value })} placeholder="Provinsi *" required className="px-2 py-2 rounded-lg bg-black/40 border border-white/10 text-white" />
-        <input value={form.courier} onChange={(e) => setForm({ ...form, courier: e.target.value })} placeholder="Kurir (JNE/J&T) *" required className="px-2 py-2 rounded-lg bg-black/40 border border-white/10 text-white" />
-        <input value={form.service} onChange={(e) => setForm({ ...form, service: e.target.value })} placeholder="Layanan (REG) *" required className="px-2 py-2 rounded-lg bg-black/40 border border-white/10 text-white" />
-        <input type="number" value={form.costIdr} onChange={(e) => setForm({ ...form, costIdr: Number(e.target.value) })} placeholder="Ongkir Rp *" required min={0} className="px-2 py-2 rounded-lg bg-black/40 border border-white/10 text-white" />
-        <input value={form.etdLabel} onChange={(e) => setForm({ ...form, etdLabel: e.target.value })} placeholder="Estimasi (2-3 hari) *" required className="px-2 py-2 rounded-lg bg-black/40 border border-white/10 text-white" />
+        <input value={form.city} onChange={(e) => setForm({ ...form, city: e.target.value })} placeholder="Kota *" required aria-label="Kota tujuan" className="px-2 py-2 rounded-lg bg-black/40 border border-white/10 text-white" />
+        <input value={form.province} onChange={(e) => setForm({ ...form, province: e.target.value })} placeholder="Provinsi *" required aria-label="Provinsi" className="px-2 py-2 rounded-lg bg-black/40 border border-white/10 text-white" />
+        <input value={form.courier} onChange={(e) => setForm({ ...form, courier: e.target.value })} placeholder="Kurir (JNE/J&T) *" required aria-label="Kurir" className="px-2 py-2 rounded-lg bg-black/40 border border-white/10 text-white" />
+        <input value={form.service} onChange={(e) => setForm({ ...form, service: e.target.value })} placeholder="Layanan (REG) *" required aria-label="Layanan kurir" className="px-2 py-2 rounded-lg bg-black/40 border border-white/10 text-white" />
+        <input type="number" value={form.costIdr} onChange={(e) => setForm({ ...form, costIdr: Number(e.target.value) })} placeholder="Ongkir Rp *" required min={0} aria-label="Ongkir rupiah" className="px-2 py-2 rounded-lg bg-black/40 border border-white/10 text-white" />
+        <input value={form.etdLabel} onChange={(e) => setForm({ ...form, etdLabel: e.target.value })} placeholder="Estimasi (2-3 hari) *" required aria-label="Estimasi tiba" className="px-2 py-2 rounded-lg bg-black/40 border border-white/10 text-white" />
         <button type="submit" className="col-span-2 sm:col-span-2 px-3 py-2 rounded-lg bg-brand-accent text-canvas font-bold">
           + TAMBAH ZONA
         </button>
@@ -207,6 +216,7 @@ export default function AdminShippingPage() {
                         <input
                           type="number"
                           value={ed.costIdr}
+                          aria-label={`Ongkir ${z.city} ${z.courier}`}
                           onChange={(e) =>
                             setEdits({ ...edits, [z.id]: { ...ed, costIdr: Number(e.target.value) } })
                           }
@@ -220,6 +230,7 @@ export default function AdminShippingPage() {
                       {ed ? (
                         <input
                           value={ed.etdLabel}
+                          aria-label={`Estimasi ${z.city} ${z.courier}`}
                           onChange={(e) =>
                             setEdits({ ...edits, [z.id]: { ...ed, etdLabel: e.target.value } })
                           }

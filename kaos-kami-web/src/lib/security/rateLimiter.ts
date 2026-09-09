@@ -16,16 +16,20 @@
 
 interface RateLimitRecord {
   timestamps: number[];
+  windowMs: number;
 }
 
 const rateLimitStore = new Map<string, RateLimitRecord>();
 
-// Cleanup stale entries every 10 minutes to prevent memory leak
+// Cleanup stale entries every 10 minutes to prevent memory leak.
+// Prune memakai windowMs TERPANJANG per key (audit: janitor 600000 tetap
+// menghapus histori window 3600s = kuota ~6x untuk repay/order).
 if (typeof setInterval !== "undefined") {
   setInterval(() => {
     const now = Date.now();
     for (const [key, record] of rateLimitStore.entries()) {
-      record.timestamps = record.timestamps.filter((ts) => now - ts < 600000);
+      const keep = Math.max(600000, record.windowMs || 0);
+      record.timestamps = record.timestamps.filter((ts) => now - ts < keep);
       if (record.timestamps.length === 0) {
         rateLimitStore.delete(key);
       }
@@ -59,7 +63,7 @@ export function checkRateLimit(
   const now = Date.now();
   const windowMs = windowSeconds * 1000;
 
-  const record = rateLimitStore.get(key) || { timestamps: [] };
+  const record = rateLimitStore.get(key) || { timestamps: [], windowMs: 0 };
 
   // Filter out timestamps older than the window
   const validTimestamps = record.timestamps.filter((ts) => now - ts < windowMs);
@@ -76,7 +80,7 @@ export function checkRateLimit(
   }
 
   validTimestamps.push(now);
-  rateLimitStore.set(key, { timestamps: validTimestamps });
+  rateLimitStore.set(key, { timestamps: validTimestamps, windowMs });
 
   return {
     isLimited: false,

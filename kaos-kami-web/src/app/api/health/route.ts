@@ -1,10 +1,16 @@
 import { NextResponse } from "next/server";
 import { sql } from "drizzle-orm";
 import { db } from "@/lib/db";
+import { checkRateLimitAsync, getClientIp } from "@/lib/security/rateLimiter";
 
 // Health jujur (audit N13): DB tulis-baca + latensi + status KV/R2,
 // no-store anti-cache, tanpa bocor rahasia (hanya ok/gagal + ms).
-export async function GET() {
+export async function GET(req: Request) {
+  // Throttle: tiap hit = 3 query tulis (audit: tanpa batas = amplifikasi DB).
+  const rl = await checkRateLimitAsync(`health:ip:${getClientIp(req)}`, 10, 60);
+  if (rl.isLimited) {
+    return NextResponse.json({ status: "limited" }, { status: 429, headers: { "Cache-Control": "no-store" } });
+  }
   const started = Date.now();
   const checks: Record<string, { ok: boolean; ms?: number; note?: string }> = {};
 

@@ -15,6 +15,7 @@ import {
   ExternalLink,
 } from "lucide-react";
 import { signOut } from "@/lib/auth-client";
+import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { useState } from "react";
 
 const LINKS = [
@@ -34,14 +35,19 @@ export function AdminNav({ role }: { role: string }) {
   const pathname = usePathname();
   const router = useRouter();
   const [busy, setBusy] = useState(false);
+  const [askingLogout, setAskingLogout] = useState(false);
 
   const logout = async () => {
     if (busy) return;
-    if (!confirm("Keluar dari panel admin?")) return;
+    setAskingLogout(false);
     setBusy(true);
     try {
       await signOut();
-    } catch {}
+    } catch {
+      // Tetap keluar sisi client walau server gagal.
+    } finally {
+      setBusy(false);
+    }
     router.push("/");
     router.refresh();
   };
@@ -100,13 +106,22 @@ export function AdminNav({ role }: { role: string }) {
           </div>
         </div>
         <button
-          onClick={logout}
+          onClick={() => setAskingLogout(true)}
           disabled={busy}
           className="w-full flex items-center justify-center gap-2 px-3 py-2 rounded-xl bg-white/5 border border-white/10 text-text-muted hover:text-rose-300 hover:border-rose-500/40 transition-all disabled:opacity-50"
         >
           <LogOut size={14} />
           <span>{busy ? "KELUAR…" : "KELUAR PANEL"}</span>
         </button>
+        <ConfirmDialog
+          open={askingLogout}
+          title="Keluar panel?"
+          message="Sesi admin akan diakhiri di perangkat ini."
+          confirmLabel="YA, KELUAR"
+          busy={busy}
+          onConfirm={() => void logout()}
+          onCancel={() => setAskingLogout(false)}
+        />
       </div>
     </div>
   );

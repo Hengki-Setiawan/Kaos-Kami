@@ -5,6 +5,7 @@ import Link from "next/link";
 import { ShoppingBag, Sparkles, ArrowRight } from "lucide-react";
 import { useCartStore } from "@/store/useCartStore";
 import { useConfiguratorStore } from "@/store/useConfiguratorStore";
+import { isSafeImageUrl } from "@/lib/safeUrl";
 
 export const HomeCatalogSection: React.FC = () => {
   const [products, setProducts] = useState<any[]>([]);
@@ -91,12 +92,16 @@ export const HomeCatalogSection: React.FC = () => {
               <div className="relative aspect-[4/5] rounded-xl overflow-hidden bg-black/50">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
-                  src={Array.isArray(p.images) && p.images[0] ? p.images[0] : "/lookbook/look-01.jpg"}
+                  src={Array.isArray(p.images) && p.images[0] && isSafeImageUrl(p.images[0]) ? p.images[0] : "/lookbook/look-01.jpg"}
                   alt={p.name || "Produk Kaos Kami"}
                   width={600}
                   height={750}
                   className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
                   loading="lazy"
+                  onError={(e) => {
+                    const t = e.target as HTMLImageElement;
+                    if (!t.src.endsWith("/lookbook/look-01.jpg")) t.src = "/lookbook/look-01.jpg";
+                  }}
                 />
                 <span className="absolute top-2.5 left-2.5 px-2 py-0.5 rounded-full bg-black/70 backdrop-blur-md text-[10px] text-white font-bold border border-white/10">
                   {p.colorName} · Size {p.size}
@@ -108,7 +113,7 @@ export const HomeCatalogSection: React.FC = () => {
                   {p.name}
                 </h3>
                 <div className="mt-1 text-lg font-bold text-brand-accent">
-                  Rp {p.priceIdr.toLocaleString("id-ID")}
+                  Rp {Number(p.priceIdr || 0).toLocaleString("id-ID")}
                 </div>
               </div>
 

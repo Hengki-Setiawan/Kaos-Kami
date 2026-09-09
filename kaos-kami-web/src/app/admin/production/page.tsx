@@ -109,11 +109,21 @@ export default function ProductionKanbanPage() {
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
   );
 
-  const { data, isLoading, refetch } = useQuery<{ success: boolean; tasks: ProductionTaskItem[] }>({
+  const { data, isLoading, isError, refetch } = useQuery<{ success: boolean; tasks: ProductionTaskItem[] }>({
     queryKey: ["production-tasks"],
     queryFn: async () => {
-      const res = await fetch("/api/admin/production-tasks");
-      return res.json();
+      const ctrl = new AbortController();
+      const t = setTimeout(() => ctrl.abort(), 15000);
+      try {
+        const res = await fetch("/api/admin/production-tasks", { signal: ctrl.signal });
+        const data = await res.json().catch(() => null);
+        if (!res.ok || !data || data.error) {
+          throw new Error(data?.error || `Server ${res.status}`);
+        }
+        return data;
+      } finally {
+        clearTimeout(t);
+      }
     },
     refetchInterval: 10000,
   });
@@ -183,8 +193,7 @@ export default function ProductionKanbanPage() {
     moveTaskMutation.mutate({ taskId: activeId, stage: targetStage });
   };
 
-  const tasks = data?.tasks || [];
-
+  const tasks = (data?.tasks || []).filter((t) => t && t.order);
   const filteredTasks = tasks.filter((t) => {
     const q = searchTerm.trim().toLowerCase();
     if (!q) return true;
@@ -240,6 +249,14 @@ export default function ProductionKanbanPage() {
       )}
 
       {/* Kanban Board Horizontal Columns — Drag & Drop via @dnd-kit (BLUEPRINT-03 §3) */}
+      {isError && !isLoading && (
+        <div className="p-4 rounded-xl bg-rose-500/10 border border-rose-500/40 text-rose-300 font-mono text-xs flex items-center justify-between" role="alert">
+          <span>Gagal memuat antrean produksi. Periksa koneksi server.</span>
+          <button onClick={() => refetch()} className="px-4 py-2 rounded-lg bg-rose-500/20 font-bold">
+            COBA LAGI
+          </button>
+        </div>
+      )}
       {isLoading ? (
         <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-7 gap-4 pb-4 items-start" aria-busy="true" aria-label="Memuat antrean produksi">
           {STAGES.map((col) => (

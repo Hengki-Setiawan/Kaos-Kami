@@ -78,7 +78,7 @@ export default function CatalogPage() {
       size: product.size,
       colorName: product.colorName,
       colorHex: product.colorHex,
-      image: product.images[0] || "/lookbook/look-01.jpg",
+      image: (Array.isArray(product.images) && product.images[0]) || "/lookbook/look-01.jpg",
                       apparelSlug: product.category?.slug || "tshirt",
       productVariantId: product.id,
     });
@@ -211,7 +211,7 @@ export default function CatalogPage() {
                 <div className="relative aspect-[4/5] bg-[#0E0E10] overflow-hidden">
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img
-                    src={p.images[0] || "/lookbook/look-01.jpg"}
+                    src={(Array.isArray(p.images) && p.images[0]) || "/lookbook/look-01.jpg"}
                     alt={p.name}
                     width={800}
                     height={1000}

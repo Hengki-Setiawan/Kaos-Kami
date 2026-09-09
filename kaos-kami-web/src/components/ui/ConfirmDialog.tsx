@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect } from "react";
 
 // Pengganti window.confirm (audit #21-23, #27-29): bekerja di semua browser
 // + WebView, bisa di-style, ada ESC/backdrop, tanpa string native Inggris.
@@ -34,11 +34,16 @@ export function ConfirmDialog({
     return () => document.removeEventListener("keydown", onKey);
   }, [open, onCancel]);
 
-  const [render, setRender] = useState(open);
   useEffect(() => {
-    if (open) setRender(true);
-  }, [open ]);
-  if (!open && !render) return null;
+    if (!open) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onCancel();
+    };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [open, onCancel]);
+
+  if (!open) return null;
 
   return (
     <div

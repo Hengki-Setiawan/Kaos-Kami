@@ -27,8 +27,16 @@ export function enqueueOfflineMutation(mutation: Omit<PendingMutation, 'id' | 't
     timestamp: Date.now(),
   };
   queue.push(fullMutation);
+  const trimmed = queue.slice(-MAX_QUEUE);
   if (typeof window !== 'undefined') {
-    localStorage.setItem(MUTATION_QUEUE_KEY, JSON.stringify(queue));
+    try {
+      localStorage.setItem(MUTATION_QUEUE_KEY, JSON.stringify(trimmed));
+    } catch (e: any) {
+      // Kuota penuh: buang setengah tertua, coba lagi sekali.
+      try {
+        localStorage.setItem(MUTATION_QUEUE_KEY, JSON.stringify(trimmed.slice(-Math.floor(MAX_QUEUE / 2))));
+      } catch {}
+    }
   }
 }
 

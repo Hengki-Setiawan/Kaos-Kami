@@ -3,7 +3,7 @@
 import React from "react";
 import { Decal, useTexture } from "@react-three/drei";
 import { useConfiguratorStore } from "@/store/useConfiguratorStore";
-import { APPAREL_PHYSICAL_SPECS, maxDecalScaleUnits, REAL_WORLD_PRINT_LIMITS } from "@/lib/scaleCalibration";
+import { APPAREL_PHYSICAL_SPECS, maxDecalScaleUnits, fitScaleToSideBox, REAL_WORLD_PRINT_LIMITS } from "@/lib/scaleCalibration";
 import { isSafeImageUrl } from "@/lib/safeUrl";
 import type { DecalLayer } from "@/lib/constants";
 
@@ -92,6 +92,14 @@ const SingleDecalItem: React.FC<{
   normalizedScale = Math.max(
     REAL_WORLD_PRINT_LIMITS.minDecalScaleUnits,
     Math.min(maxScale, normalizedScale)
+  );
+  // Fit proporsional ke box sisi (SAMA dengan produksi — audit: tampil beda
+  // dengan yang dicetak untuk artwork portrait oversize).
+  normalizedScale = normalizedScale * fitScaleToSideBox(
+    useConfiguratorStore.getState().activeApparel,
+    decal.targetSide,
+    normalizedScale,
+    aspect
   );
 
   let scaleX = normalizedScale;

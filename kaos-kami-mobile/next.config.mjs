@@ -9,8 +9,9 @@ const nextConfig = {
     optimizePackageImports: ['lucide-react', 'clsx', 'tailwind-merge', 'framer-motion'],
   },
   env: {
+    // PLATFORM statis (bukan secret). URL API JANGAN hardcode di sini —
+    // baca dari .env.local agar .env.example bermakna (audit).
     NEXT_PUBLIC_PLATFORM: 'mobile',
-    NEXT_PUBLIC_API_URL: 'https://kaos-kami-3d.hengkisetiawan461.workers.dev',
   },
 };
 

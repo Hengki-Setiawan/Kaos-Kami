@@ -91,6 +91,7 @@ export async function composePrintFile(
     dataUrl: out.toDataURL("image/png"),
     widthPx: wPx,
     heightPx: hPx,
-    dpi: 300,
+    // DPI SEBENARNYA (audit: 300 hardcoded padahal cap menurunkan resolusi).
+    dpi: Math.round((wPx / (widthCm / 2.54) + hPx / (heightCm / 2.54)) / 2),
   };
 }

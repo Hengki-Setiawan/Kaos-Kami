@@ -9,7 +9,12 @@ export const revalidate = 0;
 export const dynamic = "force-dynamic";
 
 const PER_PAGE = 25;
-const STATUSES = [
+
+// Mask WA di daftar (konsisten dengan /admin/customers + UU PDP).
+function maskPhone(p?: string | null) {
+  if (!p) return "-";
+  return `${p.slice(0, 4)}****${p.slice(-2)}`;
+}const STATUSES = [
   "PENDING_PAYMENT",
   "PAYMENT_CONFIRMED",
   "IN_PRODUCTION_QUEUE",
@@ -139,7 +144,7 @@ export default async function AdminOrdersListPage({
                   </td>
                   <td className="p-4">
                     <span className="text-white font-bold block">{order.user?.name || "Pelanggan"}</span>
-                    <span className="text-[10px] text-text-muted">{order.user?.phoneNumber || "-"}</span>
+                    <span className="text-[10px] text-text-muted">{maskPhone(order.user?.phoneNumber)}</span>
                   </td>
                   <td className="p-4 text-text-muted">{order.items.length}</td>
                   <td className="p-4 text-text-muted">{order.deliveryMethod}</td>

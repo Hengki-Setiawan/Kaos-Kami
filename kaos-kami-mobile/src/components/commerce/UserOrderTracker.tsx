@@ -61,9 +61,11 @@ const STATUS_STEPS: { key: OrderStatus; label: string; icon: React.ComponentType
 export function UserOrderTracker({
   order,
   onPayNow,
+  onNotify,
 }: {
   order: OrderItemData;
   onPayNow?: () => void;
+  onNotify?: (msg: string) => void;
 }) {
   const currentStepIndex = STATUS_STEPS.findIndex((s) => s.key === order.status);
 
@@ -80,7 +82,8 @@ export function UserOrderTracker({
     if (onPayNow) {
       onPayNow();
     } else {
-      openDuitkuPaymentModal('https://sandbox.duitku.com/webapi/qris/demo');
+      // TANPA URL demo (audit: link sandbox mati menyesatkan) — arahkan ke WA.
+      onNotify?.('Link bayar tidak tersedia. Minta link baru via tombol WA di bawah.');
     }
   };
   return (
@@ -312,6 +315,7 @@ export function UserOrderTrackerLive({
             ? () => openDuitkuPaymentModal(paymentUrl, () => poll())
             : undefined
         }
+        onNotify={onNotify}
       />
       {isDead && (
         <p className="text-[11px] text-zinc-400 text-center">

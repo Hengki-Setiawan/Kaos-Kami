@@ -56,6 +56,7 @@ import { AuthModal } from "@/components/ui/AuthModal";
 import { useSession } from "@/lib/auth-client";
 import dynamic from "next/dynamic";
 import { generateTextDecalDataUrl, FONT_PRESETS, type TextDecalOptions } from "@/lib/typography/textDecalGenerator";
+import { shopWaLink } from "@/lib/shop";
 
 const FabricEditor = dynamic(() => import("./FabricEditor").then((m) => m.FabricEditor), {
   ssr: false,
@@ -206,8 +207,10 @@ export const CustomizerDrawer: React.FC = () => {
 
   useEffect(() => {
     if (!activeDecal?.url) return;
+    let alive = true;
     const img = new Image();
     img.onload = () => {
+      if (!alive) return;
       const w = img.naturalWidth || img.width || 1200;
       const h = img.naturalHeight || img.height || 1200;
       setDecalPixelWidth(w);
@@ -215,11 +218,18 @@ export const CustomizerDrawer: React.FC = () => {
       setDecalAspectRatio(h > 0 ? w / h : 1.0);
     };
     img.onerror = () => {
+      if (!alive) return;
       setDecalPixelWidth(1200);
       setDecalPixelHeight(1200);
       setDecalAspectRatio(1.0);
     };
     img.src = activeDecal.url;
+    // Cleanup: cegah setState balapan bila URL ganti/unmount (audit).
+    return () => {
+      alive = false;
+      img.onload = null;
+      img.onerror = null;
+    };
   }, [activeDecal?.url]);
 
   // Physical Scale 1:1 CM Calibration Engine per Apparel Type
@@ -341,10 +351,17 @@ export const CustomizerDrawer: React.FC = () => {
       // Capture 30fps video stream dari kanvas WebGL (bukan kanvas Fabric 2D —
       // audit #39: querySelector("canvas") mentah bisa dapat kanvas yang salah).
       const canvas = document.querySelector(".webgl-canvas-container canvas") as HTMLCanvasElement | null;
-      if (!canvas) return;
+      if (!canvas) {
+        // Kembalikan state bila keluar awal (audit: spinner nyangkut + rotasi berubah).
+        if (!wasRotating) toggleRotating();
+        setIsRecording360(false);
+        return;
+      }
       const stream = (canvas as any).captureStream ? (canvas as any).captureStream(30) : null;
       if (!stream) {
-        alert("Browser Anda tidak mendukung perekaman kanvas 3D langsung.");
+        if (!wasRotating) toggleRotating();
+        setEnhancementMessage("Browser tidak mendukung perekaman kanvas 3D langsung.");
+        setTimeout(() => setEnhancementMessage(null), 4000);
         setIsRecording360(false);
         return;
       }
@@ -364,34 +381,66 @@ export const CustomizerDrawer: React.FC = () => {
       };
 
       mediaRecorder.onstop = () => {
-        const blob = new Blob(chunks, { type: mimeType });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement("a");
-        a.href = url;
-        a.download = `kaos-kami-${activeApparel}-360-turntable.webm`;
-        a.click();
-        URL.revokeObjectURL(url);
-        setIsRecording360(false);
-        if (!wasRotating) toggleRotating();
+        try {
+          const blob = new Blob(chunks, { type: mimeType });
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement("a");
+          a.href = url;
+          a.download = `kaos-kami-${activeApparel}-360-turntable.webm`;
+          a.click();
+          setTimeout(() => URL.revokeObjectURL(url), 5000);
+        } finally {
+          stopAll();
+        }
       };
 
       mediaRecorder.start();
 
-      // 5-second 360-degree rotation recording with progress ticker
+      // 5-second 360-degree rotation recording with progress ticker.
+      // Cleanup di SEMUA jalur keluar (audit: track/interval bocor).
       const totalMs = 5000;
       const intervalMs = 100;
       let elapsed = 0;
+      const stopAll = () => {
+        try {
+          clearInterval(timer);
+        } catch {}
+        try {
+          stream.getTracks().forEach((t: any) => t.stop());
+        } catch {}
+        if (!wasRotating) {
+          try {
+            toggleRotating();
+          } catch {}
+        }
+        setIsRecording360(false);
+      };
 
       const timer = setInterval(() => {
         elapsed += intervalMs;
         setRecordingProgress(Math.min(Math.round((elapsed / totalMs) * 100), 100));
         if (elapsed >= totalMs) {
           clearInterval(timer);
-          mediaRecorder.stop();
+          try {
+            mediaRecorder.stop();
+          } catch {
+            stopAll();
+          }
         }
       }, intervalMs);
+
+      // Pengaman: paksa berhenti bila onstop tak fire.
+      setTimeout(() => {
+        try {
+          if (mediaRecorder.state !== "inactive") mediaRecorder.stop();
+        } catch {}
+        stopAll();
+      }, totalMs + 2000);
     } catch (err) {
       console.error("Gagal mengekspor video 360:", err);
+      try {
+        if (!(isRotating as boolean)) toggleRotating();
+      } catch {}
       setIsRecording360(false);
     }
   };
@@ -409,10 +458,18 @@ export const CustomizerDrawer: React.FC = () => {
 
   const handleCopyShareLink = () => {
     const url = window.location.href;
-    navigator.clipboard.writeText(url).then(() => {
-      setCopiedLink(true);
-      setTimeout(() => setCopiedLink(false), 2000);
-    });
+    if (navigator.clipboard?.writeText) {
+      navigator.clipboard.writeText(url).then(() => {
+        setCopiedLink(true);
+        setTimeout(() => setCopiedLink(false), 2000);
+      }).catch(() => {
+        setEnhancementMessage("Gagal salin link. Salin manual dari address bar.");
+        setTimeout(() => setEnhancementMessage(null), 3000);
+      });
+    } else {
+      setEnhancementMessage("Browser tak mendukung salin otomatis. Salin manual dari address bar.");
+      setTimeout(() => setEnhancementMessage(null), 3000);
+    }
   };
 
   const handleSendToWhatsApp = () => {
@@ -428,7 +485,8 @@ export const CustomizerDrawer: React.FC = () => {
       `• *TOTAL ESTIMASI HARGA:* ${pricing.formattedTotal}\n\n` +
       `Mohon info proses produksi & pengiriman. Terima kasih!`
     );
-    window.open(`https://api.whatsapp.com/send?text=${text}`, "_blank");
+    // shopWaLink = nomor workshop SSOT (audit: tanpa phone = pesan tanpa penerima).
+    window.open(shopWaLink(decodeURIComponent(text)), "_blank");
   };
 
   const handleSaveDesign = () => {

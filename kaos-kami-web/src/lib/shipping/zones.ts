@@ -58,7 +58,9 @@ export interface ResolvedExpedition {
 
 /**
  * Resolve ongkir ekspedisi 100% SERVER-SIDE (jangan percaya harga client).
- * Prioritas: zoneId valid+aktif → cocok kota termurah → zona default → flat.
+ * Prioritas: zoneId valid+aktif → cocok kota PERSIS (case-insensitive) →
+ * zona default → flat. Substring HANYA untuk tampilan daftar, BUKAN harga
+ * (audit: "a" cocok puluhan zona lalu ambil termurah = undercharge Papua).
  */
 export async function resolveExpeditionCost(opts: {
   zoneId?: string;
@@ -71,13 +73,20 @@ export async function resolveExpeditionCost(opts: {
       .where(eq(ExpeditionZone.id, opts.zoneId));
     if (z && z.isActive) return { costIdr: z.costIdr, zone: toQuote(z) };
   }
-  const quotes = await quoteZones(opts.city);
-  const nonDefault = quotes.filter((z) => z.id !== "zone_default_lainnya");
-  const pick =
-    nonDefault.length > 0
-      ? nonDefault.reduce((a, b) => (b.costIdr < a.costIdr ? b : a))
-      : quotes[0];
-  if (pick) return { costIdr: pick.costIdr, zone: pick };
+  const q = (opts.city || "").trim().toLowerCase();
+  if (q.length >= 2) {
+    const rows = await db.select().from(ExpeditionZone).where(eq(ExpeditionZone.isActive, true));
+    // Cocok persis dulu (nama kota sama), lalu awalan — bukan substring bebas.
+    const exact =
+      rows.find((r) => r.city.trim().toLowerCase() === q) ||
+      rows.find((r) => r.city.trim().toLowerCase().startsWith(q) || q.startsWith(r.city.trim().toLowerCase()));
+    if (exact && exact.id !== "zone_default_lainnya") {
+      return { costIdr: exact.costIdr, zone: toQuote(exact) };
+    }
+  }
+  const zones = await listActiveZones();
+  const fallback = zones.find((z) => z.id === "zone_default_lainnya") || zones[0];
+  if (fallback) return { costIdr: fallback.costIdr, zone: fallback };
   return { costIdr: DEFAULT_EXPEDITION_COST_IDR, zone: null };
 }
 

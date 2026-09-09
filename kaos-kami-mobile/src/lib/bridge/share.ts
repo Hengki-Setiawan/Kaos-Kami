@@ -5,7 +5,7 @@ export async function shareCustomDesign(designId: string, apparelTitle: string =
     await Share.share({
       title: apparelTitle,
       text: `Lihat desain 3D Kaos Kami ini! Keren untuk sablon DTF:`,
-      url: `https://kaos-kami-3d.hengkisetiawan461.workers.dev/render/${designId}`,
+      url: `https://kaos-kami-3d.hengkisetiawan461.workers.dev/studio?designId=${designId}`,
       dialogTitle: 'Bagikan Desain ke WhatsApp / Instagram',
     });
   } catch (err) {

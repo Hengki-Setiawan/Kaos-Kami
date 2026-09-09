@@ -6,6 +6,7 @@ import Link from "next/link";
 import { X, ShoppingBag, Trash2, Plus, Minus, ArrowRight, ShieldCheck } from "lucide-react";
 import { useCartStore } from "@/store/useCartStore";
 import { CheckoutModal } from "./CheckoutModal";
+import { isSafeImageUrl } from "@/lib/safeUrl";
 
 export const CartDrawer: React.FC = () => {
   const { items, isCartOpen, closeCart, updateQuantity, removeItem, getTotalPrice, getTotalCount } =
@@ -80,12 +81,16 @@ export const CartDrawer: React.FC = () => {
                   <div className="w-16 h-20 rounded-lg overflow-hidden relative bg-black/40 border border-white/10 shrink-0">
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img
-                      src={item.image || "/lookbook/look-01.jpg"}
+                      src={isSafeImageUrl(item.image) ? item.image : "/lookbook/look-01.jpg"}
                       alt={item.name}
                       width={128}
                       height={160}
                       className="w-full h-full object-cover"
                       loading="lazy"
+                      onError={(e) => {
+                        const t = e.target as HTMLImageElement;
+                        if (!t.src.endsWith("/lookbook/look-01.jpg")) t.src = "/lookbook/look-01.jpg";
+                      }}
                     />
                   </div>
 
@@ -111,9 +116,14 @@ export const CartDrawer: React.FC = () => {
                     </div>
 
                     <div className="flex justify-between items-center pt-2">
-                      <span className="font-bold text-brand-accent">
-                        Rp {item.priceIdr.toLocaleString("id-ID")}
-                      </span>
+                      <div>
+                        <span className="font-bold text-brand-accent block">
+                          Rp {(item.priceIdr * item.quantity).toLocaleString("id-ID")}
+                        </span>
+                        <span className="text-[10px] text-text-muted">
+                          @{item.priceIdr.toLocaleString("id-ID")} × {item.quantity}
+                        </span>
+                      </div>
 
                       {/* Quantity Toggles */}
                       <div className="flex items-center space-x-1">

@@ -914,8 +914,8 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
           {/* Section 5: Total Calculation & Submit Button */}
           <div className="p-4 rounded-xl bg-black/60 border border-white/10 space-y-2.5 font-mono text-xs">
             <div className="flex justify-between text-text-muted">
-              <span>Subtotal Kaos & Sablon ({quantity} pcs)</span>
-              <span>Rp {pricing.totalPriceIdr.toLocaleString("id-ID")}</span>
+              <span>Subtotal Kaos & Sablon ({totalQty} pcs)</span>
+              <span>Rp {effectiveSubtotal.toLocaleString("id-ID")}</span>
             </div>
 
             {shippingCost > 0 && (

@@ -6,13 +6,16 @@ import { BottomSheet, HapticButton, Badge } from '@/components/ui';
 import { useMobileCartStore } from '@/store/useMobileCartStore';
 import { MAKASSAR_DELIVERY_OPTIONS, DeliveryOption } from '@/lib/shipping/deliveryOptionsMobile';
 import { mobileApiClient, quoteShipping, reverseGeocode, searchLocations, ShipLocation } from '@/lib/api/mobileApiClient';
+import { getCurrentCoords } from '@/lib/bridge/geolocation';
 import { openDuitkuPaymentModal } from '@/lib/payments/duitkuMobile';
 import { haptic } from '@/lib/bridge/haptics';
 
 export interface CheckoutSheetProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onOrderSuccess: (orderId: string, paymentUrl?: string) => void;
+  // paymentUrl = link Duitku asli; invoiceUrl = halaman invoice (fallback).
+  // JANGAN campur (audit: invoice dibuka sebagai "lanjut bayar").
+  onOrderSuccess: (orderId: string, urls: { paymentUrl?: string; invoiceUrl?: string }) => void;
   onNotify?: (msg: string) => void;
 }
 
@@ -101,28 +104,27 @@ export function CheckoutSheet({ open, onOpenChange, onOrderSuccess, onNotify }: 
     }
   };
 
-  // GPS: isi alamat otomatis dari lokasi HP (browser geolocation + proxy server).
-  const handleUseGps = () => {
-    if (!('geolocation' in navigator)) return setGpsMsg('GPS tidak didukung HP ini.');
+  // GPS: isi alamat otomatis dari lokasi HP (izin native + proxy server).
+  const handleUseGps = async () => {
     setGpsLoading(true);
     setGpsMsg(null);
-    navigator.geolocation.getCurrentPosition(
-      async (pos) => {
-        const r = await reverseGeocode(pos.coords.latitude, pos.coords.longitude);
-        setGpsLoading(false);
-        if (r) {
-          if (r.displayName) setCustomerAddress(r.displayName);
-          if (isExpedition && r.city) {
-            setDestCity(r.city);
-            setZones([]);
-            setSelectedZoneId(null);
-          }
-          setGpsMsg(r.city || r.district ? `Lokasi: ${[r.district, r.city].filter(Boolean).join(', ')}` : 'Alamat terisi dari GPS.');
-        } else setGpsMsg('Gagal baca lokasi. Isi manual.');
-      },
-      () => { setGpsLoading(false); setGpsMsg('Izin lokasi ditolak. Isi manual.'); },
-      { timeout: 15000, maximumAge: 60000 }
-    );
+    const coords = await getCurrentCoords();
+    if (!coords) {
+      setGpsLoading(false);
+      setGpsMsg('Izin lokasi ditolak / GPS mati. Isi manual.');
+      return;
+    }
+    const r = await reverseGeocode(coords.lat, coords.lon);
+    setGpsLoading(false);
+    if (r) {
+      if (r.displayName) setCustomerAddress(r.displayName);
+      if (isExpedition && r.city) {
+        setDestCity(r.city);
+        setZones([]);
+        setSelectedZoneId(null);
+      }
+      setGpsMsg(r.city || r.district ? `Lokasi: ${[r.district, r.city].filter(Boolean).join(', ')}` : 'Alamat terisi dari GPS.');
+    } else setGpsMsg('Gagal baca lokasi. Isi manual.');
   };
 
   const handlePlaceOrder = async () => {
@@ -179,7 +181,7 @@ export function CheckoutSheet({ open, onOpenChange, onOrderSuccess, onNotify }: 
         // bayar manual (WA) — bukan dead-end tanpa paymentUrl.
         if (res.orderId) {
           onOpenChange(false);
-          onOrderSuccess(res.orderId, res.invoiceUrl);
+          onOrderSuccess(res.orderId, { invoiceUrl: res.invoiceUrl });
           onNotify?.('Gagal buat link bayar otomatis. Buka invoice untuk bayar manual via WA.');
         } else {
           setFormError(res.error || 'Checkout gagal. Periksa koneksi lalu coba lagi.');
@@ -193,7 +195,7 @@ export function CheckoutSheet({ open, onOpenChange, onOrderSuccess, onNotify }: 
       clearCart();
       haptic.success();
       onOpenChange(false);
-      onOrderSuccess(res.orderId!, res.paymentUrl);
+      onOrderSuccess(res.orderId!, { paymentUrl: res.paymentUrl, invoiceUrl: res.invoiceUrl });
       if (res.paymentUrl) {
         openDuitkuPaymentModal(res.paymentUrl, () => {
           onNotify?.('Browser pembayaran ditutup. Status pesanan diperbarui otomatis.');
@@ -291,12 +293,26 @@ export function CheckoutSheet({ open, onOpenChange, onOrderSuccess, onNotify }: 
 
             <HapticButton
               variant="primary"
-              onClick={() => setStep(2)}
+              onClick={() => {
+                // Validasi step-1 di sini juga (audit: tombol loncat tanpa cek).
+                if (customerName.trim().length < 2) return setFormError('Nama penerima minimal 2 karakter.');
+                if (customerPhone.replace(/[^0-9]/g, '').length < 10) return setFormError('Nomor WhatsApp minimal 10 digit.');
+                if (selectedDelivery.id !== 'WORKSHOP_PICKUP' && customerAddress.trim().length < 5) {
+                  return setFormError('Alamat pengiriman minimal 5 karakter.');
+                }
+                setFormError(null);
+                setStep(2);
+              }}
               className="w-full mt-2"
             >
               <span>Lanjut ke Opsi Kurir</span>
               <ChevronRight className="w-4 h-4" />
             </HapticButton>
+            {formError && step === 1 && (
+              <div className="p-3 rounded-xl bg-rose-500/10 border border-rose-500/30 text-[11px] text-rose-300">
+                {formError}
+              </div>
+            )}
           </div>
         )}
 
@@ -414,16 +430,27 @@ export function CheckoutSheet({ open, onOpenChange, onOrderSuccess, onNotify }: 
                 className="flex-1 text-xs"
               >
                 Kembali
-              </HapticButton>
-              <HapticButton
+              </HapticButton>              <HapticButton
                 variant="primary"
-                onClick={() => setStep(3)}
+                onClick={() => {
+                  // Ekspedisi wajib pilih tarif dulu (audit); lainnya bebas lanjut.
+                  if (isExpedition && !selectedZone) {
+                    return setFormError('Cek ongkir & pilih kurir dulu.');
+                  }
+                  setFormError(null);
+                  setStep(3);
+                }}
                 className="flex-1 text-xs"
               >
                 <span>Metode Bayar</span>
                 <ChevronRight className="w-4 h-4" />
               </HapticButton>
             </div>
+            {formError && step === 2 && (
+              <div className="p-3 rounded-xl bg-rose-500/10 border border-rose-500/30 text-[11px] text-rose-300">
+                {formError}
+              </div>
+            )}
           </div>
         )}
 

@@ -10,11 +10,14 @@ export function DynamicIslandPreview({
   orderNumber,
   apparelTitle,
 }: {
-  status: OrderStatus;
+  status?: OrderStatus;
   orderNumber: string;
   apparelTitle: string;
 }) {
   const getStatusInfo = () => {
+    if (!status) {
+      return { label: 'Menunggu Pesanan', icon: Printer, color: 'text-zinc-400', progress: '5%' };
+    }
     switch (status) {
       case 'PRINTING_DTF':
         return { label: 'Cetak DTF', icon: Printer, color: 'text-orange-400', progress: '35%' };

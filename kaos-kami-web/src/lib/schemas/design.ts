@@ -22,8 +22,8 @@ export const SaveDesignSchema = z.object({
   sablonMethodSlug: z.string().default("dtf"),
   decals: z.array(DecalLayerSchema).max(10, "Maks 10 lapis sablon"),
   studioTheme: z.enum(["obsidian", "gallery", "concrete"]).default("obsidian"),
-  calculatedPriceIdr: z.number().positive().max(100_000_000),
-  priceBreakdown: z.record(z.any()),
+  calculatedPriceIdr: z.number().positive().max(100_000_000).optional(),
+  priceBreakdown: z.record(z.any()).optional().default({}),
   previewImageFrontUrl: z.string().max(500_000).optional(),
   previewImageBackUrl: z.string().max(500_000).optional(),
   // Master produksi 300 DPI dari Pola 2D (URL R2; JSON map per panel ATAU url tunggal).

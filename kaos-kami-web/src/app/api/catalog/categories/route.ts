@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { count } from 'drizzle-orm';
 import { db } from '@/lib/db';
 import { ApparelCategory, ProductVariant } from '@/lib/drizzle-schema';
+import { safeJsonArray } from '@/lib/json';
 export async function GET() {
   try {
     const categories = await db.query.ApparelCategory.findMany({
@@ -17,8 +18,8 @@ export async function GET() {
     const parsed = categories.map(c => ({
       ...c,
       _count: { variants: countMap.get(c.id) || 0 },
-      sizes: JSON.parse(c.sizes || '[]'),
-      decalNodes: JSON.parse(c.decalNodes || '[]'),
+      sizes: safeJsonArray(c.sizes),
+      decalNodes: safeJsonArray(c.decalNodes),
     }));
     return NextResponse.json({ success: true, categories: parsed });
   } catch(e:any){ return NextResponse.json({ error: e.message }, { status: 500 }); }

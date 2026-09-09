@@ -40,11 +40,32 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: validation.error.errors[0]?.message }, { status: 400 });
     }
     let claimed = 0;
+    const { calculate6VariablePrice } = await import("@/lib/pricingEngine");
+    const { PRODUCT_COLORS } = await import("@/lib/constants");
     for (const d of validation.data.designs) {
       const category = await db.query.ApparelCategory.findFirst({
         where: (t, { eq }) => eq(t.slug, d.apparelSlug),
       });
       if (!category) continue;
+      // Harga dihitung ULANG di server (audit: calculatedPriceIdr client bisa
+      // diedit di localStorage → klaim harga murah).
+      let serverPrice = 149000;
+      try {
+        const matched = PRODUCT_COLORS.find(
+          (c: any) => String(c.hex).toLowerCase() === String(d.colorHex).toLowerCase()
+        );
+        const pricing = calculate6VariablePrice({
+          apparelSlug: d.apparelSlug as any,
+          size: d.size,
+          colorHex: d.colorHex,
+          isSpecialPigment: !!matched?.isSpecialPigment,
+          decals: d.decals || [],
+          quantity: 1,
+        });
+        serverPrice = pricing.totalPriceIdr;
+      } catch {
+        continue;
+      }
       await db.insert(Design).values({
         id: nanoid(),
         userId: user.id,
@@ -54,7 +75,7 @@ export async function POST(req: NextRequest) {
         colorName: d.colorName,
         size: d.size,
         decals: JSON.stringify(d.decals || []),
-        calculatedPriceIdr: d.calculatedPriceIdr,
+        calculatedPriceIdr: serverPrice,
         priceBreakdown: JSON.stringify({ claimedFrom: "guest" }),
         status: "SAVED",
       });

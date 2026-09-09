@@ -71,6 +71,11 @@ export function SavedDesignsGallery({
                   <Badge variant="neutral" className="mt-1 text-[9px] py-0 px-1.5">
                     Offline Ready
                   </Badge>
+                  {design.isSample && (
+                    <Badge variant="neutral" className="mt-1 ml-1 text-[9px] py-0 px-1.5">
+                      Contoh
+                    </Badge>
+                  )}
                 </div>
               </div>
 

@@ -29,7 +29,7 @@ export default async function GangSheetPage({ params }: { params: Promise<{ id: 
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 {t.printFileUrl ? <img src={t.printFileUrl} alt="master 300dpi" className="max-h-32" /> : t.mockupPreviewUrl ? <img src={t.mockupPreviewUrl} alt="preview" className="max-h-32" /> : "Master 300 DPI belum ada"}
               </div>
-              <div className="text-[9px] mt-1">{t.notes || order.items[idx]?.snapshotName}</div>
+              <div className="text-[9px] mt-1">{t.notes || order.items.find((it: any) => it.id === t.orderItemId)?.snapshotName || "—"}</div>
             </div>
           ))}
           {order.productionTasks.length===0 && <div className="col-span-2 text-center py-12 text-zinc-400">Belum ada task — tunggu settlement</div>}

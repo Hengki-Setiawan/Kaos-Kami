@@ -11,6 +11,18 @@ import { checkRateLimitAsync, getClientIp, rateLimitHeaders } from "@/lib/securi
 
 export async function POST(req: NextRequest) {
   try {
+    // Cap body mentah dulu (audit: base64 500k×10 + preview bisa OOM
+    // sebelum Zod sempat menolak). 8MB > kebutuhan wajar.
+    const raw = await req.text();
+    if (raw.length > 8 * 1024 * 1024) {
+      return NextResponse.json({ error: "Payload terlalu besar (maks 8MB)" }, { status: 413 });
+    }
+    let body: unknown;
+    try {
+      body = JSON.parse(raw);
+    } catch {
+      return NextResponse.json({ error: "JSON tidak valid" }, { status: 400 });
+    }
     // Guest boleh simpan (fitur), tapi dibatasi ketat anti-spam/DoS.
     const rl = await checkRateLimitAsync(`designs:ip:${getClientIp(req)}`, 10, 60);
     if (rl.isLimited) {
@@ -20,7 +32,7 @@ export async function POST(req: NextRequest) {
     if (len > 3 * 1024 * 1024) {
       return NextResponse.json({ error: "Payload desain >3MB" }, { status: 413 });
     }
-    const body = await req.json();
+    // Header bisa dipalsu/hilang (chunked) — ukur body asli (audit).
     const validation = SaveDesignSchema.safeParse(body);
 
     if (!validation.success) {
@@ -79,6 +91,28 @@ export async function POST(req: NextRequest) {
       if (up.success) finalBackUrl = up.url;
     }
 
+    // Harga dihitung ULANG di server (audit: calculatedPriceIdr client bisa
+    // diedit → simpan harga murah lalu checkout/reorder pakai harga itu).
+    const { calculate6VariablePrice } = await import("@/lib/pricingEngine");
+    const { PRODUCT_COLORS } = await import("@/lib/constants");
+    let serverPrice = 149000;
+    try {
+      const matched = PRODUCT_COLORS.find(
+        (c: any) => String(c.hex).toLowerCase() === String(colorHex).toLowerCase()
+      );
+      const pricing = calculate6VariablePrice({
+        apparelSlug: apparelSlug as any,
+        size,
+        colorHex,
+        isSpecialPigment: !!matched?.isSpecialPigment,
+        decals: (decals as any[]) || [],
+        quantity: 1,
+      });
+      serverPrice = pricing.totalPriceIdr;
+    } catch (e: any) {
+      return NextResponse.json({ error: e?.message || "Desain tidak valid" }, { status: 400 });
+    }
+
     const [design] = await db
       .insert(Design)
       .values({
@@ -93,8 +127,8 @@ export async function POST(req: NextRequest) {
         sablonMethodSlug: sablonMethodSlug || "dtf",
         decals: JSON.stringify(processedDecals),
         studioTheme: studioTheme || "obsidian",
-        calculatedPriceIdr,
-        priceBreakdown: JSON.stringify(priceBreakdown),
+        calculatedPriceIdr: serverPrice,
+        priceBreakdown: JSON.stringify({ ...(typeof priceBreakdown === "object" ? priceBreakdown : {}), serverPriced: true }),
         previewImageFrontUrl: finalFrontUrl,
         previewImageBackUrl: finalBackUrl,
         masterAssetUrl: masterAssetUrl || null,

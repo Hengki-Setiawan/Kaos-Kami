@@ -10,7 +10,7 @@ const AddItemSchema = z.object({
   productVariantId: z.string().optional(),
   designId: z.string().optional(),
   quantity: z.number().int().positive().max(100).default(1),
-  unitPriceIdr: z.number().int(),
+  unitPriceIdr: z.number().int().min(0).max(100_000_000),
 });
 export async function POST(req: NextRequest) {
   try {

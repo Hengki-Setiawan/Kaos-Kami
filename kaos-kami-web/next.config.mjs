@@ -18,17 +18,19 @@ const nextConfig = {
     removeConsole: process.env.NODE_ENV === "production" ? { exclude: ["error", "warn"] } : false,
   },
   async headers() {
+    // Matcher per-ekstensi (audit: `/:all*(...)` bukan sintaks param Next
+    // yang valid → header immutable tak pernah teraplikasi).
+    const immutableExt = ["glb", "gltf", "png", "jpg", "jpeg", "webp", "avif", "woff2", "mp4"];
     return [
-      {
-        // 3D Models, Textures, Videos & Lookbook Assets: 1-Year Immutable Edge CDN Caching
-        source: "/:all*(glb|gltf|png|jpg|jpeg|webp|avif|woff2|mp4)",
+      ...immutableExt.map((ext) => ({
+        source: `/:path*.${ext}`,
         headers: [
           {
             key: "Cache-Control",
             value: "public, max-age=31536000, immutable",
           },
         ],
-      },
+      })),
       {
         // Global Security Headers (Enterprise Standard)
         source: "/:path*",
@@ -46,8 +48,10 @@ const nextConfig = {
             value: "strict-origin-when-cross-origin",
           },
           {
+            // geolocation=(self): tombol GPS checkout/web butuh izin lokasi.
+            // camera+microphone tetap mati (upload pakai file input).
             key: "Permissions-Policy",
-            value: "camera=(), microphone=(), geolocation=()",
+            value: "camera=(), microphone=(), geolocation=(self)",
           },
         ],
       },

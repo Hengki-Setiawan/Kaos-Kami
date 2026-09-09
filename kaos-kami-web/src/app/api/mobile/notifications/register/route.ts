@@ -50,12 +50,16 @@ export async function POST(req: NextRequest) {
       linkUserId = userId;
     }
 
+    // JANGAN timpa userId dengan undefined (audit: token korban ke-unlink).
+    // Tanpa sesi: pertahankan kaitan lama bila token sudah ada.
+    const updateSet: Record<string, unknown> = { platform };
+    if (linkUserId) updateSet.userId = linkUserId;
     const [device] = await db
       .insert(UserDevice)
       .values({ id: nanoid(), pushToken, platform, userId: linkUserId })
       .onConflictDoUpdate({
         target: UserDevice.pushToken,
-        set: { platform, userId: linkUserId },
+        set: updateSet as any,
       })
       .returning({ id: UserDevice.id });
 

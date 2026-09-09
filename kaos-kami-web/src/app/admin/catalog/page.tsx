@@ -113,7 +113,7 @@ export default async function AdminCatalogPage({
         <div className="bg-[#141416] border border-white/5 rounded-2xl p-4 space-y-2">
           <h3 className="font-bold text-white">MATERIALS ({materials.length})</h3>
           {materials.map((m: any) => (
-            <div key={m.id} className="flex justify-between text-[11px]"><span>{m.name}</span><span className="text-text-muted">+{m.surchargeIdr}</span></div>
+            <div key={m.id} className="flex justify-between text-[11px]"><span>{m.name || "?"}</span><span className="text-text-muted">+{(m.surchargeIdr ?? 0).toLocaleString("id-ID")}</span></div>
           ))}
         </div>
         <div className="bg-[#141416] border border-white/5 rounded-2xl p-4 space-y-2">

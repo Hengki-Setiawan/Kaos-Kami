@@ -72,6 +72,30 @@ const GltfTshirt: React.FC = () => {
     return geo;
   }, [nodes, activeColorMode, partColors, selectedColor]);
 
+  // Dispose clone multi-part lama (audit: clone tiap ganti warna = leak GPU).
+  // Geometri cache GLB (base) JANGAN dispose.
+  const prevCloneRef = useRef<THREE.BufferGeometry | null>(null);
+  useEffect(() => {
+    const prev = prevCloneRef.current;
+    const nodesGeo = nodes?.T_Shirt_male?.geometry as THREE.BufferGeometry | undefined;
+    if (prev && prev !== nodesGeo) {
+      try {
+        prev.dispose();
+      } catch {}
+    }
+    prevCloneRef.current =
+      coloredGeometry && coloredGeometry !== nodesGeo ? coloredGeometry : null;
+    return () => {
+      const cur = prevCloneRef.current;
+      if (cur && cur !== nodes?.T_Shirt_male?.geometry) {
+        try {
+          cur.dispose();
+        } catch {}
+        if (prevCloneRef.current === cur) prevCloneRef.current = null;
+      }
+    };
+  }, [coloredGeometry, nodes]);
+
   const material = useMemo(() => {
     return createClothPhysicalMaterial({
       archetype: "tshirt",

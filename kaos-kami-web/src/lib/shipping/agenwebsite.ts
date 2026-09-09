@@ -100,12 +100,13 @@ export async function awRates(
     cheapest: !!r.cheapest,
     fastest: !!r.fastest,
   }));
-  return mapped
+  const out = mapped
     .filter((r) => r.courierCode && r.costIdr > 0 && r.costIdr <= 500_000)
     .sort((a, b) => a.costIdr - b.costIdr)
     .slice(0, 10);
+  // Kosong = null (audit: [] truthy bikin fallback zona terlewat).
+  return out.length > 0 ? out : null;
 }
-
 /** Autocomplete kecamatan → kode pos (database 82rb+ wilayah). */
 export async function awLocationsSearch(q: string, limit = 6): Promise<AwLocation[] | null> {
   const query = q.trim().slice(0, 60);
@@ -162,7 +163,8 @@ export async function awRatesCached(
   const hit = rateCache.get(key);
   if (hit && Date.now() - hit.at < RATE_TTL_MS) return hit.rates;
   const rates = await awRates(destinationPostalCode, weightGrams, couriers);
-  if (rates) {
+  // Jangan cache kekosongan (audit) — coba live lagi lain waktu.
+  if (rates && rates.length > 0) {
     rateCache.set(key, { at: Date.now(), rates });
     if (rateCache.size > 500) {
       const oldest = [...rateCache.entries()].sort((a, b) => a[1].at - b[1].at)[0]?.[0];

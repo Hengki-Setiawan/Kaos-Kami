@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { z } from "zod";
 import { eq } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { Verification } from "@/lib/drizzle-schema";
@@ -7,8 +8,12 @@ import { checkRateLimitAsync, getClientIp, rateLimitHeaders } from "@/lib/securi
 
 export async function POST(req: NextRequest) {
   try {
-    const { phoneNumber, code } = await req.json();
-    if (!phoneNumber || !code) return NextResponse.json({ error: "WA & kode wajib" }, { status: 400 });
+    // Zod ketat dulu (audit: non-string bikin .replace crash → 500).
+    const parsed = z
+      .object({ phoneNumber: z.string().min(9).max(20), code: z.string().regex(/^\d{6}$/) })
+      .safeParse(await req.json().catch(() => null));
+    if (!parsed.success) return NextResponse.json({ error: "WA & kode 6 digit wajib" }, { status: 400 });
+    const { phoneNumber, code } = parsed.data;
     const clean = phoneNumber.replace(/[^0-9]/g, "");
     const ip = getClientIp(req);
 

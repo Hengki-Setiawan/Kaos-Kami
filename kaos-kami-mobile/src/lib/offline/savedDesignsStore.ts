@@ -14,6 +14,8 @@ export interface SavedDesign {
   printWidthCm: number;
   printHeightCm: number;
   savedAt: string;
+  /** Contoh bawaan (bukan karya user) — disaring dari sync + berlabel. */
+  isSample?: boolean;
 }
 
 export interface SavedDesignsState {
@@ -37,6 +39,7 @@ export const useSavedDesignsStore = create<SavedDesignsState>()(
           printWidthCm: 28.5,
           printHeightCm: 22.0,
           savedAt: new Date(Date.now() - 86400000).toISOString(),
+          isSample: true,
         },
       ],
 
@@ -68,6 +71,7 @@ export const useSavedDesignsStore = create<SavedDesignsState>()(
     {
       name: 'kaoskami_saved_designs_offline',
       storage: preferencesJsonStorage(),
+      version: 1,
     }
   )
 );

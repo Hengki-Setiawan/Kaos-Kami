@@ -7,6 +7,11 @@ import { AdminNav } from "@/components/admin/AdminNav";
 
 export const dynamic = "force-dynamic";
 
+// Seluruh /admin/* jangan terindeks (audit).
+export const metadata = {
+  robots: { index: false, follow: false },
+};
+
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
   // RBAC — server-side gate (ADMIN/SUPER_ADMIN/PRODUCTION_STAFF).
   // B1-4: FAIL-CLOSED — error auth/infra = tolak, JANGAN render panel.

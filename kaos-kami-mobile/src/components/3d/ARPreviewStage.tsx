@@ -35,6 +35,19 @@ export function ARPreviewStage({ onClose, onNotify }: { onClose: () => void; onN
 
     async function initCamera() {
       try {
+        // Minta izin eksplisit dulu (audit: getUserMedia mentah = video hitam
+        // tanpa pesan di WebView saat izin ditolak).
+        try {
+          const { Camera } = await import('@capacitor/camera');
+          const perm = await Camera.checkPermissions();
+          if (perm.camera !== 'granted') {
+            const req = await Camera.requestPermissions();
+            if (req.camera !== 'granted' && req.camera !== 'limited') {
+              onNotify?.('Izin kamera ditolak. Aktifkan di Pengaturan HP untuk AR.');
+              return;
+            }
+          }
+        } catch {}
         const mediaStream = await navigator.mediaDevices.getUserMedia({
           video: {
             facingMode,
@@ -55,7 +68,7 @@ export function ARPreviewStage({ onClose, onNotify }: { onClose: () => void; onN
           videoRef.current.play().catch(() => {});
         }
       } catch (err) {
-        console.debug('[AR Camera] Error initializing camera feed:', err);
+        onNotify?.('Kamera gagal dibuka. Periksa izin kamera lalu coba lagi.');
       }
     }
 

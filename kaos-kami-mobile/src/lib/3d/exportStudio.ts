@@ -101,11 +101,16 @@ export async function recordTurntable360(
     await done;
 
     const blob = new Blob(chunks, { type: 'video/webm' });
-    const buf = await blob.arrayBuffer();
-    let binary = '';
-    const bytes = new Uint8Array(buf);
-    for (let i = 0; i < bytes.length; i++) binary += String.fromCharCode(bytes[i]);
-    const base64 = btoa(binary);
+    // FileReader native (audit: loop btoa manual O(n²) + boros memori untuk 4 detik video).
+    const base64: string = await new Promise((resolve, reject) => {
+      const fr = new FileReader();
+      fr.onload = () => {
+        const url = String(fr.result || '');
+        resolve(url.includes(',') ? url.split(',')[1]! : url);
+      };
+      fr.onerror = () => reject(new Error('Gagal baca video'));
+      fr.readAsDataURL(blob);
+    });
     onProgress?.('Menyimpan video…');
     return persistAndShare(base64, `kaoskami-360-${Date.now()}.webm`, 'video/webm');
   } finally {

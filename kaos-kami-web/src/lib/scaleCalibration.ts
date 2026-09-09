@@ -169,6 +169,41 @@ export function maxDecalScaleUnits(
   return maxW / spec.meshMultiplier;
 }
 
+/**
+ * Faktor fit sisi (0..1) agar artwork muat box sisi TANPA distorsi.
+ * Dipakai renderer (ukuran tampil = ukuran produksi, audit) + compute dims.
+ */
+export function fitScaleToSideBox(
+  apparelType: string = "tshirt",
+  targetSide: DecalTargetSide = "front",
+  scale: number,
+  aspectRatio: number = 1.0
+): number {
+  const spec =
+    APPAREL_PHYSICAL_SPECS[apparelType] ?? APPAREL_PHYSICAL_SPECS["tshirt"] ?? APPAREL_PHYSICAL_SPECS[Object.keys(APPAREL_PHYSICAL_SPECS)[0] as string]!;
+  const maxW =
+    targetSide === "back"
+      ? spec.maxBackWidthCm
+      : targetSide === "left_sleeve" || targetSide === "right_sleeve"
+      ? spec.maxSleeveWidthCm
+      : targetSide === "hood"
+      ? (spec.maxHoodWidthCm ?? 0)
+      : spec.maxFrontWidthCm;
+  const maxH =
+    targetSide === "back"
+      ? spec.maxBackHeightCm
+      : targetSide === "left_sleeve" || targetSide === "right_sleeve"
+      ? spec.maxSleeveHeightCm
+      : targetSide === "hood"
+      ? (spec.maxHoodHeightCm ?? 0)
+      : spec.maxFrontHeightCm;
+  const aspect = aspectRatio > 0 ? aspectRatio : 1.0;
+  const rawW = scale * spec.meshMultiplier;
+  const rawH = rawW / aspect;
+  if (maxW <= 0 || maxH <= 0) return 1;
+  return Math.min(1, maxW / Math.max(rawW, 0.01), maxH / Math.max(rawH, 0.01));
+}
+
 export interface PhysicalPrintDimension {
   widthCm: number;
   heightCm: number;
@@ -224,13 +259,15 @@ export function computePhysicalPrintDimensions(
     maxHeight = spec.maxHoodHeightCm ?? 0;
   }
 
-  const rawWidth = decalScale * spec.meshMultiplier;
-  const widthCm = Math.min(maxWidth, Math.max(3.5, Math.round(rawWidth * 10) / 10));
-
-  // Hitung tinggi proporsional berdasarkan rasio aspek riil gambar
+  // Scale-fit proporsional ke box sisi (audit: clamp lebar-dulu lalu tinggi
+  // dari lebar-terjepit = distorsi + isWithin selalu true/tautologi).
+  // Artwork portrait dikecilkan utuh agar muat, bukan dipaksa gepeng.
   const validAspectRatio = aspectRatio > 0 ? aspectRatio : 1.0;
-  const rawHeight = widthCm / validAspectRatio;
-  const heightCm = Math.min(maxHeight, Math.max(3.5, Math.round(rawHeight * 10) / 10));
+  const rawWidth = decalScale * spec.meshMultiplier;
+  const rawHeight = rawWidth / validAspectRatio;
+  const fitK = Math.min(1, maxWidth / Math.max(rawWidth, 0.01), maxHeight / Math.max(rawHeight, 0.01));
+  const widthCm = Math.max(3.5, Math.round(rawWidth * fitK * 10) / 10);
+  const heightCm = Math.max(3.5, Math.round(rawHeight * fitK * 10) / 10);
 
   // Konversi posisi Y ke jarak turun dari kerah dalam cm — via meshMultiplier
   // apparel ini (audit #15: faktor 36.0 lama SALAH, hasilnya ~1/3 jarak asli).
@@ -240,7 +277,10 @@ export function computePhysicalPrintDimensions(
     Math.round(normalizedDistance * spec.meshMultiplier * 10) / 10
   );
 
-  const isWithinProductionLimits = widthCm <= maxWidth && heightCm <= maxHeight;
+  // Validasi terhadap ukuran MENTAH (pre-fit): cukup-tidaknya box dinilai
+  // sebelum dijepit, bukan sesudah (audit: tautologi selalu-true).
+  const fitsBox = rawWidth <= maxWidth + 1e-6 && rawHeight <= maxHeight + 1e-6;
+  const isWithinProductionLimits = fitsBox;
   const formattedText = `${widthCm.toFixed(1)} cm × ${heightCm.toFixed(1)} cm (Maks ${maxWidth} cm)`;
 
   return {

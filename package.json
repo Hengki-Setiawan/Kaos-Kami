@@ -7,6 +7,7 @@
     "kaos-kami-mobile"
   ],
   "scripts": {
+    "deploy": "npm --workspace=kaos-kami-web run deploy",
     "web:dev": "npm --workspace=kaos-kami-web run dev",
     "web:build": "npm --workspace=kaos-kami-web run build",
     "web:deploy": "npm --workspace=kaos-kami-web run deploy",

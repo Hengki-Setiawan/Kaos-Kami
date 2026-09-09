@@ -74,6 +74,29 @@ const GltfLongsleeve: React.FC = () => {
     return geo;
   }, [nodes, activeColorMode, partColors, selectedColor]);
 
+  // Dispose clone multi-part lama (audit: clone tiap ganti warna = leak GPU).
+  const prevCloneRef = useRef<THREE.BufferGeometry | null>(null);
+  useEffect(() => {
+    const baseGeo = nodes?.T_Shirt_male?.geometry as THREE.BufferGeometry | undefined;
+    const prev = prevCloneRef.current;
+    if (prev && prev !== baseGeo) {
+      try {
+        prev.dispose();
+      } catch {}
+    }
+    prevCloneRef.current =
+      coloredGeometry && coloredGeometry !== baseGeo ? coloredGeometry : null;
+    return () => {
+      const cur = prevCloneRef.current;
+      if (cur && cur !== nodes?.T_Shirt_male?.geometry) {
+        try {
+          cur.dispose();
+        } catch {}
+        if (prevCloneRef.current === cur) prevCloneRef.current = null;
+      }
+    };
+  }, [coloredGeometry, nodes]);
+
   // Use realistic cloth physical material with sheen & peach fuzz
   const material = useMemo(() => {
     return createClothPhysicalMaterial({

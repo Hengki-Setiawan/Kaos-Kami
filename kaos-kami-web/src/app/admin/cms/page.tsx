@@ -27,7 +27,7 @@ export default async function AdminCMSPage() {
         <h3 className="font-bold text-white">KATALOG CEPAT — {cats.length} kategori, {colors.length} warna</h3>
         <p className="text-text-muted">Kelola di <Link href="/admin/catalog" className="text-brand-accent underline">/admin/catalog</Link> — tambah varian, stok, harga, gambar R2</p>
         <div className="flex gap-2 flex-wrap">
-          {cats.map((c:any)=>(<span key={c.id} className="px-2 py-1 rounded-full bg-surface border border-white/10 text-white text-[11px]">{c.slug} {c.basePriceIdr.toLocaleString("id-ID")}</span>))}
+          {cats.map((c:any)=>(<span key={c.id} className="px-2 py-1 rounded-full bg-surface border border-white/10 text-white text-[11px]">{c.slug} {(c.basePriceIdr ?? 0).toLocaleString("id-ID")}</span>))}
         </div>
       </div>
     </div>

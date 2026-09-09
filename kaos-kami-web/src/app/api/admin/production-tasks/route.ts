@@ -42,10 +42,13 @@ export async function GET(req: NextRequest) {
             or(isNull(t.assignedToUserId), staffUserId ? eq(t.assignedToUserId, staffUserId) : undefined)
         : undefined,
       orderBy: (t, { desc, asc }) => [desc(t.priority), asc(t.createdAt)],
+      // Ramping: tanpa full user row + batas 200 (audit: PII penuh + tanpa limit).
+      limit: 200,
       with: {
         order: {
+          columns: { id: true, orderNumber: true, status: true, deliveryMethod: true, totalIdr: true },
           with: {
-            user: true,
+            user: { columns: { id: true, name: true, phoneNumber: true } },
             items: true,
           },
         },

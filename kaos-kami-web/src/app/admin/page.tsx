@@ -84,7 +84,7 @@ export default async function AdminDashboardPage() {
             </span>
             <span className="font-mono text-[10px] text-emerald-400 flex items-center gap-1 mt-1">
               <TrendingUp size={11} />
-              <span>Termasuk Duitku & COD</span>
+              <span>QRIS Duitku lunas-dulu</span>
             </span>
           </div>
         </div>

@@ -187,7 +187,7 @@ export default async function CustomerDashboardPage() {
                       </span>
                     </div>
                     <span className="text-[10px] text-text-muted uppercase">
-                      {design.category.slug}
+                      {design.category?.slug ?? "—"}
                     </span>
                   </div>
 

@@ -114,17 +114,22 @@ const GltfJacket: React.FC = () => {
     return null;
   }, [scene, activeColorMode, partColors, selectedColor]);
 
-  // Dispose geometri merge + material saat unmount/ganti (audit #6).
+  // Dispose TERPISAH (audit: effect gabungan dispose geometri hidup saat
+  // material berubah mis. ganti warna → mesh blank use-after-dispose).
   useEffect(() => {
     return () => {
       try {
         mergedGeometry?.dispose();
       } catch {}
+    };
+  }, [mergedGeometry]);
+  useEffect(() => {
+    return () => {
       try {
         (material as any)?.dispose?.();
       } catch {}
     };
-  }, [mergedGeometry, material]);
+  }, [material]);
 
   useFrame((state, delta) => {
     if (activeColorMode !== "multi-part") {
