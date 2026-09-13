@@ -387,8 +387,8 @@ Untuk mengatasi tampilan "kaku dan seperti plastik/karet", studio 3D menggunakan
 | :--- | :--- | :--- | :---: | :---: | :---: | :---: | :--- |
 | **1. T-Shirt Boxy** | `tshirt-heavyweight.glb` (1.0 MB) | 240/280 GSM Combed Cotton 16s | 0.90 | 1.00 | 0.65 | `#FFE8DC` (Peach fuzz) | Cross-hatch 24s/28s knit |
 | **2. T-Shirt Longsleeve** | `longsleeve.glb` (1.2 MB) | 240/280 GSM Cotton + 5cm Ribbed Cuffs | 0.90 | 1.00 | 0.65 | `#FFE8DC` (Peach fuzz) | Cross-hatch + ribbed cuff |
-| **3. Oversized Hoodie** | `hoodie.optimized.glb` (402 KB) | 380 GSM Heavy Loopback French Terry | 0.94 | 1.25 | 0.80 | `#F5EBE6` (Thick fleece) | Dense loopback pile (0.65) |
-| **4. Coach Jacket** | `jacket.optimized.glb` (28 KB) | Tactical Matte Poplin / DWR Ripstop | 0.68 | 0.35 | 0.40 | `#D0D8E0` (Synthetic) | Clearcoat 0.12 (Water-repel) |
+| **3. Oversized Hoodie** | `hoodie.glb` (nama lama `hoodie.optimized.glb` — BASI; rantai kini draco→master→legacy) (402 KB) | 380 GSM Heavy Loopback French Terry | 0.94 | 1.25 | 0.80 | `#F5EBE6` (Thick fleece) | Dense loopback pile (0.65) |
+| **4. Coach Jacket** | `jacket.glb` (nama lama `jacket.optimized.glb` — BASI; rantai kini draco→master→legacy) (28 KB) | Tactical Matte Poplin / DWR Ripstop | 0.68 | 0.35 | 0.40 | `#D0D8E0` (Synthetic) | Clearcoat 0.12 (Water-repel) |
 
 ### B. Implementasi Factory Cloth Physical Material: `src/lib/materials/clothPhysicalMaterial.ts`
 ```typescript

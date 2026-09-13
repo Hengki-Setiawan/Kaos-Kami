@@ -6,6 +6,8 @@ Repository: https://github.com/Hengki-Setiawan/Kaos-Kami.git
 
 ---
 
+> [HISTORIS-NONAKTIF C3 11 Sep 2026: semua referensi `*.workers.dev` di dokumen ini adalah ARSIP historis (cabut-total, tak ada user lama) — endpoint sync baru = `https://kaoskami.biz.id`. JANGAN pakai workers.dev sebagai fallback login/API. Riwayat dipertahankan, bukan dihapus.]
+
 ## 0. EXECUTIVE SUMMARY & STRATEGI OFFLINE INDONESIA
 
 Jaringan internet seluler di Indonesia (khususnya wilayah suburban dan pelosok Sulawesi Selatan) sering mengalami penurunan sinyal (*flaky connection*). Kaos Kami Mobile dirancang dengan pendekatan **Offline-First**:

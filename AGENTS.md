@@ -11,12 +11,12 @@ Every AI assistant working in this repository MUST strictly follow the architect
 
 ### 1. The Blueprint & Progress System
 All design decisions, schemas, and API contracts are formally documented in the `Blueprint/` directory:
-- **`Blueprint/BLUEPRINT-01-ECOMMERCE-CORE-ARCHITECTURE.md`**: Data models, Turso libSQL schema, dynamic pricing engine, hyperlocal delivery, Midtrans Snap, and Better Auth.
+- **`Blueprint/BLUEPRINT-01-ECOMMERCE-CORE-ARCHITECTURE.md`**: Data models, Turso libSQL schema, dynamic pricing engine, hyperlocal delivery, Duitku v2, and Better Auth.
 - **`Blueprint/BLUEPRINT-02-MOCKUP-STUDIO-ENGINE.md`**: 3D React Three Fiber configurator, 1:1 cm scale calibration (max 30cm), real-time DPI analyzer, instant 1-click background remover, and multi-apparel lineup.
 - **`Blueprint/BLUEPRINT-03-ADMIN-USER-DASHBOARD.md`**: Workshop DTF Sablon Kanban production board, 360° order inspection, printable Job Ticket PDF, and 300 DPI master asset download center.
-- **`Blueprint/BLUEPRINT-04-MOBILE-PERFORMANCE-INFRA.md`**: Cloudflare Pages / Workers deployment (3MB limit rules), Cloudflare R2 zero-egress storage, Turso libSQL 24/7 always-on DB, and adaptive device tiering.
+- **`Blueprint/BLUEPRINT-04-MOBILE-PERFORMANCE-INFRA.md`**: Cloudflare Workers via opennext (`@opennextjs/cloudflare`) deployment (3MB limit rules), Cloudflare R2 zero-egress storage, Turso libSQL 24/7 always-on DB, and adaptive device tiering.
 - **`Blueprint/BLUEPRINT-05-ENTERPRISE-RESILIENCE-AND-SECURITY.md`**: 11 Pillars of Enterprise Production Hardening (Anti-IDOR RLS, Sliding Window Rate Limiter, VRAM GPU disposal, 1-Year Immutable CDN Cache, Duitku v2, Zero-Egress Cloud).
-- **`Blueprint/BUILD-PROGRESS-TRACKER.md`**: **MASTER EXECUTION CHECKLIST**. Whenever you complete a task, you MUST check off `[x]` the corresponding item in this tracker and update the daily worklog table!
+- **`Blueprint/TODO-SISA-KERJA-MAXIMAL.md`** (+ `Blueprint/TODO-*` / `Blueprint/ASSET-WAVE1-CHECKLIST.md`): **MASTER EXECUTION CHECKLIST** (pengganti `Blueprint/BUILD-PROGRESS-TRACKER.md` yang sudah tidak ada). Whenever you complete a task, you MUST check off `[x]` the corresponding item in this tracker and update the daily worklog table!
 
 ---
 
@@ -28,7 +28,7 @@ All design decisions, schemas, and API contracts are formally documented in the 
    - Maximum printable width is strictly clamped to **30.0 cm** (matching physical DTF printhead limits).
    - Real-world dimensions (`printWidthCm`, `printHeightCm`, `offsetFromCollarCm`) must always be calculated and displayed to users and stored in `ProductionTask`.
 4. **Fulfillment (Makassar Hyperlocal + Ekspedisi Nasional):**
-    - PICKUP (alamat workshop di invoice) • FREE_MAKASSAR antar tim Rp 0 • Luar kota = AgenWebsite Rate API live (user pilih termurah), fallback tabel `ExpeditionZone` → flat. Detail: `Blueprint/PENGIRIMAN.md`.
+    - PICKUP (alamat workshop di invoice) • FREE_MAKASSAR antar tim Rp 0 • Luar kota = AgenWebsite Rate API live (user pilih termurah), fallback tabel `ExpeditionZone` → flat. Detail: `RUNBOOK.md` (§ cron + shipping) dan kode `kaos-kami-web/src/lib/shipping/` + `kaos-kami-web/src/app/api/shipping/` + `kaos-kami-web/src/app/api/cron/` (pengganti `Blueprint/PENGIRIMAN.md` yang sudah tidak ada).
     - Key `AGENWEBSITE_RATE_API_KEY` hanya via secret/env, tidak pernah di-commit.
 5. **WhatsApp Notifications:**
    - Automated via Fonnte with **Fail-Safe / Graceful Fallback**: wrapped in try/catch so checkout 100% succeeds, with web invoice + direct `wa.me` manual button.
@@ -39,6 +39,7 @@ All design decisions, schemas, and API contracts are formally documented in the 
     - JANGAN deploy ke Cloudflare (`opennextjs-cloudflare deploy`, `wrangler deploy`) atau `git push` tanpa perintah eksplisit owner. Selesaikan banyak build/validasi lokal dulu (`tsc`, `next build`, `mobile:build`), push/deploy SEKALIGUS saat disuruh.
     - Sebelum deploy yang diminta: selalu tanya/konfirmasi dulu ke owner.
     - Deploy benar = `npm run deploy` (opennext build + deploy). `wrangler deploy` langsung = bundle `.open-next` BASI (rute baru 404).
+8. **Kill-switch checkout darurat (default fail-closed):** darurat via CHECKOUT_OTP_REQUIRED=false / TURNSTILE_ENFORCE=false, default fail-closed — hanya string persis `"false"` yang bypass (unset/kosong = WAJIB verifikasi); detail `RUNBOOK.md` §2b.
 
 ---
 
@@ -47,5 +48,5 @@ All design decisions, schemas, and API contracts are formally documented in the 
 - `.skills-sourced/3d-configurators/starklord-tshirt/` — Drei `<Decal>` projection math and `shirt_baked.glb`.
 - `.skills-sourced/3d-configurators/vihan-tshirt-designer/` — Fabric.js 2D Canvas Designer integration.
 - `.skills-sourced/3d-configurators/afilah-clothing-configurator/` — Multi-apparel geometry and `shirt.glb`.
-- `public/models/` — `tshirt-heavyweight.glb` (1.0MB), `hoodie.glb`, `jacket.glb`.
+- `kaos-kami-web/public/models/` — `tshirt-heavyweight.glb` (1.0MB), `hoodie.glb`, `jacket.glb` (+ varian `*.draco.glb`; mirror: `kaos-kami-mobile/public/models/`).
 - `ASSET_CREDITS.md` — Complete licensing and provenance log.

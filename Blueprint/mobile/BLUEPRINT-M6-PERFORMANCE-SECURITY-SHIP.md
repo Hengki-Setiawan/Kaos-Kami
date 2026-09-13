@@ -6,6 +6,8 @@ Repository: https://github.com/Hengki-Setiawan/Kaos-Kami.git
 
 ---
 
+> [HISTORIS-NONAKTIF C3 11 Sep 2026: semua referensi `*.workers.dev` di dokumen ini adalah ARSIP historis (cabut-total, tak ada user lama) — tautan Privacy Policy ikut domain kanonis `https://kaoskami.biz.id/privacy`. Riwayat dipertahankan, bukan dihapus.]
+
 ## 1. ANGGARAN PERFORMA MUTLAK (PERFORMANCE BUDGET)
 
 Setiap build rilis aplikasi Kaos Kami wajib lolos audit batas performa berikut:

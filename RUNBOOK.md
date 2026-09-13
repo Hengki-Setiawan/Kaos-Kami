@@ -1,17 +1,21 @@
-# Kaos Kami — RUNBOOK (Blueprint 04 §12)
+# Kaos Kami — RUNBOOK (lihat `AGENTS.md` untuk aturan arsitektur)
 
 ## 1. Duitku webhook tidak fire / payment stuck PENDING
 - **Gejala:** Order tetap `PENDING_PAYMENT` padahal customer sudah bayar, tidak ada `ProductionTask` terbuat.
 - **Cek:** Dashboard Duitku → Transactions → cari `orderNumber` → cek `resultCode=00`. Lalu cek secrets: `npx wrangler secret list` wajib ada `DUITKU_MERCHANT_CODE`, `DUITKU_API_KEY`, `DUITKU_ENV`.
 - **Fix manual:** kirim ulang callback ke `POST /api/webhooks/duitku` (verifikasi MD5 + cek nominal otomatis), atau manual `prisma.order.update status=PAYMENT_CONFIRMED` + buat `ProductionTask` rows + `OrderStatusEvent`.
 - **Pencegahan:** Sentry `onRequestError` + health `/api/health` setiap 1 menit.
-- **Catatan:** Proyek ini sepenuhnya Duitku. Kode & route Midtrans sudah dihapus total (Sep 2026); jika masih ada secrets `MIDTRANS_*` di Cloudflare, hapus via `npx wrangler secret delete MIDTRANS_SERVER_KEY` (dst.) agar tidak membingungkan.
+- **Catatan:** Proyek ini sepenuhnya Duitku. Route/kode Midtrans dihapus (Sep 2026); sisa enum DB historis MIDTRANS/XENDIT (schema.prisma:397-399, read-only order lama); jika masih ada secrets `MIDTRANS_*` di Cloudflare, hapus via `npx wrangler secret delete MIDTRANS_SERVER_KEY` (dst.) agar tidak membingungkan.
 
 ## 2. WhatsApp Fonnte device disconnect
 - **Gejala:** Checkout sukses tapi WA tidak terkirim, log `[Fonnte Mock Log]` atau `WA trigger error`.
 - **Cek:** `https://api.fonnte.com/device` status, QR scan di HP workshop.
-- **Fallback:** Web invoice `/orders/[id]` + tombol `wa.me/628xxx?text=` manual selalu tampil — checkout tidak pernah gagal (fail-safe try/catch `whatsapp.ts:28`).
+- **Fallback:** Web invoice `/orders/[id]` + tombol `wa.me/628xxx?text=` manual selalu tampil — checkout tidak pernah gagal (fail-safe try/catch `whatsapp.ts:64`).
 - **Alert:** Health check gagal → kirim WA ke admin via same Fonnte (ops).
+
+## 2b. Kill-switch checkout darurat (default aman, fail-closed)
+- `CHECKOUT_OTP_REQUIRED=false` → lewati gerbang OTP (darurat Fonnte mati); `TURNSTILE_ENFORCE=false` → lewati Turnstile. Hanya string persis `"false"` yang bypass — unset/kosong = WAJIB verifikasi.
+- Berlaku di `src/app/api/checkout/route.ts` + `src/app/api/mobile/orders/checkout/route.ts`. Set via `.env.local` (dev) / `wrangler secret put` (prod); JANGAN commit nilainya. Matikan lagi segera setelah darurat selesai.
 
 ## 3. R2 upload gagal
 - **Gejala:** `r2.ts` `Missing token` atau `R2 upload failed 401`.
@@ -49,7 +53,7 @@
 - **Firebase (`google-services.json`):** SUDAH ADA di `kaos-kami-mobile/android/app/` (dibuat owner 07 Sep 2026) + `firebase-bom:34.18.0` & `firebase-messaging` di `app/build.gradle` → AAB 07 Sep 2026 sudah include FCM. File ini BOLEH di-commit (isinya identifier publik yang memang ikut terkirim di dalam APK; bukan secret).
 - **Catatan Capacitor 8:** semua `@capacitor/*` WAJIB se-major dengan core (keyboard v7 gagal kompilasi di core v8 → upgrade ke v8).
 
-## 8. DEPLOY/PUSH GATE � tanya owner dulu (aturan Sep 2026)
+## 9. DEPLOY/PUSH GATE � tanya owner dulu (aturan Sep 2026)
 - JANGAN opennextjs-cloudflare deploy, wrangler deploy, atau git push tanpa perintah eksplisit owner. Pola kerja: banyak build + validasi lokal dulu (
 px tsc --noEmit web+mobile, 
 pm run build, 
@@ -58,3 +62,21 @@ pm run mobile:build), push/deploy SEKALIGUS saat disuruh.
 pm run deploy dari kaos-kami-web/ (opennext build + deploy). 
 px wrangler deploy langsung = bundle .open-next BASI (rute baru 404, terbukti 08 Sep 2026).
 - Setelah deploy yang diminta: probe /api/health + 1 endpoint baru + catat Version ID ke tracker.
+
+## 10. Cron luar (cron-job.org): sweep + backup — URL, jadwal, monitor umur
+- **Endpoint (format generik, tanpa secret):**
+  - Sweep: `GET <APP_URL>/api/cron/sweep` — PENDING_PAYMENT basi (>24 jam) → CANCELLED + kupon dikembalikan (`src/app/api/cron/sweep/route.ts`, `STALE_MS=24h`, `BATCH=100`).
+  - Sweep + fase rekonsiliasi yatim: order PENDING_PAYMENT umur >30 mnt tanpa baris Payment (batch 20, `RECONCILE_MS=30m`, `RECONCILE_BATCH=20`) dicek server-to-server via `checkTransactionStatus` → sukses = buat baris Payment SETTLEMENT + `confirmOrderPaid`; respons `{success:true, checked, cancelled, reconciled, created}`.
+  - Backup: `GET <APP_URL>/api/cron/backup` — fotokopi logis Turso → R2 `backups/kaos-kami-YYYYMMDDHHMM.sql` (`src/app/api/cron/backup/route.ts`).
+  - Backup-status: `GET <APP_URL>/api/cron/backup-status` — ringkasan backup publik tanpa CRON_SECRET (rate-limit IP, `src/app/api/cron/backup-status/route.ts`) — cek cepat umur backup tanpa secret.
+  - Marker hidup (health.cron): sweep menulis `cron-state/sweep.json` + backup menulis `cron-state/backup.json` ke R2 — dibaca `/api/health` sebagai bukti cron hidup.
+  - Prod `<APP_URL>` = `https://kaoskami.biz.id` (lihat `wrangler.jsonc` `NEXT_PUBLIC_SITE_URL`).
+  - Auth: header `Authorization: Bearer <CRON_SECRET>` (env server `CRON_SECRET`; tanpa secret = 503, salah = 401, compare timing-safe). **JANGAN tulis nilai secret di file/repo** — set via `.env.local` (dev) + `wrangler secret put CRON_SECRET` (prod).
+- **Jadwal di cron-job.org (2 job terpisah, metode GET + header di atas):**
+  - Sweep: tiap jam (menit 0).
+  - Backup: mingguan (mis. Senin dini hari).
+  - Aktifkan notifikasi gagal cron-job.org (alert bila respons non-2xx / `success:false`).
+- **Monitor umur (tanda job mati):**
+  - Sweep: respons normal `{success:true, checked, cancelled, reconciled, created}`. Waspada bila order `PENDING_PAYMENT` berumur >24 jam menumpuk (query Turso) = sweep tidak jalan >1 hari. `cancelled` melonjak tiba-tiba = cek anomali trafik/bayar.
+  - Backup: berisi PII → bucket PRIVAT `kaos-kami-backups` (bukan prefix publik). File terbaru berumur >8 hari = job mati. `bytes` anjlok vs baseline = backup kosong/rusak — jangan hapus backup lama sebelum verifikasi isi.
+  - Jejak lokal: `backups/` di repo ini = arsip manual, BUKAN pengganti cron backup cloud (jangan andalkan umurnya).

@@ -2,7 +2,7 @@
 
 Indonesian Heavyweight (240 & 280 GSM) Combed Cotton Streetwear Landing Page & 3D Configurator.
 
-Built with **Next.js 14 (App Router)**, **React Three Fiber**, **Three.js**, **GSAP**, **Lenis**, and **Zustand**.
+Built with **Next.js 15.5 (App Router)**, **React 19**, **React Three Fiber**, **Three.js 0.180**, **GSAP**, **Lenis**, and **Zustand**.
 
 ---
 
@@ -16,33 +16,43 @@ Built with **Next.js 14 (App Router)**, **React Three Fiber**, **Three.js**, **G
 
 ---
 
-## 🚀 Quick Start
+## 🚀 Quick Start (monorepo — run from repo root)
 
-1. Install dependencies:
+1. Install dependencies (root):
    ```bash
    npm install
    ```
 
-2. Run local development server:
+2. Run web (Next.js 15.5) — http://localhost:3000:
    ```bash
-   npm run dev
+   npm run web:dev
    ```
 
-3. Open [http://localhost:3000](http://localhost:3000) in your browser.
+3. Run mobile (Next.js 15.5 + Capacitor) — http://localhost:3001:
+   ```bash
+   npm run mobile:dev
+   ```
+
+4. Typecheck & build:
+   ```bash
+   npm run web:typecheck
+   npm run web:build
+   npm run mobile:build
+   ```
 
 ---
 
 ## 📦 Optional External Assets
 
-The application will automatically detect and upgrade to external assets if dropped into `/public`:
-- `public/models/tshirt-heavyweight.glb` — Draco-compressed 3D GLTF model
-- `public/lookbook/look-01.jpg` to `look-04.jpg` — Sourced high-resolution photography
-- `public/video/atelier-loop.mp4` — Ambient background video loop
+The application will automatically detect and upgrade to external assets if dropped into `kaos-kami-web/public`:
+- `kaos-kami-web/public/models/tshirt-heavyweight.glb` — Draco-compressed 3D GLTF model (rantai aktif: `*.draco.glb` → master `*.glb` → legacy, decoder di `kaos-kami-web/public/decoders/draco/`)
+- `kaos-kami-web/public/lookbook/look-01.jpg` to `look-04.jpg` — Sourced high-resolution photography
+- `kaos-kami-web/public/video/atelier-loop.mp4` — Ambient background video loop
 
 ---
 
 ## 🛠️ Verification & Build
 
-- `npm run typecheck` — Type checking (strict mode)
-- `npm run lint` — ESLint validation
-- `npm run build` — Production Next.js build
+- `npm run web:typecheck` — Type checking web (`kaos-kami-web/`, strict mode)
+- `npm run web:build` — Production Next.js web build (`kaos-kami-web/`)
+- `npm run mobile:build` — Production mobile build (`kaos-kami-mobile/`)

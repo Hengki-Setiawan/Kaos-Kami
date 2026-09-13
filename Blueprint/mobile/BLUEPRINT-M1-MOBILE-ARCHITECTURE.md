@@ -6,9 +6,11 @@ Repository: https://github.com/Hengki-Setiawan/Kaos-Kami.git
 
 ---
 
+> [HISTORIS-NONAKTIF C3 11 Sep 2026: semua referensi `*.workers.dev` di dokumen ini adalah ARSIP historis (cabut-total, tak ada user lama) — base/API/hostname/share-link baru = `https://kaoskami.biz.id`. JANGAN pakai workers.dev sebagai fallback login/API. Riwayat dipertahankan, bukan dihapus.]
+
 ## 0. EXECUTIVE SUMMARY & ARSITEKTUR KUNCI
 
-**Kaos Kami Mobile** adalah aplikasi native iOS dan Android yang dibangun di atas codebase Next.js 14 existing menggunakan runtime **Capacitor 8**, React Three Fiber (R3F), Zustand, dan Turso libSQL Edge SQLite.
+**Kaos Kami Mobile** adalah aplikasi native iOS dan Android yang dibangun di atas codebase Next.js 15 existing menggunakan runtime **Capacitor 8**, React Three Fiber (R3F), Zustand, dan Turso libSQL Edge SQLite.
 
 ### 5 Prinsip Arsitektur Non-Negotiable:
 1. **Single Codebase, Pragmatic Dual-Config (Bukan Monorepo Destruktif):**
