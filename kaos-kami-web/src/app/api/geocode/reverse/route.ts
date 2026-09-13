@@ -37,7 +37,11 @@ export async function GET(req: NextRequest) {
       }
     );
     clearTimeout(t);
-    if (!res.ok) return NextResponse.json({ result: null, error: "Layanan peta sibuk" });
+    // 502 jujur (bukan 200+error): pemanggil web (fetchJson melempar bila
+    // ada field error / status non-ok) & mobile (result null → isi manual)
+    // sama-sama fail-soft — verified CheckoutModal.tsx:386-398,
+    // mobileApiClient.ts:220-230.
+    if (!res.ok) return NextResponse.json({ result: null, error: "Layanan peta sibuk" }, { status: 502 });
     const j: any = await res.json();
     const a = j?.address || {};
     return NextResponse.json({
@@ -48,7 +52,8 @@ export async function GET(req: NextRequest) {
         displayName: j?.display_name || "",
       },
     });
-  } catch {
-    return NextResponse.json({ result: null, error: "Layanan peta tidak merespons" });
+  } catch (e: any) {
+    console.warn("Geocode reverse upstream gagal:", e?.message);
+    return NextResponse.json({ result: null, error: "Layanan peta tidak merespons" }, { status: 502 });
   }
 }

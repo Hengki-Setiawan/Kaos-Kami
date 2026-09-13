@@ -6,5 +6,9 @@ export async function GET() {
       orderBy: (t, { asc }) => asc(t.sortOrder),
     });
     return NextResponse.json({ success: true, colors });
-  } catch(e:any){ return NextResponse.json({ error: e.message }, { status: 500 }); }
+  } catch(e:any){
+    // Jangan bocorkan e.message (potensi detail DB) ke publik; log server saja.
+    console.error("Catalog colors GET error:", e?.message);
+    return NextResponse.json({ error: "Gagal memuat warna" }, { status: 500 });
+  }
 }

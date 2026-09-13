@@ -72,6 +72,7 @@ export async function PATCH(req: NextRequest) {
 
     // RBAC: selalu enforce di semua env (dev fail-open = WA palsu + stage palsu).
     let actorUserId: string | null = null;
+    let isAdmin = false;
     try {
       const { auth } = await import("@/lib/auth");
       const hdrs = await headers();
@@ -84,6 +85,7 @@ export async function PATCH(req: NextRequest) {
         return NextResponse.json({ error: "Forbidden: insufficient role" }, { status: 403 });
       }
       actorUserId = (session?.user as any)?.id || null;
+      isAdmin = role === "ADMIN" || role === "SUPER_ADMIN";
     } catch {
       return NextResponse.json({ error: "Unauthorized: silakan login" }, { status: 401 });
     }
@@ -124,10 +126,17 @@ export async function PATCH(req: NextRequest) {
     // DONE final: tak bisa mundur (buat task baru / hubungi supervisor).
     const current = await db.query.ProductionTask.findFirst({
       where: (t, { eq }) => eq(t.id, taskId),
-      columns: { stage: true },
+      columns: { stage: true, assignedToUserId: true },
     });
     if (!current) {
       return NextResponse.json({ error: "Task tidak ditemukan" }, { status: 404 });
+    }
+    // Kepemilikan advance: task yang sudah di-claim hanya boleh dimajukan
+    // pemiliknya (assignedToUserId) atau ADMIN (supervisi/reassign). Operator
+    // lain → 403 agar tak saling menimpa stage. Task NULL (belum di-claim)
+    // tetap boleh dimajukan seperti sekarang (alur claim terpisah di atas).
+    if (current.assignedToUserId && current.assignedToUserId !== actorUserId && !isAdmin) {
+      return NextResponse.json({ error: "Forbidden: task dipegang operator lain" }, { status: 403 });
     }
     if (current.stage === "DONE" && stage !== "DONE") {
       return NextResponse.json({ error: "Task DONE final — buat task baru bila perlu" }, { status: 400 });

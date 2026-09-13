@@ -28,10 +28,10 @@ async function requireWorkshop(req: NextRequest) {
     if (!["ADMIN", "SUPER_ADMIN", "PRODUCTION_STAFF"].includes(role)) {
       return { error: NextResponse.json({ error: "Forbidden" }, { status: 403 }) };
     }
+    return { role: role as string };
   } catch {
     return { error: NextResponse.json({ error: "Unauthorized" }, { status: 401 }) };
   }
-  return {};
 }
 
 /**
@@ -45,6 +45,18 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   const parsed = PatchSchema.safeParse(await req.json().catch(() => ({})));
   if (!parsed.success) return NextResponse.json({ error: "Input tidak valid" }, { status: 400 });
   const { trackingNumber, cancel, refund } = parsed.data;
+
+  // Otorisasi per aksi (bukan sekadar lolos gerbang workshop):
+  // - cancel/refund = dampak finansial (status final CANCELLED/REFUNDED +
+  //   restore kuota kupon + catatan refund manual Duitku) → HANYA
+  //   ADMIN/SUPER_ADMIN. PRODUCTION_STAFF tak boleh membatalkan uang pelanggan.
+  // - trackingNumber/resi = operasional harian kirim paket → boleh
+  //   PRODUCTION_STAFF (tanpa dampak finansial).
+  const actorRole = (gate as { role?: string }).role;
+  const isAdmin = actorRole === "ADMIN" || actorRole === "SUPER_ADMIN";
+  if ((cancel || refund) && !isAdmin) {
+    return NextResponse.json({ error: "Forbidden: cancel/refund khusus ADMIN" }, { status: 403 });
+  }
 
   const { id: orderId } = await params;
   const order = await db.query.Order.findFirst({

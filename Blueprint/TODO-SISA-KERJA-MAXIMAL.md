@@ -90,7 +90,7 @@
 
 - [x] Fix docs: AGENTS (Duitku, Workers-opennext, repoint tracker, path monorepo) + README (Next 15.5/React 19/three 0.180, Quick Start workspaces) + RUNBOOK (§8→8,9,10; whatsapp:64; Blueprint04 basi) + M1 (Next 15).
 - [x] Validasi: `web:typecheck` ✅ 0 (13 Sep) · `mobile:typecheck` ✅ 0 · `web:build` ✅ HIJAU (13 Sep, /studio 1.44kB/105kB — split chunk terbukti; / 35.5kB/302kB) · `mobile:build` ✅ HIJAU (13 Sep) · `vitest` ✅ 10/10.
-- [ ] Komit selektif (JANGAN `git add -A`): 1 domain → 2 docs → `git rm` 34 D eksplisit (tahan ads/billing/ProUpgrade sampai konfirmasi QRIS-only) → 4 aset Wave-1 eksplisit → 5 web → 6 mobile+ios. `Asset 3D/` + `*.blend` ke `.gitignore`. Push/deploy menunggu perintah owner.
+- [x] Komit selektif SELESAI 13 Sep, 7 komit lokal (0452dd3, c484646, 0f5bb03, 80a2c36, 6842511, c97eda1, f922e56; terbaru = f922e56) — TANPA push (menunggu perintah). Tersisa untracked by-design: `ios/`, `*/public/models/*.glb`, `textures/`, `animations/`, `Asset 3D/` (ignored).
 
 ---
 
@@ -99,5 +99,5 @@
 - [x] B1 sweep cek nominal (`Number(st.amount) !== totalIdr → continue`); B2 seal dilepas saat kompensasi (kedua route); B3 validate kupon pindah pra-OTP + consume-only pasca-klaim (kedua route); B4 webhook guard non-PENDING (ack 200 + event REVIEW, tanpa spawn).
 - [x] M1 Turnstile mobile via OTP (OTP lolos → lewati; OTP bypass darurat → Turnstile tetap wajib); M2 returnUrl deep-link tersambung (`returnUrlOverride` di duitku.ts + mobile checkout kirim `kaoskami://payment/callback?orderId=` + `parseDuitkuReturnUrl` di page.tsx + anti open-redirect ketat).
 - [x] Docs A1–A8 + C: repoint tracker/PENGIRIMAN, kill-switch di RUNBOOK §2b + AGENTS + `.env.example`, checklist madjin jujur, tabel longsleeve MIT, box MOCKUP sinkron (M4.1/M4.3 parsial, M2.10 `[~]`, shadow 1024), Midtrans overclaim diluruskan, sweep terekam di RUNBOOK.
-- [x] Security: kill-switch `=== "false"` semua (15 hit bersih); eval 0; secret hardcoded 0; rate-limit 7 titik; secret ter-track 0. Catatan P1: `.gitignore` belum tutup `.env.production/.env.development/.env.staging`; Manifest deep-link berubah (3 filter) — handler sudah diperketat, tinggal review.
+- [x] Security: kill-switch `=== "false"` semua (15 hit bersih); eval 0; secret hardcoded 0; rate-limit 7 titik; secret ter-track 0. Catatan P1: ~~`.gitignore` belum tutup `.env.production/.env.development/.env.staging`~~ (CORET 13 Sep — klaim basi, SUDAH DITUTUP di `.gitignore:33-35`); Manifest deep-link berubah (3 filter) — handler sudah diperketat, tinggal review.
 - [x] Lockfile root sinkron (leva masuk, sharp keluar). Catatan: vuln 11 → 14 (3 moderate dari leva, dev-only).

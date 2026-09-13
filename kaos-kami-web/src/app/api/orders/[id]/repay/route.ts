@@ -7,6 +7,7 @@ import { Payment, Verification } from "@/lib/drizzle-schema";
 import { hashOtp } from "@/lib/otp";
 import { duitkuProvider } from "@/lib/payments/duitku";
 import { confirmOrderPaid } from "@/lib/payments/confirmOrder";
+import { PRODUCTION_TURNAROUND_OPTIONS } from "@/lib/shipping/deliveryOptions";
 import { checkRateLimitAsync, getClientIp, rateLimitHeaders } from "@/lib/security/rateLimiter";
 
 /**
@@ -162,6 +163,17 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     }
     if (order.discountIdr > 0) {
       itemLines.push({ name: "Diskon kupon", price: -order.discountIdr, quantity: 1 });
+    }
+    // Paritas checkout (checkout/route.ts:410-411,764-766): order EXPRESS
+    // menyimpan surcharge di totalIdr + marker [TIER:EXPRESS_24H] di
+    // courierNotes (tanpa kolom khusus). Tanpa baris ini Σ(item) < amount
+    // → Duitku tolak imbalance untuk order express.
+    if (order.courierNotes?.includes("[TIER:EXPRESS_24H]")) {
+      const expressSurcharge =
+        PRODUCTION_TURNAROUND_OPTIONS.find((t) => t.tier === "EXPRESS_24H")?.surchargeIdr ?? 25000;
+      if (expressSurcharge > 0) {
+        itemLines.push({ name: "Surcharge EXPRESS 24H", price: expressSurcharge, quantity: 1 });
+      }
     }
 
     let charge;

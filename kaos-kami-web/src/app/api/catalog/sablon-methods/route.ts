@@ -4,5 +4,9 @@ export async function GET() {
   try {
     const methods = await db.query.SablonMethod.findMany();
     return NextResponse.json({ success: true, methods });
-  } catch(e:any){ return NextResponse.json({ error: e.message }, { status: 500 }); }
+  } catch(e:any){
+    // Jangan bocorkan e.message (potensi detail DB) ke publik; log server saja.
+    console.error("Catalog sablon-methods GET error:", e?.message);
+    return NextResponse.json({ error: "Gagal memuat metode sablon" }, { status: 500 });
+  }
 }

@@ -4,5 +4,9 @@ export async function GET() {
   try {
     const materials = await db.query.MaterialFinish.findMany();
     return NextResponse.json({ success: true, materials });
-  } catch(e:any){ return NextResponse.json({ error: e.message }, { status: 500 }); }
+  } catch(e:any){
+    // Jangan bocorkan e.message (potensi detail DB) ke publik; log server saja.
+    console.error("Catalog materials GET error:", e?.message);
+    return NextResponse.json({ error: "Gagal memuat material" }, { status: 500 });
+  }
 }

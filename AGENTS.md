@@ -10,12 +10,12 @@
 Every AI assistant working in this repository MUST strictly follow the architecture, guidelines, and execution tracker established in this codebase.
 
 ### 1. The Blueprint & Progress System
-All design decisions, schemas, and API contracts are formally documented in the `Blueprint/` directory:
-- **`Blueprint/BLUEPRINT-01-ECOMMERCE-CORE-ARCHITECTURE.md`**: Data models, Turso libSQL schema, dynamic pricing engine, hyperlocal delivery, Duitku v2, and Better Auth.
-- **`Blueprint/BLUEPRINT-02-MOCKUP-STUDIO-ENGINE.md`**: 3D React Three Fiber configurator, 1:1 cm scale calibration (max 30cm), real-time DPI analyzer, instant 1-click background remover, and multi-apparel lineup.
-- **`Blueprint/BLUEPRINT-03-ADMIN-USER-DASHBOARD.md`**: Workshop DTF Sablon Kanban production board, 360° order inspection, printable Job Ticket PDF, and 300 DPI master asset download center.
-- **`Blueprint/BLUEPRINT-04-MOBILE-PERFORMANCE-INFRA.md`**: Cloudflare Workers via opennext (`@opennextjs/cloudflare`) deployment (3MB limit rules), Cloudflare R2 zero-egress storage, Turso libSQL 24/7 always-on DB, and adaptive device tiering.
-- **`Blueprint/BLUEPRINT-05-ENTERPRISE-RESILIENCE-AND-SECURITY.md`**: 11 Pillars of Enterprise Production Hardening (Anti-IDOR RLS, Sliding Window Rate Limiter, VRAM GPU disposal, 1-Year Immutable CDN Cache, Duitku v2, Zero-Egress Cloud).
+All design decisions, schemas, and API contracts are formally documented in the `Blueprint/` directory (daftar ini = file YANG ADA di disk 13 Sep 2026; BLUEPRINT-01..05 sudah tidak ada):
+- **`Blueprint/TODO-SISA-KERJA-MAXIMAL.md`**: MASTER EXECUTION CHECKLIST (pengganti BUILD-PROGRESS-TRACKER yang sudah dihapus).
+- **`Blueprint/TODO-UPGRADE-3D-MAXIMAL.md`**: Upgrade 3D & framework Fase A–G (SELESAI dieksekusi 09 Sep 2026, Fase 29).
+- **`Blueprint/TODO-MOCKUP-5PER5.md`**: Mockup 5/5 aset + sistem + alur 2D Fase M0–M5 (RENCANA 09 Sep 2026; KTX2 DITUNDA keputusan owner 11 Sep 2026).
+- **`Blueprint/ASSET-WAVE1-CHECKLIST.md`**: Checklist unduh Wave-1 per situs (Sketchfab dkk, badge lisensi per model).
+- **`Blueprint/mobile/BLUEPRINT-M1-…-M10-*.md`** (M1 architecture … M10 API contracts) + **`Blueprint/mobile/BUILD-PROGRESS-TRACKER-MOBILE.md`**: spek + tracker mobile.
 - **`Blueprint/TODO-SISA-KERJA-MAXIMAL.md`** (+ `Blueprint/TODO-*` / `Blueprint/ASSET-WAVE1-CHECKLIST.md`): **MASTER EXECUTION CHECKLIST** (pengganti `Blueprint/BUILD-PROGRESS-TRACKER.md` yang sudah tidak ada). Whenever you complete a task, you MUST check off `[x]` the corresponding item in this tracker and update the daily worklog table!
 
 ---
@@ -48,5 +48,5 @@ All design decisions, schemas, and API contracts are formally documented in the 
 - `.skills-sourced/3d-configurators/starklord-tshirt/` — Drei `<Decal>` projection math and `shirt_baked.glb`.
 - `.skills-sourced/3d-configurators/vihan-tshirt-designer/` — Fabric.js 2D Canvas Designer integration.
 - `.skills-sourced/3d-configurators/afilah-clothing-configurator/` — Multi-apparel geometry and `shirt.glb`.
-- `kaos-kami-web/public/models/` — `tshirt-heavyweight.glb` (1.0MB), `hoodie.glb`, `jacket.glb` (+ varian `*.draco.glb`; mirror: `kaos-kami-mobile/public/models/`).
+- `kaos-kami-web/public/models/` — rantai aktif (via `probeFirstExistingUrl` di `src/hooks/useDeviceTier.ts:120-157`): kaos `tee-basic.draco.glb→tee-basic.glb→tshirt-heavyweight.glb`; hoodie `hoodie-blue.draco.glb→hoodie-blue.glb→hoodie.lod1.glb/hoodie.glb`; longsleeve `longsleeve.draco.glb→longsleeve.glb`; sweater/crewneck `sweater.draco.glb→sweater.glb` + cap `cap.draco.glb→cap.glb` + pants `pants.glb` + shorts `shorts.glb` (mockup-saja, orderable FALSE); jacket `jacket.lod1.glb→jacket.glb`; manekin web-only `/models/mannequin.glb` (`MannequinModel.tsx:35`, `CanvasStage.tsx:335`); `tee-alt/fleece-alt/hoodie-flat.glb` staged tapi TAK wired ke loader (hanya `assetManifest.ts` STAGED_FILES + `/kredit` atribusi); mirror `kaos-kami-mobile/public/models/` sama minus `mannequin.glb` + `tshirt-heavyweight.draco.glb` + `tee-alt/fleece-alt/hoodie-flat` (mobile tak minta file itu — rantai `MobileApparelMeshRenderer.tsx:73-119` + fallback `tshirt-heavyweight.glb/hoodie.glb` menutupi).
 - `ASSET_CREDITS.md` — Complete licensing and provenance log.
