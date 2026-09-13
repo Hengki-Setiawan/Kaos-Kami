@@ -1,4 +1,4 @@
-import { timingSafeEqual } from "crypto";
+import { timingSafeEqual } from "node:crypto";
 
 /** Bandingkan secret/signature anti-timing-attack (length guard + compare konstan). */
 export function secretsEqual(a: string, b: string): boolean {

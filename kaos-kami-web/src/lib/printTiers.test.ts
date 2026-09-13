@@ -24,18 +24,19 @@ describe("printTiers SSOT", () => {
     expect(printTierCost("A3")).toBe(35000);
   });
 
-  it("by-scale konsisten dengan by-cm via multiplier terukur (tshirt 101.8)", () => {
-    // 11.2cm -> A5 di kedua jalur (dulu A4 vs A5 beda jalur)
+  it("by-scale konsisten dengan by-cm via multiplier terukur (Fase 13: tshirt 78.4)", () => {
+    // 0.11 × 78.4 = 8.6cm -> A6 di kedua jalur (dulu A4 vs A5 beda jalur)
     expect(classifyPrintTierByScale(0.11, "tshirt")).toBe(
-      classifyPrintTierByCm(0.11 * 101.8)
+      classifyPrintTierByCm(0.11 * 78.4)
     );
-    expect(classifyPrintTierByScale(0.11, "tshirt")).toBe("A5");
+    expect(classifyPrintTierByScale(0.11, "tshirt")).toBe("A6");
   });
 
   it("maxDecalScaleUnits mencapai batas cetak fisik per apparel", () => {
-    // tshirt: 30cm / 101.8 ≈ 0.2947 (bukan 0.162 warisan multiplier salah)
-    expect(maxDecalScaleUnits("tshirt", "front")).toBeCloseTo(30 / 101.8, 4);
-    expect(maxDecalScaleUnits("hoodie", "front")).toBeCloseTo(28 / 95.1, 4);
+    // Fase 13: tshirt 30/78.4 ≈ 0.3827; hoodie 28/105.6 ≈ 0.2652
+    // (bukan 0.162 warisan multiplier salah)
+    expect(maxDecalScaleUnits("tshirt", "front")).toBeCloseTo(30 / 78.4, 4);
+    expect(maxDecalScaleUnits("hoodie", "front")).toBeCloseTo(28 / 105.6, 4);
     expect(maxDecalScaleUnits("shirt", "front")).toBeCloseTo(14 / 69.5, 4);
   });
 });

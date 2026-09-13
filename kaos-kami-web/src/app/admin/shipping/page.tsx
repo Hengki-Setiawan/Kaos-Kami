@@ -138,7 +138,7 @@ export default function AdminShippingPage() {
         {usageConfigured === false && (
           <p className="text-amber-400">
             API key belum dipasang. Tarif pakai tabel zona di bawah. Pasang key via secret{" "}
-            <span className="font-bold">AGENWEBSITE_RATE_API_KEY</span> (lihat Blueprint/PENGIRIMAN.md).
+            <span className="font-bold">AGENWEBSITE_RATE_API_KEY</span> (lihat RUNBOOK §10).
           </p>
         )}
         {usage && (

@@ -55,13 +55,14 @@ export async function POST(req: NextRequest) {
     const token = process.env.FONNTE_TOKEN;
     const isProd = process.env.NODE_ENV === "production";
     if (!token) {
-      console.log(`[OTP Mock] ${clean} → ${code}`);
+      // P1: kode TIDAK BOLEH masuk log di prod (log draiange = oracle OTP).
       if (isProd) {
         return NextResponse.json(
           { error: "Layanan OTP belum dikonfigurasi. Hubungi admin." },
           { status: 503 }
         );
       }
+      console.log(`[OTP Mock] ${clean} → ${code}`);
       return NextResponse.json({ success: true, mock: true, code, message: "OTP mock (Fonnte belum set)" });
     }
 

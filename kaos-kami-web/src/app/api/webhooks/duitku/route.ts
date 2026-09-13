@@ -16,6 +16,14 @@ export async function POST(req: NextRequest) {
     if (rl.isLimited) {
       return NextResponse.json({ error: "Rate limited" }, { status: 429, headers: rateLimitHeaders(rl, 30) });
     }
+
+    // Fail-closed: tolak 503 bila secret kosong — JANGAN verifikasi dengan
+    // secret kosong (verifyCallbackSignature juga return false lapis-2).
+    try {
+      duitkuProvider.assertDuitkuConfigured();
+    } catch {
+      return NextResponse.json({ error: "Payment provider not configured" }, { status: 503 });
+    }
     let payload: Record<string, any> = {};
 
     const contentType = req.headers.get("content-type") || "";
@@ -101,6 +109,21 @@ export async function POST(req: NextRequest) {
     }
     // 4b. Reference duplikat (retry Duitku) → ack tanpa tulis ulang.
     if (reference && order.payment?.providerRef === reference && order.payment?.rawWebhookPayload) {
+      return new Response("SUCCESS", { status: 200 });
+    }
+
+    // B4: order non-PENDING (mis. CANCELLED oleh sweep 24 jam) yang menerima
+    // callback sukses TELAT → JANGAN update SETTLEMENT / spawn produksi
+    // (order sudah mati; uang mungkin perlu kembali). Ack 200 (agar Duitku
+    // berhenti retry) + tulis OrderStatusEvent REVIEW untuk triase
+    // manual/refund admin. JANGAN auto-lunas di sini.
+    if (order.status !== "PENDING_PAYMENT") {
+      await db.insert(OrderStatusEvent).values({
+        id: nanoid(),
+        orderId: order.id,
+        status: order.status,
+        note: `Callback Duitku ${isPaymentSuccess ? "sukses" : "gagal"} (${resultCode || "?"} via ${paymentCode || "Duitku"}) untuk order non-PENDING (${order.status}) — perlu triase manual/refund, JANGAN auto-lunas.`,
+      }).catch(() => {});
       return new Response("SUCCESS", { status: 200 });
     }
 

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
-import { eq } from "drizzle-orm";
+import { and, eq, isNull } from "drizzle-orm";
 import { nanoid } from "nanoid";
 import { db } from "@/lib/db";
 import { siteUrl } from "@/lib/siteUrl";
@@ -100,16 +100,23 @@ export async function PATCH(req: NextRequest) {
     }
     const { taskId, stage, notes, claim } = parsed.data;
 
-    // Ambil alih task ke diri sendiri (operator).
+    // Ambil alih task ke diri sendiri (operator) — HANYA bila belum
+    // dipegang siapa pun (assignedToUserId IS NULL). Klaim task yang sudah
+    // dipegang = 409 (rebut-mencongkak antar operator merusak antrean).
     if (claim) {
       if (!actorUserId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
       const [claimed] = await db
         .update(ProductionTask)
         .set({ assignedToUserId: actorUserId })
-        .where(eq(ProductionTask.id, taskId))
+        .where(and(eq(ProductionTask.id, taskId), isNull(ProductionTask.assignedToUserId)))
         .returning({ id: ProductionTask.id });
-      if (!claimed) return NextResponse.json({ error: "Task tidak ditemukan" }, { status: 404 });
-      return NextResponse.json({ success: true, claimed: true });
+      if (claimed) return NextResponse.json({ success: true, claimed: true });
+      const existing = await db.query.ProductionTask.findFirst({
+        where: (t, { eq }) => eq(t.id, taskId),
+        columns: { id: true, assignedToUserId: true },
+      });
+      if (!existing) return NextResponse.json({ error: "Task tidak ditemukan" }, { status: 404 });
+      return NextResponse.json({ error: "Task sudah dipegang operator lain" }, { status: 409 });
     }
     if (!stage) {
       return NextResponse.json({ error: "stage wajib diisi" }, { status: 400 });

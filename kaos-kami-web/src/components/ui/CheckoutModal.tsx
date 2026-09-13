@@ -1,14 +1,16 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { useConfiguratorStore } from "@/store/useConfiguratorStore";
+import { useShallow } from "zustand/shallow";
 import {
   MAKASSAR_DELIVERY_OPTIONS,
   MAKASSAR_SUBDISTRICTS,
   PRODUCTION_TURNAROUND_OPTIONS,
   type DeliveryMethod,
 } from "@/lib/shipping/deliveryOptions";
-import { calculate6VariablePrice } from "@/lib/pricingEngine";
+import { calculate6VariablePrice, materialFinishToPricing } from "@/lib/pricingEngine";
+import { APPAREL_CATALOG, PRODUCT_COLORS, type ApparelType } from "@/lib/constants";
 import {
   X,
   ShoppingBag,
@@ -28,11 +30,29 @@ import {
 import { useCartStore } from "@/store/useCartStore";
 import { TurnstileWidget } from "@/components/ui/TurnstileWidget";
 import { fetchJson } from "@/lib/fetchJson";
+import { fetchServerPriceMap, formatIdr } from "@/lib/cartPriceRefresh";
+import { getMasterDataUrl, isHttpsMasterUrl } from "@/lib/imageEditPipeline";
+// Normalisasi phone ID (08…/62…) SEBELUM submit/OTP agar lolos regex
+// backend (spasi/strip/(…)/+ tengah bikin 400 walau nomor benar).
+import { normalizePhoneId } from "@/lib/phone";
 
 interface CheckoutModalProps {
   isOpen: boolean;
   onClose: () => void;
   checkoutMode?: "custom-3d" | "cart";
+}
+
+// P0-2: Idempotency-Key UNIK per klik BAYAR (zero-dep — JANGAN tambah dep
+// client hanya untuk ini). Format UUID lolos regex server
+// /^[A-Za-z0-9\-_.:]{8,128}$/ (checkout route baca header "idempotency-key").
+function newIdempotencyKey(): string {
+  try {
+    const u = globalThis?.crypto?.randomUUID?.();
+    if (typeof u === "string" && u.length >= 8) return u;
+  } catch {
+    // abaikan — pakai fallback di bawah
+  }
+  return `web-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 12)}`;
 }
 
 export const CheckoutModal: React.FC<CheckoutModalProps> = ({
@@ -47,21 +67,40 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
     selectedSize,
     decals,
     materialFinish,
-  } = useConfiguratorStore();
+  } = useConfiguratorStore(
+    useShallow((s) => ({
+      activeApparel: s.activeApparel,
+      selectedColor: s.selectedColor,
+      activeColorName: s.activeColorName,
+      selectedSize: s.selectedSize,
+      decals: s.decals,
+      materialFinish: s.materialFinish,
+    }))
+  );
 
-  const { items: cartItems, getTotalPrice: getCartTotalPrice, clearCart } = useCartStore();
+  const { items: cartItems, getTotalPrice: getCartTotalPrice, clearCart } = useCartStore(
+    useShallow((s) => ({
+      items: s.items,
+      getTotalPrice: s.getTotalPrice,
+      clearCart: s.clearCart,
+    }))
+  );
 
   const isCartCheckout = checkoutMode === "cart" && cartItems.length > 0;
 
   const [quantity, setQuantity] = useState(1);
   const [useCustomSizeBreakdown, setUseCustomSizeBreakdown] = useState(false);
+  // KEPUTUSAN XXXL (HIGH-6, fail-closed ke XXL): kunci XXXL SENGAJA tak ada
+  // di rincian ini. Bukti tak ada varian DB: seed (prisma/seed.ts) hanya
+  // L/M/XL, APPAREL_CATALOG.sizes + SIZES (lib/constants.ts) maks XXL.
+  // JANGAN tambah tanpa varian DB + pola size chart. Surcharge XXXL di
+  // pricingEngine tetap (SSOT harga, jangan ubah).
   const [sizeDistribution, setSizeDistribution] = useState<Record<string, number>>({
     S: 0,
     M: 0,
     L: 1,
     XL: 0,
     XXL: 0,
-    XXXL: 0,
   });
 
   const [recipientName, setRecipientName] = useState("");
@@ -106,14 +145,82 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
 
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  // Harga cart bisa basi (localStorage lama): refresh dari katalog segar saat
+  // modal dibuka + ulang tepat sebelum POST; selisih tampil eksplisit.
+  const [cartPriceNotice, setCartPriceNotice] = useState<{ oldTotal: number; newTotal: number; diff: number } | null>(null);
+  const [cartPriceChecking, setCartPriceChecking] = useState(false);
   // Token anti-bot Turnstile (opsional — wajib hanya bila server mengonfigurasi secret).
   const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
   const turnstileEnabled = !!process.env.NEXT_PUBLIC_CLOUDFLARE_TURNSTILE_SITE_KEY;
 
+  // A11y dialog (tiru AuthModal/BottomSheet): ESC-to-close, fokus awal ke
+  // tombol tutup, focus-trap Tab sederhana di dalam panel modal.
+  // Hook SEBELUM early-return `if (!isOpen)` agar urutan hook stabil.
+  const panelRef = useRef<HTMLDivElement>(null);
+  const closeBtnRef = useRef<HTMLButtonElement>(null);
+  useEffect(() => {
+    if (!isOpen) return;
+    closeBtnRef.current?.focus();
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        e.stopPropagation();
+        onClose();
+        return;
+      }
+      if (e.key !== "Tab" || !panelRef.current) return;
+      const focusables = panelRef.current.querySelectorAll<HTMLElement>(
+        'button:not([disabled]), a[href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
+      );
+      if (focusables.length === 0) return;
+      const first = focusables[0]!;
+      const last = focusables[focusables.length - 1]!;
+      const active = document.activeElement as HTMLElement | null;
+      if (e.shiftKey && (active === first || !panelRef.current.contains(active))) {
+        e.preventDefault();
+        last.focus();
+      } else if (!e.shiftKey && active === last) {
+        e.preventDefault();
+        first.focus();
+      }
+    };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [isOpen, onClose]);
+
+  // Refresh harga cart dari katalog segar sekali per pembukaan modal.
+  useEffect(() => {
+    if (!isOpen || !isCartCheckout) {
+      setCartPriceNotice(null);
+      return;
+    }
+    let alive = true;
+    setCartPriceChecking(true);
+    (async () => {
+      try {
+        const before = useCartStore.getState().items.reduce((a, it: any) => a + (it.priceIdr || 0) * (it.quantity || 0), 0);
+        const map = await fetchServerPriceMap(10000);
+        if (!alive || Object.keys(map).length === 0) return;
+        const { diffIdr } = useCartStore.getState().syncPrices(map);
+        if (!alive) return;
+        const after = useCartStore.getState().items.reduce((a, it: any) => a + (it.priceIdr || 0) * (it.quantity || 0), 0);
+        setCartPriceNotice(diffIdr !== 0 ? { oldTotal: before, newTotal: after, diff: diffIdr } : null);
+      } finally {
+        if (alive) setCartPriceChecking(false);
+      }
+    })();
+    return () => {
+      alive = false;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen, isCartCheckout]);
+
   // WA OTP saat bayar (hemat Fonnte: cuma 1x per checkout, bukan per daftar)
+  // Normalisasi dulu (strip spasi/strip/+) agar nomor benar tak ditolak 400.
   const handleSendOtp = async () => {
-    if (!phoneNumber || phoneNumber.length < 9) {
-      setOtpMsg("Isi WA dulu");
+    const norm = normalizePhoneId(phoneNumber);
+    if (norm) setPhoneNumber(norm);
+    if (!norm || norm.replace(/[^0-9]/g, "").length < 9) {
+      setOtpMsg("Isi WA dulu (contoh: 081234567890)");
       return;
     }
     setIsSendingOtp(true);
@@ -122,7 +229,7 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
       const data = await fetchJson<{ success?: boolean; mock?: boolean; code?: string }>("/api/auth/send-otp", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ phoneNumber }),
+        body: JSON.stringify({ phoneNumber: norm }),
       });
       setOtpSent(true);
       // Kode mock HANYA tampil di dev lokal; server prod tidak pernah mengirim code.
@@ -134,22 +241,18 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
       setIsSendingOtp(false);
     }
   };
-  const handleVerifyOtp = async () => {
-    if (!otpCode) {
-      setOtpMsg("Isi kode 6 digit");
+  // P0-3: JANGAN panggil /api/auth/verify-otp di sini — endpoint itu MENGHAPUS
+  // kode satu-pakai (verify-otp route menghapus `otp:<clean>`), sehingga POST
+  // /api/checkout sesudahnya pasti 401 "kadaluarsa". Satu-satunya pengonsumsi
+  // kode adalah gerbang OTP checkout itu sendiri. Tombol ini hanya cek format
+  // lokal; verifikasi sebenarnya terjadi di server saat klik BAYAR.
+  const handleVerifyOtp = () => {
+    if (!/^\d{6}$/.test(otpCode.trim())) {
+      setOtpMsg("Isi kode 6 digit dari WA dulu");
       return;
     }
-    try {
-      await fetchJson("/api/auth/verify-otp", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ phoneNumber, code: otpCode }),
-      });
-      setIsPhoneVerified(true);
-      setOtpMsg("✅ WA terverifikasi");
-    } catch (e: any) {
-      setOtpMsg(e?.message || "Kode salah");
-    }
+    setIsPhoneVerified(true);
+    setOtpMsg("Kode 6 digit siap — klik BAYAR, server yang verifikasi");
   };
 
   // Update total quantity when size distribution changes
@@ -161,11 +264,18 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
     setQuantity(Math.max(1, sum));
   };
 
-  // Dynamic 6-Variable Pricing
+  // Dynamic 6-Variable Pricing (K-F): pigmen dari PRODUCT_COLORS + kain
+  // dari materialFinish store — SELARAS drawer & server (dulu pigmen Rp0 di struk).
+  const matchedCheckoutColor = PRODUCT_COLORS.find(
+    (c) => c.hex.toLowerCase() === selectedColor.toLowerCase()
+  );
+  const checkoutMaterial = materialFinishToPricing(materialFinish);
   const pricing = calculate6VariablePrice({
     apparelSlug: activeApparel,
+    fabricThicknessSlug: checkoutMaterial.fabricThicknessSlug,
     size: selectedSize,
     colorHex: selectedColor,
+    isSpecialPigment: !!matchedCheckoutColor?.isSpecialPigment,
     decals,
     quantity,
   });
@@ -309,12 +419,17 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
     e.preventDefault();
     setErrorMessage(null);
 
+    // Normalisasi SEBELUM validasi/submit: "0812-3456 7890" / "+62 812…"
+    // umum dari keyboard HP lolos regex ID backend setelah dibersihkan.
+    const normPhone = normalizePhoneId(phoneNumber);
+    if (normPhone) setPhoneNumber(normPhone);
+
     if (!recipientName.trim()) {
       setErrorMessage("Nama penerima wajib diisi.");
       return;
     }
-    if (!phoneNumber.trim() || phoneNumber.length < 9) {
-      setErrorMessage("Nomor WhatsApp tidak valid.");
+    if (!normPhone || normPhone.replace(/[^0-9]/g, "").length < 9) {
+      setErrorMessage("Nomor WhatsApp tidak valid (contoh: 081234567890).");
       return;
     }
     if (email.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) {
@@ -330,8 +445,111 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
       return;
     }
 
+    // Fase 13: cegah pesan item yang belum dijual (cap/pants/shorts) di
+    // client — server tetap menolak 400 (fail-closed bila client lama dilewati).
+    {
+      const slugs: string[] = isCartCheckout
+        ? (cartItems as any[]).map((it) => String(it?.apparelSlug ?? ""))
+        : [String(activeApparel)];
+      const blocked = slugs.find((s) => !APPAREL_CATALOG[s as ApparelType]?.orderable);
+      if (blocked) {
+        const opt = APPAREL_CATALOG[blocked as ApparelType];
+        const reason = !opt
+          ? `Apparel "${blocked}" tidak dikenal.`
+          : !opt.mockupEnabled
+            ? `${opt.name} belum tersedia — mockup 3D maupun pemesanan SEGERA hadir.`
+            : `${opt.name} belum bisa dipesan — mockup 3D-nya bisa dicoba di studio, tapi pemesanan SEGERA dibuka.`;
+        setErrorMessage(reason);
+        return;
+      }
+    }
+
+    // P0-3: server WAJIBKAN otpCode 6-digit (401 bila tanpa/salah/kadaluarsa,
+    // 403 bila OTP milik nomor lain). Validasi di sini agar tak POST sia-sia —
+    // ditaruh SETELAH semua cek murah lain (nama/alamat/ongkir/katalog).
+    if (!/^\d{6}$/.test(otpCode.trim())) {
+      setErrorMessage("Kode OTP 6 digit wajib — klik KIRIM OTP, cek WA, lalu isi kodenya sebelum bayar.");
+      return;
+    }
+
     try {
       setIsLoading(true);
+
+      // Anti harga basi (cart): refresh harga dari katalog segar TEPAT sebelum
+      // POST. Bila berubah, sinkronkan store + tampilkan selisih eksplisit dan
+      // BATALKAN submit ini — user klik BAYAR sekali lagi dengan total segar.
+      // (Payload cart tak membawa harga; server otoritatif, tapi user wajib
+      // tahu total berubah sebelum bayar.)
+      if (isCartCheckout) {
+        try {
+          const before = useCartStore.getState().items.reduce((a, it: any) => a + (it.priceIdr || 0) * (it.quantity || 0), 0);
+          const map = await fetchServerPriceMap(10000);
+          if (Object.keys(map).length > 0) {
+            const { diffIdr } = useCartStore.getState().syncPrices(map);
+            if (diffIdr !== 0) {
+              const after = useCartStore.getState().items.reduce((a, it: any) => a + (it.priceIdr || 0) * (it.quantity || 0), 0);
+              setCartPriceNotice({ oldTotal: before, newTotal: after, diff: diffIdr });
+              setErrorMessage(
+                `Harga katalog baru saja berubah (selisih ${formatIdr(diffIdr)}). Total kini Rp ${after.toLocaleString("id-ID")}. Periksa lalu klik BAYAR sekali lagi untuk lanjut.`
+              );
+              setIsLoading(false);
+              return;
+            }
+          }
+        } catch {
+          // Refresh gagal = lanjut dengan harga lokal (server validasi ulang).
+        }
+      }
+
+      // K2: master produksi WAJIB https R2 (bukan base64). Upload pending
+      // base64 dulu (login: /api/upload/r2 kind=master; guest: gagal 401 →
+      // undefined, server fallback ke preview via archiveDecalsToR2 +
+      // confirmOrder byDecal→bySide→preview). Best-effort, tak gagalkan checkout.
+      // Dipakai di CheckoutModal (drawer desktop + BottomSheet mobile SAMA —
+      // keduanya membuka modal ini) + mobile APK via /api/mobile/orders/checkout
+      // (menerima masterAssetUrl yang sama; APK lama tanpa field tetap lolos).
+      let masterForPayload: Record<string, string> | undefined;
+      if (!isCartCheckout) {
+        try {
+          const pipe = await import("@/lib/imageEditPipeline");
+          await pipe.ensureDecalMastersUploaded().catch(() => ({}));
+          const m = pipe.buildCheckoutMasterMap(activeApparel);
+          if (m && Object.keys(m).length > 0) {
+            masterForPayload = m;
+            console.info(`[checkout] master map: ${Object.keys(m).length} entri https terlampir.`);
+          } else {
+            console.info(
+              "[checkout] tanpa master https (drawer tanpa ekspor / guest) — server arsipkan decals + fallback preview, checkout tetap lanjut."
+            );
+          }
+        } catch (err: any) {
+          console.warn("[checkout] buildCheckoutMasterMap gagal, lanjut tanpa master:", err?.message);
+          masterForPayload = undefined;
+        }
+      } else {
+        // GAP cart (teamwear via keranjang): item custom versi lama tak bawa
+        // master per-item. Best-effort: upload pending base64 dulu (paritas
+        // jalur custom-3d di atas — tanpa ini map cart selalu kosong walau
+        // login), lalu tempel map decal:https yang sama ke item custom tanpa
+        // master sendiri; bila map kosong, server tetap arsipkan decals
+        // base64 ke R2 (checkout tak pernah gagal karena ini).
+        // Sumber map: buildCheckoutMasterMap() → collectDecalMasters()
+        // (registry masterMem + LS `decal:<id>`), hanya https yang ikut.
+        try {
+          const pipe = await import("@/lib/imageEditPipeline");
+          await pipe.ensureDecalMastersUploaded().catch(() => ({}));
+          const m = pipe.buildCheckoutMasterMap();
+          if (m && Object.keys(m).length > 0) {
+            masterForPayload = m;
+            console.info(`[checkout] master map cart: ${Object.keys(m).length} entri https (fallback item custom).`);
+          } else {
+            console.info("[checkout] cart tanpa master https — server arsipkan decals + fallback preview.");
+          }
+        } catch (err: any) {
+          console.warn("[checkout] master map cart gagal, lanjut tanpa master:", err?.message);
+          masterForPayload = undefined;
+        }
+      }
 
       const itemsPayload = isCartCheckout
         ? cartItems.map((item) => ({
@@ -341,38 +559,58 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
             colorName: item.colorName || "Obsidian Black",
             size: item.size || "L",
             quantity: item.quantity,
-            decals: [],
+            // M4.1 teamwear: teruskan decal personal + finish kain (item katalog
+            // tak punya field ini → []/undefined = perilaku lama; tanpa
+            // productVariantId server menghitung harga custom otoritatif).
+            // printPx ikut di dalam decals (schema izinkan opsional) agar
+            // aspek server tak fallback 1.0 untuk artwork non-kotak.
+            decals: Array.isArray((item as any).decals) ? (item as any).decals : [],
+            materialFinishSlug: (item as any).materialFinishSlug,
+            fabricThicknessSlug: (item as any).fabricThicknessSlug,
             title: item.name,
+            // Cart custom (tanpa varian) + ada map https → tempel fallback yang
+            // sama; item katalog (ada varian) tak perlu master.
+            ...(!item.productVariantId && masterForPayload ? { masterAssetUrl: masterForPayload } : {}),
           }))
         : useCustomSizeBreakdown
         ? // Rincian ukuran = item terpisah per size agar surcharge size tepat.
+          // K-F: kain/finish ikut per item agar server hitung surcharge-nya.
           Object.entries(sizeDistribution)
             .filter(([_, qty]) => qty > 0)
             .map(([s, q]) => ({
               apparelSlug: activeApparel,
+              fabricThicknessSlug: checkoutMaterial.fabricThicknessSlug,
+              materialFinishSlug: materialFinish,
               colorHex: selectedColor,
               colorName: activeColorName,
               size: s,
               quantity: q,
               decals,
               title: `Custom ${activeApparel.toUpperCase()} Sablon DTF`,
+              ...(masterForPayload ? { masterAssetUrl: masterForPayload } : {}),
             }))
         : [
             {
               apparelSlug: activeApparel,
+              fabricThicknessSlug: checkoutMaterial.fabricThicknessSlug,
+              materialFinishSlug: materialFinish,
               colorHex: selectedColor,
               colorName: activeColorName,
               size: selectedSize,
               quantity,
               decals,
               title: `Custom ${activeApparel.toUpperCase()} Sablon DTF`,
+              ...(masterForPayload ? { masterAssetUrl: masterForPayload } : {}),
             },
           ];
 
       const payload = {
         recipientName,
-        phoneNumber,
+        phoneNumber: normPhone,
         email: email || undefined,
+        // P0-3: bukti kepemilikan WA — server 401 tanpa ini. Dikirim apa adanya
+        // (6 digit); server yang cocokkan hash + expiry + owner-match.
+        otpCode: otpCode.trim(),
         deliveryMethod,
         turnaroundTier,
         district: deliveryMethod === "EXPEDITION_MANUAL" ? destQuery.trim() || undefined : deliveryMethod !== "PICKUP" ? district : undefined,
@@ -393,15 +631,23 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
         reference?: string;
         paymentUrl?: string;
         invoiceUrl?: string;
+        orderNumber?: string;
       }>("/api/checkout", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        // P0-2: Idempotency-Key UNIK per klik BAYAR — double-click / retry
+        // timeout dengan key SAMA dibalas server 409 + order lama (tanpa dobel).
+        headers: { "Content-Type": "application/json", "Idempotency-Key": newIdempotencyKey() },
         body: JSON.stringify(payload),
       }, 30000);
 
-      if (isCartCheckout) {
-        clearCart();
-      }
+      // Cart DIKOSONGKAN hanya setelah bayar terkonfirmasi (bukan pasca-POST
+      // /api/checkout): order sudah ada di server saat Duitku pop/redirect.
+      // Clear lebih awal menghapus cart sebelum user membayar sehingga
+      // tutup-pop / pending / error tak bisa retry. pending/error/close
+      // SENGAJA mempertahankan cart agar user bisa coba bayar lagi.
+      const clearCartOnConfirmed = () => {
+        if (isCartCheckout) clearCart();
+      };
 
       // Trigger Duitku Pop Modal or redirect to paymentUrl
       const duitkuPay = () => {
@@ -410,6 +656,7 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
             (window as any).checkout.process(data.reference, {
               defaultLanguage: "id",
               successEvent: function () {
+                clearCartOnConfirmed();
                 window.location.href = `/orders/${data.orderId}?status=success`;
               },
               pendingEvent: function () {
@@ -428,7 +675,10 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
           }
         }
 
-        // Fallback: Direct redirect to Duitku paymentUrl or Invoice
+        // Fallback: Direct redirect to Duitku paymentUrl or Invoice.
+        // Redirect keluar = sesi bayar dimulai (order sudah di server) →
+        // cart dikosongkan di sini; invoice mock tetap kosongkan agar tak dobel.
+        clearCartOnConfirmed();
         if (data.paymentUrl && !data.paymentUrl.includes("mock")) {
           window.location.href = data.paymentUrl;
         } else {
@@ -438,14 +688,33 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
 
       duitkuPay();
     } catch (err: any) {
-      setErrorMessage(err?.message || "Terjadi kesalahan koneksi.");
+      // Error JUJUR (P0-3): tampilkan pesan server apa adanya — 401 (OTP
+      // wajib/salah/kadaluarsa), 403 (OTP milik nomor lain / anti-bot gagal),
+      // 503 (Duitku/Turnstile belum dikonfigurasi), 409 (replay key sama).
+      // Untuk 409 sertakan orderNumber + invoiceUrl bila server mengirimnya
+      // agar owner bisa lanjut bayar manual, bukan dead-end.
+      const serverMsg = err?.message || "Terjadi kesalahan koneksi.";
+      const d = err?.data as { orderNumber?: string; orderId?: string; invoiceUrl?: string } | undefined;
+      const suffix =
+        err?.status === 409 && d && (d.orderNumber || d.orderId || d.invoiceUrl)
+          ? `${d.orderNumber || d.orderId ? ` Order: ${d.orderNumber || d.orderId}.` : ""}${d.invoiceUrl ? ` Buka invoice: ${d.invoiceUrl}` : ""}`
+          : "";
+      setErrorMessage(`${serverMsg}${suffix}`);
       setIsLoading(false);
     }
   };
 
   return (
-    <div className="fixed inset-0 z-[110] flex items-center justify-center p-3 sm:p-5 bg-black/80 backdrop-blur-md animate-fadeIn overflow-y-auto">
-      <div className="relative w-full max-w-2xl bg-[#141416] border border-white/10 rounded-2xl shadow-2xl text-text-primary my-auto overflow-hidden">
+    <div
+      className="fixed inset-0 z-[110] flex items-center justify-center p-3 sm:p-5 bg-black/80 backdrop-blur-md animate-fadeIn overflow-y-auto"
+      role="dialog"
+      aria-modal="true"
+      aria-label="Checkout pesanan sablon DTF"
+    >
+      <div
+        ref={panelRef}
+        className="relative w-full max-w-2xl bg-[#141416] border border-white/10 rounded-2xl shadow-2xl text-text-primary my-auto overflow-hidden"
+      >
         {/* Top Orange Glow Accent */}
         <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-brand-accent via-amber-500 to-brand-accent" />
 
@@ -465,6 +734,7 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
             </div>
           </div>
           <button
+            ref={closeBtnRef}
             onClick={onClose}
             className="p-1.5 rounded-lg text-text-muted hover:text-white hover:bg-white/5 transition-all"
             aria-label="Tutup checkout"
@@ -484,6 +754,42 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
 
           {/* Section 1: Order Summary Card */}
           <div className="p-4 rounded-xl bg-surface/70 border border-white/5 space-y-3 font-mono text-xs">
+            {/* M3.6 — Peringatan master belum tersimpan = SOFT-GATE SENGAJA FAIL-SAFE
+                (peringatan "maafkan", BUKAN gate pemblokir — perilaku tak boleh diubah):
+                - Checkout 100% TETAP LANJUT walau warning tampil (tak ada throw /
+                  disabled / return-early di sini). Guest + server-hosting adalah
+                  jalur resmi yang mengandalkan lolosnya checkout ini: master base64
+                  di-hosting-kan server (POST /api/designs draft + arsip checkout
+                  archiveDecalsToR2 + confirmOrder byDecal→bySide→preview).
+                  JANGAN "memperketat" jadi hard-gate — itu mematikan checkout guest.
+                - Kualitas final = master penuh, bukan preview: user wajib tahu bedanya,
+                  tapi solusinya = tombol SIMPAN MASTER di Pola 2D (login), bukan blokir.
+                - Return di bawah: div warning role="status" (render null bila semua
+                  master sudah https) — dokumentasi ini sengaja duplikat di return
+                  agar pembaca JSX tak salah mengira warning = error pemblokir. */}
+            {!isCartCheckout && (() => {
+              try {
+                const masters = decals.map((d: any) => {
+                  try {
+                    const u = getMasterDataUrl(d.id, d.url);
+                    return { id: d.id, name: d.name, https: isHttpsMasterUrl(u) };
+                  } catch {
+                    return { id: d.id, name: d.name, https: false };
+                  }
+                });
+                const unsaved = masters.filter((m) => !m.https);
+                if (unsaved.length === 0) return null;
+                // M3.6 (return): warning-maafkan SENGAJA fail-safe — render info
+                // saja, checkout tetap jalan (submit tak tersentuh blok ini).
+                return (
+                  <div role="status" className="p-2.5 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-300 text-[11px] font-bold leading-snug">
+                    ⚠️ Master belum tersimpan ({unsaved.length} decal masih lokal{unsaved[0] ? `: ${String(unsaved[0].name).slice(0, 24)}` : ""}). Checkout tetap lanjut — file master penuh akan di-hosting-kan server otomatis (guest bisa, tanpa login). Untuk arsip R2 permanen, login lalu SIMPAN MASTER di Pola 2D.
+                  </div>
+                );
+              } catch {
+                return null;
+              }
+            })()}
             <div className="flex justify-between items-center pb-2 border-b border-white/5">
               <span className="font-bold text-white uppercase">
                 {isCartCheckout ? `KERANJANG BELANJA (${cartItems.length} ITEM)` : `${activeApparel} (SABLON DTF)`}
@@ -495,6 +801,20 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
 
             {isCartCheckout ? (
               <div className="space-y-2 max-h-36 overflow-y-auto pr-1">
+                {cartPriceChecking && (
+                  <p className="text-[11px] text-text-muted" role="status">
+                    Mengecek harga terbaru katalog…
+                  </p>
+                )}
+                {cartPriceNotice && cartPriceNotice.diff !== 0 && (
+                  <div
+                    role="status"
+                    className="p-2.5 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-300 text-[11px] font-bold leading-snug"
+                  >
+                    Harga katalog berubah: Rp {cartPriceNotice.oldTotal.toLocaleString("id-ID")} → Rp{" "}
+                    {cartPriceNotice.newTotal.toLocaleString("id-ID")} (selisih {formatIdr(cartPriceNotice.diff)}).
+                  </div>
+                )}
                 {cartItems.map((item) => (
                   <div key={`${item.id}-${item.size}`} className="flex justify-between items-center text-[11px] border-b border-white/5 pb-1.5">
                     <div className="flex items-center space-x-2 truncate max-w-[240px]">
@@ -565,7 +885,7 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
                       : "bg-surface border-white/10 text-text-muted hover:text-white"
                   }`}
                 >
-                  {useCustomSizeBreakdown ? "✓ RINCIAN UKURAN AKTIF" : "⚡ BAGI UKURAN (S/M/L/XL)"}
+                  {useCustomSizeBreakdown ? "✓ RINCIAN UKURAN AKTIF" : "⚡ BAGI UKURAN (S–XXL)"}
                 </button>
               </div>
 
@@ -575,8 +895,8 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
                   <span className="block text-[10px] text-text-muted">
                     Tentukan jumlah kaos per ukuran untuk workshop sablon:
                   </span>
-                  <div className="grid grid-cols-3 sm:grid-cols-6 gap-2">
-                    {["S", "M", "L", "XL", "XXL", "XXXL"].map((sz) => (
+                  <div className="grid grid-cols-3 sm:grid-cols-5 gap-2">
+                    {["S", "M", "L", "XL", "XXL"].map((sz) => (
                       <div key={sz} className="p-2 rounded-lg bg-surface border border-white/5 text-center">
                         <span className="block text-[10px] font-bold text-text-muted">{sz}</span>
                         <div className="flex items-center justify-center gap-1 mt-1">
@@ -647,8 +967,11 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
                     value={phoneNumber}
                     onChange={(e) => {
                       setPhoneNumber(e.target.value);
+                      // Nomor berubah = kode lama milik nomor lain (server 403
+                      // owner-match) — buang agar tak terkirim basi.
                       setIsPhoneVerified(false);
                       setOtpSent(false);
+                      setOtpCode("");
                     }}
                     placeholder="081234567890"
                     aria-label="Nomor WhatsApp untuk OTP"
@@ -668,7 +991,10 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
                     <input
                       type="text"
                       value={otpCode}
-                      onChange={(e) => setOtpCode(e.target.value)}
+                      onChange={(e) => {
+                        setOtpCode(e.target.value.replace(/[^0-9]/g, "").slice(0, 6));
+                        setIsPhoneVerified(false);
+                      }}
                       placeholder="6 digit OTP"
                       aria-label="Kode OTP 6 digit dari WhatsApp"
                       className="flex-1 px-3 py-2 rounded-xl bg-surface border border-white/10 text-base text-white font-mono focus:outline-none"
@@ -680,7 +1006,7 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
                   </div>
                 )}
                 {otpMsg && <p className="text-[11px] font-mono mt-1 text-amber-400">{otpMsg}</p>}
-                <p className="text-[10px] font-mono text-text-muted mt-1">Opsional — pastikan nomor aktif agar notifikasi produksi masuk.</p>
+                <p className="text-[10px] font-mono text-text-muted mt-1">Wajib — server menolak checkout tanpa kode OTP (401). Pastikan nomor aktif agar kode masuk.</p>
               </div>
             </div>
           </div>

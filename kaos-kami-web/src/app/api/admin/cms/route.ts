@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
-import { uploadToR2 } from "@/lib/r2";
+import { deleteFromR2, listR2Objects, uploadToR2 } from "@/lib/r2";
 import { getHeroContent, invalidateHeroCache, type HeroContent } from "@/lib/cms";
 import { headers } from "next/headers";
 import { checkRateLimitAsync, getClientIp, rateLimitHeaders } from "@/lib/security/rateLimiter";
@@ -11,7 +11,10 @@ const CmsSchema = z.object({
 });
 
 /** GET /api/admin/cms — baca konten hero (PUBLIK, fail-soft ke default). */
-export async function GET() {
+export async function GET(req: NextRequest) {
+  // P0: rate-limit GET 30/mnt tiru pola admin lain (anti-scrape publik).
+  const rl = await checkRateLimitAsync(`admin-cms:ip:${getClientIp(req)}`, 30, 60);
+  if (rl.isLimited) return NextResponse.json({ error: "Rate limited" }, { status: 429, headers: rateLimitHeaders(rl, 30) });
   try {
     const hero = await getHeroContent();
     return NextResponse.json(
@@ -46,6 +49,31 @@ export async function POST(req: NextRequest) {
     heroSubtitle: parsed.data.heroSubtitle,
     updatedAt: new Date().toISOString(),
   };
+  // Arsip hero lama best-effort (gagal arsip tak gagalkan POST) + retensi maks 10.
+  try {
+    const old = await getHeroContent();
+    if (old && old.updatedAt) {
+      const stamp = new Date().toISOString().slice(0, 19).replace(/[-:T]/g, "");
+      await uploadToR2(`cms/hero-${stamp}.json`, JSON.stringify(old, null, 2), "application/json");
+      try {
+        const listed = await listR2Objects("cms/hero-");
+        if (listed.success && listed.keys.length > 10) {
+          const excess = [...listed.keys].sort().slice(0, listed.keys.length - 10);
+          for (const k of excess) {
+            try {
+              await deleteFromR2(k);
+            } catch {
+              /* abaikan per-file */
+            }
+          }
+        }
+      } catch {
+        /* retensi best-effort */
+      }
+    }
+  } catch {
+    /* arsip best-effort */
+  }
   const up = await uploadToR2("cms/hero.json", JSON.stringify(payload, null, 2), "application/json");
   if (!up.success) return NextResponse.json({ error: up.error || "Upload gagal" }, { status: 500 });
   invalidateHeroCache(payload);

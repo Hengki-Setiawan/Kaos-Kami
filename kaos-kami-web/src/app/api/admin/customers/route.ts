@@ -11,6 +11,42 @@ const PatchSchema = z.object({
   role: z.enum(["CUSTOMER", "ADMIN", "PRODUCTION_STAFF", "SUPER_ADMIN"]),
 });
 
+/** GET /api/admin/customers — daftar user paginated (admin only). */
+export async function GET(req: NextRequest) {
+  const rl = await checkRateLimitAsync(`admin-cust:ip:${getClientIp(req)}`, 30, 60);
+  if (rl.isLimited) return NextResponse.json({ error: "Rate limited" }, { status: 429, headers: rateLimitHeaders(rl, 30) });
+  try {
+    const { auth } = await import("@/lib/auth");
+    const hdrs = await headers();
+    const session = await auth.api.getSession({ headers: hdrs as any });
+    const myRole = (session?.user as any)?.role;
+    if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    if (!["ADMIN", "SUPER_ADMIN"].includes(myRole)) {
+      return NextResponse.json({ error: "Forbidden: khusus admin" }, { status: 403 });
+    }
+    const sp = new URL(req.url).searchParams;
+    const page = Math.max(1, Number(sp.get("page")) || 1);
+    const limit = Math.max(1, Math.min(100, Number(sp.get("limit")) || 20));
+    const q = (sp.get("q") || "").trim().replace(/[%_]/g, "").slice(0, 64);
+    // limit+1: deteksi hasMore tanpa query COUNT tambahan.
+    const rows = await db.query.User.findMany({
+      where: q
+        ? (t, { or, like }) =>
+            or(like(t.name, `%${q}%`), like(t.email, `%${q}%`), like(t.phoneNumber, `%${q}%`))
+        : undefined,
+      orderBy: (t, { desc }) => [desc(t.createdAt)],
+      limit: limit + 1,
+      offset: (page - 1) * limit,
+      // Eksplisit: JANGAN pernah kirim passwordHash ke admin list.
+      columns: { id: true, name: true, email: true, phoneNumber: true, role: true, emailVerified: true, createdAt: true },
+    });
+    const hasMore = rows.length > limit;
+    return NextResponse.json({ success: true, page, limit, hasMore, users: hasMore ? rows.slice(0, limit) : rows });
+  } catch {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+}
+
 export async function PATCH(req: NextRequest) {
   const rl = await checkRateLimitAsync(`admin-cust:ip:${getClientIp(req)}`, 30, 60);
   if (rl.isLimited) return NextResponse.json({ error: "Rate limited" }, { status: 429, headers: rateLimitHeaders(rl, 30) });

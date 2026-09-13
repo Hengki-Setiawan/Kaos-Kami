@@ -49,6 +49,11 @@ export async function assertRole(allowedRoles: string[]): Promise<AuthenticatedU
 /**
  * Enforces Row-Level Security (RLS) / Anti-IDOR:
  * Ensures the resource belongs to the current user, OR the user is an ADMIN.
+ * PRODUCTION_STAFF SENGAJA DIKELUARKAN (Sep 2026): staf produksi hanya boleh
+ * akses antrean via /api/admin/production-tasks (RBAC sendiri:
+ * assigned/unassigned), BUKAN keranjang/desain/order milik user lain via
+ * helper ini (cart, mobile sync, notifications, cancel). ADMIN/SUPER_ADMIN
+ * tetap bypass untuk dukungan pelanggan.
  */
 export async function assertResourceOwnerOrAdmin(resourceUserId: string): Promise<AuthenticatedUser> {
   const user = await getAuthenticatedUser();
@@ -56,7 +61,7 @@ export async function assertResourceOwnerOrAdmin(resourceUserId: string): Promis
     throw new Error("Unauthorized: Silakan login terlebih dahulu");
   }
 
-  const isAdmin = ["ADMIN", "SUPER_ADMIN", "PRODUCTION_STAFF"].includes(user.role);
+  const isAdmin = ["ADMIN", "SUPER_ADMIN"].includes(user.role);
   if (!isAdmin && user.id !== resourceUserId) {
     throw new Error("Forbidden: Anda tidak berhak mengakses data pengguna lain");
   }

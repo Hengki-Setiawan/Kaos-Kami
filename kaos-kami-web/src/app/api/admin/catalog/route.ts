@@ -40,3 +40,28 @@ export async function PATCH(req: NextRequest) {
   await db.update(ProductVariant).set(set).where(eq(ProductVariant.id, variantId));
   return NextResponse.json({ success: true });
 }
+
+// ------------------------------------------------------------------
+// SENGAJA READ-ONLY selain PATCH di atas: pembuatan/penghapusan varian
+// (POST/DELETE) TIDAK dibuka via API — varian dikelola via seed/Studio
+// agar SKU unik + relasi kategori tak rusak dari request liar. 405 di
+// bawah ini JUJUR (bukan 404 palsu) agar integrasi tahu method tak didukung.
+// Bila butuh CRUD varian penuh, tambahkan POST/DELETE dengan validasi
+// categoryId+sku+size+priceIdr di sini.
+// ------------------------------------------------------------------
+
+/** POST /api/admin/catalog — tidak didukung (read-only selain PATCH). */
+export async function POST() {
+  return NextResponse.json(
+    { error: "Method tidak didukung: pembuatan varian via seed/Studio (gunakan PATCH untuk stok/harga/status)" },
+    { status: 405, headers: { Allow: "PATCH" } }
+  );
+}
+
+/** DELETE /api/admin/catalog — tidak didukung (nonaktifkan via PATCH isActive:false). */
+export async function DELETE() {
+  return NextResponse.json(
+    { error: "Method tidak didukung: hapus varian via seed/Studio (gunakan PATCH isActive:false untuk nonaktifkan)" },
+    { status: 405, headers: { Allow: "PATCH" } }
+  );
+}

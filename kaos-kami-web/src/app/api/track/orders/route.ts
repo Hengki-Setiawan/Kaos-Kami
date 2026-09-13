@@ -8,7 +8,8 @@ import { checkRateLimitAsync, getClientIp, rateLimitHeaders } from "@/lib/securi
 
 const TrackSchema = z.object({
   phoneNumber: z.string().min(9).max(20),
-  code: z.string().min(4).max(10),
+  // P1: seragam dengan verify-otp — kode selalu tepat 6 digit (anti brute-force space lebar).
+  code: z.string().regex(/^\d{6}$/),
 });
 
 /**

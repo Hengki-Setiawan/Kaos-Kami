@@ -183,8 +183,6 @@ export function gsmPreset(slug: string): { damping: number; iterations: number; 
   switch (slug) {
     case "french-terry":
       return { damping: 0.985, iterations: 10, windGain: 0.7, label: "Fleece 380 — jatuh berat" };
-    case "acid-wash":
-      return { damping: 0.975, iterations: 14, windGain: 1.0, label: "Acid 240 — renyah" };
     case "combed-cotton":
     default:
       return { damping: 0.98, iterations: 12, windGain: 0.85, label: "Combed 240/280 — seimbang" };

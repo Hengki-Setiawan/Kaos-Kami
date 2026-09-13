@@ -1,6 +1,32 @@
 import { APPAREL_CATALOG, type ApparelType, type DecalLayer } from "./constants";
+import { normalizeApparelSlug } from "./apparelSlug";
 import { computePhysicalPrintDimensions } from "./scaleCalibration";
 import { classifyPrintTierByCm, printTierCost } from "./printTiers";
+
+export type FabricThicknessSlug = "combed-30s" | "combed-24s" | "combed-20s" | "combed-16s" | "french-terry-380";
+
+/**
+ * Pemetaan MaterialFinish studio (pilihan kain visual) → input engine (K-F).
+ * - "combed-cotton" → combed-24s (+10k, standar distro Makassar, Blueprint 01 §10)
+ * - "french-terry"  → french-terry-380 (+0, fleece 330-380 GSM crewneck/hoodie)
+ * - "poplin"        → combed-30s (+0, tenun ringan coach jacket)
+ * - tak dikenal/null (TERMASUK legacy "acid-wash" nonaktif Sep 2026) →
+ *   default combed-cotton (fail-safe tampil, server tetap otoritatif
+ *   saat checkout; tanpa surcharge treatment).
+ */
+export function materialFinishToPricing(finish?: string | null): {
+  fabricThicknessSlug: FabricThicknessSlug;
+} {
+  switch ((finish || "").toLowerCase().trim()) {
+    case "french-terry":
+      return { fabricThicknessSlug: "french-terry-380" };
+    case "poplin":
+      return { fabricThicknessSlug: "combed-30s" };
+    case "combed-cotton":
+    default:
+      return { fabricThicknessSlug: "combed-24s" };
+  }
+}
 
 export interface PricingBreakdown6Var {
   // 1. Base apparel
@@ -24,7 +50,8 @@ export interface PricingBreakdown6Var {
   // 5. Size surcharge (XXL +10k, XXXL +20k)
   size: string;
   sizeSurchargeIdr: number;
-  // Color & pigment treatment surcharge (e.g. Acid wash +30k, special pigment +15k)
+  // Color & pigment treatment surcharge (special pigment +15k; acid-wash
+  // NONAKTIF Sep 2026 — dihapus total, legacy "acid-wash" tanpa surcharge)
   colorTreatmentSurchargeIdr: number;
   // Unit Subtotal before bulk discount
   unitPriceBeforeDiscountIdr: number;
@@ -40,11 +67,10 @@ export interface PricingBreakdown6Var {
 
 export interface CalculatePricingInput {
   apparelSlug: ApparelType;
-  fabricThicknessSlug?: "combed-30s" | "combed-24s" | "combed-20s" | "combed-16s" | "french-terry-380";
+  fabricThicknessSlug?: FabricThicknessSlug;
   size: string;
   colorHex: string;
   isSpecialPigment?: boolean;
-  isAcidWash?: boolean;
   decals: DecalLayer[];
   quantity?: number;
 }
@@ -60,12 +86,13 @@ export interface CalculatePricingInput {
  * 6. Volume Wholesale Discounts (6-12 pcs -5%, 13-50 pcs -12%, >50 pcs -20%)
  */
 export function calculate6VariablePrice(input: CalculatePricingInput): PricingBreakdown6Var {
+  // K-B: normalisasi di entry — alias legacy "jacket"→"shirt" lolos,
+  // slug asing DITOLAK 400 (bukan fallback harga tshirt yang salah).
+  const apparelSlug = normalizeApparelSlug((input as { apparelSlug?: unknown })?.apparelSlug);
   const {
-    apparelSlug,
     fabricThicknessSlug = "combed-24s",
     size,
     isSpecialPigment = false,
-    isAcidWash = false,
     decals,
     quantity = 1,
   } = input;
@@ -127,10 +154,10 @@ export function calculate6VariablePrice(input: CalculatePricingInput): PricingBr
   if (upperSize === "XXL") sizeSurchargeIdr = 10000;
   else if (upperSize === "XXXL" || upperSize === "3XL") sizeSurchargeIdr = 20000;
 
-  // Color Treatment Surcharge
+  // Color Treatment Surcharge — pigmen khusus +15k dipertahankan;
+  // acid-wash (+30k) DIHAPUS total Sep 2026 (keputusan owner).
   let colorTreatmentSurchargeIdr = 0;
-  if (isAcidWash) colorTreatmentSurchargeIdr = 30000;
-  else if (isSpecialPigment) colorTreatmentSurchargeIdr = 15000;
+  if (isSpecialPigment) colorTreatmentSurchargeIdr = 15000;
 
   // Unit subtotal
   const unitPriceBeforeDiscountIdr =

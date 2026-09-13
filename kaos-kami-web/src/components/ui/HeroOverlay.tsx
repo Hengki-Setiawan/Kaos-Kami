@@ -4,10 +4,17 @@ import React from "react";
 import Link from "next/link";
 import { ChevronDown, Sparkles } from "lucide-react";
 import { useConfiguratorStore } from "@/store/useConfiguratorStore";
+import { useShallow } from "zustand/shallow";
 import { APPAREL_CATALOG } from "@/lib/constants";
 
 export const HeroOverlay: React.FC = () => {
-  const { activePhase, viewMode, activeApparel } = useConfiguratorStore();
+  const { activePhase, viewMode, activeApparel } = useConfiguratorStore(
+    useShallow((s) => ({
+      activePhase: s.activePhase,
+      viewMode: s.viewMode,
+      activeApparel: s.activeApparel,
+    }))
+  );
   const isVisible = activePhase === 1 && viewMode === "story";
   const apparel = APPAREL_CATALOG[activeApparel];
   // Judul hero dari CMS (R2) — gagal = default editorial.

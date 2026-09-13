@@ -28,7 +28,7 @@ const jakarta = Plus_Jakarta_Sans({
   display: "swap",
 });
 
-const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://kaos-kami-3d.hengkisetiawan461.workers.dev";
+const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://kaoskami.biz.id";
 const gaId = process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID;
 const cfAnalyticsToken = process.env.NEXT_PUBLIC_CF_WEB_ANALYTICS_TOKEN;
 

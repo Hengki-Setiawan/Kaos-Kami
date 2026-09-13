@@ -56,11 +56,23 @@ export async function POST(req: NextRequest) {
       masterAssetUrl,
     } = validation.data;
 
+    // Guest boleh simpan (fitur), tapi base64 WAJIB login — samakan dengan
+    // POST /api/upload/r2 yang wajib auth (anti penimbunan bucket oleh asing).
+    // Guest hanya boleh simpan URL https (tanpa upload server-side).
+    const needsUpload =
+      (Array.isArray(decals) && decals.some((d: any) => typeof d?.url === "string" && d.url.startsWith("data:image"))) ||
+      (typeof previewImageFrontUrl === "string" && previewImageFrontUrl.startsWith("data:image")) ||
+      (typeof previewImageBackUrl === "string" && previewImageBackUrl.startsWith("data:image")) ||
+      (typeof masterAssetUrl === "string" && masterAssetUrl.includes("data:image"));
+    const viewer = await getAuthenticatedUser().catch(() => null);
+    if (needsUpload && !viewer) {
+      return NextResponse.json({ error: "Login diperlukan untuk upload gambar. Silakan login dulu." }, { status: 401 });
+    }
+
     // Find category
     const category = await db.query.ApparelCategory.findFirst({
       where: (t, { eq }) => eq(t.slug, apparelSlug),
     });
-
     if (!category) {
       return NextResponse.json({ error: "Apparel category not found" }, { status: 404 });
     }
@@ -91,6 +103,45 @@ export async function POST(req: NextRequest) {
       if (up.success) finalBackUrl = up.url;
     }
 
+    // K2 guest path: master base64 (drawer tanpa login tak bisa pakai
+    // /api/upload/r2 yang wajib auth) di-hosting-kan server ke R2 di sini
+    // agar arsip selalu https. Best-effort: gagal → simpan apa adanya
+    // (confirmOrder fallback ke preview, tak gagalkan save).
+    let finalMasterUrl: string | null = masterAssetUrl || null;
+    if (finalMasterUrl) {
+      try {
+        if (finalMasterUrl.startsWith("data:image")) {
+          const up = await uploadBase64ToR2(finalMasterUrl, `masters/${Date.now()}.png`);
+          if (up.success && up.url) finalMasterUrl = up.url;
+        } else {
+          try {
+            const parsed = JSON.parse(finalMasterUrl);
+            if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+              let changed = false;
+              for (const [k, v] of Object.entries(parsed).slice(0, 20)) {
+                const u = typeof v === "string" ? v : (v as any)?.url;
+                if (typeof u === "string" && u.startsWith("data:image")) {
+                  try {
+                    const up = await uploadBase64ToR2(
+                      u,
+                      `masters/${Date.now()}-${String(k).replace(/[^a-z0-9_-]/gi, "").slice(0, 24)}.png`
+                    );
+                    if (up.success && up.url) {
+                      (parsed as any)[k] = { url: up.url, at: new Date().toISOString() };
+                      changed = true;
+                    }
+                  } catch {}
+                }
+              }
+              if (changed) finalMasterUrl = JSON.stringify(parsed);
+            }
+          } catch {
+            // Bukan JSON — simpan mentah (legacy url tunggal).
+          }
+        }
+      } catch {}
+    }
+
     // Harga dihitung ULANG di server (audit: calculatedPriceIdr client bisa
     // diedit → simpan harga murah lalu checkout/reorder pakai harga itu).
     const { calculate6VariablePrice } = await import("@/lib/pricingEngine");
@@ -118,7 +169,7 @@ export async function POST(req: NextRequest) {
       .values({
         id: nanoid(),
         title,
-        userId: (await getAuthenticatedUser().catch(() => null))?.id ?? null,
+        userId: viewer?.id ?? null,
         categoryId: category.id,
         colorHex,
         colorName,
@@ -131,7 +182,7 @@ export async function POST(req: NextRequest) {
         priceBreakdown: JSON.stringify({ ...(typeof priceBreakdown === "object" ? priceBreakdown : {}), serverPriced: true }),
         previewImageFrontUrl: finalFrontUrl,
         previewImageBackUrl: finalBackUrl,
-        masterAssetUrl: masterAssetUrl || null,
+        masterAssetUrl: finalMasterUrl,
         status: "SAVED",
       })
       .returning();
@@ -203,7 +254,9 @@ export async function GET(req: NextRequest) {
     const isAdmin =
       !!viewer && ["ADMIN", "SUPER_ADMIN", "PRODUCTION_STAFF"].includes(viewer.role);
     if (!viewer) {
-      return NextResponse.json({ error: "Unauthorized: silakan login" }, { status: 401 });
+      // Tamu tak punya desain milik sendiri — kembalikan list kosong (200),
+      // bukan 401, agar hydrate studio tak menulis console error untuk tamu.
+      return NextResponse.json({ success: true, designs: [], guest: true });
     }
     const designs = await db.query.Design.findMany({
       where: isAdmin ? undefined : (t, { eq }) => eq(t.userId, viewer.id),

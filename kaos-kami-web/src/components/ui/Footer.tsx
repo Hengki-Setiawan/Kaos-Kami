@@ -35,7 +35,9 @@ export const Footer: React.FC = () => {
           </div>
           <div className="space-y-2">
             <span className="block text-[10px] text-brand-accent font-bold">BANTUAN</span>
+            <Link href="/kalkulator-sablon" className="block text-text-muted hover:text-white">Kalkulator Sablon</Link>
             <Link href="/privacy" className="block text-text-muted hover:text-white">Kebijakan Privasi</Link>
+            <Link href="/kredit" className="block text-text-muted hover:text-white">Kredit Aset 3D</Link>
             <a href={shopWaLink("Halo Kaos Kami, saya butuh bantuan pesanan.")} target="_blank" rel="noopener noreferrer" className="block text-text-muted hover:text-white">
               Hubungi Workshop
             </a>

@@ -103,7 +103,7 @@ enum DeliveryMethod {
 // ------------------------------------------------------------------
 // ZONA EKSPEDISI (tarif luar kota per kota-kurir, bisa diedit admin)
 // v2: colok provider API (api.co.id/dsb) via ExpeditionProvider bila volume
-// sudah justify (lihat Blueprint/PENGIRIMAN.md). v1 = tabel milik sendiri.
+// sudah justify (arsip hilang — lihat RUNBOOK §10 + src/lib/shipping/). v1 = tabel milik sendiri.
 // ------------------------------------------------------------------
 
 model ExpeditionZone {
@@ -204,7 +204,7 @@ model ColorOption {
 
 model MaterialFinish {
   id            String  @id @default(cuid())
-  slug          String  @unique   // "combed-cotton" | "french-terry" | "acid-wash"
+  slug          String  @unique   // "combed-cotton" | "french-terry" | "poplin" (acid-wash nonaktif Sep 2026)
   name          String
   surchargeIdr  Int     @default(0)
   roughness     Float   @default(0.9)

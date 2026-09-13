@@ -21,6 +21,7 @@ import { useState } from "react";
 const LINKS = [
   { href: "/admin", label: "OVERVIEW & METRIK", Icon: LayoutDashboard },
   { href: "/admin/production", label: "KANBAN PRODUKSI DTF", Icon: Layers },
+  { href: "/admin/gang-sheet", label: "GANG SHEET 100×58", Icon: Layers },
   { href: "/admin/orders", label: "DAFTAR PESANAN", Icon: ShoppingBag },
   { href: "/admin/catalog", label: "KATALOG & STOK", Icon: Layers },
   { href: "/admin/customers", label: "CUSTOMER DB", Icon: Users },

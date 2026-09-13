@@ -51,12 +51,34 @@ export async function GET(req: NextRequest) {
       }
     }
     out += "COMMIT;\n";
+    // P0 backup: tolak dump >25jt char (≈25MB) dengan 413 agar tak OOM/
+    // timeout di Workers & single-PUT R2. Rencana: split per-tabel ke
+    // backups/kaos-kami-<stamp>/<tabel>.sql + manifest.json (belum implement).
+    if (out.length > 25_000_000) {
+      return NextResponse.json(
+        { error: "Backup >25MB — split per-tabel belum tersedia" },
+        { status: 413 }
+      );
+    }
     const stamp = new Date().toISOString().slice(0, 16).replace(/[-:T]/g, "");
     const key = `backups/kaos-kami-${stamp}.sql`;
     // Bucket PRIVAT (tanpa domain publik) — berisi PII pelanggan.
     const up = await uploadToR2(key, out, "application/sql", "kaos-kami-backups");
     if (!up.success) {
       return NextResponse.json({ error: up.error || "Upload backup gagal" }, { status: 500 });
+    }
+    // Marker observabilitas (best-effort, JANGAN ubah hasil backup bila gagal):
+    // cron-state/backup.json dibaca /api/health sebagai bukti cron hidup.
+    // Marker ke bucket ASET default (publik-terbaca) — isinya hanya metadata,
+    // BUKAN dump PII (dump tetap di bucket privat kaos-kami-backups).
+    try {
+      await uploadToR2(
+        "cron-state/backup.json",
+        JSON.stringify({ ok: true, at: new Date().toISOString(), key, bytes: out.length, tables: tables.length, rows: totalRows }),
+        "application/json"
+      );
+    } catch (e: any) {
+      console.warn("Backup marker gagal:", e?.message);
     }
     return NextResponse.json({ success: true, key, bytes: out.length, tables: tables.length, rows: totalRows });
   } catch (e: any) {

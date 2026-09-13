@@ -37,6 +37,38 @@ const CreateSchema = z.object({
   { message: "Nilai diskon di luar batas (persen ≤100, tetap ≤Rp50jt)" }
 );
 
+/** GET /api/admin/coupons — daftar kupon (admin only, urut kode, cap 200). */
+export async function GET(req: NextRequest) {
+  const gate = await requireAdmin(req);
+  if (gate.error) return gate.error;
+  const sp = new URL(req.url).searchParams;
+  const limit = Math.max(1, Math.min(200, Number(sp.get("limit")) || 100));
+  const rows = await db.query.Coupon.findMany({
+    orderBy: (t, { desc }) => [desc(t.code)],
+    limit,
+  });
+  return NextResponse.json({ success: true, coupons: rows });
+}
+
+const DeleteSchema = z.object({ id: z.string().min(1) });
+
+/** DELETE /api/admin/coupons — hapus permanen via body { id } atau ?id=. */
+export async function DELETE(req: NextRequest) {
+  const gate = await requireAdmin(req);
+  if (gate.error) return gate.error;
+  const sp = new URL(req.url).searchParams;
+  const body = await req.json().catch(() => ({} as Record<string, unknown>));
+  const parsed = DeleteSchema.safeParse(
+    body && typeof body === "object" && (body as Record<string, unknown>).id
+      ? body
+      : { id: sp.get("id") || "" }
+  );
+  if (!parsed.success) return NextResponse.json({ error: "id wajib diisi" }, { status: 400 });
+  const [gone] = await db.delete(Coupon).where(eq(Coupon.id, parsed.data.id)).returning({ id: Coupon.id });
+  if (!gone) return NextResponse.json({ error: "Kupon tidak ditemukan" }, { status: 404 });
+  return NextResponse.json({ success: true, deleted: true, id: gone.id });
+}
+
 export async function POST(req: NextRequest) {
   const gate = await requireAdmin(req);
   if (gate.error) return gate.error;

@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
-import Link from "next/link";
+import { useCartStore } from "@/store/useCartStore";
 
 interface ReorderItem {
   productVariantId?: string | null;
@@ -13,6 +13,9 @@ interface ReorderItem {
 export function ReorderButton({ userId, items }: { userId: string; items: ReorderItem[] }) {
   const [state, setState] = useState<"idle" | "busy" | "done" | "error">("idle");
   const [detail, setDetail] = useState("");
+  // Keranjang = drawer (tak ada rute /cart). Label "BUKA KERANJANG" WAJIB
+  // membuka drawer via openCart(), bukan Link ke /catalog.
+  const openCart = useCartStore((s) => s.openCart);
 
   const reorder = async () => {
     if (state === "busy") return;
@@ -50,9 +53,13 @@ export function ReorderButton({ userId, items }: { userId: string; items: Reorde
     return (
       <span className="inline-flex items-center gap-2 text-[11px]">
         <span className="text-emerald-400 font-bold">✔ {detail}</span>
-        <Link href="/catalog" className="px-3 py-1.5 rounded-xl bg-brand-accent text-canvas font-bold hover:brightness-110">
+        <button
+          type="button"
+          onClick={openCart}
+          className="px-3 py-1.5 rounded-xl bg-brand-accent text-canvas font-bold hover:brightness-110"
+        >
           BUKA KERANJANG
-        </Link>
+        </button>
       </span>
     );
   }

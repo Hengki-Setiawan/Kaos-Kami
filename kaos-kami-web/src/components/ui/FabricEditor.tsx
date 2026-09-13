@@ -53,10 +53,29 @@ export const FabricEditor: React.FC<{
     try {
       fabricRef.current.renderAll();
       const dataUrl = (fabricRef.current as any).toDataURL({ format: "png", multiplier: 1 });
-      // Ukuran master cetak 300 DPI dari dimensi cm AKTUAL decal (bukan tebakan).
-      const wPx = Math.round((printWidthCm / 2.54) * 300);
-      const hPx = Math.round((printHeightCm / 2.54) * 300);
-      setPrintInfo(`${wPx}×${hPx}px @300DPI`);
+      // printPx = dimensi bitmap kanvas AKTUAL (bukan cm→px fiktif @300DPI).
+      // Klaim fiktif (mis. 20cm → 2362px padahal kanvas cuma 450px) menipu
+      // badge DPI + pricing seolah master tajam. File cetak 300 DPI yang
+      // benar tetap via tombol PRINT (composePrintFile), bukan jalur ini.
+      let wPx = 450;
+      let hPx = 500;
+      try {
+        const el = fabricRef.current.getElement?.() as HTMLCanvasElement | undefined;
+        if (el && el.width > 0 && el.height > 0) {
+          wPx = el.width;
+          hPx = el.height;
+        } else {
+          const cw = Number(fabricRef.current.getWidth?.()) || 450;
+          const ch = Number(fabricRef.current.getHeight?.()) || 500;
+          if (cw > 0 && ch > 0) {
+            wPx = Math.round(cw);
+            hPx = Math.round(ch);
+          }
+        }
+      } catch {
+        // fallback 450×500 di bawah
+      }
+      setPrintInfo(`${wPx}×${hPx}px aktual kanvas`);
       onExport(dataUrl, { w: wPx, h: hPx });
     } catch (e) {
       console.warn(e);

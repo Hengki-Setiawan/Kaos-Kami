@@ -67,13 +67,25 @@ export async function POST(req: NextRequest) {
     const allCategories = await db.query.ApparelCategory.findMany({
       orderBy: (t, { asc }) => asc(t.sortOrder),
     });
-    const fallbackCategory = allCategories[0];
     const { calculate6VariablePrice } = await import("@/lib/pricingEngine");
     const { PRODUCT_COLORS } = await import("@/lib/constants");
+    const { normalizeApparelSlug } = await import("@/lib/apparelSlug");
     for (const d of designs) {
-      const category =
-        allCategories.find((c) => c.slug === d.apparelSlug) || fallbackCategory;
-      if (!category) continue;
+      // SSOT slug (K-B): alias jacket→shirt diterima; asing → failed[] per-item
+      // (fail-closed per item, bukan fallback diam-diam ke tshirt agar harga
+      // tak salah, dan bukan 400 seluruh batch).
+      let canonSlug: string;
+      try {
+        canonSlug = normalizeApparelSlug((d as any).apparelSlug);
+      } catch {
+        failed.push({ clientId: d.clientId, error: `Apparel tidak dikenal: ${(d as any).apparelSlug}` });
+        continue;
+      }
+      const category = allCategories.find((c) => c.slug === canonSlug);
+      if (!category) {
+        failed.push({ clientId: d.clientId, error: `Kategori ${canonSlug} tidak tersedia` });
+        continue;
+      }
 
       // Harga dihitung ULANG di server (jangan percaya HP).
       // Decal sudah divalidasi Zod ketat → tak ada fallback angka-HP lagi.
@@ -83,7 +95,7 @@ export async function POST(req: NextRequest) {
           (c: any) => String(c.hex).toLowerCase() === String(d.colorHex).toLowerCase()
         );
         const pricing = calculate6VariablePrice({
-          apparelSlug: (category.slug || d.apparelSlug) as any,
+          apparelSlug: (canonSlug || category.slug) as any,
           size: d.size,
           colorHex: d.colorHex,
           isSpecialPigment: !!matched?.isSpecialPigment,

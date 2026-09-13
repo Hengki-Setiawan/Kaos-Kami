@@ -17,7 +17,7 @@ export function JsonLd() {
     sku: PRODUCT_DETAILS.sku,
     offers: {
       "@type": "Offer",
-      url: "https://kaoskami.com",
+      url: "https://kaoskami.biz.id",
       priceCurrency: PRODUCT_DETAILS.currency,
       price: PRODUCT_DETAILS.priceIdr,
       availability: "https://schema.org/InStock",

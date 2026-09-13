@@ -3,8 +3,10 @@
  * - L1: in-memory sliding window (cepat, per-isolate). Tetap dipakai sebagai fast-path.
  * - L2 (opsional): Cloudflare KV fixed-window untuk lintas-isolate/colo.
  *   Aktif otomatis jika binding `RATE_LIMIT_KV` tersedia (wrangler `kv_namespaces`).
- *   Jika KV tidak ada / error → fail-OPEN (request lolos + warn log), agar limiter
- *   tidak pernah menjadi penyebab outage (sesuai riset Cloudflare 2026).
+ *   Dibaca via API resmi `@opennextjs/cloudflare@^1.20`
+ *   (`getCloudflareContext().env.RATE_LIMIT_KV`), di-cache di modul setelah
+ *   hit pertama. Jika KV tidak ada / error → fail-OPEN (request lolos + warn
+ *   log), agar limiter tidak pernah menjadi penyebab outage.
  *
  * Catatan riset:
  * - Workers Rate-Limiting API hanya mendukung period 10/60 dtk & per-PoP
@@ -13,6 +15,7 @@
  *   abuse-prevention (OTP/checkout/admin), BUKAN untuk billing-grade quota.
  *   Untuk kuota presisi global gunakan Durable Object per-key (belum dibutuhkan).
  */
+import { getCloudflareContext } from "@opennextjs/cloudflare";
 
 interface RateLimitRecord {
   timestamps: number[];
@@ -129,17 +132,37 @@ export async function hashRateLimitKey(raw: string): Promise<string> {
   }
 }
 
+let cachedRateLimitKV: KVLike | null = null;
+
 function getRateLimitKV(): KVLike | null {
+  // Cache modul: hindari getCloudflareContext() tiap hit setelah binding ketemu.
+  // Sengaja HANYA cache hasil positif — null tidak di-cache agar request
+  // berikutnya (yang sudah di dalam request scope) tetap bisa menemukan KV.
+  if (cachedRateLimitKV) return cachedRateLimitKV;
+  // 1) Jalur RESMI @opennextjs/cloudflare ^1.20: getCloudflareContext().env.
+  // Melempar di luar request scope (build/dev/test) → ditangkap, lanjut fallback.
+  // (overload sync wajib argumen { async: false } — tanpa arg TS menolak.)
+  try {
+    const getCtx = getCloudflareContext as unknown as (o?: { async: false }) => {
+      env: Record<string, unknown>;
+    };
+    const env = getCtx({ async: false })?.env;
+    const kv = (env as Record<string, unknown> | undefined)?.["RATE_LIMIT_KV"] as KVLike | undefined;
+    if (kv && typeof kv.get === "function" && typeof kv.put === "function") {
+      cachedRateLimitKV = kv;
+      return cachedRateLimitKV;
+    }
+  } catch {
+    /* di luar request scope — lanjut fallback memory */
+  }
+  // 2) Fallback legacy (test/dev): global yang disuntik runtime lama.
+  // process.env.RATE_LIMIT_KV SENGAJA tidak dibaca — isinya string, bukan binding KV.
   try {
     const g = globalThis as any;
-    // OpenNext/Workers: env tersedia via getCloudflareContext().env atau global.
-    const candidates: any[] = [
-      g?.__cloudflare_context__?.env?.RATE_LIMIT_KV,
-      g?.__env__?.RATE_LIMIT_KV,
-      (typeof process !== "undefined" ? (process as any).env?.RATE_LIMIT_KV : null),
-    ];
-    for (const kv of candidates) {
-      if (kv && typeof kv.get === "function" && typeof kv.put === "function") return kv as KVLike;
+    const legacy = g?.__cloudflare_context__?.env?.RATE_LIMIT_KV ?? g?.__env__?.RATE_LIMIT_KV;
+    if (legacy && typeof legacy.get === "function" && typeof legacy.put === "function") {
+      cachedRateLimitKV = legacy as KVLike;
+      return cachedRateLimitKV;
     }
   } catch {
     /* abaikan — fallback memory */

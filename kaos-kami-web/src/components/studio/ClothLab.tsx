@@ -4,6 +4,7 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 import * as THREE from "three";
 import { Canvas, useFrame, useThree, type ThreeEvent } from "@react-three/fiber";
 import { useConfiguratorStore } from "@/store/useConfiguratorStore";
+import { useShallow } from "zustand/shallow";
 import { createClothParticleGrid, gsmPreset, type VerletCloth } from "@/lib/verletCloth";
 import { useDeviceTier } from "@/hooks/useDeviceTier";
 
@@ -14,15 +15,25 @@ const SPACING = 0.038;
 function ClothMesh({
   cloth,
   color,
+  wind,
+  resetTick,
   windRef,
 }: {
   cloth: VerletCloth;
   color: string;
+  /** Nilai slider angin (reaktif — pemicu invalidate; fisika baca windRef). */
+  wind: number;
+  /** Naik tiap tombol RESET — pemicu invalidate eksplisit dari luar Canvas. */
+  resetTick: number;
   windRef: React.MutableRefObject<number>;
 }) {
-  const { camera } = useThree();
+  const camera = useThree((s) => s.camera);
+  const invalidate = useThree((s) => s.invalidate);
   const geoRef = useRef<THREE.PlaneGeometry>(null);
   const frameCount = useRef(0);
+  // Bingkai penenang pasca-angin-dimati/reset agar kain sempat settle
+  // terlihat (demand berhenti bila langsung 0 frame).
+  const settleRef = useRef(0);
   const lastCursor = useRef(new THREE.Vector3());
   const drag = useRef<{
     ids: number[];
@@ -43,7 +54,27 @@ function ClothMesh({
     // eslint-disable-next-line react-hooks/exhaustive-deps
     []
   );
-  material.color.set(color);
+  // color.set saat render = efek samping di fase render (audit #12) — pindah
+  // ke effect + invalidate agar terlihat di frameloop demand.
+  useEffect(() => {
+    material.color.set(color);
+    invalidate();
+  }, [material, color, invalidate]);
+
+  // Angin digeser → minta frame (demand): useFrame di bawah merantai sendiri
+  // selama angin/drag/settle aktif. Angin dimatikan → 45 bingkai penenang.
+  useEffect(() => {
+    if (wind === 0) settleRef.current = 45;
+    invalidate();
+  }, [wind, invalidate]);
+
+  // RESET dari luar Canvas tak bisa panggil invalidate langsung — resetTick
+  // (counter parent) memicu effect ini + penenang agar susunan awal tampil.
+  useEffect(() => {
+    if (resetTick > 0) settleRef.current = 45;
+    invalidate();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [resetTick]);
 
   // Dispose material+geometri saat lab ditutup (audit #12 — konteks kedua =
   // memori ganda bila bocor).
@@ -77,6 +108,12 @@ function ClothMesh({
       frameCount.current++;
       if (frameCount.current % 2 === 0) geoRef.current?.computeVertexNormals();
     }
+    // frameloop="demand": rantai frame sendiri HANYA selama ada gerak
+    // (angin/drag/penenang). Idle = 0 frame/detik (hemat baterai HP).
+    if (windRef.current !== 0 || drag.current || settleRef.current > 0) {
+      if (settleRef.current > 0) settleRef.current -= 1;
+      invalidate();
+    }
   });
 
   const onDown = (e: ThreeEvent<PointerEvent>) => {
@@ -101,6 +138,7 @@ function ClothMesh({
       last: performance.now(),
     };
     (e.target as any).setPointerCapture?.(e.pointerId);
+    invalidate(); // demand: cubit memulai rantai frame
   };
 
   const onMove = (e: ThreeEvent<PointerEvent>) => {
@@ -117,6 +155,7 @@ function ClothMesh({
     d.ids.forEach((id, k) => {
       cloth.forcePosition(id, hit.x + d.offs[k * 3]!, hit.y + d.offs[k * 3 + 1]!, hit.z + d.offs[k * 3 + 2]!);
     });
+    invalidate(); // demand: seret butuh frame per gerak
   };
 
   const onUp = (e: ThreeEvent<PointerEvent>) => {
@@ -130,8 +169,11 @@ function ClothMesh({
         const w = 1 - (k / d.ids.length) * 0.7;
         cloth.addVelocity(id, f.x * w, f.y * w, f.z * w);
       });
+      // Sentakan lepas butuh penenang terlihat walau angin 0.
+      settleRef.current = 45;
     }
     drag.current = null;
+    invalidate(); // demand: lepas memicu bingkai sentakan
   };
 
   return (
@@ -152,9 +194,14 @@ function ClothMesh({
  * GSM + angin. Fisika JS murni (tanpa WASM/native) — aman di HP & Workers.
  */
 export const ClothLab: React.FC = () => {
-  const { selectedColor, materialFinish } = useConfiguratorStore();
+  const { selectedColor, materialFinish } = useConfiguratorStore(
+    useShallow((s) => ({ selectedColor: s.selectedColor, materialFinish: s.materialFinish }))
+  );
   const [wind, setWind] = useState(0.6);
   const [open, setOpen] = useState(false);
+  // Counter RESET — diteruskan ke ClothMesh agar invalidate eksplisit bisa
+  // dipicu dari luar Canvas (frameloop demand tak merender ulang sendiri).
+  const [resetTick, setResetTick] = useState(0);
   const windRef = useRef(0.6);
   const preset = gsmPreset(materialFinish || "combed-cotton");
   const cloth = useMemo(
@@ -204,10 +251,16 @@ export const ClothLab: React.FC = () => {
         </button>
       </div>
       <div className="rounded-xl overflow-hidden border border-white/10 bg-black/60 h-56">
-        <Canvas camera={{ position: [0, -0.25, 1.1], fov: 42 }} dpr={[1, tier === "low" ? 1 : 2]}>
+        <Canvas
+          camera={{ position: [0, -0.25, 1.1], fov: 42 }}
+          dpr={[1, tier === "low" ? 1 : 2]}
+          // demand: lab idle = 0 frame/detik; gerak (angin/drag/reset/warna)
+          // merantai invalidate sendiri di ClothMesh (hemat baterai HP).
+          frameloop="demand"
+        >
           <ambientLight intensity={0.7} />
           <directionalLight position={[2, 3, 4]} intensity={1.2} />
-          <ClothMesh cloth={cloth} color={selectedColor} windRef={windRef} />
+          <ClothMesh cloth={cloth} color={selectedColor} wind={wind} resetTick={resetTick} windRef={windRef} />
         </Canvas>
       </div>
       <p className="font-mono text-[10px] text-text-muted">
@@ -226,7 +279,7 @@ export const ClothLab: React.FC = () => {
           aria-label="Kekuatan angin"
         />
         <button
-          onClick={() => cloth.reset()}
+          onClick={() => { cloth.reset(); setResetTick((t) => t + 1); }}
           className="px-2.5 py-1 rounded-lg bg-canvas border border-white/10 text-[10px] font-mono font-bold text-text-muted hover:text-white"
         >
           RESET

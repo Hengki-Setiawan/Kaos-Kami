@@ -1,7 +1,13 @@
 "use client";
 
 import React, { useEffect, useRef } from "react";
-import { CanvasStage } from "@/components/3d/CanvasStage";
+import dynamic from "next/dynamic";
+// P0 bundle: CanvasStage (three/fiber/drei/postprocessing) lazy client-only
+// agar bundle awal home ringan; chunk 3D diunduh hanya bila WebGL didukung.
+const CanvasStage = dynamic(
+  () => import("@/components/3d/CanvasStage").then((m) => m.CanvasStage),
+  { ssr: false }
+);
 import { JsonLd, CanvasErrorBoundary } from "@/components/ui/JsonLd";
 import { Navbar } from "@/components/ui/Navbar";
 import { Footer } from "@/components/ui/Footer";
@@ -16,12 +22,19 @@ import { useScrollPhases } from "@/hooks/useScrollPhases";
 import { useWebglSupport } from "@/hooks/useWebglSupport";
 import { useDeviceTier } from "@/hooks/useDeviceTier";
 import { useConfiguratorStore } from "@/store/useConfiguratorStore";
+import { useShallow } from "zustand/shallow";
 
 export default function Home() {
   const { camPos, lookAtPos } = useScrollPhases();
   const webglSupported = useWebglSupport();
   const deviceTier = useDeviceTier();
-  const { isHideWebsiteUI, setViewMode, setActivePhase } = useConfiguratorStore();
+  const { isHideWebsiteUI, setViewMode, setActivePhase } = useConfiguratorStore(
+    useShallow((s) => ({
+      isHideWebsiteUI: s.isHideWebsiteUI,
+      setViewMode: s.setViewMode,
+      setActivePhase: s.setActivePhase,
+    }))
+  );
 
   // Simpan viewMode sebelumnya; kembalikan saat unmount agar back-nav cepat
   // tidak menimpa state Studio (audit H1).

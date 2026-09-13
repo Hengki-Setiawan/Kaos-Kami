@@ -12,7 +12,35 @@ import * as THREE from "three";
  *    (three.js pakai UV default → normal konstan → terlihat plastik).
  *    Catatan: box-UV cukup untuk weave normal, BUKAN untuk cetakan akurat
  *    (lihat lib/printUV.ts untuk jalur cetak).
+ * 3. M2.7 (weave jujur): UV dinormalisasi sisi-terpanjang (maxSide) sehingga
+ *    repeat peta weave ≈ world-scale — rapat serat konsisten antar apparel
+ *    (kaos/hoodie/jaket). Sengaja TAK diubah perilakunya di sini (repeat
+ *    hidup di proceduralTextures: WEAVE_REPEAT).
+ * 4. M-fabric (rasa kain, TANPA sculpt): lipatan gravitasi universal —
+ *    geser mikro tiap vertex sepanjang normalnya (maks ±2.5mm), dimask
+ *    lebih kuat di sisi badan/ketiak (|x| besar) dan pinggang/hem (y
+ *    rendah) tempat kain nyata menggantung & menumpuk. Fisis: normal-map
+ *    hanya menipu cahaya (siluet tetap papan); geser 2.5mm ini yang
+ *    memecah SILUET + memberi paralaks nyata saat diputar. Amplitudo
+ *    SENGAJA universal (tak per-arketipe): pada skala ini gravitasi menarik
+ *    semua bahan mirip; karakter bahan (halus-rapat vs besar-lembut vs
+ *    tegas-jarang) datang dari peta lipatan per-arketipe (FOLD_SPECS).
+ *    Batas aman: FOLD_DISP_AMP ≤0.005 (5mm) — di atas itu siluet berubah +
+ *    surfaceZ kalibrasi cetak (scaleCalibration, TAK DISENTUH di sini)
+ *    meleset >1%. REVERT: set FOLD_DISP_AMP = 0 (windWeight tetap jalan).
+ *    UJI: putar model miring, zoom 100% — tepi siluet harus berombak lembut
+ *    (bukan garis lurus penggaris), decal drei-Decal mengikuti otomatis
+ *    karena displacement di-bake ke geometri sebelum render. SENGAJA tak
+ *    computeVertexNormals ulang: disp << ukuran segitiga (±1cm) sehingga
+ *    perubahan normal tak kasatmata, hemat CPU HP kentang (sekali per load).
  */
+
+/**
+ * Amplitudo lipatan gravitasi (satuan dunia model; ≈meter bila 1 unit ≈ 1m
+ * seperti hasil kalibrasi skala-cm). 0.0025 ≈ 2.5mm — setara kerut gantung
+ * kaos 240GSM. JANGAN >0.005 (lihat butir 4 di atas).
+ */
+const FOLD_DISP_AMP = 0.0025;
 
 export function ensureWindWeights(
   geo: THREE.BufferGeometry,
@@ -27,13 +55,37 @@ export function ensureWindWeights(
   const top = pinY ?? (bb.min.y + (bb.max.y - bb.min.y) * 0.72);
   const bottom = hemY ?? bb.min.y;
   const span = Math.max(1e-5, top - bottom);
+  const halfWidth = Math.max(1e-5, (bb.max.x - bb.min.x) * 0.5);
+  // Normal WAJIB ada untuk arah geser lipatan (GLB kaos & merged hoodie/
+  // jaket selalu punya; bila tak ada — lewati geser, windWeight tetap jalan).
+  const nor = geo.getAttribute("normal") as THREE.BufferAttribute | undefined;
   const weights = new Float32Array(pos.count);
   for (let i = 0; i < pos.count; i++) {
     const y = pos.getY(i);
     // smoothstep: 0 di atas garis pin (bahu/kerah), 1 di hem
     const t = Math.max(0, Math.min(1, (top - y) / span));
     weights[i] = t * t * (3 - 2 * t);
+    // Lipatan gravitasi: dua sinus diagonal (panjang gelombang 2π/28 ≈ 0.22
+    // unit ≈ 22cm + 2π/17 ≈ 37cm — skala kerut torso nyata 15–35cm, BUKAN
+    // kerut mikro yang sudah dipegang normal-map). Masker: sisi badan/ketiak
+    // 2× lebih kuat dari tengah dada + pinggang/hem 1.35× dari bahu.
+    if (nor) {
+      const x = pos.getX(i);
+      const side = Math.min(1, Math.abs(x) / halfWidth);
+      const mask = (0.45 + 0.55 * side) * (0.65 + 0.35 * t);
+      const d =
+        FOLD_DISP_AMP *
+        mask *
+        (0.6 * Math.sin(x * 28 + y * 20) + 0.4 * Math.sin(x * 17 - y * 25 + 1.3));
+      pos.setXYZ(
+        i,
+        x + nor.getX(i) * d,
+        y + nor.getY(i) * d,
+        pos.getZ(i) + nor.getZ(i) * d
+      );
+    }
   }
+  pos.needsUpdate = true;
   geo.setAttribute("windWeight", new THREE.BufferAttribute(weights, 1));
   return geo;
 }

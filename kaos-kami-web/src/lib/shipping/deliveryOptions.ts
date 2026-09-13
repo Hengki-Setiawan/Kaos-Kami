@@ -26,7 +26,12 @@ export const MAKASSAR_DELIVERY_OPTIONS: DeliveryOption[] = [
     method: "EXPEDITION_MANUAL",
     name: "Ekspedisi Luar Kota (JNE / J&T / SiCepat)",
     description: "Pengiriman khusus luar Kota Makassar. Resi ekspedisi diinput setelah paket dikirim.",
-    costIdr: 25000,
+    // HARGA JUJUR (audit HIGH): JANGAN hardcode tarif sebagai angka (dulu
+    // Rp 25.000 placeholder menyesatkan). costIdr=0 = "belum ada quote";
+    // UI pemakai (CheckoutModal) WAJIB tampilkan "menghitung…" + blokir submit
+    // sampai quote server dipilih (server resolve live AgenWebsite → fallback
+    // tabel zona). Paritas mobile: deliveryOptionsMobile.ts (price 0 + blokir).
+    costIdr: 0,
   },
 ];
 

@@ -1,19 +1,39 @@
 "use client";
 
-import React, { useRef } from "react";
+import React, { useRef, lazy, Suspense } from "react";
 import * as THREE from "three";
 import { useFrame } from "@react-three/fiber";
 import { useConfiguratorStore } from "@/store/useConfiguratorStore";
-import { TshirtModel } from "./TshirtModel";
-import { LongsleeveModel } from "./LongsleeveModel";
-import { HoodieModel } from "./HoodieModel";
-import { ShirtModel } from "./ShirtModel";
+import { useShallow } from "zustand/shallow";
+// PERF: lazy per-apparel — chunk GLB + decoder tiap model HANYA diunduh saat
+// apparel itu (atau tetangganya via idle-preload CanvasStage) dirender.
+// Sebelumnya 7 import statis = seluruh rantai preload modul (mis. 3× preload
+// di TshirtModel) jalan di first paint walau user hanya buka kaos.
+const TshirtModel = lazy(() => import("./TshirtModel").then((m) => ({ default: m.TshirtModel })));
+const LongsleeveModel = lazy(() => import("./LongsleeveModel").then((m) => ({ default: m.LongsleeveModel })));
+const HoodieModel = lazy(() => import("./HoodieModel").then((m) => ({ default: m.HoodieModel })));
+const ShirtModel = lazy(() => import("./ShirtModel").then((m) => ({ default: m.ShirtModel })));
+const CrewneckModel = lazy(() => import("./CrewneckModel").then((m) => ({ default: m.CrewneckModel })));
+const CapModel = lazy(() => import("./CapModel").then((m) => ({ default: m.CapModel })));
+const PantsModel = lazy(() => import("./PantsModel").then((m) => ({ default: m.PantsModel })));
+const ShortsModel = lazy(() => import("./ShortsModel").then((m) => ({ default: m.ShortsModel })));
+const MannequinModel = lazy(() => import("./MannequinModel").then((m) => ({ default: m.MannequinModel })));
 
 import { DecalGizmo } from "./DecalGizmo";
 import { PrintZoneGuide } from "./PrintZoneGuide";
+import { surfaceZForApparel } from "@/lib/scaleCalibration";
 
 export const ApparelMeshRenderer: React.FC = () => {
-  const { activeApparel, modelRotY, viewMode, activePhase, isMobile } = useConfiguratorStore();
+  const { activeApparel, modelRotY, viewMode, activePhase, isMobile, modelMode } = useConfiguratorStore(
+    useShallow((s) => ({
+      activeApparel: s.activeApparel,
+      modelRotY: s.modelRotY,
+      viewMode: s.viewMode,
+      activePhase: s.activePhase,
+      isMobile: s.isMobile,
+      modelMode: s.modelMode,
+    }))
+  );
   const groupRef = useRef<THREE.Group>(null);
 
   // Target coordinates for each Story Mode phase (EDITORIAL, bukan fisika —
@@ -73,32 +93,51 @@ export const ApparelMeshRenderer: React.FC = () => {
     }
   });
 
+  // MODE MANEKIN BERJALAN (in-place): bila modelMode === "mannequin",
+  // render MannequinModel SAJA — gizmo/guide/decal DISEMBUNYIKAN (decal di
+  // badan butuh skinning agar ikut tulang; itu follow-up jujur, bukan
+  // dipasang miring). Default "garment" = perilaku lama tak berubah.
+  const isMannequin = modelMode === "mannequin";
+
+  // CELANA coming-soon (pola cap): pants → PantsModel, shorts →
+  // ShortsModel (mockup AKTIF, order BELUM — guard orderable di checkout).
   const renderModel = () => {
+    if (isMannequin) return <MannequinModel />;
     switch (activeApparel) {
       case "hoodie":
         return <HoodieModel />;
       case "crewneck":
-        return <HoodieModel />;
+        return <CrewneckModel />;
+      case "cap":
+        return <CapModel />;
       case "shirt":
         return <ShirtModel />;
       case "longsleeve":
         return <LongsleeveModel />;
+      case "pants":
+        return <PantsModel />;
+      case "shorts":
+        return <ShortsModel />;
       case "tshirt":
       default:
         return <TshirtModel />;
     }
   };
 
-  // surfaceZ per apparel — SATU angka dipakai renderer+gizmo+guide
-  // (audit #6: sebelumnya renderer 0.176/0.24, gizmo default 0.18, guide 0.155
-  // = selisih s/d 6cm). Nilai = ketebalan dada terukur per mesh.
-  const surfaceZ = activeApparel === "shirt" ? 0.24 : 0.176;
+  // surfaceZ per apparel — SATU angka dipakai renderer+gizmo+guide (SSOT
+  // surfaceZForApparel; audit #6: sebelumnya renderer 0.176/0.24, gizmo
+  // default 0.18, guide 0.155 = selisih s/d 6cm). Nilai = ketebalan dada
+  // terukur per mesh (0.176 kaos/hoodie, 0.24 coach jacket) — literal lama
+  // diganti pemanggilan SSOT agar tak drift lagi bila kalibrasi berubah.
+  const surfaceZ = surfaceZForApparel(activeApparel);
 
   return (
     <group ref={groupRef}>
-      {renderModel()}
-      <PrintZoneGuide surfaceZ={surfaceZ} />
-      <DecalGizmo surfaceZ={surfaceZ} />
+      <Suspense fallback={null}>
+        {renderModel()}
+      </Suspense>
+      {!isMannequin && <PrintZoneGuide surfaceZ={surfaceZ} />}
+      {!isMannequin && <DecalGizmo surfaceZ={surfaceZ} />}
     </group>
   );
 };

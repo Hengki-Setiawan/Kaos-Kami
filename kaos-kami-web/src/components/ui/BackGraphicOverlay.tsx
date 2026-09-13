@@ -2,10 +2,17 @@
 
 import React from "react";
 import { useConfiguratorStore } from "@/store/useConfiguratorStore";
+import { useShallow } from "zustand/shallow";
 import { APPAREL_PHYSICAL_SPECS } from "@/lib/scaleCalibration";
 
 export const BackGraphicOverlay: React.FC = () => {
-  const { activePhase, viewMode, activeApparel } = useConfiguratorStore();
+  const { activePhase, viewMode, activeApparel } = useConfiguratorStore(
+    useShallow((s) => ({
+      activePhase: s.activePhase,
+      viewMode: s.viewMode,
+      activeApparel: s.activeApparel,
+    }))
+  );
   const isVisible = activePhase === 3 && viewMode === "story";
   const spec = APPAREL_PHYSICAL_SPECS[activeApparel];
   const maxW = spec?.maxBackWidthCm ?? 30;

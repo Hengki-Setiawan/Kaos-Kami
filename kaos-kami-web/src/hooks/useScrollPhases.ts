@@ -2,16 +2,19 @@
 
 import { useEffect, useRef } from "react";
 import * as THREE from "three";
-import { gsap } from "gsap";
-import { ScrollTrigger } from "gsap/ScrollTrigger";
+// P0 bundle: gsap/ScrollTrigger TIDAK diimpor statis — di-dynamic-import di
+// dalam effect hanya saat story mode aktif (bukan studio / hide-UI).
 import { useConfiguratorStore } from "@/store/useConfiguratorStore";
-
-if (typeof window !== "undefined") {
-  gsap.registerPlugin(ScrollTrigger);
-}
+import { useShallow } from "zustand/shallow";
 
 export const useScrollPhases = () => {
-  const { setActivePhase, viewMode, isHideWebsiteUI } = useConfiguratorStore();
+  const { setActivePhase, viewMode, isHideWebsiteUI } = useConfiguratorStore(
+    useShallow((s) => ({
+      setActivePhase: s.setActivePhase,
+      viewMode: s.viewMode,
+      isHideWebsiteUI: s.isHideWebsiteUI,
+    }))
+  );
   const camPosRef = useRef(new THREE.Vector3(0, 0, 2.7));
   const lookAtRef = useRef(new THREE.Vector3(0, 0, 0));
 
@@ -19,10 +22,23 @@ export const useScrollPhases = () => {
     // Only run scroll-driven camera choreography when in story mode
     if (viewMode === "studio" || isHideWebsiteUI) return;
 
-    const prefersReducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    const scrub = prefersReducedMotion ? true : 1.2;
+    // gsap lazy (story-mode only). Cleanup aman bila unmount/change sebelum
+    // import selesai: flag cancelled + ctx/onResize dibuat setelah modul tiba.
+    let cancelled = false;
+    let ctx: { revert: () => void } | null = null;
+    let onResize: (() => void) | null = null;
+    (async () => {
+      const [{ gsap }, { ScrollTrigger }] = await Promise.all([
+        import("gsap"),
+        import("gsap/ScrollTrigger"),
+      ]);
+      if (cancelled) return;
+      gsap.registerPlugin(ScrollTrigger);
 
-    const ctx = gsap.context(() => {
+      const prefersReducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+      const scrub = prefersReducedMotion ? true : 1.2;
+
+      ctx = gsap.context(() => {
       const masterTimeline = gsap.timeline({
         scrollTrigger: {
           trigger: "#scroll-container",
@@ -83,12 +99,16 @@ export const useScrollPhases = () => {
       );
     });
 
-    const onResize = () => ScrollTrigger.refresh();
-    window.addEventListener("resize", onResize);
+      onResize = () => ScrollTrigger.refresh();
+      window.addEventListener("resize", onResize);
+    })();
 
     return () => {
-      window.removeEventListener("resize", onResize);
-      ctx.revert();
+      cancelled = true;
+      if (onResize) window.removeEventListener("resize", onResize);
+      try {
+        ctx?.revert();
+      } catch {}
     };
   }, [setActivePhase, viewMode, isHideWebsiteUI]);
 

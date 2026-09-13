@@ -27,7 +27,7 @@ async function main() {
       weightGsm: "240 / 280 GSM",
       basePriceIdr: 149000,
       sizes: JSON.stringify(["S", "M", "L", "XL", "XXL"]),
-      model3dPath: "/models/tshirt-heavyweight.glb",
+      model3dPath: "/models/tee-basic.glb",
       fallbackComponent: "TshirtModel",
       decalNodes: JSON.stringify([
         { id: "front", label: "Dada Depan", side: "front", anchor: [0, 0.08, 0.15] },
@@ -53,14 +53,16 @@ async function main() {
       sortOrder: 2,
     },
     {
+      // FASE 13: crewneck akhirnya punya mesh SENDIRI (sweater.glb, tanpa
+      // tudung) + CrewneckModel. Era pinjaman hoodie.glb SELESAI.
       slug: "crewneck",
       name: "Heavyweight Crewneck Sweater",
       tagline: "330 & 380 GSM Premium Loopback French Terry",
       weightGsm: "330 / 380 GSM",
       basePriceIdr: 249000,
       sizes: JSON.stringify(["M", "L", "XL", "XXL"]),
-      model3dPath: "/models/hoodie.glb",
-      fallbackComponent: "TshirtModel",
+      model3dPath: "/models/sweater.glb",
+      fallbackComponent: "CrewneckModel",
       decalNodes: JSON.stringify([
         { id: "front", label: "Dada Depan", side: "front", anchor: [0, 0.08, 0.15] },
         { id: "back", label: "Punggung Belakang", side: "back", anchor: [0, 0.08, -0.15] },
@@ -75,8 +77,8 @@ async function main() {
       weightGsm: "380 GSM",
       basePriceIdr: 269000,
       sizes: JSON.stringify(["M", "L", "XL", "XXL"]),
-      model3dPath: "/models/hoodie.glb",
-      fallbackComponent: "TshirtModel",
+      model3dPath: "/models/hoodie-blue.glb",
+      fallbackComponent: "HoodieModel",
       decalNodes: JSON.stringify([
         { id: "front", label: "Dada Depan", side: "front", anchor: [0, 0.05, 0.15] },
         { id: "back", label: "Punggung Belakang", side: "back", anchor: [0, 0.05, -0.15] },
@@ -99,6 +101,65 @@ async function main() {
       ]),
       description: "Architectural boxy zip jacket with front hardware, side pockets, and durable tactical weave.",
       sortOrder: 5,
+    },
+    {
+      // FASE 13: topi — mockup 3D AKTIF (cap.glb), pemesanan BELUM dibuka
+      // (orderable=false di kode; DB tak punya kolom itu). basePriceIdr 0 =
+      // arsip dashboard saja. WAJIB ada baris ini agar dashboard boleh
+      // simpan desain topi (POST /api/designs lookup kategori by slug).
+      // JANGAN buat varian (tanpa varian = tak muncul di katalog jualan).
+      slug: "cap",
+      name: "Snapback Baseball Cap (Mockup Saja)",
+      tagline: "Mockup 3D — pemesanan SEGERA hadir",
+      weightGsm: "—",
+      basePriceIdr: 0,
+      sizes: JSON.stringify(["All Size"]),
+      model3dPath: "/models/cap.glb",
+      fallbackComponent: "CapModel",
+      decalNodes: JSON.stringify([
+        { id: "front", label: "Depan Topi", side: "front", anchor: [0, 0.1, 0.09] },
+      ]),
+      description: "Mockup 3D topi untuk latihan desain. Belum bisa dipesan — harga & produksi menyusul.",
+      sortOrder: 6,
+    },
+    {
+      // FASE 13: celana — mockup 3D AKTIF (pants.glb), pemesanan BELUM
+      // dibuka (orderable=false di kode; DB tak punya kolom itu).
+      // basePriceIdr 0 = arsip dashboard saja. WAJIB ada baris ini agar
+      // dashboard boleh simpan desain celana (POST /api/designs lookup
+      // kategori by slug). JANGAN buat varian (tanpa varian = tak muncul
+      // di katalog jualan).
+      slug: "pants",
+      name: "Celana (SEGERA Hadir)",
+      tagline: "Mockup & pemesanan SEGERA hadir",
+      weightGsm: "—",
+      basePriceIdr: 0,
+      sizes: JSON.stringify(["S", "M", "L", "XL", "XXL"]),
+      model3dPath: "/models/pants.glb",
+      fallbackComponent: "TshirtModel",
+      decalNodes: JSON.stringify([]),
+      description: "Belum ada mockup 3D maupun pemesanan.",
+      sortOrder: 7,
+    },
+    {
+      // CELANA PENDEK coming-soon (pola pants persis): mockup 3D AKTIF
+      // (shorts.glb), pemesanan BELUM dibuka. basePriceIdr 0 = arsip
+      // dashboard saja. WAJIB ada agar dashboard boleh simpan desain
+      // shorts (POST /api/designs lookup kategori by slug). JANGAN buat
+      // varian (tanpa varian = tak muncul di katalog jualan).
+      slug: "shorts",
+      name: "Celana Pendek (Mockup Saja)",
+      tagline: "Mockup 3D — pemesanan SEGERA hadir",
+      weightGsm: "—",
+      basePriceIdr: 0,
+      sizes: JSON.stringify(["S", "M", "L", "XL", "XXL"]),
+      model3dPath: "/models/shorts.glb",
+      fallbackComponent: "ShortsModel",
+      decalNodes: JSON.stringify([
+        { id: "front", label: "Paha Depan", side: "front", anchor: [0, -0.05, 0.12] },
+      ]),
+      description: "Mockup 3D celana pendek untuk latihan desain. Belum bisa dipesan — harga & produksi menyusul.",
+      sortOrder: 8,
     },
   ];
 
@@ -188,6 +249,11 @@ async function main() {
   console.log(`✅ ${colorsData.length} Pilihan Warna Kain berhasil di-seed.`);
 
   // 3. Seed Material Finishes
+  // NONAKTIF Sep 2026 (keputusan owner): "acid-wash" (+30rb) DIHAPUS total —
+  // entri dihapus dari seed agar tak ter-seed ulang. Baris DB lama TIDAK
+  // terhapus otomatis oleh upsert (owner hapus manual 1x via Studio/SQL:
+  // DELETE FROM MaterialFinish WHERE slug='acid-wash'; — JANGAN jalankan
+  // seed otomatis di sini).
   const materialsData = [
     {
       slug: "combed-cotton",
@@ -202,13 +268,6 @@ async function main() {
       surchargeIdr: 0,
       roughness: 0.95,
       sheen: 0.2,
-    },
-    {
-      slug: "acid-wash",
-      name: "Vintage Mineral Acid Wash Treatment",
-      surchargeIdr: 30000,
-      roughness: 0.85,
-      sheen: 0.4,
     },
     {
       slug: "poplin",
@@ -270,12 +329,12 @@ async function main() {
     where: { phoneNumber: "081244002026" },
     update: {
       name: "Admin Workshop Kaos Kami",
-      email: "admin@kaoskami.com",
+      email: "admin@kaoskami.biz.id",
       role: "ADMIN",
     },
     create: {
       name: "Admin Workshop Kaos Kami",
-      email: "admin@kaoskami.com",
+      email: "admin@kaoskami.biz.id",
       phoneNumber: "081244002026",
       role: "ADMIN",
     },

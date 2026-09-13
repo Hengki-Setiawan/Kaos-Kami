@@ -12,6 +12,31 @@ function safeExt(mime: string): string {
   return "jpg";
 }
 
+// Kuota harian per-user: 50 file / 200MB (best-effort anti-abuse, BUKAN
+// billing-grade: backend limiter memory-per-isolate + KV fail-open —
+// lihat rateLimiter.ts. Dipanggil SETELAH validasi MIME/ukuran lolos agar
+// request invalid tak memakan kuota; limiter IP 10/mnt tetap jadi tameng awal.
+async function checkUploadQuota(userId: string, bytes: number) {
+  const count = await checkRateLimitAsync(`upload:user:${userId}:count`, 50, 86400);
+  if (count.isLimited) {
+    return NextResponse.json(
+      { error: "Kuota upload harian habis (50 file/hari). Coba lagi besok." },
+      { status: 429, headers: rateLimitHeaders(count, 50) }
+    );
+  }
+  const mb = Math.max(1, Math.ceil(bytes / (1024 * 1024)));
+  for (let i = 0; i < mb; i++) {
+    const usage = await checkRateLimitAsync(`upload:user:${userId}:mb`, 200, 86400);
+    if (usage.isLimited) {
+      return NextResponse.json(
+        { error: "Kuota 200MB/hari habis. Coba lagi besok." },
+        { status: 429, headers: rateLimitHeaders(usage, 200) }
+      );
+    }
+  }
+  return null;
+}
+
 export async function POST(req: NextRequest) {
   try {
     // Wajib login — endpoint publik tanpa auth = penimbunan bucket oleh asing.
@@ -37,7 +62,8 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ error: `MIME ${mime || "?"} not allowed (png/jpg/webp)` }, { status: 400 });
       }
       const b64 = imageBase64.split(",")[1] || "";
-      if (Buffer.byteLength(b64, "base64") > MAX_BYTES) {
+      const byteLen = Buffer.byteLength(b64, "base64");
+      if (byteLen > MAX_BYTES) {
         return NextResponse.json({ error: "File >10MB" }, { status: 400 });
       }
       // Magic-byte: isi harus gambar betulan (bukan script ganti baju).
@@ -45,6 +71,8 @@ export async function POST(req: NextRequest) {
       if (!sniffImageMime(probe)) {
         return NextResponse.json({ error: "Isi file bukan gambar valid" }, { status: 400 });
       }
+      const overQuota = await checkUploadQuota(user.id, byteLen);
+      if (overQuota) return overQuota;
       // Key SELALU dari server (user-scoped) — client tidak boleh menentukan path.
       // kind "master" (ekspor 300 DPI studio) → prefix masters/, selain itu uploads/.
       const prefix = kind === "master" ? `masters/${user.id}` : `uploads/${user.id}`;
@@ -73,28 +101,20 @@ export async function POST(req: NextRequest) {
     }
     const key = `uploads/${user.id}/${Date.now()}-${Math.random().toString(36).slice(2, 6)}.${safeExt(file.type)}`;
 
-    let buffer = Buffer.from(await file.arrayBuffer());
+    const buffer = Buffer.from(await file.arrayBuffer());
     if (!sniffImageMime(buffer.subarray(0, 32))) {
       return NextResponse.json({ error: "Isi file bukan gambar valid" }, { status: 400 });
     }
-    // Sharp re-encode: resize max 1200, webp/png, strip metadata (10MB guard)
-    try {
-      const sharp = (await import("sharp")).default;
-      const image = sharp(buffer);
-      const meta = await image.metadata();
-      if ((meta.width || 0) > 1200 || (meta.height || 0) > 1200) {
-        image.resize({ width: 1200, height: 1200, fit: "inside", withoutEnlargement: true });
-      }
-      // Re-encode to webp for 90% saving, or keep png if transparency
-      if (file.type === "image/png") {
-        buffer = await image.png({ compressionLevel: 8 }).toBuffer();
-      } else {
-        buffer = await image.webp({ quality: 85 }).toBuffer();
-      }
-    } catch (e) {
-      console.warn("Sharp re-encode skip", e);
-    }
-    const result = await uploadToR2(key, buffer, file.type.includes("png") ? "image/png" : "image/webp");
+    const overQuota = await checkUploadQuota(user.id, buffer.byteLength);
+    if (overQuota) return overQuota;
+    // TANPA sharp (Sep 2026): resize/kompres WAJIB di browser SEBELUM upload
+    // via compressImageClient (preview max 1200px / master max 3000px, format
+    // adaptif webp/png/jpeg) — pemanggil: CustomizerDrawer, PatternStudio,
+    // imageEditPipeline.uploadMasterDataUrlToR2, gangExport. Server hanya
+    // validasi (MIME/magic-byte/10MB) + teruskan bytes apa adanya agar Worker
+    // tetap lean (<1.2MB, jauh dari limit 3MB Cloudflare) dan tanpa dependensi
+    // native. MIME dipertahankan asli (jangan label ulang webp bila bytes jpg).
+    const result = await uploadToR2(key, buffer, file.type);
 
     if (!result.success) {
       return NextResponse.json({ error: result.error }, { status: 500 });

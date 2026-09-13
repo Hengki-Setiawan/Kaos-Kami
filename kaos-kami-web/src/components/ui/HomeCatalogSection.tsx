@@ -5,14 +5,31 @@ import Link from "next/link";
 import { ShoppingBag, Sparkles, ArrowRight } from "lucide-react";
 import { useCartStore } from "@/store/useCartStore";
 import { useConfiguratorStore } from "@/store/useConfiguratorStore";
+import { useShallow } from "zustand/shallow";
+import { APPAREL_CATALOG, type ApparelType } from "@/lib/constants";
 import { isSafeImageUrl } from "@/lib/safeUrl";
+
+// Alias dua arah legacy ↔ kanonis (tiru handleOpenInStudio di catalog/page.tsx
+// + normalizeApparelSlug server): "jacket" (nama file jacket.glb + data lama)
+// ↔ "shirt" (slug kanonis DB); keduanya resolve ke "shirt".
+const APPAREL_SLUG_ALIASES: Record<string, ApparelType> = {
+  jacket: "shirt",
+  shirt: "shirt",
+};
 
 export const HomeCatalogSection: React.FC = () => {
   const [products, setProducts] = useState<any[]>([]);
   const [failed, setFailed] = useState(false);
   const [addedId, setAddedId] = useState<string | null>(null);
-  const { addItem } = useCartStore();
-  const { setSelectedColor, setSelectedSize, setViewMode } = useConfiguratorStore();
+  const addItem = useCartStore((s) => s.addItem);
+  const { setActiveApparel, setSelectedColor, setSelectedSize, setViewMode } = useConfiguratorStore(
+    useShallow((s) => ({
+      setActiveApparel: s.setActiveApparel,
+      setSelectedColor: s.setSelectedColor,
+      setSelectedSize: s.setSelectedSize,
+      setViewMode: s.setViewMode,
+    }))
+  );
 
   useEffect(() => {
     const ctrl = new AbortController();
@@ -120,7 +137,9 @@ export const HomeCatalogSection: React.FC = () => {
               <div className="grid grid-cols-2 gap-2 pt-2 border-t border-white/5 text-xs">
                 <button
                   onClick={() => {
-                    if ((p.stockQty ?? 1) <= 0) return;
+                    // Stok jujur: guard ?? 0 (jangan ?? 1 — stok unknown ≠ ada 1).
+                    // unknown/undefined = anggap 0 agar tak oversell sebelum server menolak.
+                    if ((p.stockQty ?? 0) <= 0) return;
                     addItem({
                       id: p.id,
                       name: p.name,
@@ -131,20 +150,38 @@ export const HomeCatalogSection: React.FC = () => {
                       image: Array.isArray(p.images) && p.images[0] ? p.images[0] : "/lookbook/look-01.jpg",
                       apparelSlug: p.category?.slug || "tshirt",
                       productVariantId: p.id,
+                      // Bawa stok varian ke cart agar drawer bisa kunci tombol +.
+                      stockQty: p.stockQty ?? 0,
                     });
                     setAddedId(p.id);
                     setTimeout(() => setAddedId((cur) => (cur === p.id ? null : cur)), 2000);
                   }}
-                  disabled={(p.stockQty ?? 1) <= 0}
+                  disabled={(p.stockQty ?? 0) <= 0}
                   className="py-2.5 px-3 rounded-xl bg-surface border border-white/10 text-white font-bold hover:bg-brand-accent hover:text-canvas transition-all flex items-center justify-center space-x-1 disabled:opacity-40"
                 >
                   <ShoppingBag size={12} />
-                  <span>{(p.stockQty ?? 1) <= 0 ? "HABIS" : addedId === p.id ? "✓ DITAMBAH" : "+ BELI"}</span>
+                  <span>{(p.stockQty ?? 0) <= 0 ? "HABIS" : addedId === p.id ? "✓ DITAMBAH" : "+ BELI"}</span>
                 </button>
 
                 <Link
                   href="/studio"
                   onClick={() => {
+                    // Teruskan apparel katalog ke Studio (tiru handleOpenInStudio
+                    // di catalog/page.tsx): SSOT slug = kunci APPAREL_CATALOG,
+                    // bukan category.slug mentah (dulu "shirt"/asing jatuh ke
+                    // default tshirt → harga/jenis salah di studio).
+                    const rawSlug = String(p.category?.slug || "").trim().toLowerCase();
+                    const canonical: ApparelType | undefined = (
+                      Object.keys(APPAREL_CATALOG) as ApparelType[]
+                    ).includes(rawSlug as ApparelType)
+                      ? (rawSlug as ApparelType)
+                      : APPAREL_SLUG_ALIASES[rawSlug];
+                    if (!canonical) {
+                      console.warn(
+                        `[home-catalog] slug apparel tak dikenal "${p.category?.slug}" pada produk ${p.id} — fallback ke "tshirt".`
+                      );
+                    }
+                    setActiveApparel(canonical ?? "tshirt");
                     setSelectedColor(p.colorHex);
                     setSelectedSize(p.size);
                     setViewMode("studio");

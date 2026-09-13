@@ -1,8 +1,112 @@
-export type ApparelType = "tshirt" | "longsleeve" | "crewneck" | "hoodie" | "shirt";
+/**
+ * Fase 13 (Sep 2026): + "cap" (mockup 3D AKTIF, order BELUM) + "pants"
+ * (mockup 3D AKTIF — pants.glb) + "shorts" (mockup 3D AKTIF — shorts.glb).
+ * CELANA coming-soon (pola cap): pants & shorts mockup 3D AKTIF,
+ * pemesanan BELUM dibuka.
+ * - mockupEnabled=false → picker terkunci, renderer tak pernah aktif.
+ * - orderable=false → checkout server tolak 400 jujur; dashboard tetap boleh simpan.
+ */
+export type ApparelType = "tshirt" | "longsleeve" | "crewneck" | "hoodie" | "shirt" | "cap" | "pants" | "shorts";
 export type StudioTheme = "obsidian" | "gallery" | "concrete";
-export type MaterialFinish = "combed-cotton" | "french-terry" | "acid-wash" | "poplin";
-export type LightingPreset = "editorial" | "cyber" | "soft-daylight";
-export type CameraViewPreset = "front" | "back" | "left" | "right" | "iso";
+export type MaterialFinish = "combed-cotton" | "french-terry" | "poplin";
+/** Pola eksklusif Sep 2026: 3 mood baru TANPA HDR — hanya tint IBL prosedural
+ * (StudioEnvironment) + tombol di drawer. Lampu StudioLighting tak disentuh
+ * (fallback default untuk mood baru, anti blank). */
+export type LightingPreset = "editorial" | "cyber" | "soft-daylight" | "golden" | "sunset" | "gallery";
+
+/** Meta suasana (mood) studio — Bahasa Indonesia, manusiawi. */
+export interface StudioMoodMeta {
+  id: Extract<LightingPreset, "golden" | "sunset" | "gallery">;
+  label: string;
+  desc: string;
+  /** Warna tint IBL prosedural (overlay alfa kecil, tanpa HDR). */
+  tint: string;
+  /** Ikon emoji tombol (tanpa aset baru). */
+  icon: string;
+}
+
+export const STUDIO_MOODS: StudioMoodMeta[] = [
+  {
+    id: "golden",
+    label: "Golden",
+    desc: "Hangat keemasan — warna kain terlihat hidup",
+    tint: "#ffcf9e",
+    icon: "🌅",
+  },
+  {
+    id: "sunset",
+    label: "Sunset",
+    desc: "Senja oranye — cek sablon di cahaya hangat",
+    tint: "#ff9a6a",
+    icon: "🌇",
+  },
+  {
+    id: "gallery",
+    label: "Galeri",
+    desc: "Putih bersih galeri — warna paling jujur",
+    tint: "#ffffff",
+    icon: "🖼️",
+  },
+];
+
+/** Palet tint per preset (null = netral, tanpa tint). Dipakai StudioEnvironment saja. */
+export const LIGHTING_TINTS: Record<LightingPreset, string | null> = {
+  editorial: null,
+  cyber: null,
+  "soft-daylight": null,
+  golden: "#ffcf9e",
+  sunset: "#ff9a6a",
+  gallery: "#ffffff",
+};
+
+/** Template awal sablon (starter) — Bahasa Indonesia. Skala dijepit runtime
+ * via maxDecalScaleUnits agar tak lepas dari batas cetak tiap apparel/sisi. */
+export type StarterTemplateId = "logo-dada" | "quotes" | "full-back";
+
+export interface StarterTemplate {
+  id: StarterTemplateId;
+  label: string;
+  desc: string;
+  targetSide: DecalTargetSide;
+  scale: number;
+  x: number;
+  y: number;
+  sampleText: string;
+}
+
+export const STUDIO_STARTER_TEMPLATES: StarterTemplate[] = [
+  {
+    id: "logo-dada",
+    label: "Logo Dada",
+    desc: "Kecil di dada kiri ±9 cm",
+    targetSide: "front",
+    scale: 0.07,
+    x: -0.075,
+    y: 0.02,
+    sampleText: "KK",
+  },
+  {
+    id: "quotes",
+    label: "Quotes",
+    desc: "Tulisan tengah dada ±21 cm",
+    targetSide: "front",
+    scale: 0.11,
+    x: 0,
+    y: -0.05,
+    sampleText: "MAKASSAR NEVER DIES",
+  },
+  {
+    id: "full-back",
+    label: "Full-Back",
+    desc: "Besar di punggung ±29 cm",
+    targetSide: "back",
+    scale: 0.24,
+    x: 0,
+    y: -0.02,
+    sampleText: "KAOS KAMI",
+  },
+];
+export type CameraViewPreset = "front" | "back" | "left" | "right" | "iso" | "collar";
 
 export type DecalTargetSide = "front" | "back" | "left_sleeve" | "right_sleeve" | "hood";
 
@@ -15,8 +119,13 @@ export const DECAL_SIDE_LABELS: Record<DecalTargetSide, string> = {
   hood: "Tudung (Hood)",
 };
 
-/** Sisi valid per apparel (hood = hoodie saja — coach jacket tak bertudung). */
+/** Sisi valid per apparel (hood = hoodie saja — coach jacket tak bertudung).
+ * Fase 13: cap = depan saja (lidah topi). CELANA coming-soon (pola cap):
+ * pants & shorts = depan saja (paha depan) — PatternStudio nonaktif eksplisit. */
 export function validSidesFor(apparel: ApparelType): DecalTargetSide[] {
+  if (apparel === "cap") return ["front"];
+  if (apparel === "pants") return ["front"];
+  if (apparel === "shorts") return ["front"];
   const base: DecalTargetSide[] = ["front", "back", "left_sleeve", "right_sleeve"];
   return apparel === "hoodie" ? [...base, "hood"] : base;
 }
@@ -28,7 +137,7 @@ export interface DecalLayer {
   targetSide: DecalTargetSide;
   x: number; // offset X (-0.35 to 0.35)
   y: number; // offset Y (-0.35 to 0.35)
-  scale: number; // calibrated 3D scale (0.04 to 0.165)
+  scale: number; // skala 3D (MIN 0.04 SSOT; MAKS DINAMIS per apparel/sisi via maxDecalScaleUnits — mis. tshirt depan ≈0.295, lengan ≈0.083 — BUKAN 0.165 tetap)
   rotation: number; // rotation in degrees (-180 to 180)
   opacity: number; // 0 to 1
   /** Dimensi master cetak 300 DPI (px) — opsional, backwards-compatible di JSON lama. */
@@ -58,6 +167,11 @@ export interface ApparelOption {
   formattedPrice: string;
   sizes: readonly string[];
   description: string;
+  /** Fase 13: false = mockup TERKUNCI (tak ada file GLB).
+   * pants/shorts mockupEnabled TRUE (file GLB ada), orderable FALSE. */
+  mockupEnabled: boolean;
+  /** Fase 13: false = TAK BISA dipesan (cap/pants/shorts) — checkout tolak 400 jujur. */
+  orderable: boolean;
 }
 
 export const APPAREL_CATALOG: Record<ApparelType, ApparelOption> = {
@@ -70,6 +184,8 @@ export const APPAREL_CATALOG: Record<ApparelType, ApparelOption> = {
     formattedPrice: "IDR 149.000",
     sizes: ["S", "M", "L", "XL", "XXL"],
     description: "Architectural drop-shoulder silhouette with heavy ribbed 3.2cm collar binding.",
+    mockupEnabled: true,
+    orderable: true,
   },
   longsleeve: {
     id: "longsleeve",
@@ -80,6 +196,8 @@ export const APPAREL_CATALOG: Record<ApparelType, ApparelOption> = {
     formattedPrice: "IDR 169.000",
     sizes: ["S", "M", "L", "XL", "XXL"],
     description: "Drop-shoulder boxy longsleeve with 5cm ribbed sleeve cuffs and reinforced neckline.",
+    mockupEnabled: true,
+    orderable: true,
   },
   crewneck: {
     id: "crewneck",
@@ -90,6 +208,8 @@ export const APPAREL_CATALOG: Record<ApparelType, ApparelOption> = {
     formattedPrice: "IDR 249.000",
     sizes: ["M", "L", "XL", "XXL"],
     description: "Classic relaxed streetwear sweater without hood, featuring dense ribbed collar, cuffs, and hem.",
+    mockupEnabled: true,
+    orderable: true,
   },
   hoodie: {
     id: "hoodie",
@@ -100,6 +220,8 @@ export const APPAREL_CATALOG: Record<ApparelType, ApparelOption> = {
     formattedPrice: "IDR 269.000",
     sizes: ["M", "L", "XL", "XXL"],
     description: "Dense loopback French Terry with double-layered structured hood and deep kangaroo pouch.",
+    mockupEnabled: true,
+    orderable: true,
   },
   shirt: {
     id: "shirt",
@@ -110,6 +232,54 @@ export const APPAREL_CATALOG: Record<ApparelType, ApparelOption> = {
     formattedPrice: "IDR 329.000",
     sizes: ["S", "M", "L", "XL", "XXL"],
     description: "Architectural boxy zip jacket with front hardware, side pockets, and durable tactical weave.",
+    mockupEnabled: true,
+    orderable: true,
+  },
+  // Fase 13: mockup 3D AKTIF (cap.glb), pemesanan BELUM dibuka.
+  // basePriceIdr 0 = arsip dashboard saja (bukan harga jual) — checkout
+  // menolak SEBELUM pricing (guard orderable), jadi 0 tak pernah ditagih.
+  cap: {
+    id: "cap",
+    name: "Snapback Baseball Cap (Mockup Saja)",
+    tagline: "Mockup 3D — pemesanan SEGERA hadir",
+    weightGsm: "—",
+    basePriceIdr: 0,
+    formattedPrice: "SEGERA",
+    sizes: ["All Size"],
+    description: "Mockup 3D topi untuk latihan desain. Belum bisa dipesan — harga & produksi menyusul.",
+    mockupEnabled: true,
+    orderable: false,
+  },
+  // CELANA coming-soon (pola cap): mockup 3D AKTIF (pants.glb), pemesanan
+  // BELUM dibuka. basePriceIdr 0 = arsip dashboard saja (bukan harga jual) —
+  // checkout menolak SEBELUM pricing (guard orderable), jadi 0 tak pernah ditagih.
+  pants: {
+    id: "pants",
+    name: "Celana Panjang (Mockup Saja)",
+    tagline: "Mockup 3D — pemesanan SEGERA hadir",
+    weightGsm: "—",
+    basePriceIdr: 0,
+    formattedPrice: "SEGERA",
+    sizes: ["S", "M", "L", "XL", "XXL"],
+    description: "Mockup 3D celana untuk latihan desain. Belum bisa dipesan — harga & produksi menyusul.",
+    mockupEnabled: true,
+    orderable: false,
+  },
+  // CELANA PENDEK coming-soon (pola pants persis): mockup 3D AKTIF
+  // (shorts.glb), pemesanan BELUM dibuka. basePriceIdr 0 = arsip dashboard
+  // saja (bukan harga jual) — checkout menolak SEBELUM pricing (guard
+  // orderable), jadi 0 tak pernah ditagih.
+  shorts: {
+    id: "shorts",
+    name: "Celana Pendek (Mockup Saja)",
+    tagline: "Mockup 3D — pemesanan SEGERA hadir",
+    weightGsm: "—",
+    basePriceIdr: 0,
+    formattedPrice: "SEGERA",
+    sizes: ["S", "M", "L", "XL", "XXL"],
+    description: "Mockup 3D celana pendek untuk latihan desain. Belum bisa dipesan — harga & produksi menyusul.",
+    mockupEnabled: true,
+    orderable: false,
   },
 };
 
@@ -171,6 +341,20 @@ export const PRODUCT_COLORS: ProductColor[] = [
     isSpecialPigment: true,
     description: "Deep aged streetwear burgundy red (+IDR 15.000).",
   },
+  {
+    id: "forest",
+    name: "Rimba Forest",
+    hex: "#234534",
+    isSpecialPigment: true,
+    description: "Deep rainforest green pigment dye (+IDR 15.000).",
+  },
+  {
+    id: "cloud",
+    name: "Cloud White",
+    hex: "#F7F5F0",
+    isSpecialPigment: false,
+    description: "Clean bright white, kanvas terbaik untuk sablon DTF warna.",
+  },
 ];
 
 // Makassar Custom Printing & Garment Dynamic Pricing Engine
@@ -187,6 +371,12 @@ export interface PriceBreakdown {
   formattedTotal: string;
 }
 
+/**
+ * @deprecated SSOT harga = `calculate6VariablePrice()` (src/lib/pricingEngine.ts).
+ * Legacy ini buta terhadap surcharge ketebalan kain, aspek gambar
+ * riil (printPx), dan diskon volume. Dipertahankan untuk kompatibilitas;
+ * JANGAN dipakai di jalur tampil maupun jalur bayar.
+ */
 export function calculateCustomMockupPrice(
   apparel: ApparelType,
   colorHex: string,

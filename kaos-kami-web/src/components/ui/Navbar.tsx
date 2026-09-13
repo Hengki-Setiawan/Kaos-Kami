@@ -4,6 +4,7 @@ import React from "react";
 import Link from "next/link";
 import { useConfiguratorStore } from "@/store/useConfiguratorStore";
 import { useCartStore } from "@/store/useCartStore";
+import { useShallow } from "zustand/shallow";
 import { Sun, Moon, Menu, X, User as UserIcon, ShoppingBag } from "lucide-react";
 import { AuthModal } from "@/components/ui/AuthModal";
 import { CartDrawer } from "@/components/ui/CartDrawer";
@@ -13,16 +14,31 @@ export const Navbar: React.FC = () => {
   const [isAuthOpen, setIsAuthOpen] = React.useState(false);
   const [isMenuOpen, setIsMenuOpen] = React.useState(false);
   const { data: session } = useSession();
-  const { getTotalCount, openCart } = useCartStore();
-  const cartCount = getTotalCount();
+  // Badge reaktif: subscribe `items` langsung (hitung qty via reduce) agar
+  // badge update tiap add/remove/updateQuantity. JANGAN subscribe getTotalCount
+  // (referensi fungsi stabil → tak memicu render ulang saat isi berubah).
+  const { cartCount, openCart } = useCartStore(
+    useShallow((s) => ({
+      cartCount: s.items.reduce((acc, item) => acc + (item.quantity || 0), 0),
+      openCart: s.openCart,
+    }))
+  );
 
+  // Catatan: `activePhase` SENGAJA tidak di-subscribe di Navbar — hanya dipakai
+  // di Studio; subscribe di sini menyebabkan render ulang sia-sia tiap ganti fase.
   const {
     studioTheme,
     setStudioTheme,
     isHideWebsiteUI,
     toggleHideWebsiteUI,
-    activePhase,
-  } = useConfiguratorStore();
+  } = useConfiguratorStore(
+    useShallow((s) => ({
+      studioTheme: s.studioTheme,
+      setStudioTheme: s.setStudioTheme,
+      isHideWebsiteUI: s.isHideWebsiteUI,
+      toggleHideWebsiteUI: s.toggleHideWebsiteUI,
+    }))
+  );
 
   const isLight = studioTheme === "gallery";
 

@@ -20,7 +20,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     }
     const order = await db.query.Order.findFirst({
       where: (t, { eq }) => eq(t.id, orderId),
-      columns: { id: true, userId: true, status: true, orderNumber: true },
+      columns: { id: true, userId: true, status: true, orderNumber: true, notes: true, discountIdr: true },
     });
     if (!order) return NextResponse.json({ error: "Order tidak ditemukan" }, { status: 404 });
     try {
@@ -48,6 +48,15 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       status: "CANCELLED",
       note: "Dibatalkan pelanggan dari invoice.",
     });
+    // Kembalikan kuota kupon bila order ini tercatat memakainya.
+    // Best-effort: kegagalan restore tak menggagalkan pembatalan.
+    try {
+      const { restoreCoupon, getOrderCouponCode } = await import("@/lib/coupons");
+      const code = getOrderCouponCode(order);
+      if (code) await restoreCoupon(code);
+    } catch (e: any) {
+      console.warn("Cancel restore kupon gagal:", order.id, e?.message);
+    }
     return NextResponse.json({ success: true });
   } catch (e: any) {
     return NextResponse.json({ error: e?.message || "Internal error" }, { status: 500 });

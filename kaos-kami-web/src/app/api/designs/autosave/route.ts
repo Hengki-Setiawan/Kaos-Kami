@@ -7,10 +7,12 @@ import { Design } from '@/lib/drizzle-schema';
 import { auth } from '@/lib/auth';
 import { headers } from 'next/headers';
 import { checkRateLimitAsync, getClientIp, rateLimitHeaders } from "@/lib/security/rateLimiter";
-import { DecalLayerSchema } from "@/lib/schemas/design";
+import { DecalLayerSchema, ApparelSlugSchema } from "@/lib/schemas/design";
 
 const AutosaveSchema = z.object({
-  apparelSlug: z.string().min(1).max(32),
+  // SSOT slug (K-B): alias jacket→shirt dinormalisasi; asing ditolak 400
+  // (fail-closed agar harga/kategori tak salah, bukan fallback diam-diam).
+  apparelSlug: ApparelSlugSchema,
   colorHex: z.string().regex(/^#([0-9A-Fa-f]{3}|[0-9A-Fa-f]{6})$/).optional(),
   colorName: z.string().max(40).optional(),
   size: z.string().max(10).optional(),

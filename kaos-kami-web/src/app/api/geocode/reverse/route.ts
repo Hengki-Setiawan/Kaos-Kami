@@ -32,7 +32,7 @@ export async function GET(req: NextRequest) {
         signal: ctrl.signal,
         headers: {
           "User-Agent": "KaosKami-Makassar/1.0 (UMKM apparel Makassar; kontak via aplikasi)",
-          Referer: process.env.NEXT_PUBLIC_SITE_URL || "https://kaos-kami-3d.hengkisetiawan461.workers.dev",
+          Referer: process.env.NEXT_PUBLIC_SITE_URL || "https://kaoskami.biz.id",
         },
       }
     );

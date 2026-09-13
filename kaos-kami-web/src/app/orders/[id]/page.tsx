@@ -2,7 +2,7 @@ import React from "react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { db } from "@/lib/db";
-import { SHOP_WORKSHOP_ADDRESS } from "@/lib/shop";
+import { SHOP_WHATSAPP, SHOP_WORKSHOP_ADDRESS } from "@/lib/shop";
 import { RepayButton } from "@/components/commerce/RepayButton";
 import { CancelOrderButton } from "@/components/commerce/CancelOrderButton";
 import {
@@ -80,7 +80,7 @@ export default async function OrderReceiptPage({ params, searchParams }: OrderRe
       `Status: ${order.status}\n\n` +
       `Mohon dibantu proses antrean sablonnya. Terima kasih!`
   );
-  const waLink = `https://wa.me/6281244002026?text=${waMessage}`;
+  const waLink = `https://wa.me/${SHOP_WHATSAPP}?text=${waMessage}`;
 
   // Link bayar hilang/kedaluarsa → minta baru via WA (tanpa risiko tagih ganda).
   const waPayMessage = encodeURIComponent(
@@ -89,7 +89,7 @@ export default async function OrderReceiptPage({ params, searchParams }: OrderRe
       `Total: Rp ${order.totalIdr.toLocaleString("id-ID")}\n\n` +
       `Mohon kirim ulang link pembayarannya. Terima kasih!`
   );
-  const waPayLink = `https://wa.me/6281244002026?text=${waPayMessage}`;
+  const waPayLink = `https://wa.me/${SHOP_WHATSAPP}?text=${waPayMessage}`;
   const needsPayLink = order.status === "PENDING_PAYMENT";
 
   return (

@@ -31,7 +31,7 @@ export function applyWindToMaterial(
     );
     shader.vertexShader = shader.vertexShader.replace(
       "#include <begin_vertex>",
-      `vec3 transformed = vec3(position);\nfloat wave = sin(uTime * 2.0 + position.y * 4.0) * uWindStrength;\ntransformed.x += wave * windWeight * 0.04;\n#include <begin_vertex>`
+      `#include <begin_vertex>\nfloat wave = sin(uTime * 2.0 + position.y * 4.0) * uWindStrength;\ntransformed.x += wave * windWeight * 0.04;\ntransformed.z += cos(uTime * 1.6 + position.x * 3.0) * uWindStrength * windWeight * 0.03;`
     );
     material.userData.shader = shader;
   };

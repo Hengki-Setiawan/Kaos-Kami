@@ -5,11 +5,12 @@ import { db } from '@/lib/db';
 import { Design } from '@/lib/drizzle-schema';
 import { getAuthenticatedUser } from '@/lib/security/authGuard';
 import { checkRateLimitAsync, getClientIp, rateLimitHeaders } from "@/lib/security/rateLimiter";
-import { DecalLayerSchema } from "@/lib/schemas/design";
+import { DecalLayerSchema, ApparelSlugSchema } from "@/lib/schemas/design";
 
 const ClaimDesignSchema = z.object({
   title: z.string().min(1).max(60),
-  apparelSlug: z.enum(["tshirt", "longsleeve", "crewneck", "hoodie", "shirt"]),
+  // SSOT slug (K-B): terima alias legacy jacket→shirt, tolak asing 400.
+  apparelSlug: ApparelSlugSchema,
   colorHex: z.string().regex(/^#([0-9A-Fa-f]{3}|[0-9A-Fa-f]{6})$/),
   colorName: z.string().min(1).max(40),
   size: z.string().min(1).max(10),

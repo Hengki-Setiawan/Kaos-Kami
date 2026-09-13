@@ -3,10 +3,10 @@ import { sql } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { checkRateLimitAsync, getClientIp } from "@/lib/security/rateLimiter";
 
-// Health jujur (audit N13): DB tulis-baca + latensi + status KV/R2,
+// Health jujur (audit N13): DB baca saja + latensi + status KV/R2,
 // no-store anti-cache, tanpa bocor rahasia (hanya ok/gagal + ms).
 export async function GET(req: Request) {
-  // Throttle: tiap hit = 3 query tulis (audit: tanpa batas = amplifikasi DB).
+  // Throttle: tiap hit = 2 query baca ringan (tanpa batas = amplifikasi DB).
   const rl = await checkRateLimitAsync(`health:ip:${getClientIp(req)}`, 10, 60);
   if (rl.isLimited) {
     return NextResponse.json({ status: "limited" }, { status: 429, headers: { "Cache-Control": "no-store" } });
@@ -14,23 +14,25 @@ export async function GET(req: Request) {
   const started = Date.now();
   const checks: Record<string, { ok: boolean; ms?: number; note?: string }> = {};
 
-  // DB: tulis-baca nyata (bukan SELECT 1 — tulis membuktikan permission).
+  // DB: baca saja (anti amplifikasi tulis — sebelumnya tiap hit health
+  // = 3 query tulis CREATE+INSERT+DELETE).
   try {
     const t0 = Date.now();
-    await db.run(sql`CREATE TEMP TABLE IF NOT EXISTS _health (id INTEGER PRIMARY KEY, ts TEXT)`);
-    await db.run(sql`INSERT INTO _health (ts) VALUES (${new Date().toISOString()})`);
-    await db.run(sql`DELETE FROM _health`);
+    await db.run(sql`SELECT 1`);
+    // Cek baca tabel nyata (bukti permission baca tanpa tulis).
+    await db.query.ApparelCategory.findFirst({ columns: { id: true } });
     checks.db = { ok: true, ms: Date.now() - t0 };
   } catch (e: any) {
     checks.db = { ok: false, note: e?.message?.slice(0, 80) || "db error" };
   }
 
-  // KV rate-limit (best-effort, tanpa bocor isi).
+  // KV rate-limit (best-effort, tanpa bocor isi). `note` memuat backend
+  // aktif ("memory" vs "memory+kv") agar sinyal KV tetap terbaca health.
   try {
     const t0 = Date.now();
     const { checkRateLimitAsync } = await import("@/lib/security/rateLimiter");
-    await checkRateLimitAsync("health:self", 1000, 60);
-    checks.ratelimit = { ok: true, ms: Date.now() - t0 };
+    const probe = await checkRateLimitAsync("health:self", 1000, 60);
+    checks.ratelimit = { ok: true, ms: Date.now() - t0, note: probe.source ?? "memory" };
   } catch {
     checks.ratelimit = { ok: false };
   }
@@ -55,11 +57,45 @@ export async function GET(req: Request) {
     checks.r2 = { ok: false };
   }
 
+  // Cron observabilitas (informatif saja — tak pengaruhi status): baca marker
+  // R2 cron-state/sweep.json & backup.json yang ditulis tiap sukses cron.
+  // Tanpa marker (cron belum pernah sukses / R2 belum dikonfigurasi) = null jujur.
+  let cron: Record<string, { at: string | null; ageSec: number | null }> | null = null;
+  try {
+    const pub = process.env.R2_PUBLIC_URL;
+    if (pub) {
+      const base = pub.replace(/\/+$/, "");
+      const readMarker = async (name: string) => {
+        try {
+          const ctrl = new AbortController();
+          const t = setTimeout(() => ctrl.abort(), 4000);
+          const res = await fetch(`${base}/cron-state/${name}.json`, {
+            cache: "no-store",
+            signal: ctrl.signal,
+          });
+          clearTimeout(t);
+          if (!res.ok) return { at: null, ageSec: null };
+          const j: any = await res.json().catch(() => null);
+          const at = typeof j?.at === "string" ? j.at : null;
+          const ageSec = at ? Math.max(0, Math.round((Date.now() - new Date(at).getTime()) / 1000)) : null;
+          return { at, ageSec };
+        } catch {
+          return { at: null, ageSec: null };
+        }
+      };
+      const [sweep, backup] = await Promise.all([readMarker("sweep"), readMarker("backup")]);
+      cron = { sweep, backup };
+    }
+  } catch {
+    cron = null;
+  }
+
   const allOk = Object.values(checks).every((c) => c.ok);
   return NextResponse.json(
     {
       status: allOk ? "ok" : "degraded",
       checks,
+      cron,
       latencyMs: Date.now() - started,
       timestamp: new Date().toISOString(),
     },

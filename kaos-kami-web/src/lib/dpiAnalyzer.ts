@@ -1,6 +1,11 @@
 /**
  * REAL-TIME PRINT RESOLUTION & DPI QUALITY ANALYZER
  * Formula: Effective DPI = Image Pixel Width / (Print Width in Centimeters / 2.54)
+ *
+ * KONTRAK FASE F5 (Edit Gambar): panggil SELALU dari piksel BARU hasil edit
+ * (naturalWidth/Height URL decal terbaru) + dimensi cm AKTUAL decal —
+ * JANGAN meneruskan DPI lama. Sumbu ke-2 wajib diisi bila aspek diketahui;
+ * DPI efektif = sumbu TERKECIL (yang paling dulu pecah saat cetak).
  */
 
 export type PrintQualityTier = "EXCELLENT" | "GOOD" | "POOR";
@@ -22,11 +27,28 @@ export function evaluatePrintQuality(
   imagePixelHeight?: number,
   printHeightCm?: number
 ): QualityReport {
-  const wIn = Math.max(0.5, printWidthCm / 2.54);
-  let dpi = Math.round(imagePixelWidth / wIn);
-  if (imagePixelHeight && printHeightCm) {
-    const hIn = Math.max(0.5, printHeightCm / 2.54);
-    dpi = Math.min(dpi, Math.round(imagePixelHeight / hIn));
+  // Sanitasi input pipeline edit (naturalWidth gagal/NaN → POOR jujur,
+  // bukan badge "NaN DPI"). Default param dipertahankan untuk kompatibilitas
+  // pemanggil lama; pemanggil baru WAJIB oper dimensi cm aktual (28,5cm
+  // hanya fallback, bukan klaim ukuran — audit #21).
+  const safeW = Number.isFinite(imagePixelWidth) ? Math.max(1, imagePixelWidth) : 0;
+  const safeH = Number.isFinite(imagePixelHeight) ? Math.max(1, imagePixelHeight as number) : 0;
+  const safeWCm = Number.isFinite(printWidthCm) ? Math.max(0.5, printWidthCm) : 0.5;
+  if (safeW <= 0) {
+    return {
+      dpi: 0,
+      tier: "POOR",
+      badgeLabel: "🔴 0 DPI (Peringatan: Gambar Blur/Pecah)",
+      badgeColor: "text-rose-400 bg-rose-950/40 border-rose-500/30",
+      warningMessage: "Dimensi piksel gambar tidak terbaca. Coba unggah ulang file.",
+      recommendation: "Gunakan file beresolusi lebih tinggi atau perkecil skala sablon.",
+    };
+  }
+  const wIn = Math.max(0.5, safeWCm / 2.54);
+  let dpi = Math.round(safeW / wIn);
+  if (safeH > 0 && Number.isFinite(printHeightCm)) {
+    const hIn = Math.max(0.5, (printHeightCm as number) / 2.54);
+    dpi = Math.min(dpi, Math.round(safeH / hIn));
   }
 
   if (dpi >= 300) {

@@ -9,7 +9,7 @@ const DECAL_A4 = [
     targetSide: "front" as const,
     x: 0,
     y: -0.05,
-    scale: 0.2, // ~20cm di kaos (101.8) -> A4
+    scale: 0.2, // Fase 13: 0.2 × 78.4 = ~15.7cm di kaos -> A4
     rotation: 0,
     opacity: 1,
   },

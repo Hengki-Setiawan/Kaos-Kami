@@ -49,9 +49,24 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   const { id: orderId } = await params;
   const order = await db.query.Order.findFirst({
     where: (t, { eq }) => eq(t.id, orderId),
-    columns: { id: true, status: true, orderNumber: true },
+    columns: { id: true, status: true, orderNumber: true, notes: true, discountIdr: true },
   });
   if (!order) return NextResponse.json({ error: "Order tidak ditemukan" }, { status: 404 });
+
+  // Kembalikan kuota kupon bila order tercatat memakainya. Dipanggil sekali
+  // bila cancel dan/atau refund berhasil (best-effort, tak menggagalkan aksi).
+  let couponRestored = false;
+  const restoreOrderCoupon = async () => {
+    if (couponRestored) return;
+    couponRestored = true;
+    try {
+      const { restoreCoupon, getOrderCouponCode } = await import("@/lib/coupons");
+      const code = getOrderCouponCode(order);
+      if (code) await restoreCoupon(code);
+    } catch (e: any) {
+      console.warn("Admin restore kupon gagal:", order.id, e?.message);
+    }
+  };
 
   if (trackingNumber !== undefined) {
     await db.update(Order).set({ trackingNumber }).where(eq(Order.id, order.id));
@@ -76,6 +91,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
       status: "CANCELLED",
       note: "Dibatalkan oleh workshop via admin.",
     });
+    await restoreOrderCoupon();
   }
   if (refund) {
     const refundable = [
@@ -106,6 +122,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
       status: "REFUNDED",
       note: "Dana dikembalikan manual via dashboard Duitku; status dicatat admin.",
     });
+    await restoreOrderCoupon();
   }
   return NextResponse.json({ success: true });
 }

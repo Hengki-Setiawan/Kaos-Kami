@@ -1,17 +1,26 @@
 "use client";
 
-import React, { useRef, useState, useCallback } from "react";
+import React, { useRef, useState, useCallback, useEffect } from "react";
 import { Html } from "@react-three/drei";
 import { useThree } from "@react-three/fiber";
 import { useConfiguratorStore } from "@/store/useConfiguratorStore";
-import { APPAREL_PHYSICAL_SPECS, maxDecalScaleUnits, REAL_WORLD_PRINT_LIMITS } from "@/lib/scaleCalibration";
+import { useShallow } from "zustand/shallow";
+import { APPAREL_PHYSICAL_SPECS, maxDecalScaleUnits, REAL_WORLD_PRINT_LIMITS, surfaceZForApparel, DECAL_MOVE_LIMITS, clampDecalXY, computePhysicalPrintDimensions } from "@/lib/scaleCalibration";
 import { Move, ZoomIn, RotateCw } from "lucide-react";
 
 interface DecalGizmoProps {
   surfaceZ?: number;
 }
 
-export const DecalGizmo: React.FC<DecalGizmoProps> = ({ surfaceZ = 0.18 }) => {
+/**
+ * Toleransi snap magnetis (unit 3D): |x|≤0,01 → x=0 (tengah horizontal),
+ * |y|≤0,01 → y=0 (tengah vertikal = pusat koordinat, bukan default -0,05).
+ * Rumus cm tak diubah — snap hanya menggeser INPUT x/y ≤0,01 unit
+ * (≈≤1cm tergantung multiplier apparel).
+ */
+const SNAP_TOL = 0.01;
+
+export const DecalGizmo: React.FC<DecalGizmoProps> = ({ surfaceZ }) => {
   const {
     viewMode,
     isHideWebsiteUI,
@@ -22,10 +31,24 @@ export const DecalGizmo: React.FC<DecalGizmoProps> = ({ surfaceZ = 0.18 }) => {
     updateDecal,
     setGizmoDragging,
     activeApparel,
-  } = useConfiguratorStore();
+  } = useConfiguratorStore(
+    useShallow((s) => ({
+      viewMode: s.viewMode,
+      isHideWebsiteUI: s.isHideWebsiteUI,
+      decals: s.decals,
+      selectedDecalId: s.selectedDecalId,
+      isGizmoVisible: s.isGizmoVisible,
+      toggleGizmoVisible: s.toggleGizmoVisible,
+      updateDecal: s.updateDecal,
+      setGizmoDragging: s.setGizmoDragging,
+      activeApparel: s.activeApparel,
+    }))
+  );
   const { size, camera } = useThree();
 
   const [activeGizmoTool, setActiveGizmoTool] = useState<"move" | "scale" | "rotate" | null>(null);
+  // Sumbu yang sedang snap (untuk garis panduan tipis). Dibersihkan saat lepas.
+  const [snapAxis, setSnapAxis] = useState<{ x: boolean; y: boolean }>({ x: false, y: false });
 
   const activeDecal = decals.find((d) => d.id === selectedDecalId) ?? decals[0];
 
@@ -48,6 +71,50 @@ export const DecalGizmo: React.FC<DecalGizmoProps> = ({ surfaceZ = 0.18 }) => {
   // Two-finger pinch tracking (native PointerEvents, no Hammer.js — blueprint §2)
   const pinchRef = useRef<{ initialDist: number; initialScale: number; initialAngle: number; initialRot: number } | null>(null);
   const activePointers = useRef<Map<number, { x: number; y: number }>>(new Map());
+  // PERF #8: coalesce updateDecal per frame — pointermove bisa 60–120Hz; tiap
+  // event = 1 commit zustand + re-render React + re-render 3D (jank saat drag).
+  // Patch digabung (merge) lalu flush SEKALI via rAF; pointer-up flush sinkron
+  // agar posisi akhir pasti ke-commit sebelum drag state dibersihkan.
+  const pendingDecalPatchRef = useRef<{ id: string; patch: { x?: number; y?: number; scale?: number; rotation?: number } } | null>(null);
+  const decalRafRef = useRef<number>(0);
+  const queueDecalUpdate = (id: string, patch: { x?: number; y?: number; scale?: number; rotation?: number }) => {
+    const prev = pendingDecalPatchRef.current;
+    pendingDecalPatchRef.current =
+      prev && prev.id === id ? { id, patch: { ...prev.patch, ...patch } } : { id, patch };
+    if (decalRafRef.current) return;
+    decalRafRef.current = requestAnimationFrame(() => {
+      decalRafRef.current = 0;
+      const pending = pendingDecalPatchRef.current;
+      pendingDecalPatchRef.current = null;
+      if (pending) {
+        try {
+          updateDecal(pending.id, pending.patch);
+        } catch {}
+      }
+    });
+  };
+  const flushDecalUpdate = () => {
+    try {
+      if (decalRafRef.current) cancelAnimationFrame(decalRafRef.current);
+    } catch {}
+    decalRafRef.current = 0;
+    const pending = pendingDecalPatchRef.current;
+    pendingDecalPatchRef.current = null;
+    if (pending) {
+      try {
+        updateDecal(pending.id, pending.patch);
+      } catch {}
+    }
+  };
+  useEffect(() => {
+    return () => {
+      try {
+        if (decalRafRef.current) cancelAnimationFrame(decalRafRef.current);
+      } catch {}
+      decalRafRef.current = 0;
+      pendingDecalPatchRef.current = null;
+    };
+  }, []);
   const maxScaleUnits = () =>
     maxDecalScaleUnits(activeApparel, activeDecal?.targetSide ?? "front");
 
@@ -109,7 +176,7 @@ export const DecalGizmo: React.FC<DecalGizmoProps> = ({ surfaceZ = 0.18 }) => {
         const nextScale = Math.max(REAL_WORLD_PRINT_LIMITS.minDecalScaleUnits, Math.min(maxScaleUnits(), pinchRef.current.initialScale * scaleFactor));
         const angleDelta = curAngle - pinchRef.current.initialAngle;
         const nextRot = Math.round(((pinchRef.current.initialRot + angleDelta + 180) % 360) - 180);
-        updateDecal(activeDecal.id, { scale: nextScale, rotation: nextRot });
+        queueDecalUpdate(activeDecal.id, { scale: nextScale, rotation: nextRot });
         return;
       }
     }
@@ -126,25 +193,32 @@ export const DecalGizmo: React.FC<DecalGizmoProps> = ({ surfaceZ = 0.18 }) => {
     const dy = (e.clientY - dragRef.current.startY) * worldPerPixel;
 
     if (activeGizmoTool === "move") {
-      // SSOT store ±0.35 (audit #4 — gizmo ±0.25 beda sendiri).
-      // Tudung: jepit ke area kain (x ±0.09, y ±0.06 dari jangkar).
-      // Lengan: geser-x jepit ±0.12 (lebih jauh = melayang dari lengkung).
-      const side = activeDecal.targetSide;
-      const isHoodMove = side === "hood";
-      const isSleeveMove = side === "left_sleeve" || side === "right_sleeve";
-      const bx = isHoodMove ? 0.09 : isSleeveMove ? 0.12 : 0.35;
-      const by = isHoodMove ? 0.06 : 0.35;
-      const nextX = Math.max(-bx, Math.min(bx, dragRef.current.initialX + dx));
-      const nextY = Math.max(-by, Math.min(by, dragRef.current.initialY - dy));
-      updateDecal(activeDecal.id, { x: nextX, y: nextY });
+      // Jepit SSOT per sisi (audit #4 — dulu TIGA angka beda: gizmo ±0.25,
+      // guide 0.08, store ±0.35). clampDecalXY = DECAL_MOVE_LIMITS di
+      // scaleCalibration.ts; renderer memakai angka yang SAMA untuk jangkar
+      // tampil agar gizmo tak pernah lepas dari gambar sablon.
+      const jepit = clampDecalXY(
+        activeDecal.targetSide,
+        dragRef.current.initialX + dx,
+        dragRef.current.initialY - dy
+      );
+      // Snap magnetis: X≈0 → 0, Y tengah (≈0) → 0 bila dalam ±0,01.
+      // Garis panduan tipis tampil via snapAxis selama snap aktif.
+      const snappedX = Math.abs(jepit.x) <= SNAP_TOL;
+      const snappedY = Math.abs(jepit.y) <= SNAP_TOL;
+      setSnapAxis({ x: snappedX, y: snappedY });
+      queueDecalUpdate(activeDecal.id, {
+        x: snappedX ? 0 : jepit.x,
+        y: snappedY ? 0 : jepit.y,
+      });
     } else if (activeGizmoTool === "scale") {
       const deltaScale = 1 + dx * 1.5;
       const nextScale = Math.max(REAL_WORLD_PRINT_LIMITS.minDecalScaleUnits, Math.min(maxScaleUnits(), dragRef.current.initialScale * deltaScale));
-      updateDecal(activeDecal.id, { scale: nextScale });
+      queueDecalUpdate(activeDecal.id, { scale: nextScale });
     } else if (activeGizmoTool === "rotate") {
       const deltaDeg = dx * 180;
       const nextRot = Math.round(((dragRef.current.initialRotation + deltaDeg + 180) % 360) - 180);
-      updateDecal(activeDecal.id, { rotation: nextRot });
+      queueDecalUpdate(activeDecal.id, { rotation: nextRot });
     }
   };
 
@@ -153,8 +227,11 @@ export const DecalGizmo: React.FC<DecalGizmoProps> = ({ surfaceZ = 0.18 }) => {
     activePointers.current.delete(e.pointerId);
     if (activePointers.current.size < 2) pinchRef.current = null;
     if (activePointers.current.size === 0) {
+      flushDecalUpdate();
       setActiveGizmoTool(null);
       setGizmoDragging(false);
+      // Panduan snap hanya bermakna saat drag — bersihkan saat lepas.
+      setSnapAxis({ x: false, y: false });
     }
   };
 
@@ -168,11 +245,16 @@ export const DecalGizmo: React.FC<DecalGizmoProps> = ({ surfaceZ = 0.18 }) => {
   const isRightSleeve = activeDecal.targetSide === "right_sleeve";
   const isHood = activeDecal.targetSide === "hood";
 
-  let gizmoPos: [number, number, number] = [activeDecal.x, activeDecal.y, surfaceZ + 0.01];
+  // surfaceZ SSOT per apparel (audit #6 — default lama 0.18 beda dari guide
+  // 0.155 & renderer shirt 0.24 = selisih ±2.5–6cm). Prop parent
+  // (ApparelMeshRenderer) menang bila ada; fallback = SSOT apparel aktif.
+  const zBase = surfaceZ ?? surfaceZForApparel(activeApparel);
+
+  let gizmoPos: [number, number, number] = [activeDecal.x, activeDecal.y, zBase + 0.01];
   let gizmoRot: [number, number, number] = [0, 0, 0];
 
   if (isBack) {
-    gizmoPos = [activeDecal.x, activeDecal.y, -(surfaceZ + 0.01)];
+    gizmoPos = [activeDecal.x, activeDecal.y, -(zBase + 0.01)];
     gizmoRot = [0, Math.PI, 0];
   }
 
@@ -181,8 +263,11 @@ export const DecalGizmo: React.FC<DecalGizmoProps> = ({ surfaceZ = 0.18 }) => {
   // Jangkar lengan per apparel (bukan ±0.27 global).
   const spec = APPAREL_PHYSICAL_SPECS[activeApparel];
   const sleeveX = spec?.sleeveAnchorX ?? 0.27;
-  const collarY = spec?.collarBaselineY ?? 0.18;
-  const sleeveSlide = Math.max(-0.12, Math.min(0.12, activeDecal.x));
+  // Batas geser lengan/tudung dari SSOT (SAMA dengan renderer — lihat atas).
+  const sleeveSlide = Math.max(
+    -DECAL_MOVE_LIMITS.sleeveSlideX,
+    Math.min(DECAL_MOVE_LIMITS.sleeveSlideX, activeDecal.x)
+  );
 
   if (isLeftSleeve) {
     // Tanpa rotasi grup: Html drei selalu menghadap kamera; rotasi 90° bikin
@@ -196,26 +281,30 @@ export const DecalGizmo: React.FC<DecalGizmoProps> = ({ surfaceZ = 0.18 }) => {
     const hoodY = spec?.hoodAnchorY ?? 0.34;
     const hoodZ = spec?.hoodAnchorZ ?? 0.095;
     gizmoPos = [
-      Math.max(-0.09, Math.min(0.09, activeDecal.x)),
-      hoodY + Math.max(-0.06, Math.min(0.06, activeDecal.y)),
+      Math.max(-DECAL_MOVE_LIMITS.hoodX, Math.min(DECAL_MOVE_LIMITS.hoodX, activeDecal.x)),
+      hoodY + Math.max(-DECAL_MOVE_LIMITS.hoodY, Math.min(DECAL_MOVE_LIMITS.hoodY, activeDecal.y)),
       -(hoodZ + 0.01),
     ];
     gizmoRot = [0, Math.PI, 0];
   }
-  // Lebar badge per sisi dari spek (audit #4 — maxFront untuk semua sisi salah).
-  const sideMaxCm =
-    activeDecal.targetSide === "back"
-      ? (spec?.maxBackWidthCm ?? 30.0)
-      : activeDecal.targetSide === "left_sleeve" || activeDecal.targetSide === "right_sleeve"
-        ? (spec?.maxSleeveWidthCm ?? 8.5)
-        : activeDecal.targetSide === "hood"
-          ? (spec?.maxHoodWidthCm ?? 18.0)
-          : (spec?.maxFrontWidthCm ?? 30.0);
-  const widthCm = Math.min(
-    sideMaxCm,
-    Math.round(activeDecal.scale * (spec?.meshMultiplier ?? 101.8) * 10) / 10
+  // B-05: badge cm = SSOT computePhysicalPrintDimensions (SAMA dengan renderer
+  // DecalLayerRenderer + pricingEngine + confirmOrder — badge = render = cetak).
+  // Aspek riil dari printPx master upload (B-01); fallback 1.0 untuk decal
+  // legacy tanpa printPx. fitScale ke box sisi + offset kerah via multiplier
+  // apparel dikerjakan DI DALAM helper. Rumus cm tak diubah — hanya pemakaian.
+  const printPw = Number((activeDecal as any)?.printPx?.w);
+  const printPh = Number((activeDecal as any)?.printPx?.h);
+  const realAspect = printPw > 0 && printPh > 0 ? printPw / printPh : 1.0;
+  const physical = computePhysicalPrintDimensions(
+    activeApparel,
+    activeDecal.scale,
+    activeDecal.y,
+    realAspect,
+    activeDecal.targetSide
   );
-  const offsetCollarCm = Math.max(2.0, Math.round((collarY - activeDecal.y) * (spec?.meshMultiplier ?? 101.8) * 10) / 10);
+  const widthCm = physical.widthCm;
+  const heightCm = physical.heightCm;
+  const offsetCollarCm = physical.offsetFromCollarCm;
 
   return (
     <group position={gizmoPos} rotation={gizmoRot}>
@@ -230,7 +319,7 @@ export const DecalGizmo: React.FC<DecalGizmoProps> = ({ surfaceZ = 0.18 }) => {
         >
           {/* Live Physical Centimeter Dimension Badge (Top) */}
           <div className="absolute -top-6 left-1/2 -translate-x-1/2 flex items-center gap-1 px-2 py-0.5 rounded bg-black/90 backdrop-blur-md text-[10px] font-mono font-bold text-emerald-400 border border-emerald-500/40 shadow-xl pointer-events-none whitespace-nowrap">
-            <span>↔ {widthCm} cm</span>
+            <span>↔ {widthCm}×{heightCm} cm</span>
           </div>
 
           {/* Distance from Collar Badge (Bottom) */}
@@ -240,6 +329,14 @@ export const DecalGizmo: React.FC<DecalGizmoProps> = ({ surfaceZ = 0.18 }) => {
 
           {/* Bounding Box Outline */}
           <div className="absolute inset-0 border-2 border-dashed border-brand-accent/70 rounded-lg bg-brand-accent/5 shadow-[0_0_12px_rgba(230,81,0,0.3)] transition-colors hover:border-brand-accent" />
+
+          {/* Garis panduan snap magnetis (tipis 1px, hanya saat snap aktif). */}
+          {snapAxis.x && (
+            <div aria-hidden className="absolute top-0 bottom-0 left-1/2 w-px -translate-x-1/2 bg-cyan-300/80 pointer-events-none" />
+          )}
+          {snapAxis.y && (
+            <div aria-hidden className="absolute left-0 right-0 top-1/2 h-px -translate-y-1/2 bg-cyan-300/80 pointer-events-none" />
+          )}
 
           {/* Move Center Handle (Semi-transparent with hover highlight) */}
           <div

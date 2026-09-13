@@ -3,10 +3,14 @@
 export class FetchError extends Error {
   status: number;
   code: "timeout" | "unauthorized" | "rate_limited" | "server" | "network";
-  constructor(status: number, code: FetchError["code"], message: string) {
+  // Body JSON server (bila ada) — agar pemanggil bisa tampilkan pesan jujur
+  // + field tambahan (P0-2: 409 replay membawa orderId/orderNumber/invoiceUrl).
+  data?: any;
+  constructor(status: number, code: FetchError["code"], message: string, data?: any) {
     super(message);
     this.status = status;
     this.code = code;
+    this.data = data;
   }
 }
 
@@ -30,20 +34,25 @@ export async function fetchJson<T = any>(
     clearTimeout(t);
   }
   const data = await res.json().catch(() => null);
-  if (res.status === 401) throw new FetchError(401, "unauthorized", "Sesi habis. Masuk lagi.");
+  // 401 JUJUR (P0-3): checkout guest memakai 401 untuk gerbang OTP ("Kode OTP
+  // salah...", "Verifikasi OTP WA diperlukan..."). Pakai pesan server bila ada;
+  // fallback "Sesi habis" hanya bila server tak memberi pesan.
+  if (res.status === 401)
+    throw new FetchError(401, "unauthorized", (data as any)?.error || "Sesi habis. Masuk lagi.", data);
   if (res.status === 429) {
     const retry = res.headers.get("Retry-After");
     throw new FetchError(
       429,
       "rate_limited",
-      `Terlalu sering. Tunggu${retry ? ` ${retry} detik` : " sebentar"}.`
+      `Terlalu sering. Tunggu${retry ? ` ${retry} detik` : " sebentar"}.`,
+      data
     );
   }
   if (!res.ok || !data) {
-    throw new FetchError(res.status, "server", (data as any)?.error || `Server error (${res.status}).`);
+    throw new FetchError(res.status, "server", (data as any)?.error || `Server error (${res.status}).`, data);
   }
   if ((data as any)?.error) {
-    throw new FetchError(res.status, "server", String((data as any).error));
+    throw new FetchError(res.status, "server", String((data as any).error), data);
   }
   return data as T;
 }

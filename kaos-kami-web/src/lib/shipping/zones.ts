@@ -90,12 +90,35 @@ export async function resolveExpeditionCost(opts: {
   return { costIdr: DEFAULT_EXPEDITION_COST_IDR, zone: null };
 }
 
+/**
+ * Validasi MURNI (tanpa DB, tanpa efek samping) pilihan ekspedisi untuk
+ * deliveryMethod EXPEDITION_MANUAL: minimal satu penanda tujuan wajib ada
+ * (kode pos untuk tarif live, atau zoneId/city untuk fallback tabel zona).
+ * Dipakai /api/shipping/quote + checkout agar pesan 400-nya konsisten.
+ */
+export function validateExpeditionSelection(opts: {
+  postalCode?: string;
+  zoneId?: string;
+  city?: string;
+}): { ok: boolean; error?: string } {
+  const hasPostal = !!(opts.postalCode || "").trim();
+  const hasZone = !!(opts.zoneId || "").trim();
+  const hasCity = !!(opts.city || "").trim();
+  if (!hasPostal && !hasZone && !hasCity) {
+    return {
+      ok: false,
+      error: "Ekspedisi butuh tujuan: isi kode pos (live) atau pilih zona/kota (tabel).",
+    };
+  }
+  return { ok: true };
+}
+
 // ------------------------------------------------------------------
 // PROVIDER EKSPEDISI MASA DEPAN (v2): colok API ongkir real-time
 // (mis. api.co.id Rp5/hit, Biteship, dsb) bila volume order justify.
 // Kontrak: terima kota tujuan (+berat gram), kembalikan daftar tarif.
 // Selama getExpeditionProvider() null → pakai tabel ExpeditionZone (v1).
-// Lihat Blueprint/PENGIRIMAN.md § Provider.
+// Lihat RUNBOOK §10 + .env AGENWEBSITE_RATE_API_KEY.
 // ------------------------------------------------------------------
 export interface ExpeditionRate {
   courier: string;

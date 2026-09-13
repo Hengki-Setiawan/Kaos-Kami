@@ -7,6 +7,37 @@
  * Target: "white" (kertas/foto produk) atau "black" (foto malam).
  */
 
+/**
+ * M3.3/M3.4 — BG remover jalan di MASTER penuh.
+ * Cap = 3000 (samakan masterMaxDimension) — BUKAN 1600 — agar master tak
+ * turun resolusi diam-diam. 3000² RGBA ≈ 36MB + visited 9MB, aman di HP
+ * modern; master >3000 (tak mungkin dari compressImage, tapi mungkin dari
+ * teks/import) tetap di-cap + pemanggil WAJIB tampilkan badge
+ * "master turun resolusi" (lihat BG_MAX_SIDE + wasBgDownscaled).
+ *
+ * 13 Sep 2026 (aditif, TANPA ubah algoritma): cap jadi ADAPTIF via
+ * `BgRemovalOptions.maxSide` (default tetap BG_MAX_SIDE = 3000 — perilaku lama
+ * 100% sama bila argumen ke-4 tak diisi) + `onProgress` opsional untuk badge
+ * progres UI. Worker/SKIP: pemindahan ke Worker SENGAJA tidak dilakukan —
+ * flood-fill sinkron <10ms untuk foto HP pada cap ini, Worker menambah
+ * kompleksitas + risiko transfer buffer tanpa manfaat terukur. Ukur ulang
+ * bila cap default naik atau ada laporan jank di HP kentang.
+ */
+export const BG_MAX_SIDE = 3000;
+
+/** Opsi aditif — semua opsional; tanpa argumen = perilaku M3.3/M3.4 persis. */
+export interface BgRemovalOptions {
+  /** Cap sisi-terpanjang adaptif (mis. 2048 untuk HP kentang). Default BG_MAX_SIDE. */
+  maxSide?: number;
+  /** Dipanggil tiap ~16k piksel terhapus + sekali di akhir dengan total. */
+  onProgress?: (removed: number) => void;
+}
+
+/** True bila sumber akan di-downscale oleh cap (UI wajib badge jujur). */
+export function wasBgDownscaled(srcW: number, srcH: number, maxSide: number = BG_MAX_SIDE): boolean {
+  return Math.max(srcW, srcH) > maxSide;
+}
+
 function matchTarget(r: number, g: number, b: number, targetColor: "white" | "black", tolerance: number): boolean {
   if (targetColor === "white") {
     const t = 255 - tolerance;
@@ -18,7 +49,8 @@ function matchTarget(r: number, g: number, b: number, targetColor: "white" | "bl
 export function removeSolidBackground(
   imageSource: string | HTMLImageElement,
   targetColor: "white" | "black" = "white",
-  tolerance: number = 32
+  tolerance: number = 32,
+  opts?: BgRemovalOptions
 ): Promise<string> {
   return new Promise((resolve, reject) => {
     const processImage = (img: HTMLImageElement) => {
@@ -32,8 +64,12 @@ export function removeSolidBackground(
 
         const w = img.naturalWidth || img.width;
         const h = img.naturalHeight || img.height;
-        // Cap 1600px: flood-fill O(n) + getImageData besar bikin HP hang.
-        const k = Math.min(1, 1600 / Math.max(w, h));
+        // M3.3: tanpa cap 1600 — olah master penuh (cap 3000 = batas master).
+        // 13 Sep 2026: cap adaptif — default SAMA (BG_MAX_SIDE), turun hanya
+        // bila pemanggil eksplisit mengisi opts.maxSide (mis. HP kentang).
+        const cap = opts?.maxSide ?? BG_MAX_SIDE;
+        const onProgress = opts?.onProgress;
+        const k = Math.min(1, cap / Math.max(w, h));
         canvas.width = Math.max(1, Math.round(w * k));
         canvas.height = Math.max(1, Math.round(h * k));
 
@@ -71,11 +107,15 @@ export function removeSolidBackground(
           const y = (idx - x) / W;
           data[idx * 4 + 3] = 0;
           removed++;
+          // Progres opsional — throttled tiap ~16k piksel agar tak bebani
+          // loop; TIDAK mengubah hasil (hanya observasi).
+          if (onProgress && (removed & 0x3fff) === 0) onProgress(removed);
           push(x + 1, y);
           push(x - 1, y);
           push(x, y + 1);
           push(x, y - 1);
         }
+        if (onProgress) onProgress(removed);
 
         // Tak ada yang terhapus dari tepi = background bukan solid tepi;
         // JANGAN hapus apa-apa (lebih aman daripada melubangi gambar).
@@ -86,8 +126,61 @@ export function removeSolidBackground(
 
         ctx.putImageData(imgData, 0, 0);
 
+        // M3.4 — Tepi bersih: choke 1px + decontaminate RGB + feather 1px.
+        // 1) CHOKE 1px: susutkan alpha opaque 1px ke dalam agar halo
+        //    putih/hitam sisa flood-fill tak ikut tercetak (standar DTF).
+        // 2) DECONTAMINATE: piksel tepi semi-transparan di-un-premultiply
+        //    dari warna background (putih/hitam) agar tak ada fringe abu.
+        // 3) FEATHER 1px: haluskan alpha (RGB sudah bersih).
+        {
+          const frame = ctx.getImageData(0, 0, W, H);
+          const d = frame.data;
+          const alphaAt = (x: number, y: number): number => {
+            if (x < 0 || y < 0 || x >= W || y >= H) return 0;
+            return d[(y * W + x) * 4 + 3]!;
+          };
+          // Choke: piksel opaque yang bersentuhan langsung dengan transparan
+          // (4-neighbor) dibuat semi (128) — menyusutkan halo 1px.
+          const chokeMask = new Uint8Array(W * H);
+          for (let y = 0; y < H; y++) {
+            for (let x = 0; x < W; x++) {
+              const idx = y * W + x;
+              if (d[idx * 4 + 3]! === 0) continue;
+              if (
+                alphaAt(x + 1, y) === 0 ||
+                alphaAt(x - 1, y) === 0 ||
+                alphaAt(x, y + 1) === 0 ||
+                alphaAt(x, y - 1) === 0
+              ) {
+                chokeMask[idx] = 1;
+              }
+            }
+          }
+          const bgR = targetColor === "white" ? 255 : 0;
+          const bgG = targetColor === "white" ? 255 : 0;
+          const bgB = targetColor === "white" ? 255 : 0;
+          for (let y = 0; y < H; y++) {
+            for (let x = 0; x < W; x++) {
+              const idx = y * W + x;
+              const o = idx * 4;
+              if (chokeMask[idx]) {
+                // Choke: turunkan alpha tepi luar (halo paling kotor).
+                d[o + 3] = Math.min(d[o + 3]!, 128);
+              }
+              const a = d[o + 3]! / 255;
+              // Decontaminate RGB tepi semi-transparan dari warna BG.
+              if (a > 0.01 && a < 0.99) {
+                d[o] = Math.max(0, Math.min(255, Math.round((d[o]! - bgR * (1 - a)) / Math.max(a, 0.01))));
+                d[o + 1] = Math.max(0, Math.min(255, Math.round((d[o + 1]! - bgG * (1 - a)) / Math.max(a, 0.01))));
+                d[o + 2] = Math.max(0, Math.min(255, Math.round((d[o + 2]! - bgB * (1 - a)) / Math.max(a, 0.01))));
+              }
+            }
+          }
+          ctx.putImageData(frame, 0, 0);
+        }
+
         // Feather 1px: rata-rata alpha tajam + blur = tepi semi-transparan.
-        // (RGB dibiarkan tajam — hanya alpha yang dihaluskan.)
+        // (RGB dibiarkan — sudah di-decontaminate di atas.)
         const mask = document.createElement("canvas");
         mask.width = W;
         mask.height = H;

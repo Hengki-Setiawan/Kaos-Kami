@@ -23,6 +23,23 @@ export const auth = betterAuth({
   }),
   secret: authSecret || "kaos-kami-dev-only-insecure-secret-ganti-di-prod",
   baseURL: process.env.BETTER_AUTH_URL || process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000",
+  // Domain kanonis + www: login/cookie dari kedua host harus diterima.
+  // C3 (owner, 11 Sep 2026): *.workers.dev DITOLAK permanen — cabut-total
+  // (tak ada user lama); JANGAN tambahkan kembali sebagai trustedOrigin /
+  // fallback login/API. Filter di bawah menegakkannya juga untuk
+  // TRUSTED_ORIGINS dari env (anti salah-config).
+  // P1 (13 Sep 2026): dev dapat http://localhost:3000; prod HANYA kanonis +
+  // TRUSTED_ORIGINS (koma-separated, mis. staging). workers.dev selalu dibuang.
+  trustedOrigins: (() => {
+    const canonical = ["https://kaoskami.biz.id", "https://www.kaoskami.biz.id"];
+    const extra = (process.env.TRUSTED_ORIGINS || "")
+      .split(",")
+      .map((s) => s.trim())
+      .filter((s) => s.length > 0 && !s.includes("workers.dev"));
+    const origins = [...canonical, ...extra];
+    if (process.env.NODE_ENV !== "production") origins.push("http://localhost:3000");
+    return [...new Set(origins)];
+  })(),
   emailAndPassword: {
     enabled: true,
     autoSignIn: true,

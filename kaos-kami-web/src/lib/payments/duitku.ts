@@ -21,6 +21,10 @@ export interface CreateDuitkuChargeParams {
   customer: DuitkuCustomer;
       paymentMethod?: string; // QRIS ONLY ("SP") — keputusan owner Sep 2026 (fee 0,7%, lunas-dulu).
   itemDetails?: DuitkuItemDetail[];
+  // Opsional: override returnUrl agar checkout mobile bisa kirim deep-link APK
+  // (`kaoskami://payment/callback?orderId=&status=`). Default = perilaku web
+  // sekarang — JANGAN ubah default web.
+  returnUrlOverride?: string;
 }
 
 export interface DuitkuChargeResult {
@@ -53,6 +57,19 @@ export class DuitkuPaymentProvider {
     }
   }
 
+  /** True bila merchantCode + apiKey terisi (tanpa melempar). */
+  public isConfigured(): boolean {
+    return Boolean(this.merchantCode && this.apiKey);
+  }
+
+  /**
+   * Fail-closed guard publik untuk route checkout/webhook.
+   * Melempar bila secret kosong — caller ubah jadi 503, JANGAN lanjut verifikasi.
+   */
+  public assertDuitkuConfigured(): void {
+    this.assertConfigured();
+  }
+
   private getInquiryUrl(): string {
     return this.isProduction
       ? "https://passport.duitku.com/webapi/api/merchant/v2/inquiry"
@@ -64,6 +81,8 @@ export class DuitkuPaymentProvider {
    * MD5(merchantCode + merchantOrderId + paymentAmount + apiKey)
    */
   public generateInquirySignature(orderNumber: string, amount: number): string {
+    // FAIL-CLOSED: jangan pernah tanda-tangani dengan secret kosong.
+    this.assertConfigured();
     const raw = `${this.merchantCode}${orderNumber}${amount}${this.apiKey}`;
     return crypto.createHash("md5").update(raw).digest("hex");
   }
@@ -81,6 +100,10 @@ export class DuitkuPaymentProvider {
     merchantOrderId: string,
     signature: string
   ): boolean {
+    // FAIL-CLOSED: jangan pernah verifikasi dengan secret kosong — callback
+    // palsu bisa dibuat dari MD5(merchantCode+amount+orderId+""). Webhook
+    // wajib cek assertDuitkuConfigured() dulu (503), ini pertahanan lapis-2.
+    if (!this.apiKey || !this.merchantCode) return false;
     const sig = (signature || "").toLowerCase();
     const md5 = crypto
       .createHash("md5")
@@ -106,7 +129,9 @@ export class DuitkuPaymentProvider {
     this.assertConfigured();
     const siteUrl = canonicalSiteUrl();
     const callbackUrl = `${siteUrl}/api/webhooks/duitku`;
-    const returnUrl = `${siteUrl}/orders/${params.orderId}`;
+    // Opsional: override returnUrl untuk deep-link APK mobile. Default =
+    // perilaku web sekarang (halaman invoice) — JANGAN ubah default web.
+    const returnUrl = params.returnUrlOverride || `${siteUrl}/orders/${params.orderId}`;
 
     const signature = this.generateInquirySignature(params.orderNumber, params.amountIdr);
 
@@ -116,7 +141,7 @@ export class DuitkuPaymentProvider {
       paymentMethod: params.paymentMethod || "SP", // Default to ShopeePay / QRIS or multi-channel
       merchantOrderId: params.orderNumber,
       productDetails: `Kaos Kami Custom Sablon — ${params.orderNumber}`,
-      email: params.customer.email || "customer@kaoskami.com",
+      email: params.customer.email || "customer@kaoskami.biz.id",
       phoneNumber: params.customer.phone,
       additionalParam: "",
       merchantUserInfo: "",

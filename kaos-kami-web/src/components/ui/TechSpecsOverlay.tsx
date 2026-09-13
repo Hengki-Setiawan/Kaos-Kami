@@ -3,9 +3,12 @@
 import React from "react";
 import { TECHNICAL_SPECS } from "@/lib/constants";
 import { useConfiguratorStore } from "@/store/useConfiguratorStore";
+import { useShallow } from "zustand/shallow";
 
 export const TechSpecsOverlay: React.FC = () => {
-  const { activePhase, viewMode } = useConfiguratorStore();
+  const { activePhase, viewMode } = useConfiguratorStore(
+    useShallow((s) => ({ activePhase: s.activePhase, viewMode: s.viewMode }))
+  );
   const isVisible = activePhase === 2 && viewMode === "story";
 
   return (

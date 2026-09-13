@@ -2,7 +2,6 @@ import { create } from "zustand";
 import {
   PRODUCT_COLORS,
   APPAREL_CATALOG,
-  calculateCustomMockupPrice,
   type ApparelType,
   type StudioTheme,
   type MaterialFinish,
@@ -11,10 +10,18 @@ import {
   type DecalLayer,
   type SavedMockupDesign,
 } from "@/lib/constants";
+import { calculate6VariablePrice, materialFinishToPricing } from "@/lib/pricingEngine";
+import { collectDecalMasters } from "@/lib/imageEditPipeline";
 
 export type ViewMode = "story" | "studio";
 export type InteractionTool = "rotate" | "pan";
 export type DrawerPosition = "right" | "left";
+// MODE MANEKIN BERJALAN (in-place): "garment" = perilaku lama (mesh apparel
+// + decal/gizmo/guide), "mannequin" = manekin Quaternius beranimasi in-place
+// (gizmo/guide/decal disembunyikan — decal di badan butuh skinning,
+// follow-up). Default "garment" agar perilaku lama tak berubah.
+export type ModelMode = "garment" | "mannequin";
+export type MotionClip = "idle" | "walk" | "jog" | "sprint" | "dance";
 
 // Ariyan preset (genP/genS) + Afilah multi-part hooks
 export const LOGO_POSITION_PRESETS = [-0.075, 0, 0.075] as const;
@@ -68,6 +75,9 @@ interface ConfiguratorState {
   studioTheme: StudioTheme;
   materialFinish: MaterialFinish;
   lightingPreset: LightingPreset;
+  // M2.9: toggle "akurat warna" pre-cetak — true = matikan Bloom+Vignette
+  // (SMAA tetap) + exposure sudah kunci 1.0, agar mockup = warna cetak.
+  isAccurateColor: boolean;
   isWireframe: boolean;
   isRotating: boolean;
   cameraPreset: CameraViewPreset | null;
@@ -120,6 +130,7 @@ interface ConfiguratorState {
   setStudioTheme: (theme: StudioTheme) => void;
   setMaterialFinish: (finish: MaterialFinish) => void;
   setLightingPreset: (preset: LightingPreset) => void;
+  setAccurateColor: (v: boolean) => void;
   setIsWireframe: (wireframe: boolean) => void;
   toggleWireframe: () => void;
   setIsRotating: (rotating: boolean) => void;
@@ -143,6 +154,14 @@ interface ConfiguratorState {
   animationSpeed: number;
   setAnimationPreset: (p: "static" | "wind" | "walking" | "knit") => void;
   setAnimationSpeed: (s: number) => void;
+  // MODE MANEKIN BERJALAN (in-place) — terpisah dari animationPreset kain
+  // (wind/walking/knit = shader/bob garment, tak tersentuh).
+  modelMode: ModelMode;
+  motionClip: MotionClip;
+  motionSpeed: number;
+  setModelMode: (m: ModelMode) => void;
+  setMotionClip: (c: MotionClip) => void;
+  setMotionSpeed: (s: number) => void;
 }
 
 const LS_DESIGNS_V1 = "kaos_kami_saved_designs_v1";
@@ -227,6 +246,10 @@ export const useConfiguratorStore = create<ConfiguratorState>((set, get) => ({
   isGizmoVisible: true,
   animationPreset: "static" as const,
   animationSpeed: 1.0,
+  // Default garment: perilaku lama tak berubah (manekin opt-in via UI studio).
+  modelMode: "garment" as ModelMode,
+  motionClip: "idle" as MotionClip,
+  motionSpeed: 1.0,
 
   frontGraphicUrl: null,
   backGraphicUrl: null,
@@ -234,6 +257,7 @@ export const useConfiguratorStore = create<ConfiguratorState>((set, get) => ({
   studioTheme: "obsidian",
   materialFinish: "combed-cotton",
   lightingPreset: "editorial",
+  isAccurateColor: false,
   isWireframe: false,
   isRotating: false,
   cameraPreset: null,
@@ -382,12 +406,21 @@ export const useConfiguratorStore = create<ConfiguratorState>((set, get) => ({
   saveCurrentDesign: (title) => {
     const state = get();
     const id = `saved-${Date.now()}`;
-    const pricing = calculateCustomMockupPrice(
-      state.activeApparel,
-      state.selectedColor,
-      state.selectedSize,
-      state.decals
+    // K-E: harga tersimpan = SSOT 6-variabel (pigmen + kain + aspek + volume),
+    // selaras drawer & struk — bukan legacy yang buta kain/aspek/diskon.
+    const matchedColor = PRODUCT_COLORS.find(
+      (c) => c.hex.toLowerCase() === state.selectedColor.toLowerCase()
     );
+    const matPricing = materialFinishToPricing(state.materialFinish);
+    const pricing = calculate6VariablePrice({
+      apparelSlug: state.activeApparel,
+      fabricThicknessSlug: matPricing.fabricThicknessSlug,
+      size: state.selectedSize,
+      colorHex: state.selectedColor,
+      isSpecialPigment: !!matchedColor?.isSpecialPigment,
+      decals: state.decals,
+      quantity: 1,
+    });
     const newDesign: SavedMockupDesign = {
       id,
       title: title ?? `${APPAREL_CATALOG[state.activeApparel].name} - ${state.activeColorName}`,
@@ -404,7 +437,7 @@ export const useConfiguratorStore = create<ConfiguratorState>((set, get) => ({
         hour: "2-digit",
         minute: "2-digit",
       }),
-      calculatedPriceIdr: pricing.totalPrice,
+      calculatedPriceIdr: pricing.totalPriceIdr,
     };
     const updated = [newDesign, ...state.savedDesigns];
     set({ savedDesigns: updated });
@@ -412,7 +445,17 @@ export const useConfiguratorStore = create<ConfiguratorState>((set, get) => ({
     // Backend sync: POST /api/designs (fire-and-forget, non-blocking)
     try {
       const cat = state.activeApparel;
-      // Sertakan master 300 DPI dari Pola 2D (jika sudah diekspor).
+      // KONTRAK KUNCI masterAssetUrl (SATU sumber — B-03, baca ini saja):
+      // JSON map gabungan DUA sumber, kunci tak pernah tabrakan:
+      // - "<side>" (front/back/left_sleeve/right_sleeve/hood) = { url, at } —
+      //   panel-master 300 DPI dari Pola 2D (PatternStudio exportPanelMaster,
+      //   prefix LS "<apparel>:<panel>", sudah berupa URL R2 https, kecil).
+      // - "decal:<id>" = { url, at } — master per-decal dari registry
+      //   imageEditPipeline.collectDecalMasters() (upload CustomizerDrawer /
+      //   PatternStudio / ImageEditorModal; hanya yang sudah URL https yang
+      //   ikut — base64 dataUrl tetap lokal agar payload <3MB, bukan di-DB).
+      // Konsumen: confirmOrder baca "<side>" (kompatibel legacy); wiring
+      // per-decal masa depan baca "decal:<id>" (fidelitas penuh per artwork).
       let masterAssetUrl: string | undefined;
       try {
         const raw = localStorage.getItem("kaoskami_master_assets") || "{}";
@@ -420,6 +463,26 @@ export const useConfiguratorStore = create<ConfiguratorState>((set, get) => ({
         const mine: Record<string, unknown> = {};
         for (const [k, v] of Object.entries(all)) {
           if (k.startsWith(`${cat}:`)) mine[k.slice(cat.length + 1)] = v;
+        }
+        // B-03: collectDecalMasters() sync via static import (store tetap sync;
+        // import dinamis + await di sini ILEGAL — fungsi ini sync return string).
+        // Fallback baca LS langsung bila registry throw (SSR / modul belum init).
+        try {
+          const decalMasters: Record<string, string> = collectDecalMasters();
+          const now = new Date().toISOString();
+          for (const [id, url] of Object.entries(decalMasters)) {
+            if (typeof url === "string" && /^https?:\/\//.test(url)) {
+              mine[`decal:${id}`] = { url, at: now };
+            }
+          }
+        } catch {
+          try {
+            for (const [k, v] of Object.entries(all as Record<string, any>)) {
+              if (k.startsWith("decal:") && (v as any)?.url && typeof (v as any).url === "string" && /^https?:\/\//.test((v as any).url)) {
+                mine[k] = v;
+              }
+            }
+          } catch {}
         }
         if (Object.keys(mine).length > 0) masterAssetUrl = JSON.stringify(mine);
       } catch {}
@@ -436,7 +499,7 @@ export const useConfiguratorStore = create<ConfiguratorState>((set, get) => ({
           decals: newDesign.decals,
           studioTheme: newDesign.theme,
           calculatedPriceIdr: newDesign.calculatedPriceIdr,
-          priceBreakdown: { totalPrice: pricing.totalPrice },
+          priceBreakdown: pricing,
           masterAssetUrl,
         }),
       }).catch(() => {});
@@ -484,6 +547,7 @@ export const useConfiguratorStore = create<ConfiguratorState>((set, get) => ({
 
   setMaterialFinish: (finish) => set({ materialFinish: finish }),
   setLightingPreset: (preset) => set({ lightingPreset: preset }),
+  setAccurateColor: (v) => set({ isAccurateColor: v }),
   setIsWireframe: (wireframe) => set({ isWireframe: wireframe }),
   toggleWireframe: () => set((state) => ({ isWireframe: !state.isWireframe })),
   setIsRotating: (rotating) => set({ isRotating: rotating }),
@@ -502,15 +566,19 @@ export const useConfiguratorStore = create<ConfiguratorState>((set, get) => ({
   toggleGizmoVisible: () => set((state) => ({ isGizmoVisible: !state.isGizmoVisible })),
   setAnimationPreset: (p) => set({ animationPreset: p }),
   setAnimationSpeed: (s) => set({ animationSpeed: s }),
+  setModelMode: (m) => set({ modelMode: m }),
+  setMotionClip: (c) => set({ motionClip: c }),
+  setMotionSpeed: (s) => set({ motionSpeed: Math.max(0.2, Math.min(2.0, s)) }),
   applyLogoPreset: () => {
+    // SATU konstanta: LOGO_POSITION_PRESETS + LOGO_SCALE_PRESETS (SSOT preset
+    // logo). Dulu ada scaleMap lokal [0.05,0.11,0.16] yang menyimpang dari
+    // LOGO_SCALE_PRESETS [0.09,0.12,0.17] → preset tampil beda dari klaim.
     const s = get();
-    const xMap = [-0.075, 0, 0.075] as const;
-    const scaleMap = [0.05, 0.11, 0.16] as const;
     const active = s.decals.find((d) => d.id === s.selectedDecalId) ?? s.decals[0];
     if (!active) return;
     s.updateDecal(active.id, {
-      x: xMap[s.logoPresetPos] ?? 0,
-      scale: scaleMap[s.logoPresetScale] ?? 0.11,
+      x: LOGO_POSITION_PRESETS[s.logoPresetPos] ?? 0,
+      scale: LOGO_SCALE_PRESETS[s.logoPresetScale] ?? LOGO_SCALE_PRESETS[1]!,
     });
   },
 }));

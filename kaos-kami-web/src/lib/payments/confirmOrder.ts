@@ -85,7 +85,9 @@ export async function confirmOrderPaid(
             columns: { slug: true },
           });
           const rawMaster = (design as any)?.masterAssetUrl as string | null;
-          let masterMap: Record<string, string> = {};
+          // K2: masterMap nilai bisa string https ATAU {url,at} (arsip panel
+          // PatternStudio) — normalisasi via pickMasterVal di bawah.
+          let masterMap: Record<string, unknown> = {};
           if (rawMaster) {
             try {
               const parsed = JSON.parse(rawMaster);
@@ -95,10 +97,20 @@ export async function confirmOrderPaid(
               masterMap = { front: rawMaster };
             }
           }
+          const pickMasterVal = (v: unknown): string | null => {
+            if (typeof v === "string" && v.length > 0) return v;
+            if (v && typeof v === "object" && typeof (v as any).url === "string" && (v as any).url.length > 0) {
+              return (v as any).url;
+            }
+            return null;
+          };
+          const isHttps = (u: string | null): u is string => !!u && /^https?:\/\//.test(u);
           if (Array.isArray(decals)) {
             // Cap 10 decal/item (selaras validasi checkout).
             for (const d of decals.slice(0, 10)) {
               const side = typeof d?.targetSide === "string" ? d.targetSide : "front";
+              const decalId = typeof (d as any)?.id === "string" ? (d as any).id : null;
+              const previewUrl = typeof (d as any)?.url === "string" ? (d as any).url : null;
               let widthCm = 28.5;
               let heightCm = 16.0;
               let offsetCm = 7.5;
@@ -119,13 +131,27 @@ export async function confirmOrderPaid(
               } catch (e) {
                 console.warn("Failed to compute dims for decal, using default", e);
               }
+              // K2 fallback: decal:<id> → side → preview (jangan null diam-diam
+              // bila ada kandidat). TANPA fallback front→hood silang (audit:
+              // artwork dada pernah ke-press di hood) — hanya side yang sama.
+              // Prefer https dulu, lalu kandidat apa pun (termasuk base64
+              // preview) daripada null.
+              const byDecal = decalId ? pickMasterVal(masterMap[`decal:${decalId}`]) : null;
+              const bySide = pickMasterVal(masterMap[side]);
+              const masterUrl =
+                (isHttps(byDecal) ? byDecal : null) ||
+                (isHttps(bySide) ? bySide : null) ||
+                (isHttps(previewUrl) ? previewUrl : null) ||
+                byDecal ||
+                bySide ||
+                previewUrl ||
+                null;
               await spawnOne({
                 side,
                 widthCm,
                 heightCm,
                 offsetCm,
-                // TANPA fallback front (audit: artwork dada pernah ke-press di hood).
-                masterUrl: masterMap[side] || null,
+                masterUrl,
                 label: `${side} — ${d?.name || "sablon"}`,
               });
               spawned++;
@@ -150,7 +176,10 @@ export async function confirmOrderPaid(
   }
 
   // Kurangi stok varian katalog HANYA bila cukup (anti oversell diam-diam).
-  // Bila kurang → biarkan (order sudah lunas!) + peringatkan admin via log.
+  // Bila kurang → order SUDAH lunas: JANGAN diam-diam. Tulis REVIEW event
+  // (status existing PAYMENT_CONFIRMED + note REVIEW, tanpa enum baru) +
+  // WA admin + tandai courierNotes [REVIEW:OVERSELL] agar workshop triase.
+  const oversells: Array<{ variantId: string; qty: number; name: string }> = [];
   for (const item of order.items) {
     const variantId = (item as any).productVariantId as string | null;
     const qty = (item as any).quantity as number;
@@ -165,7 +194,47 @@ export async function confirmOrderPaid(
         });
       if (res && (res.rowsAffected ?? 0) === 0) {
         console.warn(`OVERSELL: stok ${variantId} kurang untuk qty ${qty} (order ${order.orderNumber}) — cek manual!`);
+        oversells.push({ variantId, qty, name: (item as any).snapshotName || variantId });
       }
+    }
+  }
+  if (oversells.length > 0) {
+    const detail = oversells.map((o) => `${o.name} (qty ${o.qty})`).join(", ");
+    try {
+      await db.insert(OrderStatusEvent).values({
+        id: nanoid(),
+        orderId: order.id,
+        // Pakai status existing (tanpa enum baru) + note REVIEW eksplisit.
+        status: "PAYMENT_CONFIRMED",
+        note: `REVIEW:OVERSELL — stok kurang untuk ${detail}. Order lunas, perlu triase manual (restock/hubungi pelanggan).`,
+      });
+    } catch (e: any) {
+      console.warn("Gagal tulis event REVIEW oversell:", e?.message);
+    }
+    try {
+      const cur = order.courierNotes || "";
+      const marker = ` [REVIEW:OVERSELL ${oversells.map((o) => o.variantId).join(",")}]`;
+      if (!cur.includes("[REVIEW:OVERSELL")) {
+        await db.update(Order).set({ courierNotes: `${cur}${marker}`.trim() }).where(eq(Order.id, order.id));
+      }
+    } catch (e: any) {
+      console.warn("Gagal tandai order REVIEW oversell:", e?.message);
+    }
+    try {
+      const { SHOP_WHATSAPP } = await import("@/lib/shop");
+      const invoiceUrl = `${siteUrl()}/orders/${order.id}`;
+      await sendWhatsAppNotification(
+        SHOP_WHATSAPP,
+        [
+          `*OVERSELL REVIEW — Kaos Kami* ⚠️`,
+          `Order *${order.orderNumber}* lunas tapi stok kurang:`,
+          `• ${detail}`,
+          `Segera triase (restock / hubungi pelanggan).`,
+          `${invoiceUrl}`,
+        ].join("\n")
+      ).catch((err) => console.warn("WA admin oversell gagal:", err?.message || err));
+    } catch (e: any) {
+      console.warn("WA admin oversell error:", e?.message);
     }
   }
 

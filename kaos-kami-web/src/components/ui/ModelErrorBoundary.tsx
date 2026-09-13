@@ -15,6 +15,29 @@ interface State {
   retryKey: number;
 }
 
+/**
+ * Fase 13 — Fallback DIAM antar file GLB (tanpa chrome error/retry):
+ * mesh utama gagal (draco/master hilang atau korup) → render komponen
+ * fallback (file lama) seolah tak terjadi apa-apa. Error tetap ke console.
+ * Dipakai BERLAPIS: draco → master → legacy (lihat TshirtModel/HoodieModel).
+ */
+export class SilentModelFallback extends React.Component<Props, State> {
+  state: State = { hasError: false, message: "", retryKey: 0 };
+
+  static getDerivedStateFromError(error: unknown) {
+    return { hasError: true, message: error instanceof Error ? error.message : String(error) };
+  }
+
+  componentDidCatch(error: unknown) {
+    console.error("[kaos-kami] Model 3D utama gagal, pakai fallback:", error);
+  }
+
+  render() {
+    if (!this.state.hasError) return <React.Fragment key={this.state.retryKey}>{this.props.children}</React.Fragment>;
+    return <>{this.props.fallback}</>;
+  }
+}
+
 export class ModelErrorBoundary extends React.Component<Props, State> {
   state: State = { hasError: false, message: "", retryKey: 0 };
 
