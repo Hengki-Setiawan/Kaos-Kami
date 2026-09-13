@@ -1,6 +1,8 @@
 import { ImageResponse } from "next/og";
 
-export const runtime = "edge";
+// OpenNext/Cloudflare: rute edge harus fungsi terpisah — pakai nodejs agar
+// ikut server function default (ImageResponse next/og jalan di keduanya).
+export const runtime = "nodejs";
 
 export const size = {
   width: 1200,
