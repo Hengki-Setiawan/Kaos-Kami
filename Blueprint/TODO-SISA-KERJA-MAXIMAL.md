@@ -90,7 +90,7 @@
 
 - [x] Fix docs: AGENTS (Duitku, Workers-opennext, repoint tracker, path monorepo) + README (Next 15.5/React 19/three 0.180, Quick Start workspaces) + RUNBOOK (§8→8,9,10; whatsapp:64; Blueprint04 basi) + M1 (Next 15).
 - [x] Validasi: `web:typecheck` ✅ 0 (13 Sep) · `mobile:typecheck` ✅ 0 · `web:build` ✅ HIJAU (13 Sep, /studio 1.44kB/105kB — split chunk terbukti; / 35.5kB/302kB) · `mobile:build` ✅ HIJAU (13 Sep) · `vitest` ✅ 10/10.
-- [x] Komit selektif SELESAI 13 Sep, 7 komit lokal (0452dd3, c484646, 0f5bb03, 80a2c36, 6842511, c97eda1, f922e56; terbaru = f922e56) — TANPA push (menunggu perintah). Tersisa untracked by-design: `ios/`, `*/public/models/*.glb`, `textures/`, `animations/`, `Asset 3D/` (ignored).
+- [x] Komit selektif SELESAI 13 Sep, 9 komit lokal (0452dd3 … 4fafbdc; terbaru = 4fafbdc) — TANPA push (menunggu perintah). Termasuk arsip 9 PNG brand tak-terpakai (~20MB) + fix repay-EXPRESS/peran/guard-task/deep-link. Tersisa untracked by-design: `ios/`, `*/public/models/*.glb`, `textures/`, `animations/`, `Asset 3D/` (ignored).
 
 ---
 
