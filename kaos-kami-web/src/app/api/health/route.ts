@@ -90,17 +90,23 @@ export async function GET(req: Request) {
     cron = null;
   }
 
+  // Status HTTP = ONE QUESTION: bisakah worker melayani? DB ok → 200
+  // (r2/kv/cron informatif saja — R2 publik belum tentu berisi favicon,
+  // KV bisa fail-open by-design; semuanya tetap terlihat di `checks`).
+  // 503 HANYA bila DB mati. Diubah 13 Sep 2026: sebelumnya r2 HEAD 404
+  // di bucket upload ikut men-503-kan seluruh health (false alarm prod).
+  const dbOk = checks.db?.ok === true;
   const allOk = Object.values(checks).every((c) => c.ok);
   return NextResponse.json(
     {
-      status: allOk ? "ok" : "degraded",
+      status: !dbOk ? "down" : allOk ? "ok" : "degraded",
       checks,
       cron,
       latencyMs: Date.now() - started,
       timestamp: new Date().toISOString(),
     },
     {
-      status: allOk ? 200 : 503,
+      status: dbOk ? 200 : 503,
       headers: { "Cache-Control": "no-store" },
     }
   );

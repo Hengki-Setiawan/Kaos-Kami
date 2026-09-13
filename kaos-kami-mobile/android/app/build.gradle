@@ -7,10 +7,11 @@ android {
         applicationId "id.makassar.kaoskami"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        // Auto-increment: ANDROID_VERSION_CODE dari CI (GITHUB_RUN_NUMBER),
-        // fallback tanggal (aman di bawah batas Play 2100000000).
-        // Tanpa ini Play menolak upload ulang dengan versionCode sama.
-        versionCode (System.getenv("ANDROID_VERSION_CODE") ?: new Date().format('yyyyMMdd')).toInteger()
+        // versionCode statis tertanggal (aman di bawah batas Play 2100000000).
+        // CATATAN: pola dinamis (getenv ANDROID_VERSION_CODE ?: Date().format)
+        // DIBUANG 13 Sep 2026 — meledak saat evaluasi AGP ("Value is null").
+        // Naikkan manual +1 tanggal tiap rilis AAB ke Play bila perlu kode baru.
+        versionCode 20260913
         versionName "1.0"
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         aaptOptions {
