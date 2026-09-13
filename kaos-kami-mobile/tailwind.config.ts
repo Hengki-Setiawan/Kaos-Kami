@@ -2,29 +2,20 @@ import type { Config } from "tailwindcss";
 
 const config: Config = {
   content: [
-    "./src/pages/**/*.{js,ts,jsx,tsx,mdx}",
     "./src/components/**/*.{js,ts,jsx,tsx,mdx}",
     "./src/app/**/*.{js,ts,jsx,tsx,mdx}",
   ],
   theme: {
     extend: {
-      colors: {
-        canvas: "var(--color-canvas)",
-        surface: "var(--color-surface)",
-        "surface-elevated": "var(--color-surface-elevated)",
-        "text-primary": "var(--color-text-primary)",
-        "text-muted": "var(--color-text-muted)",
-        "brand-accent": "var(--color-brand-accent)",
-        "border-subtle": "var(--color-border-subtle)",
-        "border-strong": "var(--color-border-strong)",
-      },
+      // Hygiene Sep 2026: token warna canvas/surface/text-*/brand-*/border-*
+      // DIHAPUS — var-nya tak didefinisikan di globals.css mobile & tak satu
+      // pun dipakai di src (mobile pakai arbitrary values + zinc). Jangan
+      // tambah warna di sini tanpa definisikan var-nya di globals.css.
+      // Entri content ./src/pages/** juga dihapus (direktori tak ada).
       fontFamily: {
-        display: ["var(--font-display)", "sans-serif"],
+        // --font-mono belum didefinisikan di CSS (jatuh ke monospace);
+        // dipakai ~9x (nomor order dsb). display/sans tak dipakai → dihapus.
         mono: ["var(--font-mono)", "monospace"],
-        sans: ["var(--font-sans)", "sans-serif"],
-      },
-      transitionTimingFunction: {
-        "out-expo": "cubic-bezier(0.16, 1, 0.3, 1)",
       },
     },
   },

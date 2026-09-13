@@ -30,6 +30,9 @@ yarn-error.log*
 
 # local env files
 .env*.local
+.env.production
+.env.development
+.env.staging
 
 # vercel
 .vercel
@@ -82,5 +85,9 @@ backups/
 cap-upgrade.log
 
 dev-*.log
+
+# raw asset archive (152MB+, local only — curated GLB live in */public/models/)
+Asset 3D/
+*.blend
 
 *.tmp.mjs

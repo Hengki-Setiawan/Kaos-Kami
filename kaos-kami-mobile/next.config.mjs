@@ -4,9 +4,10 @@ const nextConfig = {
   images: { unoptimized: true },
   trailingSlash: true,
   assetPrefix: './',
+  // Next 15: optimizePackageImports sudah stabil (top-level). esmExternals tetap experimental.
+  optimizePackageImports: ['lucide-react', 'clsx', 'tailwind-merge', 'framer-motion'],
   experimental: {
     esmExternals: 'loose',
-    optimizePackageImports: ['lucide-react', 'clsx', 'tailwind-merge', 'framer-motion'],
   },
   env: {
     // PLATFORM statis (bukan secret). URL API JANGAN hardcode di sini —

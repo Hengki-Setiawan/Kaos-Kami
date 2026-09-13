@@ -25,12 +25,27 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
 
-            <!-- Deep Link Return Handler: kaoskami://payment/callback (host+path dipersempit) -->
+            <!-- Deep Link kaoskami:// (satu filter per host — pola persis handler
+                 appUrlOpen di src/app/page.tsx:215-250):
+                 studio → tab Studio · auth/callback → tutup browser OAuth ·
+                 payment (SEMUA path, bukan hanya /callback) → parse ?orderId&status -->
             <intent-filter>
                 <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.DEFAULT" />
                 <category android:name="android.intent.category.BROWSABLE" />
-                <data android:scheme="kaoskami" android:host="payment" android:pathPrefix="/callback" />
+                <data android:scheme="kaoskami" android:host="studio" />
+            </intent-filter>
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="kaoskami" android:host="auth" android:pathPrefix="/callback" />
+            </intent-filter>
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="kaoskami" android:host="payment" />
             </intent-filter>
 
         </activity>

@@ -8,7 +8,7 @@ const config: CapacitorConfig = {
   server: {
     androidScheme: 'https',
     iosScheme: 'capacitor',
-    hostname: 'kaos-kami-3d.hengkisetiawan461.workers.dev',
+    hostname: 'kaoskami.biz.id',
     cleartext: false,
   },
   ios: {

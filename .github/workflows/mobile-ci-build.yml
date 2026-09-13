@@ -21,7 +21,7 @@ jobs:
       KAOSKAMI_KEY_ALIAS: ${{ secrets.KAOSKAMI_KEY_ALIAS }}
       KAOSKAMI_KEY_PASSWORD: ${{ secrets.KAOSKAMI_KEY_PASSWORD }}
       # API URL eksplisit (audit: sebelumnya mengandalkan hardcode next.config).
-      NEXT_PUBLIC_API_URL: https://kaos-kami-3d.hengkisetiawan461.workers.dev
+      NEXT_PUBLIC_API_URL: https://kaoskami.biz.id
 
     steps:
       - name: Checkout Repository

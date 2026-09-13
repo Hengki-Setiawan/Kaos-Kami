@@ -32,15 +32,14 @@
 	],
 	// Rate-limit lintas-isolate AKTIF (KV dibuat 07 Sep 2026).
 	"kv_namespaces": [{ "binding": "RATE_LIMIT_KV", "id": "6431b2b40c0b4de0afb51e3d25faf53d" }],
-	"images": {
-		// Enable image optimization
-		// see https://opennext.js.org/cloudflare/howtos/image
-		"binding": "IMAGES"
-	},
+	// NOTE (13 Sep 2026): binding Cloudflare Images SENGAJA dihapus — next.config
+	// memakai images.unoptimized:true (benar di Workers, tanpa loader kustom
+	// binding hanya jadi permission menganggur). Kembalikan + pasang custom
+	// loader bila suatu saat pindah ke Cloudflare Images.
 	"vars": {
-		"NEXT_PUBLIC_SITE_URL": "https://kaos-kami-3d.hengkisetiawan461.workers.dev",
+		"NEXT_PUBLIC_SITE_URL": "https://kaoskami.biz.id",
 		"NEXT_PUBLIC_GA_MEASUREMENT_ID": "G-W3VHM4G0TW",
-		"BETTER_AUTH_URL": "https://kaos-kami-3d.hengkisetiawan461.workers.dev",
+		"BETTER_AUTH_URL": "https://kaoskami.biz.id",
 		"DATABASE_URL": "libsql://kaos-kami-hengki164.aws-ap-northeast-1.turso.io",
 		"TURSO_DATABASE_URL": "libsql://kaos-kami-hengki164.aws-ap-northeast-1.turso.io",
 		"CLOUDFLARE_ACCOUNT_ID": "6c660b71ad4e72f3bc343252a7c5e825",
