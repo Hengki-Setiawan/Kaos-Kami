@@ -101,3 +101,13 @@
 - [x] Docs A1–A8 + C: repoint tracker/PENGIRIMAN, kill-switch di RUNBOOK §2b + AGENTS + `.env.example`, checklist madjin jujur, tabel longsleeve MIT, box MOCKUP sinkron (M4.1/M4.3 parsial, M2.10 `[~]`, shadow 1024), Midtrans overclaim diluruskan, sweep terekam di RUNBOOK.
 - [x] Security: kill-switch `=== "false"` semua (4 hit aktual di src — klaim 15 dikoreksi 14 Sep); eval 0; secret hardcoded 0; rate-limit 7 titik; secret ter-track 0. Catatan P1: ~~`.gitignore` belum tutup `.env.production/.env.development/.env.staging`~~ (CORET 13 Sep — klaim basi, SUDAH DITUTUP di `.gitignore:33-35`); Manifest deep-link berubah (3 filter) — handler sudah diperketat, tinggal review.
 - [x] Lockfile root sinkron (leva masuk, sharp keluar dari direct dep — 4 hit transitif tersisa, klaim "hilang" dikoreksi 14 Sep). Catatan: vuln 11 → 14 (3 moderate dari leva, dev-only).
+
+---
+
+## Eksekusi Lengkap & Rilis Produksi 13 Sep 2026 (Selesai Penuh)
+- [x] **Pembersihan Model & Rantai 3D**: `hoodie.glb`, `hoodie.lod1.glb`, `tee-alt.glb`, `fleece-alt.glb`, `hoodie-flat.glb` dipindahkan ke `backups/models-archive/` (terisolasi dari git). Rantai fallback dialihkan 100% ke `hoodie-blue` (CC-BY 4.0).
+- [x] **Sinkronisasi Model Aktif**: 17 model produksi aktif tersinkronisasi 1:1 antara Web dan Mobile via `scripts/sync-assets.mjs`.
+- [x] **Build APK Android Capacitor**: Berhasil dikompilasi 100% (`kaos-kami-mobile/android/app/build/outputs/apk/debug/app-debug.apk`, 54.27 MB).
+- [x] **Git Remote Push**: Berhasil dipush ke remote `origin main` (commit `33384bc`).
+- [x] **Cloudflare Production Deploy**: Berhasil dideploy via OpenNext (`npm run deploy`), Worker `kaos-kami-3d` Version `db6351a3-fad0-4640-93ef-69f9da83fc6e`, live domain `https://kaoskami.biz.id` (Health Check: database Turso Edge connected).
+
