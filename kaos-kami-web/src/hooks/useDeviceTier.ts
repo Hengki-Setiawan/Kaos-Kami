@@ -115,11 +115,11 @@ export function useDeviceTier(): DeviceTierInfo {
 // walau lod1 belum ada di /public/models.
 // ---------------------------------------------------------------------------
 
-// FASE 13: rantai default BARU (draco → master → legacy). Low-tier pakai
-// draco juga (lebih kecil = hemat HP); lod1 warisan jadi ekor terakhir.
+// FASE 13 & P0-4: rantai default BARU (draco → master). Model legacy hoodie.glb
+// dipensiunkan ke backups/ demi lisensi CC-BY 4.0 terverifikasi (Irevex11).
 export const HOODIE_MODEL_CANDIDATES: Record<"high" | "low", string[]> = {
-  high: ["/models/hoodie-blue.draco.glb", "/models/hoodie-blue.glb", "/models/hoodie.glb"],
-  low: ["/models/hoodie-blue.draco.glb", "/models/hoodie-blue.glb", "/models/hoodie.lod1.glb", "/models/hoodie.glb"],
+  high: ["/models/hoodie-blue.draco.glb", "/models/hoodie-blue.glb"],
+  low: ["/models/hoodie-blue.draco.glb", "/models/hoodie-blue.glb"],
 };
 
 export const JACKET_MODEL_CANDIDATES: Record<"high" | "low", string[]> = {
@@ -147,8 +147,8 @@ export const LONGSLEEVE_MODEL_CANDIDATES: Record<"high" | "low", string[]> = {
 // FASE 13: crewneck (mesh sweater sendiri) + topi — preload agar ganti
 // apparel tak menunggu fetch. Ekor = file lama agar tak 404.
 export const CREWNECK_MODEL_CANDIDATES: Record<"high" | "low", string[]> = {
-  high: ["/models/sweater.draco.glb", "/models/sweater.glb", "/models/hoodie.glb"],
-  low: ["/models/sweater.draco.glb", "/models/sweater.glb", "/models/hoodie.glb"],
+  high: ["/models/sweater.draco.glb", "/models/sweater.glb", "/models/hoodie-blue.glb"],
+  low: ["/models/sweater.draco.glb", "/models/sweater.glb", "/models/hoodie-blue.glb"],
 };
 
 export const CAP_MODEL_CANDIDATES: Record<"high" | "low", string[]> = {
@@ -160,7 +160,7 @@ export const CAP_MODEL_CANDIDATES: Record<"high" | "low", string[]> = {
 // gagal total (offline/HEAD diblokir) → fallback elemen terakhir (path lama
 // yang diasumsikan selalu ada). SSR → langsung fallback terakhir.
 export async function probeFirstExistingUrl(candidates: string[]): Promise<string> {
-  const fallback = candidates[candidates.length - 1] ?? "/models/hoodie.glb";
+  const fallback = candidates[candidates.length - 1] ?? "/models/hoodie-blue.glb";
   try {
     if (typeof window === "undefined" || typeof fetch === "undefined") return fallback;
     for (const url of candidates) {

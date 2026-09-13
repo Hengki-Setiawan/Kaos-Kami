@@ -25,7 +25,7 @@
 - [x] Kill-switch darurat 13 Sep (default aman): `CHECKOUT_OTP_REQUIRED=false` lewati OTP (darurat Fonnte mati) + `TURNSTILE_ENFORCE=false` lewati Turnstile — eksplisit "false" saja yang bypass, unset = wajib.
 
 ### P0-4. Lisensi aset (legal)
-- [ ] Tuntaskan 2 file ⚠️ tersisa — `hoodie.glb` (CLO/Marvelous; model CGTrader sejenis berlisensi Royalty-Free = DITOLAK aturan §7 — jalur realistis: pensiunkan fallback legacy, pakai `hoodie-blue` Irevex11 CC-BY yang sudah default) dan `jacket.glb` (Collada OSG; kandidat pengganti terverifikasi: bomber DeJuan_Owens / wind-breaker Anti-Impack / denim cp04 / varsity ValentynPetrov, semua CC-BY staged). `longsleeve.glb` SELESAI 13 Sep (MIT hulu Starklord/JS-Mastery, lihat ASSET_CREDITS §4).
+- [x] Tuntaskan hoodie legacy: `hoodie.glb` & `hoodie.lod1.glb` dipensiunkan ke `backups/models-archive/` (13 Sep 2026), rantai default & fallback beralih 100% ke `hoodie-blue` (Irevex11, CC-BY 4.0 terverifikasi). File staged (`tee-alt`, `fleece-alt`, `hoodie-flat`) diamankan ke `backups/models-archive/`. Sisa: `jacket.glb` (kandidat CC-BY bomber DeJuan_Owens / varsity ValentynPetrov staged di `Asset 3D/sketchfab/`). `longsleeve.glb` SELESAI (MIT hulu Starklord/JS-Mastery).
 - [~] `pants.glb` + `shorts.glb` masuk `ASSET_CREDITS.md` (hash + tris terukur) — BUTUH: URL repo GitHub madjin persis + file LICENSE; `/kredit` + `/admin/assets` belum diupdate.
 
 ### P0-5. Geometri + rantai aset
@@ -58,11 +58,11 @@
 - [ ] M9: uji fisik + `ios/` di Mac + putuskan `useMaterialYou` (rekomendasi agen: coret dari blueprint).
 - [x] M5: replay `SUBMIT_ORDER` (+`SAVE_DESIGN`) via `replaySupportedMutations`; `UPDATE_CART` diputuskan unsupported (cart = persist lokal).
 - [ ] M3: ukur fisik cap/sweater/outseam + QA visual (komentar JANGAN-UBAH sudah dipasang).
-- [ ] Admin: sesi login admin + mapping REJECT server (kini komentar TODO saja).
+- [ ] Admin: sesi login admin + mapping REJECT server (TODO tak ditemukan di kode 14 Sep — butuh spek owner: transisi status + peran).
 - [ ] Manual (owner): `google-services.json` → FCM; AAB CI → uji HP fisik; `npx cap add ios`.
 
 ### P1-4. Security / perf / infra
-- [~] Sentry: `require`→`import` + cabang edge SELESAI — BUTUH owner: `wrangler secret put SENTRY_DSN` + `NEXT_PUBLIC_SENTRY_DSN`.
+- [~] Sentry: `require`→`import()` dinamis SELESAI 14 Sep (`global-error.tsx`) — BUTUH owner: `wrangler secret put SENTRY_DSN` + `NEXT_PUBLIC_SENTRY_DSN`.
 - [x] Headers: CSP minimal + HSTS + COOP (allow-popups agar Duitku/OAuth tak putus).
 - [x] Pola immutable `/:path*.ext` (diputuskan: biarkan + verifikasi via curl pasca-deploy) + binding `IMAGES` DIHAPUS 13 Sep dari `wrangler.jsonc` (unoptimized:true benar di Workers).
 - [x] Mobile: `minifyEnabled` + `shrinkResources` true. BUTUH owner: key Play BARU + CI secrets (keystore kini = BETA sideload).
@@ -82,7 +82,7 @@
 - [x] `enhance-image` 501 DIPERTAHANKAN sadar (501 jujur + rate-limit > 404 misterius; didokumentasikan).
 - [x] `admin/cms GET` rate-limit 30/mnt; WA `orders/[id]` → `SHOP_WHATSAPP`.
 - [ ] G1 WebGPU + E1-KTX2 antre non-blokir.
-- [ ] Centang box TODO-MOCKUP yang sudah selesai di kode.
+- [x] Centang box TODO-MOCKUP yang sudah selesai di kode — SELESAI 14 Sep (terverifikasi sinkron: M0.2, M2.3/2.4/2.6–2.9, M3.1–3.5/3.7 `[x]`; M2.10 `[~]`; M4.1/M4.3 parsial `[x]`).
 
 ---
 
@@ -90,7 +90,7 @@
 
 - [x] Fix docs: AGENTS (Duitku, Workers-opennext, repoint tracker, path monorepo) + README (Next 15.5/React 19/three 0.180, Quick Start workspaces) + RUNBOOK (§8→8,9,10; whatsapp:64; Blueprint04 basi) + M1 (Next 15).
 - [x] Validasi: `web:typecheck` ✅ 0 (13 Sep) · `mobile:typecheck` ✅ 0 · `web:build` ✅ HIJAU (13 Sep, /studio 1.44kB/105kB — split chunk terbukti; / 35.5kB/302kB) · `mobile:build` ✅ HIJAU (13 Sep) · `vitest` ✅ 10/10.
-- [x] Komit selektif SELESAI 13 Sep, 9 komit lokal (0452dd3 … 4fafbdc; terbaru = 4fafbdc) — TANPA push (menunggu perintah). Termasuk arsip 9 PNG brand tak-terpakai (~20MB) + fix repay-EXPRESS/peran/guard-task/deep-link. Tersisa untracked by-design: `ios/`, `*/public/models/*.glb`, `textures/`, `animations/`, `Asset 3D/` (ignored).
+- [x] Komit selektif SELESAI 13 Sep, 9 komit lokal (0452dd3 … 4fafbdc; terbaru = 4fafbdc) — TANPA push (menunggu perintah). Termasuk arsip 9 PNG brand tak-terpakai (~20MB) + fix repay-EXPRESS/peran/guard-task/deep-link. Tersisa untracked by-design: `ios/`, `*/public/models/*.glb`, `textures/`, `animations/`, `Asset 3D/` — KOREKSI 14 Sep: hanya `Asset 3D/` yang di-ignore; sisanya untracked-visible (27 file ±47MB) — putuskan commit selektif vs tambah entri ignore.
 
 ---
 
@@ -99,5 +99,5 @@
 - [x] B1 sweep cek nominal (`Number(st.amount) !== totalIdr → continue`); B2 seal dilepas saat kompensasi (kedua route); B3 validate kupon pindah pra-OTP + consume-only pasca-klaim (kedua route); B4 webhook guard non-PENDING (ack 200 + event REVIEW, tanpa spawn).
 - [x] M1 Turnstile mobile via OTP (OTP lolos → lewati; OTP bypass darurat → Turnstile tetap wajib); M2 returnUrl deep-link tersambung (`returnUrlOverride` di duitku.ts + mobile checkout kirim `kaoskami://payment/callback?orderId=` + `parseDuitkuReturnUrl` di page.tsx + anti open-redirect ketat).
 - [x] Docs A1–A8 + C: repoint tracker/PENGIRIMAN, kill-switch di RUNBOOK §2b + AGENTS + `.env.example`, checklist madjin jujur, tabel longsleeve MIT, box MOCKUP sinkron (M4.1/M4.3 parsial, M2.10 `[~]`, shadow 1024), Midtrans overclaim diluruskan, sweep terekam di RUNBOOK.
-- [x] Security: kill-switch `=== "false"` semua (15 hit bersih); eval 0; secret hardcoded 0; rate-limit 7 titik; secret ter-track 0. Catatan P1: ~~`.gitignore` belum tutup `.env.production/.env.development/.env.staging`~~ (CORET 13 Sep — klaim basi, SUDAH DITUTUP di `.gitignore:33-35`); Manifest deep-link berubah (3 filter) — handler sudah diperketat, tinggal review.
-- [x] Lockfile root sinkron (leva masuk, sharp keluar). Catatan: vuln 11 → 14 (3 moderate dari leva, dev-only).
+- [x] Security: kill-switch `=== "false"` semua (4 hit aktual di src — klaim 15 dikoreksi 14 Sep); eval 0; secret hardcoded 0; rate-limit 7 titik; secret ter-track 0. Catatan P1: ~~`.gitignore` belum tutup `.env.production/.env.development/.env.staging`~~ (CORET 13 Sep — klaim basi, SUDAH DITUTUP di `.gitignore:33-35`); Manifest deep-link berubah (3 filter) — handler sudah diperketat, tinggal review.
+- [x] Lockfile root sinkron (leva masuk, sharp keluar dari direct dep — 4 hit transitif tersisa, klaim "hilang" dikoreksi 14 Sep). Catatan: vuln 11 → 14 (3 moderate dari leva, dev-only).

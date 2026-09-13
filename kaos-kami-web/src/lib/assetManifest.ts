@@ -1,10 +1,12 @@
 /**
  * assetManifest.ts — SSOT inventaris aset 3D Kaos Kami (read-only, tanpa DB).
  *
- * Cakupan: 15 file di `kaos-kami-web/public/models/` (4 AKTIF + 4 CADANGAN
- * optimasi + 7 STAGED salinan rename Wave-1) + 16 ARSIP Sketchfab + 4 zip
- * BlendSwap yang tetap di `Asset 3D/` (JANGAN copy ke public/ tanpa keputusan
- * owner — hemat bundle/R2).
+ * Cakupan array: 15 file (4 AKTIF + 4 CADANGAN optimasi + 7 STAGED
+ * salinan rename Wave-1) + 16 ARSIP Sketchfab + 4 zip BlendSwap yang tetap
+ * di `Asset 3D/` (JANGAN copy ke public/ tanpa keputusan owner — hemat
+ * bundle/R2). CATATAN 14 Sep 2026: disk `public/models/` kini 22 file
+ * (+pants/shorts/mannequin + 4 varian Draco) — BELUM masuk array, naik-tabel
+ * menunggu owner (lihat CATATAN KEADALUWARSAAN di bawah).
  *
  * Angka tris/byte/UV/tekstur 7 file STAGED: TERUKUR 12 Sep 2026 (sore) via
  * `gltf-transform inspect` (read-only) + SHA256 terbukti IDENTIK dengan master
@@ -16,9 +18,10 @@
  *
  * LISENSI: 7 file STAGED = "✅ TERVERIFIKASI CC-BY 4.0 (12 Sep 2026, API Sketchfab) (screenshot
  * badge + URL sumber)". Klaim author/CC di note HANYA menyalin checklist,
- * BUKAN lisensi terverifikasi. SWAP DEFAULT (tee-basic/hoodie-blue) BELUM
- * dipasang di kode — TshirtModel/HoodieModel/useDeviceTier masih menunjuk
- * file lama; file lama tetap AKTIF sebagai fallback (lihat ASSET_CREDITS §7).
+ * BUKAN lisensi terverifikasi. "SWAP DEFAULT BELUM dipasang" KEDALUWARSA
+ * 13 Sep — Fase 13 sudah wire default draco (lihat CATATAN KEADALUWARSAAN
+ * di bawah + `hooks/useDeviceTier.ts`); file lama tetap AKTIF sebagai
+ * fallback (lihat ASSET_CREDITS §7).
  *
  * OWNER: untuk mengubah daftar, cukup ubah array di bawah — halaman
  * `/admin/assets` ikut otomatis (satu sumber kebenaran).
@@ -79,16 +82,16 @@ export const ACTIVE_FILES: AssetEntry[] = [
   },
   {
     file: "hoodie.glb",
-    location: "kaos-kami-web/public/models/",
+    location: "backups/models-archive/",
     kind: "glb-draco",
     bytes: 402272,
     tris: 134214,
     trisSource: "measured",
     uv: "TIDAK ADA (0/42 prim)",
     textures: "0 img / 0 tex / 4 mat",
-    status: "active",
+    status: "archive",
     note:
-      "TERUKUR. 134k tris/42 prim TANPA UV & tanpa tekstur (khas ekspor CLO/Marvelous) — tech-debt diketahui Fase 19: box-UV prosedural menutupinya. Lisensi ⚠️ VERIFIKASI.",
+      "DIPENSIUNKAN 13 Sep 2026. 134k tris/42 prim TANPA UV & tanpa lisensi terverifikasi — dipindahkan ke backups/models-archive/. Digantikan penuh oleh hoodie-blue (CC-BY 4.0 Irevex11).",
   },
   {
     file: "jacket.glb",
@@ -223,42 +226,42 @@ export const STAGED_FILES: AssetEntry[] = [
   },
   {
     file: "fleece-alt.glb",
-    location: "kaos-kami-web/public/models/",
+    location: "backups/models-archive/",
     kind: "glb",
     bytes: 3829312,
     tris: 6392,
     trisSource: "measured",
     uv: "ada (10/10 prim)",
     textures: "3 img / 3 tex / 1 mat",
-    status: "staged",
+    status: "archive",
     note:
-      "TERUKUR via inspect (10 prim TRIANGLES total 6.392 = klaim 6,4k; material tex_jacket ×10). Salinan identik Asset 3D/sketchfab/fleece_jacket.glb (SHA256 714440165C9B…). Klaim checklist: Jonathan Millhauser, CC-BY — ✅ TERVERIFIKASI CC-BY 4.0 (12 Sep 2026, API Sketchfab).",
+      "DIARSIPKAN ke backups/models-archive/. TERUKUR via inspect (10 prim TRIANGLES total 6.392 = klaim 6,4k; material tex_jacket ×10). Salinan identik Asset 3D/sketchfab/fleece_jacket.glb (SHA256 714440165C9B…). Klaim checklist: Jonathan Millhauser, CC-BY — ✅ TERVERIFIKASI CC-BY 4.0 (12 Sep 2026, API Sketchfab).",
   },
   {
     file: "hoodie-flat.glb",
-    location: "kaos-kami-web/public/models/",
+    location: "backups/models-archive/",
     kind: "glb",
     bytes: 298048,
     tris: 10278,
     trisSource: "measured",
     uv: "ada (1/1 prim, tanpa tekstur)",
     textures: "0 img / 0 tex / 1 mat",
-    status: "staged",
+    status: "archive",
     note:
-      "TERUKUR via inspect (glPrimitives 10.278 = klaim 10,3k; material FABRIC_1_FRONT_2578 tanpa tekstur). Salinan identik Asset 3D/sketchfab/hoodie.glb vsese (SHA256 CC4C56B40D70…). ⚠️ NAMA KEMBAR dengan hoodie.glb aktif (file BERBEDA). Klaim checklist: vsese, CC-BY — ✅ TERVERIFIKASI CC-BY 4.0 (12 Sep 2026, API Sketchfab).",
+      "DIARSIPKAN ke backups/models-archive/. TERUKUR via inspect (glPrimitives 10.278 = klaim 10,3k; material FABRIC_1_FRONT_2578 tanpa tekstur). Salinan identik Asset 3D/sketchfab/hoodie.glb vsese (SHA256 CC4C56B40D70…). Klaim checklist: vsese, CC-BY — ✅ TERVERIFIKASI CC-BY 4.0 (12 Sep 2026, API Sketchfab).",
   },
   {
     file: "tee-alt.glb",
-    location: "kaos-kami-web/public/models/",
+    location: "backups/models-archive/",
     kind: "glb",
     bytes: 4841264,
     tris: 21983,
     trisSource: "measured",
     uv: "ada (2/2 prim)",
     textures: "4 img / 4 tex / 2 mat",
-    status: "staged",
+    status: "archive",
     note:
-      "TERUKUR via inspect (18.617 + 3.366 = 21.983; material Polo_Shirt + Button). Salinan identik Asset 3D/sketchfab/tshirt.glb (SHA256 67C0017D30C3…). Klaim checklist: aliabbas.827, CC-BY 22k — ✅ TERVERIFIKASI CC-BY 4.0 (12 Sep 2026, API Sketchfab). Cadangan tee bila tee-basic gagal verifikasi.",
+      "DIARSIPKAN ke backups/models-archive/. TERUKUR via inspect (18.617 + 3.366 = 21.983; material Polo_Shirt + Button). Salinan identik Asset 3D/sketchfab/tshirt.glb (SHA256 67C0017D30C3…). Klaim checklist: aliabbas.827, CC-BY 22k — ✅ TERVERIFIKASI CC-BY 4.0 (12 Sep 2026, API Sketchfab).",
   },
 ];
 
@@ -401,7 +404,7 @@ export const BLENDSWAP_FILES: AssetEntry[] = [
   },
 ];
 
-/** Gabungan untuk tabel admin: AKTIF + CADANGAN + STAGED (15 baris). */
+/** Gabungan untuk tabel admin: AKTIF + CADANGAN + STAGED (dinamis mengikuti array). */
 export const INVENTORY: AssetEntry[] = [...ACTIVE_FILES, ...BACKUP_FILES, ...STAGED_FILES];
 
 export const STATUS_LABEL: Record<AssetStatus, string> = {

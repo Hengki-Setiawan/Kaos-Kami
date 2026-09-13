@@ -44,8 +44,8 @@ Built with **Next.js 15.5 (App Router)**, **React 19**, **React Three Fiber**, *
 
 ## 📦 Optional External Assets
 
-The application will automatically detect and upgrade to external assets if dropped into `kaos-kami-web/public`:
-- `kaos-kami-web/public/models/tshirt-heavyweight.glb` — Draco-compressed 3D GLTF model (rantai aktif: `*.draco.glb` → master `*.glb` → legacy, decoder di `kaos-kami-web/public/decoders/draco/`)
+Model aktif dimuat via rantai `probeFirstExistingUrl` (`useDeviceTier.ts:120-157`, decoder di `public/decoders/draco/`): `tee-basic.draco.glb→tee-basic.glb→tshirt-heavyweight.glb`, `hoodie-blue.draco.glb→hoodie-blue.glb`, `longsleeve`, `sweater`, `cap` (mockup-only), `pants`/`shorts` (mockup-only), `jacket`, manekin web-only `mannequin.glb`. Staged tapi belum diwire: `tee-alt`/`fleece-alt`/`hoodie-flat`. Lisensi per file: `ASSET_CREDITS.md`, atribusi: `/kredit`. Contoh:
+- `kaos-kami-web/public/models/tee-basic.draco.glb` — Draco-compressed GLTF, prioritas pertama rantai kaos
 - `kaos-kami-web/public/lookbook/look-01.jpg` to `look-04.jpg` — Sourced high-resolution photography
 - `kaos-kami-web/public/video/atelier-loop.mp4` — Ambient background video loop
 

@@ -17,9 +17,9 @@ import { SilentModelFallback } from "@/components/ui/ModelErrorBoundary";
 import { HoodieModel } from "./HoodieModel";
 
 // FASE 13 — crewneck akhirnya punya mesh SENDIRI (sweater.glb, sweater_pack
-// Sketchfab, TANPA tudung — bukan lagi pinjaman hoodie.glb). Struktur meniru
+// Sketchfab, TANPA tudung — bukan lagi pinjaman hoodie). Struktur meniru
 // TshirtModel (single-mesh + center + cloth material + DecalLayerRenderer).
-// Fallback DIAM ke mesh lama (hoodie.glb) bila sweater gagal dimuat.
+// Fallback DIAM ke mesh cadangan (HoodieModel / hoodie-blue) bila sweater gagal dimuat.
 const MODEL_PATH_NEW_DRC = "/models/sweater.draco.glb";
 const MODEL_PATH_NEW = "/models/sweater.glb";
 useGLTF.preload(MODEL_PATH_NEW_DRC);

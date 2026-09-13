@@ -50,8 +50,7 @@ import { MobileCapModel } from './MobileCapModel';
 // hoodie-blue -15%, longsleeve -44%). Decoder di /public/decoders/draco/
 // (disalin dari web 12 Sep 2026).
 const MOBILE_TSHIRT_FALLBACK = '/models/tshirt-heavyweight.glb';
-const MOBILE_HOODIE_FALLBACK_HIGH = '/models/hoodie.glb';
-const MOBILE_HOODIE_FALLBACK_LOW = '/models/hoodie.lod1.glb';
+const MOBILE_HOODIE_FALLBACK_HIGH = '/models/hoodie-blue.glb';
 // Pants/shorts = file tunggal non-Draco (tanpa rantai; 404 = mesh tak tampil
 // tapi tak crash — tipe ini orderable false sehingga aman).
 const MOBILE_PANTS_MODEL = '/models/pants.glb';
@@ -76,13 +75,8 @@ export const MOBILE_MODEL_CANDIDATES: Record<string, Record<'high' | 'low', stri
     low: ['/models/tee-basic.draco.glb', '/models/tee-basic.glb', MOBILE_TSHIRT_FALLBACK],
   },
   hoodie: {
-    high: ['/models/hoodie-blue.draco.glb', '/models/hoodie-blue.glb', MOBILE_HOODIE_FALLBACK_HIGH],
-    low: [
-      '/models/hoodie-blue.draco.glb',
-      '/models/hoodie-blue.glb',
-      MOBILE_HOODIE_FALLBACK_LOW,
-      MOBILE_HOODIE_FALLBACK_HIGH,
-    ],
+    high: ['/models/hoodie-blue.draco.glb', '/models/hoodie-blue.glb'],
+    low: ['/models/hoodie-blue.draco.glb', '/models/hoodie-blue.glb'],
   },
   shirt: {
     high: ['/models/jacket.glb'],
@@ -158,7 +152,7 @@ export function mobilePriorityFor(apparelType: string, tier: string): string | u
 /** Fallback sinkron (dijamin ada, non-Draco) selama probe HEAD berjalan — anti-crash. */
 function syncFallbackFor(apparelType: string, tier: string): string {
   const low = tier === 'low' || tier === 'no-webgl';
-  if (apparelType === 'hoodie') return low ? MOBILE_HOODIE_FALLBACK_LOW : MOBILE_HOODIE_FALLBACK_HIGH;
+  if (apparelType === 'hoodie') return MOBILE_HOODIE_FALLBACK_HIGH;
   if (apparelType === 'shirt') return low ? '/models/jacket.lod1.glb' : '/models/jacket.glb';
   if (apparelType === 'longsleeve') return '/models/longsleeve.glb';
   if (apparelType === 'pants') return MOBILE_PANTS_MODEL;

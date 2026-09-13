@@ -1,6 +1,9 @@
 ext {
     minSdkVersion = 23
-    compileSdkVersion = 35
+    // 13 Sep 2026: 35→36 — androidx.browser:1.9.0 (via @capacitor/browser)
+    // wajib compileSdk 36. targetSdk tetap 35 (naik terpisah bila siap uji
+    // perilaku runtime Android 16); minSdk tetap 23.
+    compileSdkVersion = 36
     targetSdkVersion = 35
     androidxActivityVersion = '1.9.2'
     androidxAppCompatVersion = '1.7.0'

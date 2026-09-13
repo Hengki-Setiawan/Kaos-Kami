@@ -5,11 +5,9 @@ import NextError from "next/error";
 export default function GlobalError({ error }: { error: Error & { digest?: string } }) {
   useEffect(() => {
     if (process.env.NEXT_PUBLIC_SENTRY_DSN) {
-      try {
-        // eslint-disable-next-line
-        const Sentry: any = require("@sentry/nextjs");
-        Sentry.captureException(error);
-      } catch {}
+      import("@sentry/nextjs")
+        .then((Sentry) => Sentry.captureException(error))
+        .catch(() => {});
     }
   }, [error]);
   return (

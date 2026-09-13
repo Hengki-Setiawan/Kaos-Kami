@@ -1,13 +1,8 @@
-const CACHE_NAME = "kaos-kami-cache-v2";
-// M-sisa (11 Sep 2026): precache SEMUA model prod + decoder inti Draco.
-// - 8 GLB: tshirt/longsleeve draco (aktif) + legacy (fallback rantai) +
-//   hoodie/jacket high + lod1 low. (Tugas menyebut 9 — aktual repo 8; tidak
-//   ada file ke-9; crewneck memakai ulang hoodie.glb.)
-// - 4 decoder runtime three DRACOLoader: draco_decoder.js (fallback JS) +
-//   draco_wasm_wrapper.js + draco_decoder.wasm (jalur WASM) +
-//   draco_decoder_gltf.wasm (cadangan glTF, tak dirujuk browser tapi
-//   dipertahankan sesuai mandat).
-// - 2 tekstur foto cotton-jersey 512px (lapisan di atas prosedural).
+const CACHE_NAME = "kaos-kami-cache-v3";
+// M-sisa & P0-4: precache SEMUA model prod + decoder inti Draco.
+// - GLB aktif: tshirt/longsleeve/hoodie-blue/jacket/sweater/cap draco & glb.
+// - 4 decoder runtime three DRACOLoader.
+// - 2 tekstur foto cotton-jersey 512px.
 const STATIC_ASSETS = [
   "/",
   "/studio",
@@ -17,8 +12,8 @@ const STATIC_ASSETS = [
   "/models/tshirt-heavyweight.glb",
   "/models/longsleeve.draco.glb",
   "/models/longsleeve.glb",
-  "/models/hoodie.glb",
-  "/models/hoodie.lod1.glb",
+  "/models/hoodie-blue.draco.glb",
+  "/models/hoodie-blue.glb",
   "/models/jacket.glb",
   "/models/jacket.lod1.glb",
   "/decoders/draco/draco_decoder.js",

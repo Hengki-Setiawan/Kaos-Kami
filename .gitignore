@@ -18,6 +18,7 @@ out/
 **/android/build/
 **/ios/App/build/
 **/ios/App/Pods/
+kaos-kami-mobile/ios/
 
 # misc
 .DS_Store
