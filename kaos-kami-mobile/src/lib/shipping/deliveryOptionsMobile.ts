@@ -7,6 +7,30 @@ export interface DeliveryOption {
   badge?: string;
 }
 
+/**
+ * Whitelist kecamatan se-Kota Makassar untuk FREE_MAKASSAR — CERMINAN (bukan
+ * hardcode baru) dari `kaos-kami-web/src/lib/shipping/deliveryOptions.ts`
+ * (`MAKASSAR_SUBDISTRICTS`). Server menolak district di luar daftar ini (400),
+ * jadi pengiriman dari sini WAJIB salah satunya. Bila web menambah kecamatan,
+ * daftar ini WAJIB disamakan manual.
+ */
+export const MAKASSAR_SUBDISTRICTS: string[] = [
+  'Tamalanrea',
+  'Biringkanaya',
+  'Panakkukang',
+  'Rappocini',
+  'Makassar',
+  'Manggala',
+  'Mariso',
+  'Mamajang',
+  'Ujung Pandang',
+  'Wajo',
+  'Bontoala',
+  'Tallo',
+  'Tamalate',
+  'Kepulauan Sangkarrang',
+];
+
 export const MAKASSAR_DELIVERY_OPTIONS: DeliveryOption[] = [
   {
     id: 'WORKSHOP_PICKUP',
@@ -28,8 +52,11 @@ export const MAKASSAR_DELIVERY_OPTIONS: DeliveryOption[] = [
     id: 'EXPEDITION',
     name: 'Ekspedisi Luar Kota (JNE / J&T)',
     description: 'Pilih kurir termurah sesuai kotamu. Ongkir final dihitung server.',
-    price: 25000,
+    // HARGA JUJUR (audit HIGH): JANGAN hardcode Rp 25.000 sebagai tarif.
+    // price=0 = "belum ada quote"; UI wajib tampilkan "menghitung…" +
+    // blokir submit sampai quote server dipilih (lihat CheckoutSheet).
+    price: 0,
     estimatedTime: '2 - 4 Hari (tergantung kota)',
-    badge: 'Mulai Rp 25.000',
+    badge: 'Cek ongkir — menghitung…',
   },
 ];

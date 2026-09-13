@@ -7,17 +7,24 @@ import { Filesystem, Directory } from '@capacitor/filesystem';
 import { Share } from '@capacitor/share';
 import { haptic } from '@/lib/bridge/haptics';
 import { shareCustomDesign } from '@/lib/bridge/share';
+import { enableScreenKeepAwake, disableScreenKeepAwake } from '@/lib/bridge/keepAwake';
 import { computeAverageLuminance } from '@/lib/3d/lightingEstimation';
 import { MediaPipePoseTracker, PoseTransform3D } from '@/lib/3d/mediaPipePoseTracker';
 import { MobileApparelMeshRenderer } from './MobileApparelMeshRenderer';
 import { useMobileStudioStore } from '@/store/useMobileStudioStore';
+import { useMobileDeviceTier } from '@/hooks/useMobileDeviceTier';
+import { registerARSnapshot, renderARNow } from '@/lib/3d/exportStudio';
+import { useShallow } from 'zustand/shallow';
 
 export function ARPreviewStage({ onClose, onNotify }: { onClose: () => void; onNotify?: (msg: string) => void }) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const [facingMode, setFacingMode] = useState<'user' | 'environment'>('user');
   const [lightMultiplier, setLightMultiplier] = useState(1.2);
   const [snapshotTaken, setSnapshotTaken] = useState(false);
+  // PERF low-end: AI MATI default (hemat GPU/CPU) — user bisa nyalakan manual.
+  // aiTouched = user sudah toggle eksplisit → efek tier tak menimpa pilihan.
   const [useAITracking, setUseAITracking] = useState(true);
+  const aiTouched = useRef(false);
 
   const [poseTransform, setPoseTransform] = useState<PoseTransform3D>({
     detected: false,
@@ -26,8 +33,57 @@ export function ARPreviewStage({ onClose, onNotify }: { onClose: () => void; onN
     scale: 1.0,
   });
 
-  const { apparelType, printWidthCm } = useMobileStudioStore();
+  const { apparelType, printWidthCm } = useMobileStudioStore(
+    useShallow((s) => ({ apparelType: s.apparelType, printWidthCm: s.printWidthCm }))
+  );
+  const { tier, isResolved } = useMobileDeviceTier();
   const poseTracker = useMemo(() => new MediaPipePoseTracker(), []);
+
+  // PERF tier-low: AI mati default + inferensi 133ms (~7.5 FPS, cukup untuk
+  // anchor bahu); mid/high 66ms (~15 FPS). Hanya sebelum user toggle manual.
+  useEffect(() => {
+    if (!isResolved) return;
+    const low = tier === 'low' || tier === 'no-webgl';
+    try {
+      poseTracker.setInferenceIntervalMs(low ? 133 : 66);
+    } catch {}
+    if (low && !aiTouched.current) setUseAITracking(false);
+  }, [isResolved, tier, poseTracker]);
+
+  // PERF KeepAwake: layar dijaga menyala HANYA saat AR aktif (studio & katalog
+  // SENGAJA boleh sleep — hemat baterai). Dilepas saat AR ditutup/unmount.
+  useEffect(() => {
+    void enableScreenKeepAwake();
+    return () => {
+      void disableScreenKeepAwake();
+    };
+  }, []);
+
+  // VRAM: bebaskan landmarker MediaPipe (WASM/GPU) saat AR ditutup/unmount.
+  // Tanpa close() tiap buka-tutup AR menambah sesi GPU → OOM di HP low-end.
+  useEffect(() => {
+    const tracker = poseTracker;
+    return () => {
+      try {
+        tracker.dispose();
+      } catch {}
+      try {
+        registerARSnapshot(null);
+      } catch {}
+    };
+  }, [poseTracker]);
+
+  const handleClose = () => {
+    haptic.tap();
+    try {
+      poseTracker.dispose();
+    } catch {}
+    try {
+      registerARSnapshot(null);
+    } catch {}
+    void disableScreenKeepAwake();
+    onClose();
+  };
 
   useEffect(() => {
     let currentStream: MediaStream | null = null;
@@ -48,11 +104,15 @@ export function ARPreviewStage({ onClose, onNotify }: { onClose: () => void; onN
             }
           }
         } catch {}
+        // PERF low-end: 640×480 (hemat encoder/GPU/CPU ~6x piksel vs 720p).
+        // Tunggu isResolved agar HP low tak sempat membuka 720p dulu.
+        if (!isResolved) return;
+        const low = tier === 'low' || tier === 'no-webgl';
         const mediaStream = await navigator.mediaDevices.getUserMedia({
           video: {
             facingMode,
-            width: { ideal: 1280 },
-            height: { ideal: 720 },
+            width: { ideal: low ? 640 : 1280 },
+            height: { ideal: low ? 480 : 720 },
           },
           audio: false,
         });
@@ -80,13 +140,18 @@ export function ARPreviewStage({ onClose, onNotify }: { onClose: () => void; onN
         currentStream.getTracks().forEach((track) => track.stop());
       }
     };
-  }, [facingMode]);
+  }, [facingMode, tier, isResolved]);
 
   // Lighting & MediaPipe AI Pose Tracking Loop
   useEffect(() => {
     let animId: number;
     let frameCount = 0;
     let lastTime = performance.now();
+    // THROTTLE low-end: lighting tiap 90 frame (vs 30) + setState pose hanya
+    // saat inferensi benar-benar jalan / tiap 10 frame (vs tiap frame 60fps).
+    // setPoseTransform tiap frame = re-render React 60x/detik — boros di low.
+    const low = tier === 'low' || tier === 'no-webgl';
+    const lightCadence = low ? 90 : 30;
 
     const loop = (now: number) => {
       frameCount++;
@@ -94,17 +159,19 @@ export function ARPreviewStage({ onClose, onNotify }: { onClose: () => void; onN
       lastTime = now;
 
       if (videoRef.current) {
-        // 1. Lighting estimation (every 30 frames)
-        if (frameCount % 30 === 0) {
+        // 1. Lighting estimation (throttled per-tier)
+        if (frameCount % lightCadence === 0) {
           const lum = computeAverageLuminance(videoRef.current);
           setLightMultiplier(lum);
         }
 
         // 2. MediaPipe Pose tracking inference (if enabled)
         if (useAITracking) {
-          poseTracker.processVideoFrame(videoRef.current, now);
-          const smoothed = poseTracker.updateSmooth(dt);
-          setPoseTransform({ ...smoothed });
+          const ran = poseTracker.processVideoFrame(videoRef.current, now);
+          if (ran || frameCount % 10 === 0) {
+            const smoothed = poseTracker.updateSmooth(dt);
+            setPoseTransform({ ...smoothed });
+          }
         }
       }
 
@@ -113,7 +180,7 @@ export function ARPreviewStage({ onClose, onNotify }: { onClose: () => void; onN
 
     animId = requestAnimationFrame(loop);
     return () => cancelAnimationFrame(animId);
-  }, [useAITracking, poseTracker]);
+  }, [useAITracking, poseTracker, tier]);
 
   const handleFlipCamera = () => {
     haptic.selection();
@@ -128,7 +195,11 @@ export function ARPreviewStage({ onClose, onNotify }: { onClose: () => void; onN
       const glCanvas = document.querySelector('#kk-ar-stage canvas');
       if (!video || video.readyState < 2 || !glCanvas) throw new Error('Kamera/3D belum siap');
 
-      // Komposit 1080x1920: video cover-fit + overlay 3D + watermark.
+      // On-demand (preserveDrawingBuffer:false): render sinkron di task yang sama
+      // agar drawImage tak blank/hitam (pasangan registerARSnapshot di Canvas bawah).
+      renderARNow();
+
+      // Komposit 1080x1920: video cover-fit + overlay 3D (C4: tanpa watermark).
       const W = 1080;
       const H = 1920;
       const out = document.createElement('canvas');
@@ -154,13 +225,6 @@ export function ARPreviewStage({ onClose, onNotify }: { onClose: () => void; onN
       const gh = (glCanvas as HTMLCanvasElement).height;
       const fit = Math.min(W / gw, H / gh);
       ctx.drawImage(glCanvas as HTMLCanvasElement, (W - gw * fit) / 2, (H - gh * fit) / 2, gw * fit, gh * fit);
-
-      ctx.font = '700 30px Syne, sans-serif';
-      ctx.fillStyle = 'rgba(255,255,255,0.8)';
-      ctx.strokeStyle = 'rgba(0,0,0,0.6)';
-      ctx.lineWidth = 4;
-      ctx.strokeText('KAOS KAMI MAKASSAR • AR TRY-ON', 40, H - 48);
-      ctx.fillText('KAOS KAMI MAKASSAR • AR TRY-ON', 40, H - 48);
 
       const base64 = out.toDataURL('image/jpeg', 0.92).split(',')[1] ?? '';
       const fileName = `kaoskami-ar-${Date.now()}.jpg`;
@@ -214,7 +278,14 @@ export function ARPreviewStage({ onClose, onNotify }: { onClose: () => void; onN
       <div id="kk-ar-stage" className="absolute inset-0 z-20 pointer-events-none">
         <Canvas
           camera={{ position: [0, 0, 2.3], fov: 45 }}
-          gl={{ alpha: true, preserveDrawingBuffer: true }}
+          // On-demand: false hemat VRAM; snapshot via renderARNow() tepat sebelum
+          // drawImage (pasangan registerARSnapshot — kalau tidak, hasil blank).
+          gl={{ alpha: true, preserveDrawingBuffer: false }}
+          onCreated={({ gl, scene, camera }) => {
+            try {
+              registerARSnapshot({ gl: gl as any, scene: scene as any, camera: camera as any });
+            } catch {}
+          }}
         >
           <ambientLight intensity={0.55 * lightMultiplier} />
           <directionalLight position={[1, 3, 2]} intensity={1.2 * lightMultiplier} />
@@ -236,10 +307,7 @@ export function ARPreviewStage({ onClose, onNotify }: { onClose: () => void; onN
       {/* Top Header Navigation */}
       <div className="relative z-30 flex items-center justify-between p-4 pt-[env(safe-area-inset-top,16px)]">
         <button
-          onClick={() => {
-            haptic.tap();
-            onClose();
-          }}
+          onClick={handleClose}
           className="w-10 h-10 rounded-2xl bg-black/50 backdrop-blur-xl border border-white/20 flex items-center justify-center text-white active:scale-90"
         >
           <X className="w-5 h-5" />
@@ -249,6 +317,7 @@ export function ARPreviewStage({ onClose, onNotify }: { onClose: () => void; onN
         <button
           onClick={() => {
             haptic.selection();
+            aiTouched.current = true;
             setUseAITracking((prev) => !prev);
           }}
           className={`px-3.5 py-1.5 rounded-full backdrop-blur-xl border text-xs font-bold font-['Syne'] flex items-center gap-1.5 transition-all ${
@@ -268,6 +337,27 @@ export function ARPreviewStage({ onClose, onNotify }: { onClose: () => void; onN
           <FlipHorizontal className="w-5 h-5" />
         </button>
       </div>
+
+      {/* Guard tier: perangkat low + AI aktif → sarankan mode manual bila berat.
+          MediaPipe GPU + kamera + 3D bersamaan rawan patah-patah/OOM di low-end. */}
+      {tier === 'low' && useAITracking && (
+        <div className="relative z-30 mx-4 mt-1 rounded-2xl bg-amber-500/15 border border-amber-400/30 px-3 py-2 backdrop-blur-xl">
+          <p className="text-[11px] leading-snug text-amber-200">
+            Perangkat terdeteksi <b>low-end</b> — AR + AI bisa berat. Matikan{' '}
+            <b>MediaPipe AI Pose</b> ke <b>Siluet Manual</b> bila patah-patah.
+          </p>
+          <button
+            onClick={() => {
+              haptic.selection();
+              aiTouched.current = true;
+              setUseAITracking(false);
+            }}
+            className="mt-1.5 px-3 py-1 rounded-full bg-amber-400/20 border border-amber-300/40 text-[11px] font-bold text-amber-100 active:scale-95"
+          >
+            Matikan AI (mode ringan)
+          </button>
+        </div>
+      )}
 
       {/* Bottom Shutter & Controls */}
       <div className="relative z-30 mt-auto flex items-center justify-around pb-[env(safe-area-inset-bottom,24px)] pt-4 px-6 bg-gradient-to-t from-black/80 to-transparent">

@@ -121,7 +121,9 @@ export function UserOrderTracker({
                 ? 'Dana Kembali'
                 : order.status === 'REJECTED'
                 ? 'Ditolak'
-                : 'Selesai'}
+                : order.status === 'COMPLETED'
+                ? 'Selesai'
+                : order.status.replace(/_/g, ' ')}
             </Badge>
           </div>
           <p className="text-[11px] text-zinc-400 mt-0.5">
@@ -220,6 +222,8 @@ export function UserOrderTracker({
 }
 
 const SERVER_TO_TRACKER: Record<string, OrderStatus> = {
+  // Review desain pra-bayar (konsep mobile; server kini/future melempar mentah).
+  PENDING_DESIGN_APPROVAL: 'PENDING_DESIGN_APPROVAL',
   PENDING_PAYMENT: 'PENDING_PAYMENT',
   PAYMENT_CONFIRMED: 'PRINTING_DTF',
   IN_PRODUCTION_QUEUE: 'PRINTING_DTF',
@@ -267,9 +271,36 @@ export function UserOrderTrackerLive({
   }, [orderId]);
 
   useEffect(() => {
-    poll();
-    const t = setInterval(poll, pollEvery);
-    return () => clearInterval(t);
+    let t: ReturnType<typeof setInterval> | null = null;
+    const isHidden = () =>
+      typeof document !== 'undefined' && document.hidden;
+    const start = () => {
+      if (t) clearInterval(t);
+      // Pause saat tab hidden (hemat baterai/kuota + hindari race).
+      if (isHidden()) return;
+      t = setInterval(() => {
+        if (isHidden()) return;
+        void poll();
+      }, pollEvery);
+    };
+    const onVis = () => {
+      if (isHidden()) {
+        if (t) {
+          clearInterval(t);
+          t = null;
+        }
+      } else {
+        void poll(); // segarkan segera saat tab kembali terlihat
+        start();
+      }
+    };
+    if (!isHidden()) void poll();
+    start();
+    document?.addEventListener?.('visibilitychange', onVis);
+    return () => {
+      if (t) clearInterval(t);
+      document?.removeEventListener?.('visibilitychange', onVis);
+    };
   }, [poll, pollEvery]);
 
   if (!remote) {
@@ -280,7 +311,11 @@ export function UserOrderTrackerLive({
     );
   }
 
-  const mapped = SERVER_TO_TRACKER[remote.status] ?? 'PENDING_PAYMENT';
+  const rawStatus: string = remote.status;
+  // Status tak dikenal = label server mentah TANPA tombol bayar.
+  // JANGAN fallback PENDING_PAYMENT (risiko bayar ganda/status palsu).
+  const mapped: OrderStatus | null = SERVER_TO_TRACKER[rawStatus] ?? null;
+  const effectiveStatus: OrderStatus = mapped ?? (rawStatus as OrderStatus);
   // Status final non-bayar (batal/refund) JANGAN pernah tampil "Siap Dibayar"
   // + tombol bayar (audit N14 — risiko bayar ganda).
   const isDead = mapped === 'CANCELLED' || mapped === 'REFUNDED' || mapped === 'REJECTED';
@@ -293,7 +328,7 @@ export function UserOrderTrackerLive({
     quantity: remote.itemCount || 1,
     printWidthCm: 0,
     printHeightCm: 0,
-    status: mapped,
+    status: effectiveStatus,
     totalAmount: remote.totalIdr || 0,
     paymentMethod: paymentUrl ? 'Duitku' : remote.paymentMethod || '-',
     deliveryMethod: remote.deliveryMethod || 'Makassar',

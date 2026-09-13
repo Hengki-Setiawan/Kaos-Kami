@@ -3,14 +3,16 @@
 import React, { useState } from 'react';
 import { Eye, RotateCcw, Wind, Activity, Compass, Footprints, Camera, Video } from 'lucide-react';
 import { useMobileStudioStore, AnimationPreset, CameraAngle } from '@/store/useMobileStudioStore';
+import { useMobileDeviceTier } from '@/hooks/useMobileDeviceTier';
+import { useShallow } from 'zustand/shallow';
 import { captureHDImage, recordTurntable360 } from '@/lib/3d/exportStudio';
 import { haptic } from '@/lib/bridge/haptics';
 
+// C4 (owner, Sep 2026): paywall Pro dicabut total — ekspor HD/360° selalu
+// terbuka, tanpa unlock, tanpa watermark, tanpa jatah kredit.
 export function StudioControlOverlay({
-  isProUser = false,
   onNotify,
 }: {
-  isProUser?: boolean;
   onNotify?: (msg: string) => void;
 }) {
   const [exporting, setExporting] = useState<string | null>(null);
@@ -23,7 +25,18 @@ export function StudioControlOverlay({
     printHeightCm,
     decalUrl,
     decalDpi,
-  } = useMobileStudioStore();
+  } = useMobileStudioStore(
+    useShallow((s) => ({
+      cameraAngle: s.cameraAngle,
+      setCameraAngle: s.setCameraAngle,
+      activeAnimation: s.activeAnimation,
+      setActiveAnimation: s.setActiveAnimation,
+      printWidthCm: s.printWidthCm,
+      printHeightCm: s.printHeightCm,
+      decalUrl: s.decalUrl,
+      decalDpi: s.decalDpi,
+    }))
+  );
 
   const cameraAngles: { key: CameraAngle; label: string }[] = [
     { key: 'front', label: 'Depan' },
@@ -42,12 +55,16 @@ export function StudioControlOverlay({
   ];
 
   const dpi = decalDpi ?? 0;
+  // PERF: tier-low rekam 4 Mbps (hemat encoder + file ~½); mid/high 8 Mbps.
+  const { tier } = useMobileDeviceTier();
+  const recordBitrate = tier === 'low' || tier === 'no-webgl' ? 4_000_000 : 8_000_000;
   const dpiTone =
     dpi >= 300
       ? 'border-emerald-500/30 text-emerald-400'
       : dpi >= 150
       ? 'border-amber-500/30 text-amber-400'
       : 'border-rose-500/30 text-rose-400';
+  // C4: semua ekspor selalu kualitas penuh tanpa watermark.
 
   return (
     <div className="absolute inset-x-3 top-3 pointer-events-none flex flex-col gap-2 z-10 select-none">
@@ -114,14 +131,14 @@ export function StudioControlOverlay({
         })}
         <div className="h-px bg-white/10 my-0.5" />
         <button
-          title={isProUser ? 'Ekspor HD 1080p' : 'Ekspor HD 1080p (watermark)'}
+          title="Ekspor HD 1080p"
           disabled={exporting !== null}
           onClick={async () => {
             setExporting('hd');
             try {
-              await captureHDImage(isProUser);
+              await captureHDImage();
               haptic.success();
-              onNotify?.(isProUser ? 'Ekspor HD tersimpan & dibagikan!' : 'Ekspor HD tersimpan (watermark free tier).');
+              onNotify?.('Ekspor HD tersimpan & dibagikan!');
             } catch (e: any) {
               onNotify?.(e?.message || 'Ekspor gagal.');
             } finally {
@@ -138,7 +155,7 @@ export function StudioControlOverlay({
           onClick={async () => {
             setExporting('video');
             try {
-              await recordTurntable360(isProUser, (m) => onNotify?.(m));
+              await recordTurntable360((m) => onNotify?.(m), { videoBitsPerSecond: recordBitrate });
               haptic.success();
               onNotify?.('Video 360° tersimpan & dibagikan!');
             } catch (e: any) {

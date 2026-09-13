@@ -2,14 +2,36 @@
 
 import React, { Suspense, useEffect, useState } from 'react';
 import { Canvas, useThree } from '@react-three/fiber';
+import { AdaptiveDpr, PerformanceMonitor, useGLTF } from '@react-three/drei';
 import { useMobileDeviceTier } from '@/hooks/useMobileDeviceTier';
 import { useMobileStudioStore } from '@/store/useMobileStudioStore';
-import { enableScreenKeepAwake, disableScreenKeepAwake } from '@/lib/bridge/keepAwake';
 import { disposeSceneHierarchy } from '@/lib/3d/disposeScene';
+import { registerStudioSnapshot } from '@/lib/3d/exportStudio';
 import { TouchOrbitControls } from './TouchOrbitControls';
 import { AnimationController } from './AnimationController';
-import { MobileApparelMeshRenderer } from './MobileApparelMeshRenderer';
+import { MobileApparelMeshRenderer, mobilePriorityFor } from './MobileApparelMeshRenderer';
 import { MobileStudioLighting } from './MobileStudioLighting';
+
+// Rantai draco→legacy (cermin web CanvasStage): decoder WASM/lokal.
+// Guard window agar SSR/export statis aman.
+if (typeof window !== 'undefined') {
+  try {
+    (useGLTF as any).setDecoderPath?.('/decoders/draco/');
+  } catch {}
+}
+
+// PerformanceMonitor (turun ke DPR 1 setelah 3x flip-flop, satu arah agar
+// tidak flip-flop naik-turun) + AdaptiveDpr (modulasi DPR kontinu dalam batas
+// prop dpr Canvas). Cermin web PerfAdaptive; tier-low praktis no-op (DPR 1).
+function PerfAdaptive() {
+  const setDpr = useThree((s) => s.setDpr);
+  return (
+    <>
+      <PerformanceMonitor flipflops={3} onFallback={() => setDpr(1)} />
+      <AdaptiveDpr />
+    </>
+  );
+}
 
 function StudioLoader() {
   return (
@@ -28,23 +50,96 @@ function SceneDisposer() {
       try {
         disposeSceneHierarchy(scene);
       } catch {}
+      try {
+        registerStudioSnapshot(null);
+      } catch {}
     };
   }, [scene]);
   return null;
 }
 
 export function CanvasStageMobile() {
-  const { dpr, antialias, tier } = useMobileDeviceTier();
+  const { dpr, antialias, tier, isResolved } = useMobileDeviceTier();
   const activeAnimation = useMobileStudioStore((s) => s.activeAnimation);
+  const apparelType = useMobileStudioStore((s) => s.apparelType);
+  const color = useMobileStudioStore((s) => s.color);
+  const sleeveColor = useMobileStudioStore((s) => s.sleeveColor);
+  const collarColor = useMobileStudioStore((s) => s.collarColor);
+  const decalUrl = useMobileStudioStore((s) => s.decalUrl);
+  const cameraAngle = useMobileStudioStore((s) => s.cameraAngle);
+  const isGizmoDragging = useMobileStudioStore((s) => s.isGizmoDragging);
   const [contextLost, setContextLost] = useState(false);
 
-  // Keep screen awake while user is designing in 3D studio
+  // Transien 800ms tiru web transientMotion (CanvasStage.tsx): 'always' hanya
+  // saat animasi berjalan / drag gizmo / jendela transien tiap ganti warna/
+  // apparel/decal/sudut-kamera/preset-animasi agar easing/lerp sempat konvergen
+  // mulus (demand hanya render 1 frame per commit React). Idle = demand = 0fps.
+  // Tanpa ini, ganti warna & transisi kamera hanya dapat 1 frame = loncatan
+  // kasar; OrbitControls drei memanggil invalidate() sendiri tiap interaksi.
+  const [transientMotion, setTransientMotion] = useState(false);
   useEffect(() => {
-    enableScreenKeepAwake();
-    return () => {
-      disableScreenKeepAwake();
+    setTransientMotion(true);
+    const t = setTimeout(() => setTransientMotion(false), 800);
+    return () => clearTimeout(t);
+  }, [color, sleeveColor, collarColor, apparelType, decalUrl, cameraAngle, activeAnimation]);
+  const needsContinuous = activeAnimation !== 'none' || transientMotion || isGizmoDragging;
+
+  // PERF (tiru web CanvasStage): preload PRIORITAS (kandidat pertama =
+  // draco/master, tanpa HEAD probe = hemat round-trip) — HANYA setelah
+  // isResolved agar HP low tak ikut unduh model high. Aktif segera, tetangga
+  // katalog prefetch via requestIdleCallback agar tak berebut first paint.
+  // Urutan = urutan picker; tipe terkunci (crewneck) dilewati (tak ada file —
+  // preload-nya jatuh ke fallback tshirt = unduhan sia-sia).
+  // sweater/cap mockup-saja ikut diprefetch sebagai tetangga (cap.draco murah
+  // 0.22MB; sweater 2.27MB — hanya tetangga langsung, bukan eager semua).
+  // pants/shorts mockup-saja ikut diprefetch sebagai tetangga (murah: 1 file each).
+  useEffect(() => {
+    if (!isResolved || tier === 'no-webgl') return;
+    const order = ['tshirt', 'hoodie', 'shirt', 'longsleeve', 'sweater', 'cap', 'pants', 'shorts'];
+    const idx = order.indexOf(apparelType);
+    const active = mobilePriorityFor(apparelType, tier);
+    // Aktif: preload SEGERA (dibutuhkan frame pertama).
+    try {
+      if (active) useGLTF.preload(active);
+    } catch {}
+    // Tetangga: prefetch idle (hemat bandwidth first paint).
+    const neighbors = [order[idx - 1], order[idx + 1]]
+      .filter(Boolean)
+      .map((a) => mobilePriorityFor(a as string, tier))
+      .filter((u): u is string => !!u && u !== active);
+    if (neighbors.length === 0) return;
+    let handle: number | null = null;
+    const run = () => {
+      for (const url of neighbors) {
+        try {
+          useGLTF.preload(url);
+        } catch {}
+      }
     };
-  }, []);
+    try {
+      if (typeof window !== 'undefined' && typeof (window as any).requestIdleCallback === 'function') {
+        handle = (window as any).requestIdleCallback(run, { timeout: 2000 });
+      } else {
+        handle = setTimeout(run, 1200) as unknown as number;
+      }
+    } catch {
+      handle = null;
+    }
+    return () => {
+      try {
+        if (handle === null) return;
+        if (typeof window !== 'undefined' && typeof (window as any).cancelIdleCallback === 'function') {
+          (window as any).cancelIdleCallback(handle);
+        } else {
+          clearTimeout(handle);
+        }
+      } catch {}
+    };
+  }, [isResolved, tier, apparelType]);
+
+  // PERF KeepAwake: SENGAJA tak di studio (hemat baterai). Layar dijaga
+  // menyala hanya saat AR aktif / perekaman 360° (lihat ARPreviewStage +
+  // recordTurntable360 di exportStudio).
 
   if (tier === 'no-webgl') {
     return (
@@ -77,11 +172,18 @@ export function CanvasStageMobile() {
           dpr={dpr}
           gl={{
             antialias,
-            powerPreference: 'high-performance',
-            preserveDrawingBuffer: true,
+            // Per-tier: high-performance HANYA tier high; mid/low/no-webgl hemat baterai.
+            powerPreference: tier === 'high' ? 'high-performance' : 'low-power',
+            // On-demand: false hemat VRAM; ekspor/snapshot via exportStudio
+            // renderStudioNow() (render sinkron di task yang sama agar tak blank).
+            preserveDrawingBuffer: false,
           }}
-          frameloop={activeAnimation !== 'none' ? 'always' : 'demand'}
-          onCreated={({ gl }) => {
+          frameloop={needsContinuous ? 'always' : 'demand'}
+          onCreated={({ gl, scene, camera }) => {
+            // Daftarkan bus snapshot on-demand (pasangan preserveDrawingBuffer:false).
+            try {
+              registerStudioSnapshot({ gl: gl as any, scene: scene as any, camera: camera as any });
+            } catch {}
             const canvas = gl.domElement;
             const handleContextLost = (e: Event) => {
               e.preventDefault();
@@ -96,6 +198,7 @@ export function CanvasStageMobile() {
           }}
         >
           <SceneDisposer />
+          <PerfAdaptive />
           <MobileStudioLighting />
           <TouchOrbitControls />
           <AnimationController>

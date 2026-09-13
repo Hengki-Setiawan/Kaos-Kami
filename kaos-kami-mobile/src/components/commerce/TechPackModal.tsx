@@ -32,9 +32,21 @@ export function TechPackModal({
       setBusy(true);
       const fileName = `techpack-${data.orderId.replace(/[^A-Za-z0-9-]/g, '') || 'order'}.html`;
       if (Capacitor.isNativePlatform()) {
+        // Encode HTML→base64 modern via Blob+FileReader (pola exportStudio):
+        // JANGAN btoa(unescape(encodeURIComponent(...))) — deprecated & boros
+        // memori untuk dokumen besar.
+        const base64: string = await new Promise((resolve, reject) => {
+          const fr = new FileReader();
+          fr.onload = () => {
+            const url = String(fr.result || '');
+            resolve(url.includes(',') ? url.split(',')[1]! : url);
+          };
+          fr.onerror = () => reject(new Error('Gagal encode tech pack'));
+          fr.readAsDataURL(new Blob([htmlContent], { type: 'text/html;charset=utf-8' }));
+        });
         const saved = await Filesystem.writeFile({
           path: fileName,
-          data: btoa(unescape(encodeURIComponent(htmlContent))),
+          data: base64,
           directory: Directory.Cache,
         });
         await Share.share({
@@ -81,6 +93,10 @@ export function TechPackModal({
             <div>
               <span className="text-[10px] text-zinc-500 block">Warna Kain:</span>
               <span className="text-white font-medium">{data.colorName}</span>
+              <span className="text-zinc-500 font-mono block text-[10px]">
+                {data.colorHex}{data.colorPantone ? ` • ${data.colorPantone}` : ''}
+                {data.decalDpi ? ` • ${data.decalDpi} DPI` : ''}
+              </span>
             </div>
             <div>
               <span className="text-[10px] text-zinc-500 block">Dimensi Sablon:</span>

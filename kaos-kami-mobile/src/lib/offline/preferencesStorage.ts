@@ -40,3 +40,51 @@ export const preferencesStorage: StateStorage = {
 };
 
 export const preferencesJsonStorage = () => createJSONStorage(() => preferencesStorage);
+
+/**
+ * KV generik di atas Preferences (native) + localStorage (web fallback).
+ * Dipakai untuk kunci kecil yang sebelumnya di localStorage mentah:
+ * queue, active_order, pending_payment, user_id, decal_px.
+ * Selalu dual-write di web agar kode sync lama tetap jalan; baca async
+ * adalah sumber kebenaran di native.
+ */
+export async function prefGet(key: string): Promise<string | null> {
+  try {
+    if (isNative()) {
+      const { value } = await Preferences.get({ key });
+      if (value !== null && value !== undefined) return value;
+      // Migrasi sekali: baca sisa localStorage bila Preferences kosong.
+      try {
+        return typeof window !== 'undefined' ? localStorage.getItem(key) : null;
+      } catch {
+        return null;
+      }
+    }
+    return typeof window !== 'undefined' ? localStorage.getItem(key) : null;
+  } catch {
+    return null;
+  }
+}
+
+export async function prefSet(key: string, value: string): Promise<void> {
+  try {
+    if (isNative()) {
+      await Preferences.set({ key, value });
+      // Cermin localStorage agar pembaca sync (store 3D) tetap dapat nilai.
+      try {
+        if (typeof window !== 'undefined') localStorage.setItem(key, value);
+      } catch {}
+    } else if (typeof window !== 'undefined') {
+      localStorage.setItem(key, value);
+    }
+  } catch {}
+}
+
+export async function prefRemove(key: string): Promise<void> {
+  try {
+    if (isNative()) await Preferences.remove({ key });
+    try {
+      if (typeof window !== 'undefined') localStorage.removeItem(key);
+    } catch {}
+  } catch {}
+}

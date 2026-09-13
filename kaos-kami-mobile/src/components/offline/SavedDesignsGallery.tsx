@@ -5,7 +5,9 @@ import { Layers, Share2, Trash2, ArrowUpRight, Plus } from 'lucide-react';
 import { GlassCard, HapticButton, Badge } from '@/components/ui';
 import { useSavedDesignsStore, SavedDesign } from '@/lib/offline/savedDesignsStore';
 import { useMobileStudioStore } from '@/store/useMobileStudioStore';
+import { useShallow } from 'zustand/shallow';
 import { shareCustomDesign } from '@/lib/bridge/share';
+import { removeDecalPxForDesign } from '@/lib/offline/persistentKeys';
 import { haptic } from '@/lib/bridge/haptics';
 
 export function SavedDesignsGallery({
@@ -15,8 +17,25 @@ export function SavedDesignsGallery({
   onSelectDesign: () => void;
   onNewDesign: () => void;
 }) {
-  const { designs, deleteDesign } = useSavedDesignsStore();
-  const { setApparelType, setColor, setDecalUrl } = useMobileStudioStore();
+  const { designs, deleteDesign } = useSavedDesignsStore(
+    useShallow((s) => ({ designs: s.designs, deleteDesign: s.deleteDesign }))
+  );
+  const { setApparelType, setColor, setDecalUrl } = useMobileStudioStore(
+    useShallow((s) => ({
+      setApparelType: s.setApparelType,
+      setColor: s.setColor,
+      setDecalUrl: s.setDecalUrl,
+    }))
+  );
+
+  const handleDelete = (id: string) => {
+    deleteDesign(id);
+    // Bersihkan entri decal_px PER-DESAIN agar map tak bengkak / DPI basi
+    // tertinggal untuk ID yang sudah dihapus (fire-and-forget).
+    try {
+      void removeDecalPxForDesign(id);
+    } catch {}
+  };
 
   const handleLoadDesign = (design: SavedDesign) => {
     haptic.tapHeavy();
@@ -72,9 +91,11 @@ export function SavedDesignsGallery({
                     Offline Ready
                   </Badge>
                   {design.isSample && (
-                    <Badge variant="neutral" className="mt-1 ml-1 text-[9px] py-0 px-1.5">
-                      Contoh
-                    </Badge>
+                    <span title="Desain contoh — lebar 28cm = batas depan hoodie (saku kangaroo)">
+                      <Badge variant="neutral" className="mt-1 ml-1 text-[9px] py-0 px-1.5">
+                        Contoh • maks 28cm
+                      </Badge>
+                    </span>
                   )}
                 </div>
               </div>
@@ -89,7 +110,7 @@ export function SavedDesignsGallery({
                 </button>
 
                 <button
-                  onClick={() => deleteDesign(design.id)}
+                  onClick={() => handleDelete(design.id)}
                   title="Hapus"
                   className="w-8 h-8 rounded-xl bg-zinc-800 text-red-400 hover:text-red-300 flex items-center justify-center active:scale-90"
                 >

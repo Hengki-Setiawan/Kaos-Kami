@@ -18,6 +18,15 @@ export interface CartItem {
   decalUrl: string | null;
   printWidthCm: number;
   printHeightCm: number;
+  // Snapshot gizmo per-item (kontrak = DecalLayerSchema web: x/y/scale/
+  // rotation/targetSide). Diisi saat addItem dari useMobileStudioStore agar
+  // tiap item membawa transformnya sendiri (bukan satu transform global
+  // studio saat checkout). Mobile front-only: 'front' | 'back'.
+  decalX: number;
+  decalY: number;
+  decalScale: number;
+  decalRotation: number;
+  decalTargetSide: 'front' | 'back';
   createdAt: string;
 }
 
@@ -92,11 +101,28 @@ export const useMobileCartStore = create<MobileCartState>()(
       storage: preferencesJsonStorage(),
       // Versi skema cache (audit N12): mismatch = buang cache lama agar
       // bentuk item basi tak merusak checkout.
-      version: 1,
-      migrate: (persisted: any) => {
+      // v2: migrasi slug legacy 'jacket' → canonical 'shirt' (K-B).
+      // v3: snapshot gizmo per-item (decalX/decalY/decalScale/decalRotation/
+      // decalTargetSide); item lama tanpa snapshot diisi default store
+      // (x 0, y 0.04, scale 0.22, rot 0, front) agar lolos Zod server.
+      version: 3,
+      migrate: (persisted: any, version?: number) => {
         if (!persisted || typeof persisted !== 'object') return { items: [] } as any;
         const items = Array.isArray((persisted as any).items) ? (persisted as any).items : [];
-        return { items } as any;
+        return {
+          items: items.map((it: any) => {
+            const next = { ...it };
+            if (next?.apparelType === 'jacket') next.apparelType = 'shirt';
+            // v2→v3: item lama belum punya snapshot gizmo → default store.
+            if (typeof next.decalX !== 'number' || !Number.isFinite(next.decalX)) next.decalX = 0;
+            if (typeof next.decalY !== 'number' || !Number.isFinite(next.decalY)) next.decalY = 0.04;
+            if (typeof next.decalScale !== 'number' || !Number.isFinite(next.decalScale)) next.decalScale = 0.22;
+            if (typeof next.decalRotation !== 'number' || !Number.isFinite(next.decalRotation)) next.decalRotation = 0;
+            if (next.decalTargetSide !== 'back') next.decalTargetSide = 'front';
+            void version;
+            return next;
+          }),
+        } as any;
       },
     }
   )

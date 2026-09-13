@@ -3,7 +3,9 @@
 import React, { useEffect, useMemo } from 'react';
 import * as THREE from 'three';
 import { Decal, useTexture } from '@react-three/drei';
+import { useThree } from '@react-three/fiber';
 import { useMobileStudioStore, mobileMaxScaleUnits } from '@/store/useMobileStudioStore';
+import { useMobileDeviceTier } from '@/hooks/useMobileDeviceTier';
 
 function DecalItem({
   url,
@@ -17,16 +19,25 @@ function DecalItem({
   rotation: number;
 }) {
   const texture = useTexture(url);
+  const gl = useThree((s) => s.gl);
+  // Cap tekstur per-tier (useMobileDeviceTier): low 512 / mid 1024 / high 2048
+  // → cap anisotropy 2 / 4 / 8 (hemat VRAM & bandwidth HP low-end).
+  const { maxTextureSize } = useMobileDeviceTier();
 
   useEffect(() => {
     if (texture) {
-      texture.anisotropy = 16;
+      const tierCap = maxTextureSize >= 2048 ? 8 : maxTextureSize >= 1024 ? 4 : 2;
+      let rendererMax = 8;
+      try {
+        rendererMax = gl.capabilities.getMaxAnisotropy();
+      } catch {}
+      texture.anisotropy = Math.min(8, tierCap, rendererMax);
       texture.needsUpdate = true;
     }
     return () => {
       texture?.dispose();
     };
-  }, [texture]);
+  }, [texture, maxTextureSize, gl]);
 
   // Aspect ratio preservation
   const aspect = useMemo(() => {
@@ -38,9 +49,10 @@ function DecalItem({
   }, [texture]);
 
   // Clamp skala pada batas cetak AKTUAL per apparel (terkalibrasi ukur).
+  // Bawah selaras Zod web DecalLayerSchema.scale min 0.02.
   const apparel = useMobileStudioStore((s) => s.apparelType);
   const maxScale = mobileMaxScaleUnits(apparel);
-  const maxDimension = Math.min(maxScale, Math.max(0.04, scale[0]));
+  const maxDimension = Math.min(maxScale, Math.max(0.02, scale[0]));
   const finalScale: [number, number, number] = aspect >= 1
     ? [maxDimension, maxDimension / aspect, maxDimension]
     : [maxDimension * aspect, maxDimension, maxDimension];

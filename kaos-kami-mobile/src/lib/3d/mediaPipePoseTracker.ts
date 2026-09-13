@@ -26,7 +26,7 @@ type Landmarker = {
 
 export class MediaPipePoseTracker {
   private lastInferenceTime = 0;
-  private inferenceIntervalMs = 66; // ~15 FPS inference for low battery drain
+  private inferenceIntervalMs = 66; // ~15 FPS default; tier-low → 133ms via setter
   private landmarker: Landmarker | null = null;
   private loading: Promise<void> | null = null;
   private loadFailed = false;
@@ -65,13 +65,23 @@ export class MediaPipePoseTracker {
   }
 
   /**
-   * Inferensi bahu & torso dari frame video (maks 15 FPS).
+   * Atur throttle inferensi per-tier (hemat baterai/CPU HP low-end).
+   * low → 133ms (~7.5 FPS, cukup untuk anchor bahu) | mid/high → 66ms (~15 FPS).
    */
-  public processVideoFrame(video: HTMLVideoElement, now: number): void {
+  public setInferenceIntervalMs(ms: number): void {
+    if (Number.isFinite(ms) && ms >= 16 && ms <= 1000) this.inferenceIntervalMs = ms;
+  }
+
+  /**
+   * Inferensi bahu & torso dari frame video (maks 15 FPS).
+   * @returns true bila inferensi benar-benar dijalankan tick ini (untuk
+   * throttle setState di loop AR — panggil updateSmooth+set hanya bila true).
+   */
+  public processVideoFrame(video: HTMLVideoElement, now: number): boolean {
     this.ensureLoaded();
-    if (now - this.lastInferenceTime < this.inferenceIntervalMs) return;
+    if (now - this.lastInferenceTime < this.inferenceIntervalMs) return false;
     this.lastInferenceTime = now;
-    if (!this.landmarker || !video || video.readyState < 2) return;
+    if (!this.landmarker || !video || video.readyState < 2) return false;
 
     try {
       const res = this.landmarker.detectForVideo(video, now);
@@ -80,7 +90,7 @@ export class MediaPipePoseTracker {
       const R = lm?.[12];
       if (!L || !R || (L.visibility ?? 1) < 0.4 || (R.visibility ?? 1) < 0.4) {
         this.targetTransform.detected = false;
-        return;
+        return true;
       }
       // Lebar bahu (0..1) → skala baju; kemiringan → roll; offset tengah → anchor.
       const dx = R.x - L.x;
@@ -96,8 +106,10 @@ export class MediaPipePoseTracker {
         rotation: [0, -midX * 0.6, -roll],
         scale,
       };
+      return true;
     } catch {
       this.targetTransform.detected = false;
+      return true;
     }
   }
 
@@ -117,5 +129,18 @@ export class MediaPipePoseTracker {
     c.scale += (t.scale - c.scale) * lerpFactor;
     c.detected = t.detected;
     return c;
+  }
+
+  /**
+   * Bebaskan landmarker + GPU delegate saat AR ditutup/unmount.
+   * Tanpa ini WASM/GPU MediaPipe bocor tiap buka-tutup AR (temuan 3D mobile).
+   * Idempoten — aman dipanggil ganda (StrictMode / tombol X + unmount).
+   */
+  public dispose(): void {
+    try {
+      this.landmarker?.close();
+    } catch {}
+    this.landmarker = null;
+    this.loading = null;
   }
 }

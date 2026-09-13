@@ -5,7 +5,9 @@ import { ContactShadows } from '@react-three/drei';
 import { useMobileDeviceTier } from '@/hooks/useMobileDeviceTier';
 
 export function MobileStudioLighting() {
-  const { shadows } = useMobileDeviceTier();
+  const { shadows, tier } = useMobileDeviceTier();
+  // Resolusi shadow map per-tier (hemat VRAM low-end).
+  const shadowResolution = tier === 'high' ? 1024 : tier === 'mid' ? 512 : 256;
 
   return (
     <>
@@ -18,8 +20,8 @@ export function MobileStudioLighting() {
         intensity={1.2}
         color="#FFFFFF"
         castShadow={shadows}
-        shadow-mapSize-width={1024}
-        shadow-mapSize-height={1024}
+        shadow-mapSize-width={shadowResolution}
+        shadow-mapSize-height={shadowResolution}
         shadow-bias={-0.0001}
       />
 
@@ -37,13 +39,16 @@ export function MobileStudioLighting() {
         color="#FF8A50"
       />
 
-      {/* Soft Contact Shadow beneath garment */}
+      {/* Soft Contact Shadow beneath garment — frames={1}: dipanggang sekali
+          (hemat GPU), bukan render ulang tiap frame. */}
       <ContactShadows
         position={[0, -0.9, 0]}
         opacity={0.45}
         scale={4.0}
         blur={2.0}
         far={1.5}
+        frames={1}
+        resolution={shadowResolution}
         color="#000000"
       />
     </>

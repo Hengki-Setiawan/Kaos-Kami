@@ -1,6 +1,6 @@
 import { Capacitor, CapacitorHttp, HttpResponse } from '@capacitor/core';
 
-const BASE_API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://kaos-kami-3d.hengkisetiawan461.workers.dev';
+const BASE_API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://kaoskami.biz.id';
 
 /** Base URL API — dipakai komponen untuk endpoint GET publik (ongkir, geocode). */
 export const API_BASE_URL = BASE_API_URL;
@@ -67,18 +67,51 @@ export const mobileApiClient = {
     }
   },
 
-  checkout: async (payload: Record<string, unknown>): Promise<{ success: boolean; orderId?: string; orderNumber?: string; userId?: string; paymentUrl?: string; reference?: string; invoiceUrl?: string; error?: string }> => {
+  checkout: async (
+    payload: Record<string, unknown>,
+    // P0-2: header custom (Idempotency-Key unik per klik bayar). Server dedupe
+    // via header ini — replay key sama = 409 + order lama (tanpa dobel).
+    opts?: { idempotencyKey?: string }
+  ): Promise<{ success: boolean; orderId?: string; orderNumber?: string; userId?: string; paymentUrl?: string; reference?: string; invoiceUrl?: string; error?: string; status?: number }> => {
     try {
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+      if (opts?.idempotencyKey) headers['Idempotency-Key'] = opts.idempotencyKey;
       const response: HttpResponse = await CapacitorHttp.post({
         url: `${BASE_API_URL}/api/mobile/orders/checkout`,
-        headers: { 'Content-Type': 'application/json' },
+        headers,
         data: payload,
         ...HTTP_TIMEOUT,
       });
-      return response.data;
+      // CapacitorHttp TAK melempar untuk status HTTP error — response.data
+      // membawa { error, orderId?, orderNumber?, invoiceUrl? } server.
+      // Sertakan status agar pemanggil bisa bedakan 401/403/409/503 (jujur).
+      const body = (response.data ?? {}) as Record<string, unknown>;
+      return { success: response.status >= 200 && response.status < 300 && (body as any).success !== false, status: response.status, ...(body as object) } as any;
     } catch (err: any) {
       console.debug('[MobileAPI] checkout error:', err);
       return { success: false, error: err?.message || 'Jaringan bermasalah' };
+    }
+  },
+
+  /**
+   * P0-3: minta kode OTP 6-digit ke WA via /api/auth/send-otp (sama dengan web).
+   * Hemat Fonnte: panggil 1x per checkout (rate-limit server 3x/5 mnt).
+   * Mock code HANYA ada di dev tanpa FONNTE_TOKEN — prod tak pernah kirim code.
+   */
+  sendOtp: async (phoneNumber: string): Promise<{ ok: boolean; mock?: boolean; code?: string; error?: string; status?: number }> => {
+    try {
+      const response: HttpResponse = await CapacitorHttp.post({
+        url: `${BASE_API_URL}/api/auth/send-otp`,
+        headers: { 'Content-Type': 'application/json' },
+        data: { phoneNumber },
+        ...HTTP_TIMEOUT,
+      });
+      if (response.status >= 200 && response.status < 300) {
+        return { ok: true, mock: (response.data as any)?.mock, code: (response.data as any)?.code, status: response.status };
+      }
+      return { ok: false, error: (response.data as any)?.error || `Gagal kirim OTP (${response.status})`, status: response.status };
+    } catch (err: any) {
+      return { ok: false, error: err?.message || 'Jaringan bermasalah' };
     }
   },
 

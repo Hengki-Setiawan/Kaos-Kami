@@ -39,6 +39,14 @@ const STATUS_TO_STAGE: Partial<Record<OrderStatus, string>> = {
   SHIPPED: 'DONE',
 };
 
+/**
+ * Tombol "Simulasikan Pelanggan Sudah Lunas" HANYA untuk uji internal dev.
+ * Default MATI (termasuk semua build rilis): set
+ * NEXT_PUBLIC_ALLOW_PAYMENT_SIMULATION=1 untuk mengaktifkan di dev.
+ */
+const ALLOW_PAYMENT_SIMULATION =
+  typeof process !== 'undefined' && process.env?.NEXT_PUBLIC_ALLOW_PAYMENT_SIMULATION === '1';
+
 const INITIAL_ADMIN_ORDERS: OrderItemData[] = [
   {
     id: 'ord-1',
@@ -101,6 +109,9 @@ export function AdminMobileDashboard({
   const [liveMode, setLiveMode] = useState(false);
   const [loadingLive, setLoadingLive] = useState(false);
 
+  // TODO(sesi-admin): alirkan sesi admin nyata (Better Auth cookie/token) ke
+  // mobileApiClient agar getProductionTasks/advance lolos 401/403 — logika
+  // demo/live di bawah JANGAN diubah sampai itu ada.
   // Coba tarik antrean produksi asli dari server (butuh sesi admin).
   // Gagal/403 → tetap pakai data demo lokal + badge mode demo.
   const loadLiveTasks = async () => {
@@ -160,6 +171,12 @@ export function AdminMobileDashboard({
   });
 
   const updateOrderStatus = async (orderId: string, newStatus: OrderStatus) => {
+    // KUNCI DEMO (audit HIGH): tanpa liveMode semua mutasi DIKUNCI di UI
+    // (tombol disabled + notice). Guard ganda di sini bila dipanggil paksa.
+    if (!liveMode) {
+      onNotify?.('Mode demo — ACC dikunci. Login admin untuk aksi live.');
+      return;
+    }
     haptic.success();
     const target = orders.find((o) => o.id === orderId);
     const serverStage = STATUS_TO_STAGE[newStatus];
@@ -193,6 +210,8 @@ export function AdminMobileDashboard({
   };
 
   const pendingApprovalCount = orders.filter((o) => o.status === 'PENDING_DESIGN_APPROVAL').length;
+  // ACC dikunci bila demo (jujur: JANGAN klaim sukses lokal sebagai ACC).
+  const accLocked = !liveMode;
 
   return (
     <div className="space-y-4 pb-12 select-none">
@@ -313,6 +332,8 @@ export function AdminMobileDashboard({
                       ? 'warning'
                       : ord.status === 'COMPLETED'
                       ? 'success'
+                      : ord.status === 'REJECTED' || ord.status === 'CANCELLED' || ord.status === 'REFUNDED'
+                      ? 'neutral'
                       : 'production'
                   }
                   pulse={ord.status === 'PENDING_DESIGN_APPROVAL'}
@@ -323,6 +344,12 @@ export function AdminMobileDashboard({
                     ? 'Menunggu Bayar'
                     : ord.status === 'PRINTING_DTF'
                     ? 'Cetak DTF'
+                    : ord.status === 'REJECTED'
+                    ? 'Ditolak — baca catatan'
+                    : ord.status === 'CANCELLED'
+                    ? 'Dibatalkan'
+                    : ord.status === 'REFUNDED'
+                    ? 'Dana Kembali'
                     : ord.status}
                 </Badge>
               </div>
@@ -386,27 +413,37 @@ export function AdminMobileDashboard({
               </div>
             </div>
 
-            {/* Tombol Moderasi Utama (ACC Desain) */}
+            {/* Tombol Moderasi Utama (ACC Desain) — DIKUNCI saat demo */}
             {selectedOrder.status === 'PENDING_DESIGN_APPROVAL' && (
               <div className="space-y-2">
+                {accLocked && (
+                  <div className="p-3 rounded-2xl bg-amber-500/10 border border-amber-500/20 text-xs text-amber-300">
+                    <p className="font-bold">Mode demo — ACC dikunci</p>
+                    <p className="text-[10px] text-amber-300/80 mt-0.5">
+                      Tersambung sebagai demo lokal (offline / tanpa sesi admin). Login admin untuk menyetujui desain asli.
+                    </p>
+                  </div>
+                )}
                 <HapticButton
                   variant="primary"
                   hapticStyle="success"
                   icon={<CheckCircle2 className="w-4 h-4" />}
+                  disabled={accLocked}
                   onClick={() => updateOrderStatus(selectedOrder.id, 'PENDING_PAYMENT')}
                   className="w-full py-4 text-sm font-bold bg-emerald-600 hover:bg-emerald-500 border-emerald-400/30 shadow-lg shadow-emerald-600/30"
                 >
-                  Setujui Desain & Terbitkan Tagihan QRIS
+                  {accLocked ? 'ACC Terkunci (Mode Demo)' : 'Setujui Desain & Terbitkan Tagihan QRIS'}
                 </HapticButton>
 
                 <HapticButton
                   variant="destructive"
                   hapticStyle="error"
                   icon={<XCircle className="w-4 h-4" />}
+                  disabled={accLocked}
                   onClick={() => updateOrderStatus(selectedOrder.id, 'REJECTED')}
                   className="w-full py-3 text-xs"
                 >
-                  Tolak Desain (Gambar Pecah / Buram)
+                  {accLocked ? 'Tolak Terkunci (Mode Demo)' : 'Tolak Desain (Gambar Pecah / Buram)'}
                 </HapticButton>
               </div>
             )}
@@ -418,13 +455,34 @@ export function AdminMobileDashboard({
                 <p className="text-[10px] text-amber-300/80 mt-0.5">
                   Menunggu pelanggan menyelesaikan pembayaran QRIS di aplikasinya.
                 </p>
-                <HapticButton
-                  variant="primary"
-                  onClick={() => updateOrderStatus(selectedOrder.id, 'PRINTING_DTF')}
-                  className="w-full mt-3 text-xs"
-                >
-                  Simulasikan Pelanggan Sudah Lunas → Kirim ke Mesin DTF
-                </HapticButton>
+                {ALLOW_PAYMENT_SIMULATION ? (
+                  <HapticButton
+                    variant="primary"
+                    disabled={accLocked}
+                    onClick={() => updateOrderStatus(selectedOrder.id, 'PRINTING_DTF')}
+                    className="w-full mt-3 text-xs"
+                  >
+                    {accLocked ? 'Simulasi Terkunci (Mode Demo)' : 'Simulasikan Pelanggan Sudah Lunas → Kirim ke Mesin DTF'}
+                  </HapticButton>
+                ) : (
+                  <p className="text-[10px] text-zinc-400 mt-2">
+                    Simulasi lunas dinonaktifkan di build ini (rilis). Status maju otomatis setelah pembayaran terverifikasi.
+                  </p>
+                )}
+              </div>
+            )}
+
+            {/* Stage terminal: label jujur, TANPA aksi merusak */}
+            {(selectedOrder.status === 'REJECTED' || selectedOrder.status === 'CANCELLED') && (
+              <div className="p-3 rounded-2xl bg-zinc-900 border border-zinc-700 text-xs text-zinc-300">
+                <p className="font-bold text-white">
+                  {selectedOrder.status === 'REJECTED' ? 'Desain ditolak workshop' : 'Pesanan dibatalkan'}
+                </p>
+                <p className="text-[10px] text-zinc-400 mt-0.5">
+                  {selectedOrder.status === 'REJECTED'
+                    ? 'Beri tahu pelanggan alasan penolakan via WA di bawah. Tidak ada aksi produksi yang bisa dijalankan dari status ini.'
+                    : 'Pesanan ini dibatalkan. Tidak ada aksi produksi yang bisa dijalankan dari status ini.'}
+                </p>
               </div>
             )}
 
@@ -432,10 +490,11 @@ export function AdminMobileDashboard({
               <HapticButton
                 variant="primary"
                 icon={<Flame className="w-4 h-4" />}
+                disabled={accLocked}
                 onClick={() => updateOrderStatus(selectedOrder.id, 'CURING_PRESS')}
                 className="w-full py-3.5 text-xs font-bold"
               >
-                Cetak Selesai → Lanjut Press Panas 160°C
+                {accLocked ? 'Terkunci (Mode Demo)' : 'Cetak Selesai → Lanjut Press Panas 160°C'}
               </HapticButton>
             )}
 
@@ -443,10 +502,11 @@ export function AdminMobileDashboard({
               <HapticButton
                 variant="primary"
                 icon={<Truck className="w-4 h-4" />}
+                disabled={accLocked}
                 onClick={() => updateOrderStatus(selectedOrder.id, 'SHIPPED')}
                 className="w-full py-3.5 text-xs font-bold"
               >
-                Selesai QC & Packing → Siap Diambil / Diantar
+                {accLocked ? 'Terkunci (Mode Demo)' : 'Selesai QC & Packing → Siap Diambil / Diantar'}
               </HapticButton>
             )}
 

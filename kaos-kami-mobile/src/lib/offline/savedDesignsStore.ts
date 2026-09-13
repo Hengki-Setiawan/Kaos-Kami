@@ -36,7 +36,10 @@ export const useSavedDesignsStore = create<SavedDesignsState>()(
           colorHex: '#0E0E10',
           colorName: 'Obsidian Black',
           decalDataUrl: null,
-          printWidthCm: 28.5,
+          // Sampel: 28.0cm = batas depan hoodie (saku kangaroo, selaras web
+          // APPAREL_PHYSICAL_SPECS.hoodie.maxFrontWidthCm + MOBILE_MAX_WIDTH_CM).
+          // JANGAN 28.5 (melebihi hoodie; membingungkan saat sampel dibuka di hoodie).
+          printWidthCm: 28.0,
           printHeightCm: 22.0,
           savedAt: new Date(Date.now() - 86400000).toISOString(),
           isSample: true,
@@ -71,7 +74,23 @@ export const useSavedDesignsStore = create<SavedDesignsState>()(
     {
       name: 'kaoskami_saved_designs_offline',
       storage: preferencesJsonStorage(),
-      version: 1,
+      // v3: migrasi slug legacy 'jacket' → canonical 'shirt' (K-B) +
+      // koreksi sampel preset 28.5 → 28.0cm (batas depan hoodie).
+      version: 3,
+      migrate: (persisted: any) => {
+        if (!persisted || typeof persisted !== 'object') return { designs: [] } as any;
+        const designs = Array.isArray((persisted as any).designs) ? (persisted as any).designs : [];
+        return {
+          designs: designs.map((d: any) => {
+            let out = d;
+            if (d?.apparelType === 'jacket') out = { ...out, apparelType: 'shirt' };
+            if (out?.id === 'design-preset-1' && Number(out?.printWidthCm) === 28.5) {
+              out = { ...out, printWidthCm: 28.0 };
+            }
+            return out;
+          }),
+        } as any;
+      },
     }
   )
 );

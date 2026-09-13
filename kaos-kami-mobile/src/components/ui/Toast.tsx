@@ -56,17 +56,18 @@ export function Toast({
           className="fixed top-4 inset-x-4 z-50 flex justify-center pointer-events-none"
         >
           <div
-            className={`pointer-events-auto max-w-sm w-full p-3.5 rounded-2xl border shadow-2xl backdrop-blur-2xl flex items-center justify-between gap-3 ${color.bg}`}
+            className={`pointer-events-auto max-w-sm w-full p-3.5 rounded-2xl border shadow-2xl backdrop-blur-2xl flex items-start justify-between gap-3 ${color.bg}`}
           >
-            <div className="flex items-center gap-2.5 min-w-0">
-              <Icon className={`w-5 h-5 flex-shrink-0 ${color.iconColor}`} />
-              <p className={`text-xs font-medium leading-tight truncate ${color.text}`}>
+            <div className="flex items-start gap-2.5 min-w-0">
+              <Icon className={`w-5 h-5 flex-shrink-0 mt-0.5 ${color.iconColor}`} />
+              {/* Pesan penting JANGAN truncate 1 baris — multiline maks 3 baris. */}
+              <p className={`text-xs font-medium leading-snug break-words whitespace-pre-line line-clamp-3 ${color.text}`}>
                 {message}
               </p>
             </div>
             <button
               onClick={onClose}
-              className="w-6 h-6 rounded-lg flex items-center justify-center text-zinc-400 hover:text-white"
+              className="w-6 h-6 rounded-lg flex items-center justify-center flex-shrink-0 text-zinc-400 hover:text-white"
             >
               <X className="w-3.5 h-3.5" />
             </button>

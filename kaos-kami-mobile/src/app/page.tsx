@@ -19,7 +19,6 @@ import {
   WifiOff,
   Share2,
   Eye,
-  Crown,
   FileText,
 } from 'lucide-react';
 import {
@@ -42,26 +41,36 @@ import {
   registerPushNotificationHandlers,
   openInAppBrowser,
 } from '@/lib/bridge';
-import { initOfflineSyncQueue, enqueueOfflineMutation } from '@/lib/offline/syncQueue';
+import { initOfflineSyncQueue, enqueueOfflineMutation, replaySupportedMutations } from '@/lib/offline/syncQueue';
+import {
+  getActiveOrderId,
+  setActiveOrderId as persistActiveOrderId,
+  getPendingPaymentUrl,
+  setPendingPaymentUrl as persistPendingPaymentUrl,
+  getStoredUserId,
+  setDecalPxForDesign,
+} from '@/lib/offline/persistentKeys';
 import { mobileApiClient, API_BASE_URL } from '@/lib/api/mobileApiClient';
 import { SHOP_WHATSAPP } from '@/lib/shop';
 import { App as CapacitorApp } from '@capacitor/app';
-import { Keyboard } from '@capacitor/keyboard';
-import { useMobileStudioStore, ApparelType } from '@/store/useMobileStudioStore';
+import { Keyboard, KeyboardResize } from '@capacitor/keyboard';
+import { useMobileStudioStore, ApparelType, MOBILE_APPAREL_META } from '@/store/useMobileStudioStore';
 import { useMobileCartStore } from '@/store/useMobileCartStore';
+import { useShallow } from 'zustand/shallow';
 import {
   CheckoutSheet,
   UserOrderTrackerLive,
-  ProUpgradeModal,
   TechPackModal,
 } from '@/components/commerce';
-import { openDuitkuPaymentModal } from '@/lib/payments/duitkuMobile';
+import { openDuitkuPaymentModal, parseDuitkuReturnUrl } from '@/lib/payments/duitkuMobile';
 import { AdminMobileDashboard } from '@/components/admin';
 import { SavedDesignsGallery } from '@/components/offline';
 import { BiometricLockPrompt } from '@/components/security';
 import { DynamicIslandPreview } from '@/components/native';
 import { optimizeDecalImageForMobile } from '@/lib/enhancers/imageOptimizerMobile';
+import { useMobileDeviceTier } from '@/hooks/useMobileDeviceTier';
 import { useSavedDesignsStore } from '@/lib/offline/savedDesignsStore';
+import { STREETWEAR_SWATCHES } from '@/components/ui/ColorSwatchPicker';
 
 // Dynamic imports for 3D & AR to ensure zero SSR execution
 const CanvasStageMobile = dynamic(
@@ -81,11 +90,6 @@ const StudioControlOverlay = dynamic(
   { ssr: false }
 );
 
-const WatermarkOverlay = dynamic(
-  () => import('@/components/3d/WatermarkOverlay').then((m) => m.WatermarkOverlay),
-  { ssr: false }
-);
-
 const ARPreviewStage = dynamic(
   () => import('@/components/3d/ARPreviewStage').then((m) => m.ARPreviewStage),
   { ssr: false }
@@ -98,15 +102,24 @@ export default function MobileApp() {
   const [adminModeOpen, setAdminModeOpen] = useState(false);
   const [biometricPromptOpen, setBiometricPromptOpen] = useState(false);
   const [arOpen, setArOpen] = useState(false);
-  const [proModalOpen, setProModalOpen] = useState(false);
   const [techPackOpen, setTechPackOpen] = useState(false);
-  const [isProUser, setIsProUser] = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [isOnline, setIsOnline] = useState(true);
 
   // Cart & Offline Stores
-  const { items, addItem, getItemCount, getSubtotal } = useMobileCartStore();
-  const { saveDesign } = useSavedDesignsStore();
+  const { items, addItem, getItemCount, getSubtotal } = useMobileCartStore(
+    useShallow((s) => ({
+      items: s.items,
+      addItem: s.addItem,
+      getItemCount: s.getItemCount,
+      getSubtotal: s.getSubtotal,
+    }))
+  );
+  const saveDesign = useSavedDesignsStore((s) => s.saveDesign);
+  // PERF decal: maxDimension = tier cap (low 512 / mid 1024 / high 2048) agar
+  // HP low tak menampung tekstur 2048px di VRAM. Cermin anisotropy tier-aware
+  // di MobileDecalLayerRenderer.
+  const { maxTextureSize: decalTierCap } = useMobileDeviceTier();
 
   // Active User Order State — orderId server (cuid), persist antar restart.
   const [activeOrderId, setActiveOrderId] = useState<string | null>(() => {
@@ -130,6 +143,9 @@ export default function MobileApp() {
     setActiveOrderId(orderId);
     setPendingPaymentUrl(paymentUrl);
     setPendingInvoiceUrl(urls?.invoiceUrl ?? null);
+    // Persisten via Preferences (native survive restart) + cermin localStorage.
+    persistActiveOrderId(orderId).catch(() => {});
+    persistPendingPaymentUrl(paymentUrl).catch(() => {});
     try {
       if (orderId) localStorage.setItem('kaoskami_active_order', orderId);
       else localStorage.removeItem('kaoskami_active_order');
@@ -137,6 +153,19 @@ export default function MobileApp() {
       else localStorage.removeItem('kaoskami_pending_payment');
     } catch {}
   };
+
+  // Hidrasi sekali dari Preferences (native): localStorage WebView bisa kosong
+  // padahal Preferences masih menyimpan order/user dari sesi lalu.
+  useEffect(() => {
+    (async () => {
+      try {
+        const [oid, pay] = await Promise.all([getActiveOrderId(), getPendingPaymentUrl()]);
+        if (oid && !activeOrderId) setActiveOrderId(oid);
+        if (pay && !pendingPaymentUrl) setPendingPaymentUrl(pay);
+      } catch {}
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const {
     apparelType,
@@ -147,8 +176,24 @@ export default function MobileApp() {
     setDecalUrl,
     printWidthCm,
     printHeightCm,
+    offsetFromCollarCm,
+    decalDpi,
     resetStudio,
-  } = useMobileStudioStore();
+  } = useMobileStudioStore(
+    useShallow((s) => ({
+      apparelType: s.apparelType,
+      setApparelType: s.setApparelType,
+      color: s.color,
+      setColor: s.setColor,
+      decalUrl: s.decalUrl,
+      setDecalUrl: s.setDecalUrl,
+      printWidthCm: s.printWidthCm,
+      printHeightCm: s.printHeightCm,
+      offsetFromCollarCm: s.offsetFromCollarCm,
+      decalDpi: s.decalDpi,
+      resetStudio: s.resetStudio,
+    }))
+  );
 
   useEffect(() => {
     initEdgeToEdgeStatusBar();
@@ -159,42 +204,78 @@ export default function MobileApp() {
       }
     });
     // Replay antrean offline → server saat koneksi pulih (M5).
-    const cleanupSync = initOfflineSyncQueue(async (mutations) => {
-      const userId = localStorage.getItem('kaoskami_user_id') || '';
-      if (!userId) return; // tanpa user (belum checkout) tetap antre
-      const designs = mutations
-        .filter((m) => m.type === 'SAVE_DESIGN')
-        .flatMap((m) => (Array.isArray(m.payload?.designs) ? m.payload.designs : [m.payload]));
-      if (designs.length === 0) return;
-      const res = await mobileApiClient.syncDesigns({ userId, designs });
-      if (!res.success) throw new Error(res.error || 'sync gagal');
-      setToastMessage(`Sinkronisasi ${res.synced ?? designs.length} desain offline berhasil!`);
-      // Tipe yang belum didukung replay (SUBMIT_ORDER/UPDATE_CART) JANGAN
-      // dibuang diam-diam: lempar agar antrean dipertahankan + tercatat.
-      // Replay server bersifat idempoten (LWW-update per judul) sehingga
-      // pengulangan desain aman.
-      const unsupported = mutations.filter((m) => m.type !== 'SAVE_DESIGN');
-      if (unsupported.length > 0) {
-        throw new Error(`${unsupported.length} mutasi ${unsupported[0].type} belum didukung replay — tetap antre`);
+    // Batch dipisah per tipe di syncQueue: SAVE_DESIGN + SUBMIT_ORDER direplay
+    // via replaySupportedMutations (mobileApiClient); UPDATE_CART tak punya
+    // endpoint server (cart = persist lokal) → DILEWATI + toast (JANGAN throw).
+    const cleanupSync = initOfflineSyncQueue(
+      async (mutations) => {
+        const userId = (await getStoredUserId()) || (typeof window !== 'undefined' ? localStorage.getItem('kaoskami_user_id') || '' : '');
+        // Throw (bukan return) bila tanpa user agar antrean DIPERTAHANKAN —
+        // return = dianggap sukses = antrean dihapus (kehilangan order).
+        const { syncedDesigns, submittedOrders } = await replaySupportedMutations(mutations, { userId });
+        if (syncedDesigns > 0 || submittedOrders > 0) {
+          setToastMessage(
+            `Sinkronisasi ${syncedDesigns} desain${submittedOrders > 0 ? ` + ${submittedOrders} pesanan` : ''} offline berhasil!`
+          );
+        }
+        // Replay server bersifat idempoten (LWW-update per judul; checkout
+        // 502 fail-closed = orderId PENDING) sehingga pengulangan aman.
+      },
+      {
+        onUnsupported: (skipped) => {
+          setToastMessage(
+            `${skipped.length} antrean ${skipped[0]?.type} dilewati (belum didukung sync) — desain tetap tersimpan di HP.`
+          );
+        },
       }
-    });
+    );
     // Registrasi token push → UserDevice server (M10).
     registerPushNotificationHandlers(
       async (token) => {
-        const userId = localStorage.getItem('kaoskami_user_id') || undefined;
+        const userId = (await getStoredUserId()) || (typeof window !== 'undefined' ? localStorage.getItem('kaoskami_user_id') || undefined : undefined);
         await mobileApiClient.registerPushToken(token, userId);
       },
       () => {}
     );
     // Deep link kaoskami:// (M9): tile QS & return pembayaran.
-    // Parse query (?orderId&status) + bersihkan pending basi (audit).
+    // ANTI OPEN-REDIRECT (Sep 2026): validasi KETAT via URL parse —
+    // protocol wajib `kaoskami:`, host+path wajib masuk allowlist di bawah.
+    // `startsWith` longgar SENGAJA dihapus (lolos `kaoskami://studio-evil`,
+    // `kaoskami://payment@evil.com`, dsb). INVARIAN: isi deep-link TAK PERNAH
+    // dipakai sebagai target navigasi/browser — hanya switch tab internal +
+    // baca query orderId/status via parseDuitkuReturnUrl. Host tak dikenal →
+    // abaikan diam-diam (tanpa toast/navigasi).
+    // Allowlist:
+    //   kaoskami://studio                     → tab Studio
+    //   kaoskami://auth/callback               → tutup browser + tab Profil
+    //   kaoskami://payment[/callback]?…        → tab Pesanan + toast lunas
+    //     (query: orderId|merchantOrderId + status|resultCode, cth resultCode=00)
+    // UJI appUrlOpen (manual, tanpa cap sync/build di sini): skema didaftarkan
+    // di ios/App/App/Info.plist (CFBundleURLTypes → kaoskami) + Android
+    // intent-filter; verifikasi via:
+    //   xcrun simctl openurl booted "kaoskami://studio" (→ tab Studio)
+    //   xcrun simctl openurl booted "kaoskami://auth/callback" (→ tutup browser + tab Profil)
+    //   xcrun simctl openurl booted "kaoskami://payment?orderId=X&status=COMPLETED" (→ tab Pesanan + toast lunas)
+    //   xcrun simctl openurl booted "kaoskami://payment/callback?merchantOrderId=X&resultCode=00" (→ sama, varian Duitku)
+    // Status payment: COMPLETED → pending dibersihkan; CANCELLED → toast batal; PENDING/UNKNOWN → pending DIPERTAHANKAN + toast generik.
     let appUrlListener: { remove: () => void } | null = null;
     try {
       CapacitorApp.addListener('appUrlOpen', async (data: { url: string }) => {
         const url = data.url || '';
-        if (url.startsWith('kaoskami://studio')) {
+        // Parse ketat: tolak skema asing & URL malformed (open-redirect safe).
+        let host = '';
+        let path = '';
+        try {
+          const parsed = new URL(url);
+          if (parsed.protocol !== 'kaoskami:') return;
+          host = (parsed.hostname || '').toLowerCase();
+          path = (parsed.pathname || '').replace(/\/+$/, '') || '/';
+        } catch {
+          return;
+        }
+        if (host === 'studio' && (path === '/' || path === '')) {
           setActiveTab('studio');
-        } else if (url.startsWith('kaoskami://auth/callback')) {
+        } else if (host === 'auth' && path === '/callback') {
           // Kembali dari login Google: tutup browser + segarkan status login.
           try {
             const { closeInAppBrowser } = await import('@/lib/bridge/browser');
@@ -202,22 +283,23 @@ export default function MobileApp() {
           } catch {}
           setToastMessage('Login berhasil. Memuat akun…');
           setActiveTab('profile');
-        } else if (url.startsWith('kaoskami://payment')) {
+        } else if (host === 'payment' && (path === '/' || path === '/callback')) {
           try {
-            const q = url.split('?')[1] || '';
-            const params = new URLSearchParams(q);
-            const oid = params.get('orderId');
-            const st = (params.get('status') || '').toUpperCase();
+            // parseDuitkuReturnUrl: orderId|merchantOrderId + status|resultCode
+            // (00=lunas → COMPLETED, 01 → PENDING, 02/FAILED/EXPIRED → CANCELLED).
+            const { orderId: oid, status: st } = parseDuitkuReturnUrl(url);
             if (oid) {
               persistActiveOrder(oid);
               setActiveTab('orders');
               if (st === 'COMPLETED' || st === 'CANCELLED') {
+                persistPendingPaymentUrl(null).catch(() => {});
                 try { localStorage.removeItem('kaoskami_pending_payment'); } catch {}
                 setPendingPaymentUrl(null);
               }
               setToastMessage(
                 st === 'COMPLETED' ? 'Pembayaran sukses. Pesanan masuk produksi.' :
                 st === 'CANCELLED' ? 'Pembayaran dibatalkan.' :
+                st === 'PENDING' ? 'Pembayaran menunggu konfirmasi. Status diperbarui otomatis.' :
                 'Kembali dari pembayaran. Status diperbarui otomatis.'
               );
             } else {
@@ -228,6 +310,7 @@ export default function MobileApp() {
             setActiveTab('orders');
           }
         }
+        // Host/path lain → abaikan (anti open-redirect: tanpa fallback navigasi).
       }).then((h) => {
         appUrlListener = h;
       }).catch(() => {});
@@ -242,7 +325,7 @@ export default function MobileApp() {
       }).then((h) => {
         kbShow = h;
       }).catch(() => {});
-      Keyboard.setResizeMode({ mode: 'body' } as any).catch(() => {});
+      Keyboard.setResizeMode({ mode: KeyboardResize.Body }).catch(() => {});
     } catch {}
     return () => {
       cleanupNet();
@@ -262,14 +345,21 @@ export default function MobileApp() {
     if (rawDataUrl) {
       try {
         const st = useMobileStudioStore.getState();
+        // Floor 512: tier no-webgl (maxTextureSize 0) tak boleh jadi cap 0px.
         const { optimizedUrl, dpi, width } = await optimizeDecalImageForMobile(
           rawDataUrl,
-          2048,
+          Math.max(512, decalTierCap),
           st.printWidthCm
         );
         setDecalUrl(optimizedUrl);
         st.setDecalDpi(dpi);
-        // Simpan piksel asli untuk hitung ulang DPI saat skala diubah.
+        // decal_px PER-DESAIN (audit HIGH): kunci = apparel+warna aktif saat
+        // upload; disalin ke ID desain final saat Simpan (handleSaveToCart).
+        // Juga tulis global lama sekali (migrasi pembaca lawas).
+        const decalKey = `pending:${st.apparelType}:${st.color}`;
+        try {
+          await setDecalPxForDesign(decalKey, width);
+        } catch {}
         try {
           localStorage.setItem('kaoskami_decal_px', String(width));
         } catch {}
@@ -314,24 +404,62 @@ export default function MobileApp() {
     })();
   }, []);
 
-  const STUDIO_MODEL_MAP: Record<string, ApparelType> = {
-    tshirt: 'tshirt',
-    hoodie: 'hoodie',
-    longsleeve: 'longsleeve',
-    shirt: 'jacket',
-    crewneck: 'tshirt',
-  };
+  // NOTE (sinkron aset Sep 2026): STUDIO_MODEL_MAP lama DIHAPUS — diganti
+  // MOBILE_APPAREL_META (SSOT mockupEnabled/orderable). Alasan: map
+  // `crewneck: 'tshirt'` = mesh salah (tak jujur); kini slug dikenal dipakai
+  // apa adanya + picker mengunci !mockupEnabled.
 
   // Harga fallback = harga web APPAREL_CATALOG (server tetap sumber kebenaran).
+  // Kunci jujur (orderable false) vs mockup (mockupEnabled):
+  // - crewneck: picker TERKUNCI (mockupEnabled false) — pilih Sweater Pack
+  //   (mesh & jahitan sama); order ikut terkunci.
+  // - sweater/cap: MOCKUP 3D AKTIF di studio HP (MobileSweaterModel/
+  //   MobileCapModel), order TETAP diblokir (orderable false cermin web;
+  //   save-to-cart & checkout menolak, server validasi ulang).
+  // - pants/shorts: mockup 3D AKTIF di studio HP, order TETAP diblokir.
   const apparelOptions: { key: ApparelType; label: string; gsm: string; price: number }[] = [
     { key: 'tshirt', label: 'T-Shirt Heavyweight', gsm: '240 / 280 GSM', price: 149000 },
     { key: 'hoodie', label: 'Streetwear Hoodie', gsm: '380 GSM', price: 269000 },
-    { key: 'jacket', label: 'Coach Jacket', gsm: '320 GSM', price: 329000 },
+    { key: 'shirt', label: 'Coach Jacket', gsm: '320 GSM', price: 329000 },
     { key: 'longsleeve', label: 'Longsleeve Shirt', gsm: '240 / 280 GSM', price: 169000 },
+    { key: 'crewneck', label: 'Crewneck Sweater', gsm: '330 / 380 GSM', price: 249000 },
+    { key: 'sweater', label: 'Sweater Pack', gsm: '330 / 380 GSM', price: 249000 },
+    { key: 'cap', label: 'Baseball Cap', gsm: 'Twill / Canvas', price: 99000 },
+    { key: 'pants', label: 'Pants / Denim', gsm: '—', price: 0 },
+    { key: 'shorts', label: 'Shorts / Celana Pendek', gsm: '—', price: 0 },
   ];
 
   const handleSaveToCart = () => {
+    // Penjaga orderable (client-side ≈400): item terkunci JANGAN masuk
+    // keranjang — pesan jujur, bukan mesh salah. Server tetap validasi ulang.
+    const meta = MOBILE_APPAREL_META[apparelType];
+    if (!meta?.orderable) {
+      triggerToast(meta?.lockedMessage || 'Apparel ini belum bisa dipesan di HP.');
+      return;
+    }
     const selected = apparelOptions.find((a) => a.key === apparelType) || apparelOptions[0];
+    // Harga SERVER otoritatif: katalog live bila ada, else fallback statis.
+    // Sablon dihitung ulang engine server (calculate6VariablePrice) — JANGAN
+    // +35000 hardcode di HP (35000 = tier A3 maks; cetakan kecil jadi kemahalan
+    // di payload sync sebelum server menimpa).
+    const serverBasePrice =
+      serverCatalog?.find((c) => c.slug === apparelType)?.basePriceIdr ??
+      (apparelType === 'sweater'
+        ? serverCatalog?.find((c) => c.slug === 'crewneck')?.basePriceIdr
+        : undefined) ??
+      selected.price;
+    // Snapshot gizmo per-item (K-A lanjutan): bekukan transform studio SAAT
+    // INI ke item cart (kontrak DecalLayerSchema: x/y/scale/rotation/
+    // targetSide, clamp batas Zod ±0.75 / 0.02–1.5 / ±180). Checkout memakai
+    // snapshot per-item, BUKAN transform global studio yang sedang tampil.
+    const gizmo = useMobileStudioStore.getState();
+    const clampN = (v: number, lo: number, hi: number) =>
+      Number.isFinite(v) ? Math.min(hi, Math.max(lo, v)) : lo;
+    const snapX = clampN(gizmo.decalPosition?.[0] ?? 0, -0.75, 0.75);
+    const snapY = clampN(gizmo.decalPosition?.[1] ?? 0.04, -0.75, 0.75);
+    const snapScale = clampN(gizmo.decalScale?.[0] ?? 0.22, 0.02, 1.5);
+    const snapRot = clampN(gizmo.decalRotation ?? 0, -180, 180);
+    const snapSide = (gizmo.activeFace === 'back' ? 'back' : 'front') as 'front' | 'back';
     addItem({
       apparelType,
       apparelTitle: selected.label,
@@ -344,6 +472,11 @@ export default function MobileApp() {
       decalUrl,
       printWidthCm,
       printHeightCm,
+      decalX: snapX,
+      decalY: snapY,
+      decalScale: snapScale,
+      decalRotation: snapRot,
+      decalTargetSide: snapSide,
     });
 
     saveDesign({
@@ -355,6 +488,19 @@ export default function MobileApp() {
       printWidthCm,
       printHeightCm,
     });
+    // Salin decal_px pending → kunci ID desain baru (PER-DESAIN).
+    try {
+      const newest = useSavedDesignsStore.getState().designs[0];
+      const pendingKey = `pending:${apparelType}:${color}`;
+      let px = 0;
+      try {
+        const map = JSON.parse(localStorage.getItem('kaoskami_decal_px_map') || '{}');
+        px = Number(map[pendingKey] || localStorage.getItem('kaoskami_decal_px') || 0);
+      } catch {}
+      if (newest && px > 0) {
+        void setDecalPxForDesign(newest.id, px);
+      }
+    } catch {}
 
     // Antrekan sync offline → terkirim otomatis saat online (butuh userId pasca-checkout).
     try {
@@ -370,7 +516,7 @@ export default function MobileApp() {
               colorName: 'Custom Color',
               size: 'L',
               decals: [],
-              calculatedPriceIdr: selected.price + 35000,
+              calculatedPriceIdr: serverBasePrice,
               updatedAt: new Date().toISOString(),
             },
           ],
@@ -421,8 +567,8 @@ export default function MobileApp() {
                 </span>
               )}
             </button>
-            <Badge variant={isProUser ? 'production' : 'success'} pulse={isOnline}>
-              {isProUser ? 'PRO TIER' : isOnline ? 'Workshop Live' : 'Offline'}
+            <Badge variant="success" pulse={isOnline}>
+              {isOnline ? 'Workshop Live' : 'Offline'}
             </Badge>
           </div>
         }
@@ -520,24 +666,6 @@ export default function MobileApp() {
               </GlassCard>
             </div>
 
-            {/* Pro Suite & B2B Tech Pack Banner */}
-            <GlassCard
-              interactive
-              onClick={() => setProModalOpen(true)}
-              className="p-4 bg-gradient-to-r from-amber-500/15 to-orange-500/10 border-amber-500/30 flex items-center justify-between"
-            >
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-2xl bg-amber-500/20 flex items-center justify-center text-amber-400">
-                  <Crown className="w-5 h-5" />
-                </div>
-                <div>
-                  <h4 className="text-xs font-bold text-white font-['Syne']">Kaos Kami Pro Suite</h4>
-                  <p className="text-[10px] text-zinc-400">Ekspor 4K & Dokumen PDF B2B Sablon DTF</p>
-                </div>
-              </div>
-              <span className="text-xs font-bold text-amber-400">Lihat →</span>
-            </GlassCard>
-
             {/* Admin Workshop Access Card */}
             <GlassCard className="p-4 bg-gradient-to-r from-zinc-900 to-zinc-800/90 border-zinc-700/60 flex items-center justify-between">
               <div className="flex items-center gap-3">
@@ -569,8 +697,7 @@ export default function MobileApp() {
             {/* 3D Canvas Stage */}
             <div className="flex-1 relative rounded-3xl overflow-hidden border border-zinc-800 shadow-2xl bg-[#0E0E10]">
               <CanvasStageMobile />
-              <StudioControlOverlay isProUser={isProUser} onNotify={(m) => triggerToast(m)} />
-              <WatermarkOverlay isProUser={isProUser} />
+              <StudioControlOverlay onNotify={(m) => triggerToast(m)} />
             </div>
 
             {/* Bottom Quick Control Bar */}
@@ -624,35 +751,72 @@ export default function MobileApp() {
             </div>
             <div className="grid grid-cols-2 gap-3">
               {(serverCatalog && serverCatalog.length > 0
-                ? serverCatalog.map((c) => ({
-                    key: STUDIO_MODEL_MAP[c.slug] ?? 'tshirt',
-                    label: c.name,
-                    gsm: c.weightGsm || '',
-                    price: c.basePriceIdr,
-                    slug: c.slug,
-                  }))
+                ? serverCatalog.map((c) => {
+                    // JUJUR: slug dikenal → pakai slug itu sendiri (terkunci
+                    // tetap terkunci, JANGAN fallback tshirt = mesh salah);
+                    // slug asing → tshirt (legacy aman).
+                    const known = (MOBILE_APPAREL_META as Record<string, unknown>)[c.slug] !== undefined;
+                    return {
+                      key: (known ? c.slug : 'tshirt') as ApparelType,
+                      label: c.name,
+                      gsm: c.weightGsm || '',
+                      price: c.basePriceIdr,
+                      slug: c.slug,
+                    };
+                  })
                 : apparelOptions.map((item) => ({ ...item, slug: item.key }))
-              ).map((item) => (
+              ).map((item) => {
+                const m = MOBILE_APPAREL_META[item.key];
+                const locked = !m?.orderable;
+                const isCap = item.key === 'cap';
+                return (
                 <GlassCard
                   key={item.slug + item.label}
-                  interactive
+                  interactive={!locked}
                   onClick={() => {
+                    if (locked) {
+                      triggerToast(m?.lockedMessage || 'Segera di HP.');
+                      return;
+                    }
                     setApparelType(item.key);
                     setActiveTab('studio');
                     triggerToast(`${item.label} dipilih di Studio 3D!`);
                   }}
-                  className="p-3.5 text-left"
+                  className={`p-3.5 text-left ${locked ? 'opacity-60' : ''}`}
                 >
-                  <div className="w-full aspect-square rounded-2xl bg-zinc-800/80 mb-2.5 flex items-center justify-center text-zinc-500">
+                  <div className="w-full aspect-square rounded-2xl bg-zinc-800/80 mb-2.5 flex items-center justify-center text-zinc-500 relative">
                     <Layers className="w-8 h-8 opacity-40" />
+                    {locked && (
+                      <span className={`absolute top-2 right-2 px-2 py-0.5 rounded-full text-[9px] font-extrabold tracking-wide border ${
+                        isCap
+                          ? 'bg-amber-500/15 text-amber-300 border-amber-500/40'
+                          : 'bg-zinc-900/90 text-zinc-400 border-zinc-700'
+                      }`}>
+                        {isCap ? 'SEGERA' : '🔒 SEGERA DI HP'}
+                      </span>
+                    )}
                   </div>
                   <h4 className="text-xs font-bold text-white truncate font-['Syne']">{item.label}</h4>
                   <p className="text-[11px] text-zinc-400">{item.gsm}</p>
                   <p className="text-[11px] text-[#FF6B35] font-semibold mt-1">
-                    Rp {item.price.toLocaleString('id-ID')}
+                    {item.key === 'pants' || item.key === 'shorts' || item.key === 'sweater' || item.key === 'cap' ? 'Segera' : `Rp ${item.price.toLocaleString('id-ID')}`}
                   </p>
+                  {locked && (
+                    <p className="text-[10px] text-zinc-500 mt-1 leading-snug">
+                      {item.key === 'pants'
+                        ? 'Mockup 3D di studio HP — pemesanan SEGERA.'
+                        : item.key === 'shorts'
+                        ? 'Mockup 3D di studio HP — pemesanan SEGERA.'
+                        : item.key === 'sweater'
+                        ? 'Mockup 3D di studio HP — pemesanan SEGERA.'
+                        : item.key === 'cap'
+                        ? 'Mockup 3D di studio HP — pemesanan SEGERA.'
+                        : 'Pilih Sweater Pack (mesh sama).'}
+                    </p>
+                  )}
                 </GlassCard>
-              ))}
+                );
+              })}
             </div>
           </div>
         )}
@@ -725,7 +889,7 @@ export default function MobileApp() {
               <GlassCard className="p-4 bg-orange-500/10 border-orange-500/30 flex items-center justify-between">
                 <div>
                   <h4 className="text-xs font-bold text-white">Ada {items.length} Kaos di Keranjang</h4>
-                  <p className="text-[10px] text-zinc-400">Total: Rp {getSubtotal().toLocaleString('id-ID')}</p>
+                  <p className="text-[10px] text-zinc-400">Estimasi — dihitung ulang server: Rp {getSubtotal().toLocaleString('id-ID')}</p>
                 </div>
                 <HapticButton
                   variant="primary"
@@ -752,9 +916,7 @@ export default function MobileApp() {
                 <h3 className="text-sm font-bold text-white font-['Syne']">Pelanggan Kaos Kami</h3>
                 <p className="text-[11px] text-zinc-400">Mode tamu • Tamalanrea, Makassar</p>
                 <div className="flex gap-2 mt-1.5">
-                  <Badge variant={isProUser ? 'production' : 'success'}>
-                    {isProUser ? 'PRO MEMBER' : 'Face ID Aktif'}
-                  </Badge>
+                  <Badge variant="success">Face ID Aktif</Badge>
                 </div>
               </div>
             </GlassCard>
@@ -835,24 +997,59 @@ export default function MobileApp() {
             <div className="grid grid-cols-2 gap-2">
               {apparelOptions.map((opt) => {
                 const isSelected = apparelType === opt.key;
+                // KEPUTUSAN FALLBACK (jujur, bukan mesh salah): item
+                // !mockupEnabled TAK BISA dipilih — kunci + pesan (kini hanya
+                // crewneck: pilih Sweater Pack, mesh sama). Sweater/cap TIDAK
+                // reuse mesh hoodie/tshirt — MobileSweaterModel/MobileCapModel
+                // render mesh sendiri (mockup saja, order tetap diblokir).
+                // Pants/shorts mockupEnabled TRUE (orderable FALSE) → bisa dipilih
+                // di sini, tapi save-to-cart & checkout tetap menolak.
+                const meta = MOBILE_APPAREL_META[opt.key];
+                const locked = !meta?.mockupEnabled;
+                const isCap = opt.key === 'cap';
                 return (
                   <button
                     key={opt.key}
+                    disabled={locked}
                     onClick={() => {
+                      if (locked) {
+                        triggerToast(meta?.lockedMessage || 'Segera di HP.');
+                        return;
+                      }
                       haptic.selection();
                       setApparelType(opt.key);
                     }}
                     className={`p-3 rounded-2xl border text-left flex items-center justify-between transition-all ${
-                      isSelected
+                      locked
+                        ? 'bg-zinc-900/60 border-zinc-800 text-zinc-500 opacity-60 cursor-not-allowed'
+                        : isSelected
                         ? 'bg-[#FF6B35]/15 border-[#FF6B35] text-white'
                         : 'bg-zinc-900 border-zinc-800 text-zinc-400 hover:text-white'
                     }`}
                   >
                     <div>
-                      <p className="text-xs font-bold">{opt.label}</p>
+                      <p className="text-xs font-bold flex items-center gap-1.5">
+                        {opt.label}
+                        {locked && (
+                          <span className={`px-1.5 py-px rounded-full text-[8px] font-extrabold border ${
+                            isCap
+                              ? 'bg-amber-500/15 text-amber-300 border-amber-500/40'
+                              : 'bg-zinc-800 text-zinc-400 border-zinc-700'
+                          }`}>
+                            {isCap ? 'SEGERA' : 'SEGERA DI HP'}
+                          </span>
+                        )}
+                      </p>
                       <p className="text-[10px] text-zinc-500">{opt.gsm}</p>
+                      {locked && (
+                        <p className="text-[9px] text-zinc-500 mt-0.5 leading-snug">
+                          {opt.key === 'crewneck'
+                            ? 'Pilih Sweater Pack (mesh sama).'
+                            : 'Mockup 3D di studio HP; order diblokir.'}
+                        </p>
+                      )}
                     </div>
-                    {isSelected && <Check className="w-4 h-4 text-[#FF6B35]" />}
+                    {isSelected && !locked && <Check className="w-4 h-4 text-[#FF6B35]" />}
                   </button>
                 );
               })}
@@ -940,34 +1137,41 @@ export default function MobileApp() {
         />
       )}
 
-      {/* PRO UPGRADE MODAL & REWARDED ADS */}
-      <ProUpgradeModal
-        open={proModalOpen}
-        onClose={() => setProModalOpen(false)}
-        onUnlockPro={() => {
-          setIsProUser(true);
-          triggerToast('🎉 Fitur Kaos Kami Pro Suite Berhasil Diaktifkan!');
-        }}
-      />
-
-      {/* B2B TECH PACK VIEWER SHEET */}
+      {/* B2B TECH PACK VIEWER SHEET — tetap HTML (tanpa lib PDF).
+          Nilai dari gizmo/store + cart nyata; fallback jujur bila kosong. */}
       <TechPackModal
         open={techPackOpen}
         onOpenChange={setTechPackOpen}
-        data={{
-          orderId: activeOrderId ?? '-',
-          brandName: 'Kaos Kami Streetwear',
-          designerPhone: SHOP_WHATSAPP,
-          apparelTitle:
-            apparelOptions.find((a) => a.key === apparelType)?.label ?? 'T-Shirt Heavyweight',
-          colorName: 'Custom',
-          colorHex: color,
-          size: 'L',
-          printWidthCm,
-          printHeightCm,
-          offsetFromCollarCm: 7.5,
-          estimatedFilmCostIdr: 35000,
-        }}
+        data={(() => {
+          // Item cart yang sama dengan studio tampil (apparel+warna) → size &
+          // biaya sablon nyata; else item terbaru; else fallback jujur.
+          const match =
+            items.find(
+              (it) => it.apparelType === apparelType && it.colorHex.toLowerCase() === color.toLowerCase()
+            ) ?? items[0];
+          const swatchName = STREETWEAR_SWATCHES.find(
+            (s) => s.hex.toLowerCase() === color.toLowerCase()
+          )?.name;
+          return {
+            orderId: activeOrderId ?? match?.id ?? '-',
+            brandName: 'Kaos Kami Streetwear',
+            designerPhone: SHOP_WHATSAPP,
+            apparelTitle:
+              apparelOptions.find((a) => a.key === apparelType)?.label ?? match?.apparelTitle ?? 'T-Shirt Heavyweight',
+            colorName: match?.colorName || swatchName || 'Custom',
+            colorHex: color,
+            // Store belum punya peta Pantone → biarkan kosong (modal cetak '-').
+            colorPantone: undefined,
+            decalDpi,
+            size: match?.size ?? 'L',
+            printWidthCm: match?.printWidthCm ?? printWidthCm,
+            printHeightCm: match?.printHeightCm ?? printHeightCm,
+            offsetFromCollarCm,
+            // Biaya film = sablonPrice cart nyata; 35000 hanya fallback tier A3
+            // maks (server hitung ulang via calculate6VariablePrice).
+            estimatedFilmCostIdr: match?.sablonPrice ?? 35000,
+          };
+        })()}
       />
 
       {/* Floating Native Toast */}

@@ -1,26 +1,151 @@
 import { create } from 'zustand';
 
-export type ApparelType = 'tshirt' | 'hoodie' | 'jacket' | 'longsleeve';
+export type ApparelType =
+  | 'tshirt'
+  | 'hoodie'
+  | 'shirt'
+  | 'longsleeve'
+  | 'crewneck'
+  | 'sweater'
+  | 'cap'
+  | 'pants'
+  | 'shorts';
 export type AnimationPreset = 'idle' | 'walking' | 'waving' | 'spin' | 'none';
 export type CameraAngle = 'front' | 'back' | 'left' | 'right' | 'perspective';
 
 /**
+ * Status ketersediaan per apparel mobile — cermin web
+ * (tshirt/longsleeve/crewneck/hoodie/shirt) + ekstensi katalog
+ * (sweater = alias crewneck, cap, pants).
+ * - mockupEnabled: renderer HP sudah bisa tampilkan mockup 3D penuh.
+ * - orderable: boleh masuk keranjang + checkout (server tetap sumber
+ *   kebenaran; flag ini hanya penjaga dini client-side ≈400).
+ * 4 aktif (tshirt/longsleeve/hoodie/shirt) = true/true.
+ * crewneck = false/false — TETAP dikunci di picker (scope tugas Sweater/Cap);
+ *   render defensif memakai MobileSweaterModel (mesh web crewneck MEMANG
+ *   sweater.glb), pesan mengarahkan ke Sweater Pack.
+ * sweater = true/false (MOCKUP-SAJA, cermin web orderable false):
+ *   public/models/sweater.glb + sweater.draco.glb direstore (lihat
+ *   MobileSweaterModel untuk kalibrasi 102.4/surfaceZ 0.151); order TETAP
+ *   diblokir client (≈400) + server wajib menolak ulang.
+ * cap = true/false (MOCKUP-SAJA, cermin web orderable false):
+ *   public/models/cap.glb + cap.draco.glb direstore (lihat MobileCapModel;
+ *   units/cm 50.0 + maxWidth 12cm = ASUMSI+TODO, web tak punya spek fisik
+ *   cap); order TETAP diblokir client (≈400) + server wajib menolak ulang.
+ * pants = true/false (cermin web orderable false) — MOCKUP SAJA:
+ *   public/models/pants.glb disalin dari Asset 3D/github/ 12 Sep 2026
+ *   (1.16MB, 1 mesh/1 material/1 tekstur, TERUKUR bbox 0.328×1.003×0.244,
+ *   Y 0.11–1.11). Renderer mobile tampilkan (center Box3, skala native);
+ *   order TETAP diblokir client (≈400) + server wajib menolak ulang.
+ * shorts = true/false (cermin web orderable false) — MOCKUP SAJA, pola
+ *   pants persis: public/models/shorts.glb disalin dari Asset 3D/github/
+ *   12 Sep 2026 (754 verts, 1 mesh/1 material/1 PNG 1024, TERUKUR bbox
+ *   0.332×0.585×0.240, Y −0.32…0.26). Renderer mobile tampilkan (center
+ *   Box3, skala native); order TETAP diblokir client (≈400) + server
+ *   wajib menolak ulang.
+ */
+export interface MobileApparelMeta {
+  mockupEnabled: boolean;
+  orderable: boolean;
+  /** Pesan jujur saat pengguna memilih item terkunci. */
+  lockedMessage: string;
+  /** Nama file GLB bila ada (null = tak ada file). */
+  modelFile: string | null;
+}
+
+export const MOBILE_APPAREL_META: Record<ApparelType, MobileApparelMeta> = {
+  tshirt: { mockupEnabled: true, orderable: true, lockedMessage: '', modelFile: 'tee-basic.glb' },
+  longsleeve: { mockupEnabled: true, orderable: true, lockedMessage: '', modelFile: 'longsleeve.glb' },
+  hoodie: { mockupEnabled: true, orderable: true, lockedMessage: '', modelFile: 'hoodie-blue.glb' },
+  shirt: { mockupEnabled: true, orderable: true, lockedMessage: '', modelFile: 'jacket.glb' },
+  crewneck: {
+    mockupEnabled: false,
+    orderable: false,
+    lockedMessage: 'Crewneck = Sweater Pack (mesh sama) — pilih Sweater di studio HP.',
+    modelFile: null,
+  },
+  sweater: {
+    mockupEnabled: true,
+    orderable: false,
+    lockedMessage: 'Sweater: mockup 3D bisa dicoba di studio HP — pemesanan SEGERA dibuka (simpan & checkout HP menolak).',
+    modelFile: 'sweater.glb',
+  },
+  cap: {
+    mockupEnabled: true,
+    orderable: false,
+    lockedMessage: 'Topi (cap): mockup 3D bisa dicoba di studio HP — pemesanan SEGERA dibuka (simpan & checkout HP menolak).',
+    modelFile: 'cap.glb',
+  },
+  pants: {
+    mockupEnabled: true,
+    orderable: false,
+    lockedMessage: 'Celana (pants): mockup 3D bisa dicoba di studio HP — pemesanan SEGERA dibuka (simpan & checkout HP menolak).',
+    modelFile: 'pants.glb',
+  },
+  shorts: {
+    mockupEnabled: true,
+    orderable: false,
+    lockedMessage: 'Celana pendek (shorts): mockup 3D bisa dicoba di studio HP — pemesanan SEGERA dibuka (simpan & checkout HP menolak).',
+    modelFile: 'shorts.glb',
+  },
+};
+
+/** Penjaga dini client-side (≈400): true bila apparel boleh di-order. */
+export function isApparelOrderable(apparel: string): boolean {
+  return (MOBILE_APPAREL_META[apparel as ApparelType]?.orderable ?? false) === true;
+}
+
+/** True bila renderer HP sudah bisa mockup penuh. */
+export function isApparelMockupEnabled(apparel: string): boolean {
+  return (MOBILE_APPAREL_META[apparel as ApparelType]?.mockupEnabled ?? false) === true;
+}
+
+/**
  * Multiplier unit-3D → cm TERUKUR dari bounding-box GLB (selaras web scaleCalibration.ts).
- * tshirt 56/0.550=101.8 · hoodie 60/0.631=95.1 · jacket via tinggi 74/1.065=69.5 · longsleeve 56/0.794=70.5
+ * tshirt 56/0.550=101.8 · hoodie 60/0.631=95.1 · shirt via tinggi 74/1.065=69.5 · longsleeve 56/0.794=70.5
+ * crewneck/sweater 102.4 = cermin web FASE 13 APPAREL_PHYSICAL_SPECS.crewneck.meshMultiplier
+ *   (via TINGGI 72.0/0.70304 — lengan terentang, preseden jacket; 91.9 lama =
+ *   warisan hoodie.glb, SALAH untuk sweater.glb).
+ * cap 50.0 = ASUMSI + TODO (web TAK PUNYA spek fisik cap): crown span TERUKUR
+ *   0.4004u ≈ panel depan snapback 20cm → 20/0.4004 = 49.95 → 50.0. Ukur topi
+ *   fisik menyusul. Orderable false → tak pernah masuk produksi.
+ * pants 99.8 = cermin web APPAREL_PHYSICAL_SPECS.pants.meshMultiplier
+ *   (via tinggi 100.0/1.00249 — TERUKUR 12 Sep 2026). Orderable false →
+ *   angka ini tak pernah masuk produksi.
+ * shorts 85.5 = cermin web APPAREL_PHYSICAL_SPECS.shorts.meshMultiplier
+ *   (via tinggi 50.0/0.58510 — TERUKUR 12 Sep 2026, asumsi outseam 50cm
+ *   size L preseden pants). ASUMSI + TODO: ukur outseam fisik menyusul;
+ *   JANGAN ubah tanpa meteran (sesi uji fisik). Orderable false → tak pernah
+ *   masuk produksi.
  */
 export const MOBILE_UNITS_TO_CM: Record<ApparelType, number> = {
   tshirt: 101.8,
   hoodie: 95.1,
-  jacket: 69.5,
+  shirt: 69.5,
   longsleeve: 70.5,
+  crewneck: 102.4,
+  sweater: 102.4,
+  cap: 50.0,
+  pants: 99.8,
+  shorts: 85.5,
 };
 
-/** Lebar cetak maks (cm) per apparel mobile — cermin web APPAREL_PHYSICAL_SPECS. */
+/** Lebar cetak maks (cm) per apparel mobile — cermin web APPAREL_PHYSICAL_SPECS.
+ *  crewneck/sweater 30 = cermin web maxFrontWidthCm (30×38 depan).
+ *  cap 12 = ASUMSI + TODO (area DTF/bordir panel depan topi; web tak punya
+ *  speknya — fallback efektif web = spek tshirt 30cm). Orderable false → tak
+ *  dipakai produksi.
+ *  pants 25 & shorts 22 = cermin web maxFrontWidthCm (placeholder jujur). */
 export const MOBILE_MAX_WIDTH_CM: Record<ApparelType, number> = {
   tshirt: 30,
   hoodie: 28,
-  jacket: 14,
+  shirt: 14,
   longsleeve: 30,
+  crewneck: 30,
+  sweater: 30,
+  cap: 12,
+  pants: 25,
+  shorts: 22,
 };
 
 /** Skala 3D maksimal agar klaim cm tepat menyentuh batas cetak. */
@@ -90,7 +215,10 @@ export const useMobileStudioStore = create<MobileStudioState>((set) => ({
   printHeightCm: 22.0,
   offsetFromCollarCm: 7.5,
 
-  activeAnimation: 'idle',
+  // PERF (idle 0fps): default 'none' agar Canvas frameloop="demand" saat idle.
+  // Animasi hanya jalan saat user memilih eksplisit / jendela transien 800ms
+  // (lihat CanvasStageMobile transientMotion, tiru web CanvasStage).
+  activeAnimation: 'none',
   cameraAngle: 'perspective',
   activeFace: 'front',
 
@@ -112,10 +240,20 @@ export const useMobileStudioStore = create<MobileStudioState>((set) => ({
       const clampedWidth = Math.min(30.0, Math.max(5.0, rawWidth));
       const clampedHeight = Math.min(42.0, Math.max(5.0, rawHeight));
 
-      // Hitung ulang DPI dari piksel asli setiap skala berubah (jujur per-cm).
+      // Hitung ulang DPI dari piksel asli PER-DESAIN setiap skala berubah.
+      // Fast-path sync via cermin localStorage (map kaoskami_decal_px_map +
+      // pointer current); nilai master di Preferences (lihat persistentKeys).
       let dpi: number | null = state.decalDpi;
       try {
-        const px = Number(localStorage.getItem('kaoskami_decal_px') || 0);
+        const cur = typeof window !== 'undefined' ? localStorage.getItem('kaoskami_decal_px_current') : null;
+        let px = 0;
+        if (cur) {
+          try {
+            const map = JSON.parse(localStorage.getItem('kaoskami_decal_px_map') || '{}');
+            px = Number(map[cur] || 0);
+          } catch {}
+        }
+        if (!px) px = Number(localStorage.getItem('kaoskami_decal_px') || 0); // migrasi global lama
         dpi = px > 0 ? Math.max(0, Math.min(2400, Math.round(px / (clampedWidth / 2.54)))) : null;
       } catch {}
 
@@ -153,7 +291,7 @@ export const useMobileStudioStore = create<MobileStudioState>((set) => ({
       printWidthCm: 22.0,
       printHeightCm: 22.0,
       offsetFromCollarCm: 7.5,
-      activeAnimation: 'idle',
+      activeAnimation: 'none',
       cameraAngle: 'perspective',
       activeFace: 'front',
     }),

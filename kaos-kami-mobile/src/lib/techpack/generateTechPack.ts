@@ -7,6 +7,10 @@ export interface TechPackData {
   apparelTitle: string;
   colorName: string;
   colorHex: string;
+  /** Kode Pantone bila tersedia di store/katalog (opsional — '-' bila belum dipetakan). */
+  colorPantone?: string;
+  /** DPI decal saat gizmo dikunci (opsional — null = belum dihitung). */
+  decalDpi?: number | null;
   size: string;
   printWidthCm: number;
   printHeightCm: number;
@@ -126,6 +130,8 @@ export function generateTechPackHtml(data: TechPackData): string {
             <p>ID Order: <span class="value">${data.orderId}</span></p>
             <p>Apparel: <span class="value">${data.apparelTitle} (${data.size})</span></p>
             <p>Warna Kain: <span class="value">${data.colorName}</span> (<code>${data.colorHex}</code>)</p>
+            <p>Pantone: <span class="value">${data.colorPantone || '— (belum dipetakan di store)'}</span></p>
+            ${data.decalDpi ? `<p>DPI Desain: <span class="value">${data.decalDpi} DPI</span></p>` : ''}
           </div>
 
           <div class="card">
