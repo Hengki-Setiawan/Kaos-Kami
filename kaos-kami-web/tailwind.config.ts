@@ -14,12 +14,15 @@ const config: Config = {
         "text-primary": "var(--color-text-primary)",
         "text-muted": "var(--color-text-muted)",
         "brand-accent": "var(--color-brand-accent)",
+        success: "var(--color-success)",
         "border-subtle": "var(--color-border-subtle)",
         "border-strong": "var(--color-border-strong)",
       },
       fontFamily: {
         display: ["var(--font-display)", "sans-serif"],
-        mono: ["var(--font-mono)", "monospace"],
+        // CWV: next/font JetBrains_Mono dicabut (layout.tsx) — font-mono
+        // pakai monospace sistem agar tak ada unduhan font tambahan.
+        mono: ["ui-monospace", "SFMono-Regular", "Menlo", "Consolas", "monospace"],
         sans: ["var(--font-sans)", "sans-serif"],
       },
       transitionTimingFunction: {

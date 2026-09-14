@@ -18,8 +18,32 @@ export const HeroOverlay: React.FC = () => {
   const isVisible = activePhase === 1 && viewMode === "story";
   const apparel = APPAREL_CATALOG[activeApparel];
   // Judul hero dari CMS (R2) — gagal = default editorial.
-  const [cmsTitle, setCmsTitle] = React.useState<string | null>(null);
-  const [cmsSubtitle, setCmsSubtitle] = React.useState<string | null>(null);
+  // CWV stale-while-revalidate: tampilkan cache sesi (stale) instan agar
+  // teks hero tak pop-in (CLS), lalu revalidasi di background.
+  const [cmsTitle, setCmsTitle] = React.useState<string | null>(() => {
+    try {
+      const raw = sessionStorage.getItem("kaos-hero-cms");
+      if (raw) {
+        const d = JSON.parse(raw) as { heroTitle?: unknown };
+        if (typeof d?.heroTitle === "string" && d.heroTitle) {
+          return d.heroTitle.slice(0, 80);
+        }
+      }
+    } catch {}
+    return null;
+  });
+  const [cmsSubtitle, setCmsSubtitle] = React.useState<string | null>(() => {
+    try {
+      const raw = sessionStorage.getItem("kaos-hero-cms");
+      if (raw) {
+        const d = JSON.parse(raw) as { heroSubtitle?: unknown };
+        if (typeof d?.heroSubtitle === "string" && d.heroSubtitle) {
+          return (d.heroSubtitle as string).slice(0, 200);
+        }
+      }
+    } catch {}
+    return null;
+  });
   React.useEffect(() => {
     const ctrl = new AbortController();
     const t = setTimeout(() => ctrl.abort(), 8000);
@@ -30,9 +54,21 @@ export const HeroOverlay: React.FC = () => {
         clearTimeout(t);
         if (!r.ok || !d) return;
         // Sanitasi panjang (audit #11): judul CMS tak boleh merusak layout.
-        if (d?.heroTitle) setCmsTitle(String(d.heroTitle).slice(0, 80));
+        if (d?.heroTitle) {
+          const v = String(d.heroTitle).slice(0, 80);
+          setCmsTitle(v);
+          try {
+            const prev = JSON.parse(sessionStorage.getItem("kaos-hero-cms") || "{}");
+            sessionStorage.setItem("kaos-hero-cms", JSON.stringify({ ...prev, heroTitle: v }));
+          } catch {}
+        }
         if (typeof d?.heroSubtitle === "string" && d.heroSubtitle) {
-          setCmsSubtitle(d.heroSubtitle.slice(0, 200));
+          const v = (d.heroSubtitle as string).slice(0, 200);
+          setCmsSubtitle(v);
+          try {
+            const prev = JSON.parse(sessionStorage.getItem("kaos-hero-cms") || "{}");
+            sessionStorage.setItem("kaos-hero-cms", JSON.stringify({ ...prev, heroSubtitle: v }));
+          } catch {}
         }
       } catch {}
     })();
@@ -57,14 +93,16 @@ export const HeroOverlay: React.FC = () => {
         <span className="font-mono text-xs text-brand-accent tracking-widest uppercase font-bold block mb-1">
           MAKASSAR STREETWEAR // {apparel.weightGsm}
         </span>
-        <p className="font-sans text-xs text-text-muted leading-relaxed">
+        <p className="font-sans text-xs text-text-muted leading-relaxed min-h-[3rem]">
           {subtitle}
         </p>
       </div>
 
       {/* Main Editorial Title: Strict Left 45% Column, zero collision with 3D garment */}
       <div className="my-auto max-w-sm sm:max-w-md space-y-3 z-20">
-        <h1 className="text-3xl sm:text-4xl md:text-[44px] font-display font-black uppercase tracking-tight leading-[0.96] text-text-primary">
+        {/* CWV: min-h cadangkan slot judul agar swap teks CMS
+            (stale→fresh) tak menggeser layout (CLS). */}
+        <h1 className="text-[clamp(1.65rem,7.5vw,2.25rem)] sm:text-4xl md:text-[44px] font-display font-black uppercase tracking-tight leading-[0.96] text-text-primary min-h-[5.5rem] sm:min-h-[6rem]">
           {titleLines.map((line, i) => (
             <React.Fragment key={i}>
               {i > 0 && <br />}
@@ -80,13 +118,13 @@ export const HeroOverlay: React.FC = () => {
         <div className="pt-3 pointer-events-auto flex flex-wrap gap-3">
           <Link
             href="/studio"
-            className="inline-flex items-center px-6 py-3 rounded-full bg-brand-accent text-canvas font-mono font-bold text-xs uppercase tracking-wider hover:brightness-110 transition-all shadow-[0_0_20px_rgba(230,81,0,0.35)] active:scale-95"
+            className="inline-flex items-center px-6 py-3 rounded-full bg-brand-accent text-canvas font-mono font-bold text-xs uppercase tracking-wider hover:brightness-110 transition-all dark:shadow-[0_0_20px_rgba(230,81,0,0.35)] active:scale-95"
           >
             <span>KUSTOM SABLON 3D</span>
           </Link>
           <Link
             href="/catalog"
-            className="inline-flex items-center px-6 py-3 rounded-full bg-surface border border-white/15 text-white font-mono font-bold text-xs uppercase tracking-wider hover:border-brand-accent hover:text-brand-accent transition-all active:scale-95"
+            className="inline-flex items-center px-6 py-3 rounded-full bg-surface border border-border-subtle text-text-primary font-mono font-bold text-xs uppercase tracking-wider hover:border-brand-accent hover:text-brand-accent transition-all active:scale-95"
           >
             <span>BELI KAOS POLOS</span>
           </Link>

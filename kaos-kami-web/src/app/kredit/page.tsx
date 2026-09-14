@@ -85,9 +85,9 @@ const CREDITS: Array<{ title: string; author: string; authorUrl: string; source:
 
 export default function KreditPage() {
   return (
-    <main className="min-h-screen bg-canvas text-white px-5 py-10">
+    <main className="min-h-screen bg-canvas text-text-primary px-5 py-10">
       <div className="max-w-3xl mx-auto space-y-6">
-        <Link href="/" className="font-mono text-xs text-text-muted hover:text-white">
+        <Link href="/" className="font-mono text-xs text-text-muted hover:text-text-primary">
           ← Kembali ke Beranda
         </Link>
         <h1 className="font-display font-black text-2xl uppercase">Kredit Aset 3D</h1>
@@ -99,7 +99,7 @@ export default function KreditPage() {
         </p>
         <ul className="space-y-4">
           {CREDITS.map((c) => (
-            <li key={c.source} className="rounded-xl border border-white/10 bg-surface p-4 space-y-1">
+            <li key={c.source} className="rounded-xl border border-border-subtle bg-surface p-4 space-y-1">
               <p className="font-bold text-sm">
                 “{c.title}” oleh{" "}
                 <a href={c.authorUrl} target="_blank" rel="noopener noreferrer" className="text-brand-accent underline">

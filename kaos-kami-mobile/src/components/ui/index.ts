@@ -6,3 +6,4 @@ export * from './TabBar';
 export * from './Badge';
 export * from './ColorSwatchPicker';
 export * from './Toast';
+export * from './ApparelVectorIcon';

@@ -12,11 +12,18 @@ const nextConfig = {
     optimizePackageImports: ["lucide-react", "clsx", "tailwind-merge", "framer-motion"],
   },
   images: {
-    unoptimized: true,
-    // formats MATI selama unoptimized:true (Next tak memproses/mengonversi
-    // gambar sama sekali — nilai ini diabaikan, dipertahankan agar niat
-    // optimasi avif/webp terdokumentasi saat unoptimized dicabut).
+    // CWV Sep 2026: optimasi AKTIF (unoptimized:false) agar hero/katalog
+    // dapat srcset AVIF/WebP + sizes responsif. R2 pub URL
+    // (https://pub-*.r2.dev) diizinkan via remotePatterns wildcard.
+    unoptimized: false,
     formats: ["image/avif", "image/webp"],
+    remotePatterns: [
+      {
+        protocol: "https",
+        hostname: "*.r2.dev",
+        pathname: "/**",
+      },
+    ],
   },
   // Next 15: serverComponentsExternalPackages -> serverExternalPackages.
   serverExternalPackages: [],
@@ -31,11 +38,13 @@ const nextConfig = {
     // ke nonce-hash = tindak lanjut terpisah (butuh uji build).
     const csp = [
       "default-src 'self'",
-      "script-src 'self' 'unsafe-inline' https://app.duitku.com https://app-sandbox.duitku.com https://challenges.cloudflare.com",
+      "script-src 'self' 'unsafe-inline' 'unsafe-eval' 'wasm-unsafe-eval' https://app.duitku.com https://app-sandbox.duitku.com https://challenges.cloudflare.com https://www.gstatic.com https://www.googletagmanager.com https://static.cloudflareinsights.com",
+      "worker-src 'self' blob: 'unsafe-eval' 'wasm-unsafe-eval'",
+      "child-src 'self' blob: 'unsafe-eval' 'wasm-unsafe-eval'",
       "style-src 'self' 'unsafe-inline'",
       "img-src 'self' data: blob: https:",
       "font-src 'self' data:",
-      "connect-src 'self' https://passport.duitku.com https://sandbox.duitku.com https://challenges.cloudflare.com",
+      "connect-src 'self' blob: data: https://passport.duitku.com https://sandbox.duitku.com https://challenges.cloudflare.com https://kaoskami.biz.id https://pub-5746f36a46904edc8425ecd72517865c.r2.dev https://www.gstatic.com https://www.google-analytics.com https://analytics.google.com https://*.google-analytics.com https://cloudflareinsights.com",
       "frame-src 'self' https://app.duitku.com https://app-sandbox.duitku.com https://challenges.cloudflare.com",
       "object-src 'none'",
       "base-uri 'self'",

@@ -123,6 +123,13 @@ export const CameraRig: React.FC<CameraRigProps> = ({ targetPosition, targetLook
         zoomSpeed={0.85}
         panSpeed={0.8}
         enablePan={!isGizmoDragging}
+        // TOUCH (cermin mobile TouchOrbitControls): 1 jari = rotate,
+        // 2 jari = dolly+pan. touch-action:pan-y diatur di CanvasStage agar
+        // scroll vertikal halaman tetap jalan di HP.
+        touches={{
+          ONE: THREE.TOUCH.ROTATE,
+          TWO: THREE.TOUCH.DOLLY_PAN,
+        }}
         mouseButtons={{
           LEFT: isPanMode ? THREE.MOUSE.PAN : THREE.MOUSE.ROTATE,
           MIDDLE: THREE.MOUSE.DOLLY,

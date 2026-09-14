@@ -161,7 +161,7 @@ export function hydrateFromServer() {
             colorHex: d.colorHex,
             colorName: d.colorName,
             size: d.size,
-            theme: d.studioTheme || "obsidian",
+            theme: d.studioTheme || "gallery",
             materialFinish: d.materialFinishSlug || "combed-cotton",
             decals: typeof d.decals === "string" ? JSON.parse(d.decals) : d.decals || [],
             savedAt: new Date(d.createdAt).toLocaleDateString("id-ID", { day: "numeric", month: "short" }),
@@ -174,6 +174,18 @@ export function hydrateFromServer() {
             const merged = [...newOnes, ...store.savedDesigns];
             (store as any).savedDesigns = merged;
             writeLocalDesigns(merged.map(stripBlobUrls));
+          }
+          // DB menang atas localStorage saat login: terapkan tema desain
+          // server terbaru ke store + persist lokal + data-theme.
+          const latestTheme = (serverDesigns[0] as any)?.theme;
+          if (latestTheme === "gallery" || latestTheme === "obsidian" || latestTheme === "concrete") {
+            try {
+              useConfiguratorStore.setState({ studioTheme: latestTheme });
+              localStorage.setItem("kaos-studio-theme", latestTheme);
+              if (typeof document !== "undefined") {
+                document.documentElement.setAttribute("data-theme", latestTheme);
+              }
+            } catch {}
           }
         } catch (e) {
           console.warn("Hydrate parse failed", e);

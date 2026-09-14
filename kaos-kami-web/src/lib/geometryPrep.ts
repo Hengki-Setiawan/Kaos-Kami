@@ -37,10 +37,9 @@ import * as THREE from "three";
 
 /**
  * Amplitudo lipatan gravitasi (satuan dunia model; ≈meter bila 1 unit ≈ 1m
- * seperti hasil kalibrasi skala-cm). 0.0025 ≈ 2.5mm — setara kerut gantung
- * kaos 240GSM. JANGAN >0.005 (lihat butir 4 di atas).
+ * seperti hasil kalibrasi skala-cm). 0 = dinonaktifkan (geometri kain murni tanpa distorsi).
  */
-const FOLD_DISP_AMP = 0.0025;
+const FOLD_DISP_AMP = 0;
 
 export function ensureWindWeights(
   geo: THREE.BufferGeometry,

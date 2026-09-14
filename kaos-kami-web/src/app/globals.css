@@ -4,43 +4,77 @@
 
 :root,
 [data-theme="obsidian"] {
+  color-scheme: dark;
   --color-canvas: #121214;
   --color-surface: rgba(26, 26, 30, 0.75);
   --color-surface-elevated: rgba(38, 38, 44, 0.9);
   --color-text-primary: #F5F5F7;
   --color-text-muted: #8E8E93;
   --color-brand-accent: #E65100;
+  --color-success: #25D366;
   --color-border-subtle: rgba(255, 255, 255, 0.08);
   --color-border-strong: rgba(255, 255, 255, 0.2);
 }
 
 [data-theme="gallery"] {
+  color-scheme: light;
   --color-canvas: #F5F4F0;
-  --color-surface: rgba(255, 255, 255, 0.85);
-  --color-surface-elevated: rgba(255, 255, 255, 0.95);
+  --color-surface: rgba(255, 255, 255, 0.92);
+  --color-surface-elevated: #FFFFFF;
   --color-text-primary: #121214;
-  --color-text-muted: #64646E;
+  --color-text-muted: #52525B;
   --color-brand-accent: #E65100;
-  --color-border-subtle: rgba(0, 0, 0, 0.08);
-  --color-border-strong: rgba(0, 0, 0, 0.2);
+  --color-success: #25D366;
+  --color-border-subtle: rgba(0, 0, 0, 0.12);
+  --color-border-strong: rgba(0, 0, 0, 0.24);
+}
+
+/* Automatic logo switching based on active theme */
+[data-theme="gallery"] .logo-dark-mode {
+  display: none !important;
+}
+[data-theme="gallery"] .logo-light-mode {
+  display: block !important;
+}
+:root .logo-dark-mode,
+[data-theme="obsidian"] .logo-dark-mode,
+[data-theme="concrete"] .logo-dark-mode {
+  display: block !important;
+}
+:root .logo-light-mode,
+[data-theme="obsidian"] .logo-light-mode,
+[data-theme="concrete"] .logo-light-mode {
+  display: none !important;
 }
 
 [data-theme="concrete"] {
+  color-scheme: dark;
   --color-canvas: #222326;
   --color-surface: rgba(42, 43, 48, 0.8);
   --color-surface-elevated: rgba(54, 55, 62, 0.95);
   --color-text-primary: #F0F0F2;
   --color-text-muted: #A0A0AA;
   --color-brand-accent: #E65100;
+  --color-success: #25D366;
   --color-border-subtle: rgba(255, 255, 255, 0.1);
   --color-border-strong: rgba(255, 255, 255, 0.25);
+}
+
+/* Fallback tanpa data-theme (pre-hydration): hormati preferensi OS. */
+:root {
+  color-scheme: light dark;
+}
+
+html,
+body {
+  overflow-x: clip;
+  max-width: 100%;
 }
 
 body {
   background-color: var(--color-canvas);
   color: var(--color-text-primary);
   font-family: var(--font-sans), sans-serif;
-  overflow-x: hidden;
   transition: background-color 0.4s ease, color 0.4s ease;
 }
 
@@ -49,8 +83,9 @@ body {
   position: fixed;
   top: 0;
   left: 0;
-  width: 100vw;
+  width: 100%;
   height: 100vh;
+  height: 100dvh;
   z-index: 10;
   pointer-events: none;
 }
@@ -91,7 +126,7 @@ body {
   background: var(--color-brand-accent);
 }
 /* Print scoping (audit #17): halaman cetak workshop (gang-sheet/job-ticket)
-   hanya mencetak area kertas — nav/aside/tombol disembunyikan. Elemen yang
+   hanya mencetak area kertas ï¿½ nav/aside/tombol disembunyikan. Elemen yang
    memakai class Tailwind `print:hidden` ikut disembunyikan otomatis. */
 @media print {
   aside,

@@ -84,7 +84,7 @@ export const StaticShowcase: React.FC = () => {
 
         <div>
           <span className="block text-xs font-mono text-text-muted mb-3">STREET-CUT SIZING:</span>
-          <div className="grid grid-cols-5 gap-2">
+          <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
             {SIZES.map((size) => (
               <button
                 key={size}

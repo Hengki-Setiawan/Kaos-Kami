@@ -117,7 +117,7 @@ export function TrackClient() {
         ← KEMBALI KE BERANDA
       </Link>
       <div>
-        <h1 className="font-display text-2xl font-black uppercase text-white">Lacak Pesanan</h1>
+        <h1 className="font-display text-2xl font-black uppercase text-text-primary">Lacak Pesanan</h1>
         <p className="font-mono text-xs text-text-muted mt-1">Tanpa daftar — cukup nomor WA + kode OTP.</p>
       </div>
 
@@ -127,7 +127,7 @@ export function TrackClient() {
             e.preventDefault();
             sendOtp();
           }}
-          className="p-5 rounded-2xl bg-[#141416] border border-white/5 space-y-3"
+          className="p-5 rounded-2xl bg-surface border border-border-subtle space-y-3"
         >
           <label className="block font-mono text-xs text-text-muted">
             Nomor WhatsApp pesanan
@@ -137,7 +137,7 @@ export function TrackClient() {
               placeholder="08xxxxxxxxxx"
               inputMode="tel"
               autoComplete="tel"
-              className="mt-1 w-full px-3 py-2.5 rounded-xl bg-surface border border-white/10 text-white"
+              className="mt-1 w-full px-3 py-2.5 rounded-xl bg-surface border border-border-subtle text-text-primary"
             />
           </label>
           <button type="submit" disabled={busy} className="w-full py-3 rounded-xl bg-brand-accent text-canvas font-bold text-xs uppercase disabled:opacity-50">
@@ -147,9 +147,9 @@ export function TrackClient() {
       )}
 
       {step === 2 && (
-        <form onSubmit={check} className="p-5 rounded-2xl bg-[#141416] border border-white/5 space-y-3">
+        <form onSubmit={check} className="p-5 rounded-2xl bg-surface border border-border-subtle space-y-3">
           <p className="font-mono text-[11px] text-text-muted">
-            Kode dikirim ke <span className="text-white font-bold">{phone}</span>
+            Kode dikirim ke <span className="text-text-primary font-bold">{phone}</span>
           </p>
           <label className="block font-mono text-xs text-text-muted">
             Kode OTP 6 digit
@@ -160,7 +160,7 @@ export function TrackClient() {
               placeholder="••••••"
               inputMode="numeric"
               autoComplete="one-time-code"
-              className="mt-1 w-full px-3 py-2.5 rounded-xl bg-surface border border-white/10 text-white text-center text-xl tracking-[0.5em]"
+              className="mt-1 w-full px-3 py-2.5 rounded-xl bg-surface border border-border-subtle text-text-primary text-center text-xl tracking-[0.5em]"
             />
           </label>
           <p className={`font-mono text-[11px] ${otpExpired ? "text-rose-300" : "text-text-muted"}`}>
@@ -173,7 +173,7 @@ export function TrackClient() {
             <button type="button" onClick={sendOtp} disabled={busy || otpLeft > 240} className="font-mono text-[11px] text-brand-accent hover:underline disabled:opacity-50">
               {otpLeft > 240 ? `Kirim ulang (${mm}:${ss})` : "Kirim ulang kode"}
             </button>
-            <button type="button" onClick={() => setStep(1)} className="font-mono text-[11px] text-text-muted hover:text-white">
+            <button type="button" onClick={() => setStep(1)} className="font-mono text-[11px] text-text-muted hover:text-text-primary">
               Ganti nomor
             </button>
           </div>
@@ -183,7 +183,7 @@ export function TrackClient() {
       {step === 3 && (
         <div className="space-y-3">
           {orders.length === 0 ? (
-            <div className="p-6 text-center border border-dashed border-white/10 rounded-2xl space-y-2">
+            <div className="p-6 text-center border border-dashed border-border-subtle rounded-2xl space-y-2">
               <p className="font-mono text-xs text-text-muted">Tidak ada pesanan untuk nomor ini.</p>
               <Link href="/catalog" className="inline-block px-5 py-2.5 rounded-xl bg-brand-accent text-canvas font-bold text-xs uppercase">
                 MULAI PESAN KAOS
@@ -191,9 +191,9 @@ export function TrackClient() {
             </div>
           ) : (
             orders.map((o) => (
-              <div key={o.id} className="p-4 rounded-2xl bg-[#141416] border border-white/5 font-mono text-xs space-y-1.5">
+              <div key={o.id} className="p-4 rounded-2xl bg-surface border border-border-subtle font-mono text-xs space-y-1.5">
                 <div className="flex justify-between items-center">
-                  <span className="font-bold text-white">{o.orderNumber}</span>
+                  <span className="font-bold text-text-primary">{o.orderNumber}</span>
                   <span className="px-2 py-0.5 rounded-full text-[10px] font-bold uppercase bg-brand-accent/15 text-brand-accent border border-brand-accent/30">
                     {o.status.replace(/_/g, " ")}
                   </span>
@@ -207,7 +207,7 @@ export function TrackClient() {
               </div>
             ))
           )}
-          <button onClick={() => { setStep(1); setCode(""); setOrders([]); setOtpSentAt(null); }} className="w-full font-mono text-[11px] text-text-muted hover:text-white">
+          <button onClick={() => { setStep(1); setCode(""); setOrders([]); setOtpSentAt(null); }} className="w-full font-mono text-[11px] text-text-muted hover:text-text-primary">
             Lacak nomor lain
           </button>
         </div>

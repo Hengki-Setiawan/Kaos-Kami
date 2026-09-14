@@ -1,13 +1,14 @@
 "use client";
 
-import React, { useMemo, useRef, Suspense } from "react";
+import React, { useEffect, useMemo, useRef, Suspense } from "react";
 import * as THREE from "three";
 import { useGLTF } from "@react-three/drei";
-import { useFrame } from "@react-three/fiber";
+import { useFrame, useThree } from "@react-three/fiber";
 import * as BufferGeometryUtils from "three/examples/jsm/utils/BufferGeometryUtils.js";
 import { useConfiguratorStore } from "@/store/useConfiguratorStore";
 import { useShallow } from "zustand/shallow";
 import { useDeviceTier } from "@/hooks/useDeviceTier";
+import { extractApparelGeometry } from "@/lib/extractApparelGeometry";
 import { DecalLayerRenderer } from "./DecalLayerRenderer";
 import { easing } from "maath";
 import { applyWindToMaterial } from "@/lib/shaders/windDisplacement";
@@ -19,22 +20,23 @@ import { SilentModelFallback } from "@/components/ui/ModelErrorBoundary";
 
 // FASE 13 & P0-4: hoodie default & fallback = hoodie-blue (lisensi CC-BY 4.0 Irevex11).
 // Model legacy hoodie.glb dipensiunkan ke backups/ demi keamanan lisensi.
-const MODEL_PATH_NEW_DRC = "/models/hoodie-blue.draco.glb";
-const MODEL_PATH_NEW = "/models/hoodie-blue.glb";
-useGLTF.preload(MODEL_PATH_NEW_DRC);
-useGLTF.preload(MODEL_PATH_NEW);
+const MODEL_PATH_NEW_DRC = "/models/hoodie-blue.glb?v=7";
+const MODEL_PATH_NEW = "/models/hoodie-blue.glb?v=7";
+
+// PERF 14 Sep 2026: top-level useGLTF.preload DIHAPUS — preload terpusat
+// HANYA via idle-preload di CanvasStage (aktif + tetangga katalog) agar tak
+// berebut bandwidth first paint.
 
 /**
- * FASE 13 scale-up: node FBX hoodie-blue berskala 0.01 (world 0.05406×0.02695
- * = mungil tak terlihat). ×26 memanggang render 1.4056×0.7007 agar torso
- * ≈ mesh lama (kontinuitas framing/kamera/decal). Kalibrasi via TINGGI
- * 74.0/0.7007 = 105.6 di scaleCalibration (preseden jacket.glb).
+ * Scale-up untuk Sketchfab premium_eco_hoodie (dengan kantong kanguru 3D timbul fisik):
+ * Tinggi mentah 0.98m × 0.74 menghasilkan tinggi 0.725m (proporsi proporsional setara kaos).
  */
-const HOODIE_BLUE_SCALE_UP = 26;
+const HOODIE_BLUE_SCALE_UP = 0.74;
 
 const GltfHoodieNew: React.FC<{ path: string }> = ({ path }) => {
   const meshRef = useRef<THREE.Group>(null);
   const { tier } = useDeviceTier();
+  const invalidate = useThree((s) => s.invalidate);
   const { scene } = useGLTF(path);
   const {
     selectedColor,
@@ -80,42 +82,13 @@ const GltfHoodieNew: React.FC<{ path: string }> = ({ path }) => {
     });
   }, [selectedColor, isWireframe, activeColorMode, materialFinish, windStrength, tier]);
 
-  // mergedBase: merge+scale-up+center+normal+wind+UV — HANYA [scene, path].
   const mergedBase = useMemo(() => {
-    scene.updateMatrixWorld(true);
-    const geoms: THREE.BufferGeometry[] = [];
-
-    scene.traverse((child: any) => {
-      if (child.isMesh && child.geometry) {
-        const cloned = child.geometry.clone();
-        cloned.applyMatrix4(child.matrixWorld);
-        geoms.push(cloned);
-      }
-    });
-
-    if (geoms.length === 0) return null;
-
-    try {
-      const merged = BufferGeometryUtils.mergeGeometries(geoms, false);
-      // Clone perantara dibuang setelah merge (audit #6 — leak VRAM).
-      for (const g of geoms) {
-        try {
-          g.dispose();
-        } catch {}
-      }
-      if (merged) {
-        merged.scale(HOODIE_BLUE_SCALE_UP, HOODIE_BLUE_SCALE_UP, HOODIE_BLUE_SCALE_UP);
-        merged.center();
-        merged.computeVertexNormals();
-        ensureWindWeights(merged);
-        ensureBoxUV(merged);
-        return merged;
-      }
-    } catch (e) {
-      console.warn("Failed to merge hoodie geometries:", e);
-    }
-    return null;
+    return extractApparelGeometry(scene, { scaleMultiplier: HOODIE_BLUE_SCALE_UP });
   }, [scene, path]);
+
+  useEffect(() => {
+    if (mergedBase) invalidate();
+  }, [invalidate, mergedBase]);
 
   // Atribut warna vertex (multi-part) — mutasi mergedBase MILIK SENDIRI
   // (bukan cache GLB drei), tanpa merge ulang. FASE 13 ambang di ruang
@@ -210,8 +183,8 @@ const GltfHoodieNew: React.FC<{ path: string }> = ({ path }) => {
 export const HoodieModel: React.FC = () => {
   return (
     <Suspense fallback={null}>
-      <SilentModelFallback fallback={<GltfHoodieNew path={MODEL_PATH_NEW} />}>
-        <GltfHoodieNew path={MODEL_PATH_NEW_DRC} />
+      <SilentModelFallback fallback={<GltfHoodieNew path={MODEL_PATH_NEW_DRC} />}>
+        <GltfHoodieNew path={MODEL_PATH_NEW} />
       </SilentModelFallback>
     </Suspense>
   );

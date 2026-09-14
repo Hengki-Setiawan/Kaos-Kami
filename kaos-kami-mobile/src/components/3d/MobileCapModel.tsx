@@ -25,8 +25,19 @@ import {
 // −0.11 DIPERTAHANKAN cermin web. TODO: cek visual HP bila decal meleset.
 const CAP_CROWN_Y_OFFSET = -0.11;
 
+// PERF placeholder cap.lod1 (14 Sep 2026, BELUM di-wire — komentar saja):
+// cap.glb 93k tris BERAT untuk tier-low; LOD ringan (target ±10k tris,
+// `public/models/cap.lod1.glb`) butuh decimate di Blender + keputusan owner,
+// JANGAN buat file biner dari agen ini. Setelah file ada (owner), wire di
+// SATU tempat milik agen Draco — rantai `MOBILE_MODEL_CANDIDATES.cap` +
+// `syncFallbackFor` di MobileApparelMeshRenderer (file itu JANGAN disentuh
+// di sini) — pola: low: ['/models/cap.lod1.glb', <rantai cap saat ini>].
+// const CAP_LOD1_FUTURE = '/models/cap.lod1.glb'; // BELUM ADA FILE.
+
 // MobileCapModel — cermin web `CapModel.tsx` (baseball_cap Sketchfab,
-// cap.draco.glb −92%) di bawah batasan HP (lihat MobileSweaterModel):
+// SOFT-DISABLE Draco 14 Sep 2026: varian draco diarsipkan ke
+// backups/draco-archive/, default kini cap.glb non-Draco) di bawah batasan
+// HP (lihat MobileSweaterModel):
 // DPR rendah (tier Canvas), tanpa reflektor, dispose milik-sendiri, decal
 // DI DALAM <mesh> (syarat drei), single-color SELALU (satu panel; multi-part
 // tak bermakna untuk topi — sama seperti web).
@@ -48,7 +59,8 @@ const CAP_CROWN_Y_OFFSET = -0.11;
 // - validSidesFor(cap) web = ["front"] SAJA — mobile TAK validasi sisi
 //   (activeFace back menaruh decal di −Z = dalam topi). TODO follow-up:
 //   kunci sisi back untuk cap seperti PatternStudio web.
-// - Tanpa fallback mesh lain: draco 404 → master lokal. JANGAN fallback ke
+// - Tanpa fallback mesh lain: primer 404 → master lokal non-Draco
+//   (SOFT-DISABLE Draco 14 Sep 2026). JANGAN fallback ke
 //   tshirt (bukan topi — menipu).
 export function MobileCapModel() {
   const groupRef = useRef<THREE.Group>(null);
@@ -57,6 +69,8 @@ export function MobileCapModel() {
 
   const clothPhysics = useMemo(() => new ClothInertiaSimulator({ stiffness: 38.0, damping: 7.2 }), []);
 
+  // Rantai non-Draco cermin web (probe HEAD berlapis, tak pernah throw;
+  // SOFT-DISABLE Draco 14 Sep 2026 — kandidat = master non-Draco saja).
   const [resolvedPath, setResolvedPath] = useState<string | null>(null);
   useEffect(() => {
     let alive = true;

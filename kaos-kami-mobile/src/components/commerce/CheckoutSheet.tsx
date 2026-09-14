@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useRef, useState } from 'react';
-import { Check, MapPin, QrCode, Truck, ChevronRight } from 'lucide-react';
+import { Check, MapPin, QrCode, Truck, ChevronRight, CheckCircle2 } from 'lucide-react';
 import { BottomSheet, HapticButton, Badge } from '@/components/ui';
 import { useMobileCartStore } from '@/store/useMobileCartStore';
 import { MOBILE_APPAREL_META } from '@/store/useMobileStudioStore';
@@ -461,12 +461,14 @@ export function CheckoutSheet({ open, onOpenChange, onOrderSuccess, onNotify }: 
             { num: 2, label: 'Kurir' },
             { num: 3, label: 'Bayar' },
           ].map((s) => (
-            <div
+            <button
               key={s.num}
+              type="button"
+              aria-current={step === s.num ? 'step' : undefined}
               onClick={() => {
                 if (s.num <= step) setStep(s.num as any);
               }}
-              className={`flex items-center gap-1.5 text-xs cursor-pointer ${
+              className={`flex items-center gap-1.5 text-xs cursor-pointer min-h-[44px] px-1 ${
                 step === s.num ? 'text-[#FF6B35] font-bold' : 'text-zinc-500'
               }`}
             >
@@ -480,7 +482,7 @@ export function CheckoutSheet({ open, onOpenChange, onOrderSuccess, onNotify }: 
                 {s.num}
               </span>
               <span>{s.label}</span>
-            </div>
+            </button>
           ))}
         </div>
 
@@ -501,7 +503,8 @@ export function CheckoutSheet({ open, onOpenChange, onOrderSuccess, onNotify }: 
 
             <div>
               <label className="text-xs font-semibold text-zinc-300 block mb-1">Nomor WhatsApp (Aktif) *</label>
-              <div className="flex gap-2">
+              {/* ≤360px (HP kecil): tumpuk vertikal agar tombol OTP min-44px tak terjepit. */}
+              <div className="flex gap-2 max-[360px]:flex-col">
                 <input
                   type="tel"
                   value={customerPhone}
@@ -520,7 +523,7 @@ export function CheckoutSheet({ open, onOpenChange, onOrderSuccess, onNotify }: 
                   type="button"
                   onClick={handleSendOtp}
                   disabled={isSendingOtp || !customerPhone}
-                  className="px-3 py-3 rounded-xl bg-zinc-800 border border-[#FF6B35]/50 text-[#FF6B35] text-xs font-bold disabled:opacity-40"
+                  className="px-3 py-3 rounded-xl bg-zinc-800 border border-[#FF6B35]/50 text-[#FF6B35] text-xs font-bold disabled:opacity-40 min-h-[44px] max-[360px]:w-full"
                 >
                   {isSendingOtp ? '...' : otpSent ? 'KIRIM ULANG' : 'KIRIM OTP'}
                 </button>
@@ -595,14 +598,16 @@ export function CheckoutSheet({ open, onOpenChange, onOrderSuccess, onNotify }: 
             {MAKASSAR_DELIVERY_OPTIONS.map((opt) => {
               const isSelected = selectedDelivery.id === opt.id;
               return (
-                <div
+                <button
                   key={opt.id}
+                  type="button"
+                  aria-pressed={isSelected}
                    onClick={() => {
                      haptic.selection();
                      setSelectedDelivery(opt);
                      if (opt.id !== 'EXPEDITION') { setZones([]); setSelectedZoneId(null); setZonesError(null); }
                    }}
-                  className={`p-3.5 rounded-2xl border cursor-pointer transition-all ${
+                  className={`w-full text-left p-3.5 rounded-2xl border cursor-pointer transition-all min-h-[44px] ${
                     isSelected
                       ? 'bg-[#FF6B35]/15 border-[#FF6B35] ring-1 ring-orange-500/30'
                       : 'bg-zinc-900 border-zinc-800 hover:border-zinc-700'
@@ -619,7 +624,7 @@ export function CheckoutSheet({ open, onOpenChange, onOrderSuccess, onNotify }: 
                   </div>
                   <p className="text-[11px] text-zinc-400">{opt.description}</p>
                   <p className="text-[10px] text-zinc-500 mt-1">Estimasi: {opt.estimatedTime}</p>
-                </div>
+                </button>
               );
             })}
 
@@ -643,7 +648,11 @@ export function CheckoutSheet({ open, onOpenChange, onOrderSuccess, onNotify }: 
                   disabled={gpsLoading}
                   className="w-full py-2 rounded-xl bg-zinc-800 border border-zinc-700 text-[11px] text-[#FF6B35] font-semibold disabled:opacity-50"
                 >
-                  {gpsLoading ? 'Membaca GPS...' : '📍 Pilih kecamatan dari GPS HP'}
+                  {gpsLoading ? 'Membaca GPS...' : (
+                    <span className="inline-flex items-center justify-center gap-1.5">
+                      <MapPin className="w-3.5 h-3.5" /> Pilih kecamatan dari GPS HP
+                    </span>
+                  )}
                 </button>
                 {gpsMsg && <p className="text-[11px] text-zinc-400">{gpsMsg}</p>}
               </div>
@@ -698,10 +707,12 @@ export function CheckoutSheet({ open, onOpenChange, onOrderSuccess, onNotify }: 
                 {zones.map((z) => {
                   const sel = selectedZoneId === z.key;
                   return (
-                    <div
+                    <button
                       key={z.key}
+                      type="button"
+                      aria-pressed={sel}
                       onClick={() => { haptic.selection(); setSelectedZoneId(z.key); }}
-                      className={`p-3 rounded-xl border cursor-pointer flex items-center justify-between ${
+                      className={`w-full text-left p-3 rounded-xl border cursor-pointer flex items-center justify-between min-h-[44px] ${
                         sel ? 'bg-[#FF6B35]/15 border-[#FF6B35]' : 'bg-zinc-800 border-zinc-700'
                       }`}
                     >
@@ -713,7 +724,7 @@ export function CheckoutSheet({ open, onOpenChange, onOrderSuccess, onNotify }: 
                         <span className="text-xs font-bold text-emerald-400">Rp {z.cost.toLocaleString('id-ID')}</span>
                         {sel && <Check className="w-4 h-4 text-[#FF6B35]" />}
                       </div>
-                    </div>
+                    </button>
                   );
                 })}
                 <p className="text-[10px] text-zinc-500">Pilih yang termurah. Ongkir final dihitung server.</p>
@@ -794,7 +805,7 @@ export function CheckoutSheet({ open, onOpenChange, onOrderSuccess, onNotify }: 
                   onChange={(e) => setCouponCode(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 32))}
                   placeholder="cth: HEMAT10"
                   autoComplete="off"
-                  className="w-full px-3 py-2.5 rounded-xl bg-zinc-800 border border-zinc-700 text-white uppercase placeholder:normal-case"
+                  className="w-full px-3 py-2.5 rounded-xl bg-zinc-800 border border-zinc-700 text-white text-base uppercase placeholder:normal-case"
                 />
                 <p className="text-zinc-500 text-[11px] mt-1">Potongan dihitung server saat pesan.</p>
               </div>
@@ -828,9 +839,9 @@ export function CheckoutSheet({ open, onOpenChange, onOrderSuccess, onNotify }: 
                 kosong, user bisa kirim+isi tanpa kembali ke langkah 1. */}
             <div className="p-3 rounded-2xl bg-zinc-900/90 border border-zinc-800 space-y-2">
               <p className="text-[11px] text-zinc-400">
-                Kode OTP WA {(/^\d{6}$/.test(otpCode.trim())) ? <span className="text-emerald-400 font-bold">siap ✅</span> : <span className="text-amber-400 font-bold">wajib diisi (server 401 tanpanya)</span>}
+                Kode OTP WA {(/^\d{6}$/.test(otpCode.trim())) ? <span className="text-emerald-400 font-bold inline-flex items-center gap-1">siap <CheckCircle2 className="w-3 h-3" /></span> : <span className="text-amber-400 font-bold">wajib diisi (server 401 tanpanya)</span>}
               </p>
-              <div className="flex gap-2">
+              <div className="flex gap-2 max-[360px]:flex-col">
                 <input
                   type="text"
                   inputMode="numeric"
@@ -845,7 +856,7 @@ export function CheckoutSheet({ open, onOpenChange, onOrderSuccess, onNotify }: 
                   type="button"
                   onClick={handleSendOtp}
                   disabled={isSendingOtp}
-                  className="px-3 py-2.5 rounded-xl bg-zinc-800 border border-[#FF6B35]/50 text-[#FF6B35] text-xs font-bold disabled:opacity-40"
+                  className="px-3 py-2.5 rounded-xl bg-zinc-800 border border-[#FF6B35]/50 text-[#FF6B35] text-xs font-bold disabled:opacity-40 min-h-[44px] max-[360px]:w-full"
                 >
                   {isSendingOtp ? '...' : otpSent ? 'KIRIM ULANG' : 'KIRIM OTP'}
                 </button>

@@ -196,56 +196,27 @@ export const APPAREL_PHYSICAL_SPECS: Record<string, ApparelSpec> = {
     // fitScale guard maxW<=0 → 1, tak dipakai).
     maxSleeveWidthCm: 0,
     maxSleeveHeightCm: 0,
-    // TERUKUR via TINGGI: 100.0 / 1.00249 = 99.75 → 99.8 (preseden jacket).
-    meshMultiplier: 99.8,
-    measuredMeshWidthUnits: 0.328,
-    // TERUKUR setengah lebar 0.16378 → 0.16; TAK DIPAKAI (front saja) —
-    // hanya agar tak fallback 0.27 bila sisi lengan dipaksa via API.
-    sleeveAnchorX: 0.16,
-    // TERUKUR top edge pasca-center +0.50124 → 0.50 = waistband (pengganti
-    // kerah untuk offset cm: (0.50−decalY)×99.8; decalY −0.05 → ±54.9cm
-    // dari pinggang = tengah paha, plausibel).
-    collarBaselineY: 0.5,
+    // TERUKUR via TINGGI: 100.0 / 0.964 = 103.73 → 103.7 (male_cargo_pants.glb).
+    meshMultiplier: 103.7,
+    measuredMeshWidthUnits: 0.403,
+    sleeveAnchorX: 0.20,
+    collarBaselineY: 0.48,
   },
   shorts: {
     name: "Celana Pendek",
-    // CELANA PENDEK coming-soon TERUKUR (shorts.glb, 12 Sep 2026, script
-    // min/max accessor POSITION — pola ukur pants persis):
-    // - lokal X ±0.16596 (lebar 0.33192), Y −0.32047…0.26464
-    //   (tinggi 0.58510), Z −0.11834…0.12120 (depth 0.23954); node
-    //   male_shorts rotY 180° (quat [0,−1,0,~0], TANPA translasi) → WORLD
-    //   X ±0.16596, Y sama, Z −0.12120…0.11834 (depan/belakang tukar tanda).
-    // - komponen me-center geometri (geo.center()) → render Y ±0.29255,
-    //   X ±0.166, Z ±0.11977.
-    // - chestWidthCm 28.4 = LEBAR MESH × multiplier (0.33192×85.5=28.38 —
-    //   mesh slim, BUKAN standar konveksi; hanya untuk artboard pola).
-    //   bodyLengthCm 50.0 = ASUMSI outseam celana pendek size L (untuk
-    //   artboard; multiplier via tinggi memakai angka ini — preseden
-    //   pants 100.0 & jacket.glb).
-    chestWidthCm: 28.4,
+    chestWidthCm: 40.7,
     bodyLengthCm: 50.0,
-    // Area paha depan PLACEHOLDER JUJUR 22×25 (mockup-only, orderable FALSE
-    // → tak pernah ditagih; DTF max tetap 30 di REAL_WORLD_PRINT_LIMITS).
-    // Paha celana pendek lebih kecil dari pants 25×30. Ukur ulang bila pola
-    // paha (paha melengkung + selangkangan) diukur.
     maxFrontWidthCm: 22.0,
     maxFrontHeightCm: 25.0,
     maxBackWidthCm: 22.0,
     maxBackHeightCm: 25.0,
-    // Tak ada lengan — 0 = tak didukung (validSidesFor shorts = front saja;
-    // fitScale guard maxW<=0 → 1, tak dipakai).
     maxSleeveWidthCm: 0,
     maxSleeveHeightCm: 0,
-    // TERUKUR via TINGGI: 50.0 / 0.58510 = 85.46 → 85.5 (preseden pants).
-    meshMultiplier: 85.5,
-    measuredMeshWidthUnits: 0.332,
-    // TERUKUR setengah lebar 0.16596 → 0.17; TAK DIPAKAI (front saja) —
-    // hanya agar tak fallback 0.27 bila sisi lengan dipaksa via API.
-    sleeveAnchorX: 0.17,
-    // TERUKUR top edge pasca-center +0.29255 → 0.29 = waistband (pengganti
-    // kerah untuk offset cm: (0.29−decalY)×85.5; decalY −0.05 → ±29.1cm
-    // dari pinggang = tengah paha, plausibel).
-    collarBaselineY: 0.29,
+    // TERUKUR via TINGGI: 50.0 / 0.379 = 131.9 (female_denim_short.glb).
+    meshMultiplier: 131.9,
+    measuredMeshWidthUnits: 0.407,
+    sleeveAnchorX: 0.20,
+    collarBaselineY: 0.19,
   },
 };
 
@@ -304,8 +275,8 @@ export const SURFACE_Z_PER_APPAREL: Record<string, number> = {
   hoodie: 0.177,
   shirt: 0.24,
   cap: 0.091,
-  pants: 0.122,
-  shorts: 0.12,
+  pants: 0.145,
+  shorts: 0.145,
 };
 
 /** Ambil surfaceZ SSOT apparel tsb (fallback 0.176 bila apparel tak dikenal). */

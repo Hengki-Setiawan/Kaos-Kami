@@ -1,13 +1,14 @@
 "use client";
 
-import React, { useMemo, useRef, Suspense } from "react";
+import React, { useEffect, useMemo, useRef, Suspense } from "react";
 import * as THREE from "three";
 import { useGLTF } from "@react-three/drei";
-import { useFrame } from "@react-three/fiber";
+import { useFrame, useThree } from "@react-three/fiber";
 import * as BufferGeometryUtils from "three/examples/jsm/utils/BufferGeometryUtils.js";
 import { useConfiguratorStore } from "@/store/useConfiguratorStore";
 import { useShallow } from "zustand/shallow";
 import { useDeviceTier } from "@/hooks/useDeviceTier";
+import { extractApparelGeometry } from "@/lib/extractApparelGeometry";
 import { DecalLayerRenderer } from "./DecalLayerRenderer";
 import { easing } from "maath";
 import { applyWindToMaterial } from "@/lib/shaders/windDisplacement";
@@ -16,16 +17,19 @@ import { createClothPhysicalMaterial } from "@/lib/materials/clothPhysicalMateri
 import { useResourceTracker, useTrackedResource } from "@/lib/threeResourceTracker";
 import { surfaceZForApparel } from "@/lib/scaleCalibration";
 
-const MODEL_PATH_HIGH = "/models/jacket.glb";
-const MODEL_PATH_LOW = "/models/jacket.lod1.glb";
-useGLTF.preload(MODEL_PATH_HIGH);
-useGLTF.preload(MODEL_PATH_LOW);
+import { SilentModelFallback } from "@/components/ui/ModelErrorBoundary";
 
-const GltfJacket: React.FC = () => {
+const MODEL_PATH = "/models/sweater.glb?v=7";
+
+// PERF 14 Sep 2026: top-level useGLTF.preload DIHAPUS — preload terpusat
+// HANYA via idle-preload di CanvasStage (aktif + tetangga katalog) agar tak
+// berebut bandwidth first paint.
+
+const GltfJacket: React.FC<{ path: string }> = ({ path }) => {
   const meshRef = useRef<THREE.Group>(null);
   const { tier } = useDeviceTier();
-  const activePath = tier === "low" ? MODEL_PATH_LOW : MODEL_PATH_HIGH;
-  const { scene } = useGLTF(activePath);
+  const invalidate = useThree((s) => s.invalidate);
+  const { scene } = useGLTF(path);
   const {
     selectedColor,
     isRotating,
@@ -70,43 +74,13 @@ const GltfJacket: React.FC = () => {
     });
   }, [selectedColor, isWireframe, activeColorMode, materialFinish, windStrength, tier]);
 
-  // mergedBase: merge 10 sub-mesh jaket + center + wind + UV — HANYA [scene].
-  // Dipisah dari atribut warna (sebelumnya merge+traverse ulang tiap ganti
-  // warna/partColors = spike CPU + churn VRAM tiap geser slider warna).
   const mergedBase = useMemo(() => {
-    scene.updateMatrixWorld(true);
-    const geoms: THREE.BufferGeometry[] = [];
+    return extractApparelGeometry(scene, { scaleMultiplier: 1.0 });
+  }, [scene, path]);
 
-    scene.traverse((child: any) => {
-      if (child.isMesh && child.geometry) {
-        const cloned = child.geometry.clone();
-        cloned.applyMatrix4(child.matrixWorld);
-        geoms.push(cloned);
-      }
-    });
-
-    if (geoms.length === 0) return null;
-
-    try {
-      const merged = BufferGeometryUtils.mergeGeometries(geoms, false);
-      // Clone perantara dibuang setelah merge (audit #6 — leak VRAM).
-      for (const g of geoms) {
-        try {
-          g.dispose();
-        } catch {}
-      }
-      if (merged) {
-        merged.center();
-        merged.computeVertexNormals();
-        ensureWindWeights(merged);
-        ensureBoxUV(merged);
-        return merged;
-      }
-    } catch (e) {
-      console.warn("Failed to merge jacket geometries:", e);
-    }
-    return null;
-  }, [scene]);
+  useEffect(() => {
+    if (mergedBase) invalidate();
+  }, [invalidate, mergedBase]);
 
   // Atribut warna vertex (multi-part) — mutasi mergedBase MILIK SENDIRI
   // (bukan cache GLB drei), tanpa merge ulang. Atribut dipakai ulang in-place
@@ -202,7 +176,7 @@ const GltfJacket: React.FC = () => {
 export const ShirtModel: React.FC = () => {
   return (
     <Suspense fallback={null}>
-      <GltfJacket />
+      <GltfJacket path={MODEL_PATH} />
     </Suspense>
   );
 };

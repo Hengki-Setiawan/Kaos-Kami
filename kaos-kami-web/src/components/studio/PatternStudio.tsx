@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useCallback, useEffect, useRef, useState } from "react";
+import { AlertTriangle } from "lucide-react";
 import { useConfiguratorStore } from "@/store/useConfiguratorStore";
 import { useShallow } from "zustand/shallow";
 import type { ApparelType, DecalLayer } from "@/lib/constants";
@@ -27,14 +28,19 @@ const PANELS: Array<{ id: PatternPanel; label: string; hoodOnly?: boolean }> = [
   { id: "hood", label: "Tudung", hoodOnly: true },
 ];
 
-function silhouetteDataUrl(apparel: ApparelType, panel: PatternPanel): string {
+function silhouetteDataUrl(apparel: ApparelType, panel: PatternPanel, isLight = false): string {
   const g = getPanelGeometry(apparel, panel);
   const s = getPatternSilhouette(apparel, panel);
+  // Siluet adaptif tema (hanya warna): terang = stroke gelap lembut agar terlihat di #F5F4F0.
+  const bodyFill = isLight ? "rgba(0,0,0,0.04)" : "rgba(255,255,255,0.04)";
+  const bodyStroke = isLight ? "rgba(0,0,0,0.35)" : "rgba(255,255,255,0.35)";
+  const detailStroke = isLight ? "rgba(0,0,0,0.25)" : "rgba(255,255,255,0.25)";
+  const stitchStroke = isLight ? "rgba(0,0,0,0.18)" : "rgba(255,255,255,0.18)";
   const svg =
     `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${s.viewBox}" width="${g.wCm * EDITOR_PX_PER_CM}" height="${g.hCm * EDITOR_PX_PER_CM}">` +
-    `<path d="${s.body}" fill="rgba(255,255,255,0.04)" stroke="rgba(255,255,255,0.35)" stroke-width="0.35"/>` +
-    s.details.map((d) => `<path d="${d}" fill="none" stroke="rgba(255,255,255,0.25)" stroke-width="0.3"/>`).join("") +
-    s.stitches.map((d) => `<path d="${d}" fill="none" stroke="rgba(255,255,255,0.18)" stroke-width="0.25" stroke-dasharray="1.2 1"/>`).join("") +
+    `<path d="${s.body}" fill="${bodyFill}" stroke="${bodyStroke}" stroke-width="0.35"/>` +
+    s.details.map((d) => `<path d="${d}" fill="none" stroke="${detailStroke}" stroke-width="0.3"/>`).join("") +
+    s.stitches.map((d) => `<path d="${d}" fill="none" stroke="${stitchStroke}" stroke-width="0.25" stroke-dasharray="1.2 1"/>`).join("") +
     `</svg>`;
   return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
 }
@@ -63,6 +69,7 @@ export const PatternStudio: React.FC = () => {
     removeDecal,
     selectedDecalId,
     setSelectedDecalId,
+    studioTheme,
   } = useConfiguratorStore(
     useShallow((s) => ({
       activeApparel: s.activeApparel,
@@ -72,8 +79,10 @@ export const PatternStudio: React.FC = () => {
       removeDecal: s.removeDecal,
       selectedDecalId: s.selectedDecalId,
       setSelectedDecalId: s.setSelectedDecalId,
+      studioTheme: s.studioTheme,
     }))
   );
+  const isLight = studioTheme === "gallery";
   const [panel, setPanel] = useState<PatternPanel>("front");
   const [textInput, setTextInput] = useState("");
   const [status, setStatus] = useState<string | null>(null);
@@ -122,13 +131,13 @@ export const PatternStudio: React.FC = () => {
         canvas = new (fabric as any).Canvas(canvasRef.current, {
           width: canvasW,
           height: canvasH,
-          backgroundColor: "#141416",
+          backgroundColor: isLight ? "#F5F4F0" : "#141416",
           preserveObjectStacking: true,
         });
         fabricRef.current = canvas;
 
         // Latar siluet pola + bingkai batas sablon (tak bisa dipilih).
-        const bgUrl = silhouetteDataUrl(activeApparel, panel);
+        const bgUrl = silhouetteDataUrl(activeApparel, panel, isLight);
         const bgImg = await (fabric as any).FabricImage.fromURL(bgUrl);
         bgImg.set({ selectable: false, evented: false, excludeFromExport: false });
         canvas.backgroundImage = bgImg;
@@ -369,7 +378,7 @@ export const PatternStudio: React.FC = () => {
       fabricRef.current = null;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeApparel, panel]);
+  }, [activeApparel, panel, isLight]);
 
   const flashTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(() => {
@@ -663,8 +672,9 @@ export const PatternStudio: React.FC = () => {
   if (activeApparel === "cap") {
     return (
       <div className="space-y-3 rounded-xl border border-amber-500/30 bg-amber-500/5 p-4">
-        <p className="font-mono text-[11px] font-bold text-amber-300 uppercase tracking-wider">
-          🧢 Pola 2D topi belum tersedia
+        <p className="font-mono text-[11px] font-bold text-amber-300 uppercase tracking-wider flex items-center gap-1.5">
+          <AlertTriangle size={13} className="text-amber-400 shrink-0" />
+          <span>Pola 2D topi belum tersedia</span>
         </p>
         <p className="font-mono text-[11px] text-text-muted leading-relaxed">
           Panel crown melengkung belum ada pola ukurnya — menampilkan artboard
@@ -677,8 +687,9 @@ export const PatternStudio: React.FC = () => {
   if (activeApparel === "pants") {
     return (
       <div className="space-y-3 rounded-xl border border-amber-500/30 bg-amber-500/5 p-4">
-        <p className="font-mono text-[11px] font-bold text-amber-300 uppercase tracking-wider">
-          👖 Pola 2D celana belum tersedia
+        <p className="font-mono text-[11px] font-bold text-amber-300 uppercase tracking-wider flex items-center gap-1.5">
+          <AlertTriangle size={13} className="text-amber-400 shrink-0" />
+          <span>Pola 2D celana belum tersedia</span>
         </p>
         <p className="font-mono text-[11px] text-text-muted leading-relaxed">
           Panel paha melengkung belum ada pola ukurnya — menampilkan artboard
@@ -694,8 +705,9 @@ export const PatternStudio: React.FC = () => {
   if (activeApparel === "shorts") {
     return (
       <div className="space-y-3 rounded-xl border border-amber-500/30 bg-amber-500/5 p-4">
-        <p className="font-mono text-[11px] font-bold text-amber-300 uppercase tracking-wider">
-          🩳 Pola 2D celana pendek belum tersedia
+        <p className="font-mono text-[11px] font-bold text-amber-300 uppercase tracking-wider flex items-center gap-1.5">
+          <AlertTriangle size={13} className="text-amber-400 shrink-0" />
+          <span>Pola 2D celana pendek belum tersedia</span>
         </p>
         <p className="font-mono text-[11px] text-text-muted leading-relaxed">
           Panel paha melengkung belum ada pola ukurnya — menampilkan artboard
@@ -728,7 +740,7 @@ export const PatternStudio: React.FC = () => {
             className={`py-1.5 px-1 rounded-lg font-mono text-[10px] font-bold uppercase tracking-wide transition-all ${
               panel === p.id
                 ? "bg-brand-accent text-canvas"
-                : "bg-surface border border-white/10 text-text-muted hover:text-white"
+                : "bg-surface border border-border-subtle text-text-muted hover:text-text-primary hover:border-brand-accent"
             }`}
           >
             {p.label}
@@ -737,7 +749,7 @@ export const PatternStudio: React.FC = () => {
       </div>
 
       {/* Kanvas pola */}
-      <div className="rounded-xl overflow-hidden border border-white/10 bg-[#141416] flex justify-center p-2">
+      <div className="rounded-xl overflow-hidden border border-border-subtle bg-surface flex justify-center p-2">
         <canvas ref={canvasRef} style={{ maxWidth: "100%", height: "auto", touchAction: "none" }} />
       </div>
       <p className="font-mono text-[10px] text-text-muted">
@@ -746,7 +758,7 @@ export const PatternStudio: React.FC = () => {
 
       {/* Toolbar */}
       <div className="grid grid-cols-2 gap-2">
-        <label className="py-2.5 px-2 rounded-xl bg-surface border border-white/10 hover:border-brand-accent text-[11px] font-mono font-bold text-center cursor-pointer transition-all">
+        <label className="py-2.5 px-2 rounded-xl bg-surface border border-border-subtle hover:border-brand-accent text-[11px] font-mono font-bold text-center cursor-pointer transition-all">
           ⬆ UPLOAD GAMBAR
           <input
             type="file"
@@ -761,7 +773,7 @@ export const PatternStudio: React.FC = () => {
         </label>
         <button
           onClick={handleDeleteSelected}
-          className="py-2.5 px-2 rounded-xl bg-surface border border-white/10 hover:border-rose-500 text-[11px] font-mono font-bold transition-all"
+          className="py-2.5 px-2 rounded-xl bg-surface border border-border-subtle hover:border-rose-500 text-[11px] font-mono font-bold transition-all"
         >
           🗑 HAPUS PILIHAN
         </button>
@@ -772,7 +784,7 @@ export const PatternStudio: React.FC = () => {
           onChange={(e) => setTextInput(e.target.value)}
           placeholder="Tulis teks sablon…"
           maxLength={40}
-          className="flex-1 px-3 py-2.5 rounded-xl bg-surface border border-white/10 text-white text-xs placeholder:text-text-muted"
+          className="flex-1 px-3 py-2.5 rounded-xl bg-surface border border-border-subtle text-text-primary text-xs placeholder:text-text-muted"
         />
         <button
           onClick={() => void handleAddText()}

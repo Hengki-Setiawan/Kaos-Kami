@@ -118,42 +118,33 @@ export function useDeviceTier(): DeviceTierInfo {
 // FASE 13 & P0-4: rantai default BARU (draco → master). Model legacy hoodie.glb
 // dipensiunkan ke backups/ demi lisensi CC-BY 4.0 terverifikasi (Irevex11).
 export const HOODIE_MODEL_CANDIDATES: Record<"high" | "low", string[]> = {
-  high: ["/models/hoodie-blue.draco.glb", "/models/hoodie-blue.glb"],
-  low: ["/models/hoodie-blue.draco.glb", "/models/hoodie-blue.glb"],
+  high: ["/models/hoodie-blue.glb?v=7"],
+  low: ["/models/hoodie-blue.glb?v=7"],
 };
 
 export const JACKET_MODEL_CANDIDATES: Record<"high" | "low", string[]> = {
-  high: ["/models/jacket.glb"],
-  low: ["/models/jacket.lod1.glb", "/models/jacket.glb"],
+  high: ["/models/sweater.glb?v=7"],
+  low: ["/models/sweater.glb?v=7"],
 };
 
-// M-sisa (11 Sep 2026): kaos & longsleeve high = .draco.glb teroptimasi
-// (tshirt -36%, longsleeve -44%; node T_Shirt_male + material 0 identik,
-// terverifikasi via header GLB). Tier-low PAKAI draco juga — file lebih kecil
-// = lebih hemat HP, dan belum ada varian simplify lod1 (skala box-UV +
-// weave prosedural sudah tier-aware via lowTier material). Ekor rantai =
-// legacy non-Draco agar studio tetap jalan walau draco 404/decoder gagal.
-// FASE 13: kaos default = tee-basic (draco → master → file lama).
 export const TSHIRT_MODEL_CANDIDATES: Record<"high" | "low", string[]> = {
-  high: ["/models/tee-basic.draco.glb", "/models/tee-basic.glb", "/models/tshirt-heavyweight.glb"],
-  low: ["/models/tee-basic.draco.glb", "/models/tee-basic.glb", "/models/tshirt-heavyweight.glb"],
+  high: ["/models/tee-basic.glb?v=7", "/models/tshirt-heavyweight.glb?v=7"],
+  low: ["/models/tee-basic.glb?v=7", "/models/tshirt-heavyweight.glb?v=7"],
 };
 
 export const LONGSLEEVE_MODEL_CANDIDATES: Record<"high" | "low", string[]> = {
-  high: ["/models/longsleeve.draco.glb", "/models/longsleeve.glb"],
-  low: ["/models/longsleeve.draco.glb", "/models/longsleeve.glb"],
+  high: ["/models/longsleeve.glb?v=7"],
+  low: ["/models/longsleeve.glb?v=7"],
 };
 
-// FASE 13: crewneck (mesh sweater sendiri) + topi — preload agar ganti
-// apparel tak menunggu fetch. Ekor = file lama agar tak 404.
 export const CREWNECK_MODEL_CANDIDATES: Record<"high" | "low", string[]> = {
-  high: ["/models/sweater.draco.glb", "/models/sweater.glb", "/models/hoodie-blue.glb"],
-  low: ["/models/sweater.draco.glb", "/models/sweater.glb", "/models/hoodie-blue.glb"],
+  high: ["/models/sweater.glb?v=7"],
+  low: ["/models/sweater.glb?v=7"],
 };
 
 export const CAP_MODEL_CANDIDATES: Record<"high" | "low", string[]> = {
-  high: ["/models/cap.draco.glb", "/models/cap.glb"],
-  low: ["/models/cap.draco.glb", "/models/cap.glb"],
+  high: ["/models/cap.glb?v=7"],
+  low: ["/models/cap.glb?v=7"],
 };
 
 // Kembalikan URL kandidat pertama yang TERBUKTI ada (HEAD). Tak pernah throw:

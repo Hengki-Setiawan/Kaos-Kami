@@ -66,7 +66,7 @@ export function AdminNav({ role }: { role: string }) {
               className={`flex items-center space-x-3 px-3 py-2.5 rounded-xl transition-all ${
                 active
                   ? "bg-brand-accent/15 text-brand-accent font-bold border border-brand-accent/30"
-                  : "text-text-muted hover:text-white hover:bg-white/5"
+                  : "text-text-muted hover:text-text-primary hover:bg-black/5 dark:hover:bg-white/5"
               }`}
             >
               <Icon size={16} />
@@ -74,7 +74,7 @@ export function AdminNav({ role }: { role: string }) {
             </Link>
           );
         })}
-        <div className="pt-3 mt-2 px-0 border-t border-white/5">
+        <div className="pt-3 mt-2 px-0 border-t border-border-subtle">
           <span className="block text-[10px] text-text-muted/60 uppercase font-bold tracking-wider px-3 pb-1">
             Portal eksternal
           </span>
@@ -87,7 +87,7 @@ export function AdminNav({ role }: { role: string }) {
               href={href}
               target="_blank"
               rel="noopener noreferrer"
-              className="flex items-center justify-between px-3 py-2.5 rounded-xl text-text-muted hover:text-brand-accent hover:bg-white/5 transition-all"
+              className="flex items-center justify-between px-3 py-2.5 rounded-xl text-text-muted hover:text-brand-accent hover:bg-black/5 dark:hover:bg-white/5 transition-all"
             >
               <span>{label}</span>
               <ExternalLink size={12} />
@@ -96,20 +96,20 @@ export function AdminNav({ role }: { role: string }) {
         </div>
       </nav>
 
-      <div className="p-4 border-t border-white/5 font-mono text-xs space-y-2">
+      <div className="p-4 border-t border-border-subtle font-mono text-xs space-y-2">
         <div className="flex items-center space-x-2.5">
           <div className="w-8 h-8 rounded-full bg-brand-accent/20 border border-brand-accent/40 flex items-center justify-center text-brand-accent font-bold">
             {role.slice(0, 3).toUpperCase()}
           </div>
           <div className="overflow-hidden">
-            <span className="block text-white font-bold truncate">{role.replace(/_/g, " ")}</span>
-            <span className="block text-[10px] text-emerald-400">● Online / Aktif</span>
+            <span className="block text-text-primary font-bold truncate">{role.replace(/_/g, " ")}</span>
+            <span className="block text-[10px] text-emerald-700 dark:text-emerald-400">● Online / Aktif</span>
           </div>
         </div>
         <button
           onClick={() => setAskingLogout(true)}
           disabled={busy}
-          className="w-full flex items-center justify-center gap-2 px-3 py-2 rounded-xl bg-white/5 border border-white/10 text-text-muted hover:text-rose-300 hover:border-rose-500/40 transition-all disabled:opacity-50"
+          className="w-full flex items-center justify-center gap-2 px-3 py-2 rounded-xl bg-black/5 dark:bg-white/5 border border-border-subtle text-text-muted hover:text-rose-700 dark:hover:text-rose-300 hover:border-rose-500/40 transition-all disabled:opacity-50"
         >
           <LogOut size={14} />
           <span>{busy ? "KELUAR…" : "KELUAR PANEL"}</span>

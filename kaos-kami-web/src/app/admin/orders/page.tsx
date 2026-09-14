@@ -66,9 +66,9 @@ export default async function AdminOrdersListPage({
   return (
     <div className="p-5 sm:p-8 space-y-6 max-w-7xl mx-auto font-mono text-xs">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-4 pb-4 border-b border-white/5">
+      <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-4 pb-4 border-b border-border-subtle">
         <div>
-          <h1 className="font-display text-2xl sm:text-3xl font-black uppercase tracking-tight text-white">
+          <h1 className="font-display text-2xl sm:text-3xl font-black uppercase tracking-tight text-text-primary">
             SEMUA PESANAN MASUK
           </h1>
           <p className="text-text-muted mt-0.5">
@@ -86,13 +86,13 @@ export default async function AdminOrdersListPage({
             defaultValue={q}
             placeholder="Cari no. order (cth: KK-20260908-...)"
             maxLength={40}
-            className="w-full pl-9 pr-3 py-2.5 rounded-xl bg-surface border border-white/10 text-white placeholder:text-text-muted focus:outline-none focus:border-brand-accent"
+            className="w-full pl-9 pr-3 py-2.5 rounded-xl bg-surface border border-border-subtle text-text-primary placeholder:text-text-muted focus:outline-none focus:border-brand-accent"
           />
         </div>
         <select
           name="status"
           defaultValue={status}
-          className="px-3 py-2.5 rounded-xl bg-surface border border-white/10 text-white focus:outline-none"
+          className="px-3 py-2.5 rounded-xl bg-surface border border-border-subtle text-text-primary focus:outline-none"
         >
           <option value="">Semua status</option>
           {STATUSES.map((s) => (
@@ -110,11 +110,11 @@ export default async function AdminOrdersListPage({
       </form>
 
       {/* Orders Table */}
-      <div className="bg-[#141416] border border-white/5 rounded-2xl overflow-hidden shadow-xl">
+      <div className="bg-surface border border-border-subtle rounded-2xl overflow-hidden shadow-xl">
         <div className="overflow-x-auto">
-          <table className="w-full text-left border-collapse">
-            <thead>
-              <tr className="border-b border-white/5 text-[10px] text-text-muted uppercase tracking-wider bg-surface/50">
+          <table className="w-full min-w-[900px] text-left border-collapse">
+            <thead className="sticky top-0 z-10 bg-surface-elevated">
+              <tr className="border-b border-border-subtle text-[10px] text-text-muted uppercase tracking-wider bg-surface-elevated">
                 <th className="p-4">NO. ORDER</th>
                 <th className="p-4">TANGGAL</th>
                 <th className="p-4">PELANGGAN</th>
@@ -126,13 +126,13 @@ export default async function AdminOrdersListPage({
                 <th className="p-4 text-right">AKSI</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-white/5">
+            <tbody className="divide-y divide-border-subtle">
               {orders.map((order) => (
-                <tr key={order.id} className="hover:bg-white/[0.02] transition-colors">
+                <tr key={order.id} className="hover:bg-black/[0.03] dark:hover:bg-white/[0.02] transition-colors">
                   <td className="p-4 font-bold text-brand-accent">
                     {order.orderNumber}
                     {order.courierNotes?.includes("EXPRESS") && (
-                      <span className="block text-[9px] text-amber-400 font-bold">⚡ EXPRESS 24H</span>
+                      <span className="block text-[9px] text-amber-700 dark:text-amber-400 font-bold">⚡ EXPRESS 24H</span>
                     )}
                   </td>
                   <td className="p-4 text-text-muted whitespace-nowrap">
@@ -143,26 +143,26 @@ export default async function AdminOrdersListPage({
                     })}
                   </td>
                   <td className="p-4">
-                    <span className="text-white font-bold block">{order.user?.name || "Pelanggan"}</span>
+                    <span className="text-text-primary font-bold block">{order.user?.name || "Pelanggan"}</span>
                     <span className="text-[10px] text-text-muted">{maskPhone(order.user?.phoneNumber)}</span>
                   </td>
                   <td className="p-4 text-text-muted">{order.items.length}</td>
                   <td className="p-4 text-text-muted">{order.deliveryMethod}</td>
-                  <td className="p-4 font-bold text-white whitespace-nowrap">
+                  <td className="p-4 font-bold text-text-primary whitespace-nowrap">
                     Rp {order.totalIdr.toLocaleString("id-ID")}
                   </td>
                   <td className="p-4 text-text-muted">
                     {order.payment ? `${order.payment.method || "?"} · ${order.payment.status}` : "-"}
                   </td>
                   <td className="p-4">
-                    <span className="px-2.5 py-1 rounded-full text-[10px] font-bold uppercase border border-white/10 text-white bg-surface whitespace-nowrap">
+                    <span className="px-2.5 py-1 rounded-full text-[10px] font-bold uppercase border border-border-subtle text-text-primary bg-surface whitespace-nowrap">
                       {order.status}
                     </span>
                   </td>
                   <td className="p-4 text-right">
                     <Link
                       href={`/admin/orders/${order.id}`}
-                      className="px-3 py-1.5 rounded-lg bg-surface border border-white/10 hover:border-brand-accent text-white font-bold hover:text-brand-accent transition-all inline-flex items-center gap-1"
+                      className="px-3 py-1.5 rounded-lg bg-surface border border-border-subtle hover:border-brand-accent text-text-primary font-bold hover:text-brand-accent transition-all inline-flex items-center gap-1"
                     >
                       <span>DETAIL</span>
                       <ExternalLink size={11} />
@@ -182,9 +182,9 @@ export default async function AdminOrdersListPage({
 
         {/* Paginasi */}
         {totalPages > 1 && (
-          <div className="flex items-center justify-between p-4 border-t border-white/5">
+          <div className="flex items-center justify-between p-4 border-t border-border-subtle">
             {safePage > 1 ? (
-              <Link href={pageLink(safePage - 1)} className="px-4 py-2 rounded-lg bg-surface border border-white/10 text-white font-bold">
+              <Link href={pageLink(safePage - 1)} className="px-4 py-2 rounded-lg bg-surface border border-border-subtle text-text-primary font-bold">
                 ← SEBELUM
               </Link>
             ) : (
@@ -194,7 +194,7 @@ export default async function AdminOrdersListPage({
               {safePage} / {totalPages}
             </span>
             {safePage < totalPages ? (
-              <Link href={pageLink(safePage + 1)} className="px-4 py-2 rounded-lg bg-surface border border-white/10 text-white font-bold">
+              <Link href={pageLink(safePage + 1)} className="px-4 py-2 rounded-lg bg-surface border border-border-subtle text-text-primary font-bold">
                 LANJUT →
               </Link>
             ) : (

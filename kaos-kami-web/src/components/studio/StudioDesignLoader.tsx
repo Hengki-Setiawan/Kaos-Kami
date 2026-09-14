@@ -110,7 +110,7 @@ export function StudioDesignLoader() {
 
   if (!notice) return null;
   return (
-    <div className="fixed top-16 left-1/2 -translate-x-1/2 z-[60] px-4 py-2 rounded-xl bg-[#141416]/95 border border-brand-accent/40 text-white font-mono text-xs shadow-xl">
+    <div className="fixed top-16 left-1/2 -translate-x-1/2 z-[60] px-4 py-2 rounded-xl bg-surface/95 border border-brand-accent/40 text-text-primary font-mono text-xs shadow-xl">
       {notice}
     </div>
   );

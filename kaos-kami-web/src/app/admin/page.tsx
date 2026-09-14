@@ -47,9 +47,9 @@ export default async function AdminDashboardPage() {
   return (
     <div className="p-5 sm:p-8 space-y-8 max-w-7xl mx-auto">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-4 pb-4 border-b border-white/5">
+      <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-4 pb-4 border-b border-border-subtle">
         <div>
-          <h1 className="font-display text-2xl sm:text-3xl font-black uppercase tracking-tight text-white">
+          <h1 className="font-display text-2xl sm:text-3xl font-black uppercase tracking-tight text-text-primary">
             OVERVIEW WORKSHOP & METRIK
           </h1>
           <p className="font-mono text-xs text-text-muted mt-0.5">
@@ -71,18 +71,18 @@ export default async function AdminDashboardPage() {
       {/* Metric Cards Grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {/* Metric 1: Total Omset */}
-        <div className="p-5 rounded-2xl bg-[#141416] border border-white/5 space-y-3">
+        <div className="p-5 rounded-2xl bg-surface border border-border-subtle space-y-3">
           <div className="flex justify-between items-center text-text-muted">
             <span className="font-mono text-[11px] uppercase tracking-wider">TOTAL OMSET</span>
-            <div className="w-7 h-7 rounded-lg bg-emerald-500/10 text-emerald-400 flex items-center justify-center">
+            <div className="w-7 h-7 rounded-lg bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 flex items-center justify-center">
               <DollarSign size={15} />
             </div>
           </div>
           <div>
-            <span className="font-display font-black text-2xl text-white block">
+            <span className="font-display font-black text-2xl text-text-primary block">
               Rp {revenueIdr.toLocaleString("id-ID")}
             </span>
-            <span className="font-mono text-[10px] text-emerald-400 flex items-center gap-1 mt-1">
+            <span className="font-mono text-[10px] text-emerald-700 dark:text-emerald-400 flex items-center gap-1 mt-1">
               <TrendingUp size={11} />
               <span>QRIS Duitku lunas-dulu</span>
             </span>
@@ -90,21 +90,21 @@ export default async function AdminDashboardPage() {
         </div>
 
         {/* Metric 2: Total Pesanan */}
-        <div className="p-5 rounded-2xl bg-[#141416] border border-white/5 space-y-3">
+        <div className="p-5 rounded-2xl bg-surface border border-border-subtle space-y-3">
           <div className="flex justify-between items-center text-text-muted">
             <span className="font-mono text-[11px] uppercase tracking-wider">TOTAL PESANAN</span>
-            <div className="w-7 h-7 rounded-lg bg-blue-500/10 text-blue-400 flex items-center justify-center">
+            <div className="w-7 h-7 rounded-lg bg-blue-500/10 text-blue-700 dark:text-blue-400 flex items-center justify-center">
               <Package size={15} />
             </div>
           </div>
           <div>
-            <span className="font-display font-black text-2xl text-white block">{totalOrders}</span>
+            <span className="font-display font-black text-2xl text-text-primary block">{totalOrders}</span>
             <span className="font-mono text-[10px] text-text-muted block mt-1">Semua status pesanan</span>
           </div>
         </div>
 
         {/* Metric 3: Antrean Sablon DTF Aktif */}
-        <div className="p-5 rounded-2xl bg-[#141416] border border-white/5 space-y-3">
+        <div className="p-5 rounded-2xl bg-surface border border-border-subtle space-y-3">
           <div className="flex justify-between items-center text-text-muted">
             <span className="font-mono text-[11px] uppercase tracking-wider">ANTREAN SABLON AKTIF</span>
             <div className="w-7 h-7 rounded-lg bg-brand-accent/15 text-brand-accent flex items-center justify-center">
@@ -122,18 +122,18 @@ export default async function AdminDashboardPage() {
         </div>
 
         {/* Metric 4: SLA Express Alerts */}
-        <div className="p-5 rounded-2xl bg-[#141416] border border-white/5 space-y-3">
+        <div className="p-5 rounded-2xl bg-surface border border-border-subtle space-y-3">
           <div className="flex justify-between items-center text-text-muted">
             <span className="font-mono text-[11px] uppercase tracking-wider">SLA EXPRESS 24 JAM</span>
-            <div className="w-7 h-7 rounded-lg bg-amber-500/15 text-amber-400 flex items-center justify-center">
+            <div className="w-7 h-7 rounded-lg bg-amber-500/15 text-amber-700 dark:text-amber-400 flex items-center justify-center">
               <Clock size={15} />
             </div>
           </div>
           <div>
-            <span className="font-display font-black text-2xl text-amber-400 block">
+            <span className="font-display font-black text-2xl text-amber-700 dark:text-amber-400 block">
               {expressOrders} Pesanan
             </span>
-            <span className="font-mono text-[10px] text-amber-400/80 block mt-1">
+            <span className="font-mono text-[10px] text-amber-700/80 dark:text-amber-400/80 block mt-1">
               Prioritas tinggi (deadline hari ini)
             </span>
           </div>
@@ -155,23 +155,23 @@ export default async function AdminDashboardPage() {
           </Link>
         </div>
 
-        <div className="bg-[#141416] border border-white/5 rounded-2xl overflow-hidden divide-y divide-white/5 font-mono text-xs">
+        <div className="bg-surface border border-border-subtle rounded-2xl overflow-hidden divide-y divide-border-subtle font-mono text-xs">
           {recentOrders.length > 0 ? (
             recentOrders.map((order) => (
               <Link
                 key={order.id}
                 href={`/admin/orders/${order.id}`}
-                className="p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:bg-white/[0.02] transition-colors"
+                className="p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:bg-black/[0.03] dark:hover:bg-white/[0.02] transition-colors"
               >
                 <div className="flex items-center space-x-3">
-                  <div className="w-8 h-8 rounded-lg bg-surface border border-white/10 flex items-center justify-center text-text-muted">
+                  <div className="w-8 h-8 rounded-lg bg-surface border border-border-subtle flex items-center justify-center text-text-muted">
                     <Package size={14} />
                   </div>
                   <div>
                     <div className="flex items-center space-x-2">
-                      <span className="font-bold text-white">{order.orderNumber}</span>
+                      <span className="font-bold text-text-primary">{order.orderNumber}</span>
                       {order.courierNotes?.includes("EXPRESS") && (
-                        <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-amber-500/20 text-amber-400 border border-amber-500/30">
+                        <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-amber-500/20 text-amber-700 dark:text-amber-400 border border-amber-500/30">
                           EXPRESS 24H
                         </span>
                       )}
@@ -186,7 +186,7 @@ export default async function AdminDashboardPage() {
                   <span className="font-bold text-brand-accent">
                     Rp {order.totalIdr.toLocaleString("id-ID")}
                   </span>
-                  <span className="px-2.5 py-1 rounded-full text-[10px] font-bold uppercase border border-white/10 text-white bg-surface">
+                  <span className="px-2.5 py-1 rounded-full text-[10px] font-bold uppercase border border-border-subtle text-text-primary bg-surface">
                     {order.status}
                   </span>
                 </div>

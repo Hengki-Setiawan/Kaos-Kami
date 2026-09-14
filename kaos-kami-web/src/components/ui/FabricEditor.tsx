@@ -1,5 +1,6 @@
 "use client";
 import React, { useEffect, useRef, useState } from "react";
+import { useConfiguratorStore } from "@/store/useConfiguratorStore";
 
 // Fabric.js is heavy (~300KB) — dynamically imported only when user opens Advanced 2D Editor
 // This keeps initial bundle <250KB gzipped per Blueprint 04 §6
@@ -12,6 +13,8 @@ export const FabricEditor: React.FC<{
   const fabricRef = useRef<any>(null);
   const [isReady, setIsReady] = useState(false);
   const [printInfo, setPrintInfo] = useState<string | null>(null);
+  const studioTheme = useConfiguratorStore((s) => s.studioTheme);
+  const isLight = studioTheme === "gallery";
 
   useEffect(() => {
     let mounted = true;
@@ -22,7 +25,7 @@ export const FabricEditor: React.FC<{
         const canvas = new (fabric as any).Canvas(canvasRef.current, {
           width: 450,
           height: 500,
-          backgroundColor: "#1a1a1a",
+          backgroundColor: isLight ? "#F5F4F0" : "#141416",
         });
         // Add sample text via Fabric for demo (proves wiring, not dead)
         const text = new (fabric as any).Text("KAOS KAMI", {
@@ -46,7 +49,8 @@ export const FabricEditor: React.FC<{
         fabricRef.current?.dispose();
       } catch {}
     };
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isLight]);
 
   const handleExport = () => {
     if (!fabricRef.current || !onExport) return;
@@ -102,7 +106,7 @@ export const FabricEditor: React.FC<{
   };
 
   return (
-    <div className="space-y-2 p-3 rounded-xl bg-surface border border-white/10">
+    <div className="space-y-2 p-3 rounded-xl bg-surface border border-border-subtle">
       <div className="flex justify-between items-center">
         <span className="text-[11px] font-mono font-bold text-brand-accent">FABRIC.JS 2D EDITOR (VIHAN — lazy)</span>
         <div className="flex gap-1.5">
@@ -117,7 +121,7 @@ export const FabricEditor: React.FC<{
       {printInfo && (
         <p className="text-[10px] font-mono text-emerald-400">Master cetak: {printInfo} (siap AcroRIP)</p>
       )}
-      <div className="border border-white/10 rounded-xl overflow-hidden bg-[#0E0E10] max-w-full">
+      <div className="border border-border-subtle rounded-xl overflow-hidden bg-surface max-w-full">
         <canvas ref={canvasRef} width={450} height={500} className="max-w-full h-auto" />
       </div>
       {!isReady && <p className="text-[11px] font-mono text-text-muted">Memuat Fabric 7.4.0… (≈300KB, code-split, tidak blokir 3D)</p>}

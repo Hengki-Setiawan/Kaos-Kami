@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useCallback, useEffect, useRef, useState } from "react";
+import { Save, PenTool, X, RotateCcw } from "lucide-react";
 import { useConfiguratorStore } from "@/store/useConfiguratorStore";
 import { useDeviceTier } from "@/hooks/useDeviceTier";
 import { BottomSheet } from "@/components/ui/BottomSheet";
@@ -345,7 +346,7 @@ export const ImageEditorModal: React.FC<ImageEditorModalProps> = ({
   const content = (
     <div className="space-y-4 font-mono text-xs">
       {/* Pratinjau */}
-      <div className="rounded-xl overflow-hidden border border-white/10 bg-black/50 flex items-center justify-center min-h-[180px] max-h-[300px]">
+      <div className="rounded-xl overflow-hidden border border-border-subtle bg-black/50 flex items-center justify-center min-h-[180px] max-h-[300px]">
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
           src={previewUrl}
@@ -374,7 +375,7 @@ export const ImageEditorModal: React.FC<ImageEditorModalProps> = ({
             className={`flex-1 min-h-[44px] px-2 py-2 rounded-xl border text-[10px] font-bold transition-all ${
               tab === t.id
                 ? "bg-brand-accent text-canvas border-brand-accent"
-                : "bg-surface border-white/10 text-text-muted hover:text-white"
+                : "bg-surface border-border-subtle text-text-muted hover:text-text-primary"
             }`}
           >
             {t.label}
@@ -384,7 +385,7 @@ export const ImageEditorModal: React.FC<ImageEditorModalProps> = ({
 
       {/* F1 — Sesuaikan */}
       {tab === "sesuaikan" && (
-        <div className="p-3 rounded-xl bg-surface/60 border border-white/10 space-y-3">
+        <div className="p-3 rounded-xl bg-surface/60 border border-border-subtle space-y-3">
           <SliderRow label="Kecerahan" value={a.brightness} min={-1} max={1} step={0.01}
             display={Math.round(a.brightness * 100).toString()} onChange={(v) => patchAdjust({ brightness: v })} />
           <SliderRow label="Kontras" value={a.contrast} min={-1} max={1} step={0.01}
@@ -406,7 +407,7 @@ export const ImageEditorModal: React.FC<ImageEditorModalProps> = ({
               type="button"
               onClick={() => patchAdjust({ grayscale: !a.grayscale })}
               className={`min-h-[44px] py-2 rounded-xl border text-[11px] font-bold transition-all ${
-                a.grayscale ? "bg-text-primary text-canvas border-text-primary" : "bg-surface border-white/10 text-white"
+                a.grayscale ? "bg-text-primary text-canvas border-text-primary" : "bg-surface border-border-subtle text-text-primary"
               }`}
             >
               {a.grayscale ? "✓ GRAYSCALE" : "GRAYSCALE"}
@@ -415,7 +416,7 @@ export const ImageEditorModal: React.FC<ImageEditorModalProps> = ({
               type="button"
               onClick={() => patchAdjust({ sepia: !a.sepia })}
               className={`min-h-[44px] py-2 rounded-xl border text-[11px] font-bold transition-all ${
-                a.sepia ? "bg-text-primary text-canvas border-text-primary" : "bg-surface border-white/10 text-white"
+                a.sepia ? "bg-text-primary text-canvas border-text-primary" : "bg-surface border-border-subtle text-text-primary"
               }`}
             >
               {a.sepia ? "✓ SEPIA" : "SEPIA"}
@@ -426,12 +427,12 @@ export const ImageEditorModal: React.FC<ImageEditorModalProps> = ({
 
       {/* F2 — Potong & Putar */}
       {tab === "potong" && (
-        <div className="p-3 rounded-xl bg-surface/60 border border-white/10 space-y-3">
+        <div className="p-3 rounded-xl bg-surface/60 border border-border-subtle space-y-3">
           <div className="grid grid-cols-2 gap-2">
             <button
               type="button"
               onClick={handleRotate90}
-              className="min-h-[44px] py-2 rounded-xl bg-surface border border-white/10 text-white text-[11px] font-bold hover:border-brand-accent transition-all"
+              className="min-h-[44px] py-2 rounded-xl bg-surface border border-border-subtle text-text-primary text-[11px] font-bold hover:border-brand-accent transition-all"
             >
               🔄 PUTAR 90°
             </button>
@@ -439,7 +440,7 @@ export const ImageEditorModal: React.FC<ImageEditorModalProps> = ({
               type="button"
               onClick={handleFlipX}
               className={`min-h-[44px] py-2 rounded-xl border text-[11px] font-bold transition-all ${
-                job.flipX ? "bg-brand-accent/20 border-brand-accent text-brand-accent" : "bg-surface border-white/10 text-white hover:border-brand-accent"
+                job.flipX ? "bg-brand-accent/20 border-brand-accent text-brand-accent" : "bg-surface border-border-subtle text-text-primary hover:border-brand-accent"
               }`}
             >
               {job.flipX ? "✓ BALIK HORIZONTAL AKTIF" : "⇋ BALIK HORIZONTAL"}
@@ -465,7 +466,7 @@ export const ImageEditorModal: React.FC<ImageEditorModalProps> = ({
               <button
                 type="button"
                 onClick={() => patchCrop({ x: 0.1, y: 0.1, w: 0.8, h: 0.8 })}
-                className="w-full min-h-[44px] py-2 rounded-xl border border-dashed border-white/20 text-text-muted text-[11px] font-bold hover:border-brand-accent hover:text-white transition-all"
+                className="w-full min-h-[44px] py-2 rounded-xl border border-dashed border-border-strong text-text-muted text-[11px] font-bold hover:border-brand-accent hover:text-text-primary transition-all"
               >
                 + MULAI POTONG (80% TENGAH)
               </button>
@@ -496,10 +497,10 @@ export const ImageEditorModal: React.FC<ImageEditorModalProps> = ({
               className={`w-full min-h-[48px] p-3 rounded-xl border text-left transition-all ${
                 job.preset === p.id
                   ? "bg-brand-accent/15 border-brand-accent"
-                  : "bg-surface border-white/10 hover:border-brand-accent/50"
+                  : "bg-surface border-border-subtle hover:border-brand-accent/50"
               }`}
             >
-              <span className={`block text-[11px] font-bold ${job.preset === p.id ? "text-brand-accent" : "text-white"}`}>
+              <span className={`block text-[11px] font-bold ${job.preset === p.id ? "text-brand-accent" : "text-text-primary"}`}>
                 {job.preset === p.id ? "✓ " : ""}{p.nama.toUpperCase()}
               </span>
               <span className="block text-[10px] text-text-muted mt-0.5">{p.deskripsi}</span>
@@ -536,21 +537,21 @@ export const ImageEditorModal: React.FC<ImageEditorModalProps> = ({
           onClick={handleUndo}
           disabled={history.length === 0}
           title={`Urungkan (${history.length}/10)`}
-          className="min-h-[48px] px-3 rounded-xl bg-surface border border-white/10 text-white text-[11px] font-bold disabled:opacity-40 hover:border-brand-accent transition-all"
+          className="min-h-[48px] px-3 rounded-xl bg-surface border border-border-subtle text-text-primary text-[11px] font-bold disabled:opacity-40 hover:border-brand-accent transition-all"
         >
-          ↩ {history.length}/10
+          {history.length}/10
         </button>
         <button
           type="button"
           onClick={handleReset}
-          className="min-h-[48px] px-3 rounded-xl bg-surface border border-white/10 text-white text-[11px] font-bold hover:border-brand-accent transition-all"
+          className="min-h-[48px] px-3 rounded-xl bg-surface border border-border-subtle text-text-primary text-[11px] font-bold hover:border-brand-accent transition-all"
         >
           RESET
         </button>
         <button
           type="button"
           onClick={onClose}
-          className="flex-1 min-h-[48px] px-3 rounded-xl bg-surface border border-white/10 text-text-muted text-[11px] font-bold hover:text-white transition-all"
+          className="flex-1 min-h-[48px] px-3 rounded-xl bg-surface border border-border-subtle text-text-muted text-[11px] font-bold hover:text-text-primary transition-all"
         >
           BATAL
         </button>
@@ -560,7 +561,7 @@ export const ImageEditorModal: React.FC<ImageEditorModalProps> = ({
           disabled={isSaving}
           className="flex-[2] min-h-[48px] px-3 rounded-xl bg-brand-accent text-canvas text-xs font-bold uppercase disabled:opacity-50 hover:brightness-110 transition-all"
         >
-          {isSaving ? "MENYIMPAN…" : "💾 SIMPAN KE KAOS"}
+          {isSaving ? "MENYIMPAN…" : "SIMPAN KE MOCKUP"}
         </button>
       </div>
     </div>
@@ -570,8 +571,8 @@ export const ImageEditorModal: React.FC<ImageEditorModalProps> = ({
     return (
       <BottomSheet defaultSnap="full" onClose={onClose}>
         <div className="font-mono text-xs mb-2">
-          <span className="text-[10px] text-brand-accent tracking-widest uppercase">{"// 🖌 EDIT GAMBAR"}</span>
-          <h3 className="text-sm font-black uppercase text-white truncate">{decalName}</h3>
+          <span className="text-[10px] text-brand-accent tracking-widest uppercase">{"// EDIT GAMBAR"}</span>
+          <h3 className="text-sm font-black uppercase text-text-primary truncate">{decalName}</h3>
         </div>
         {content}
       </BottomSheet>
@@ -588,19 +589,19 @@ export const ImageEditorModal: React.FC<ImageEditorModalProps> = ({
         if (e.target === e.currentTarget) onClose();
       }}
     >
-      <div className="w-full max-w-2xl max-h-[90vh] overflow-y-auto rounded-2xl bg-[#141416] border border-white/10 shadow-2xl p-4 sm:p-5">
+      <div className="w-full max-w-2xl max-h-[90vh] overflow-y-auto rounded-2xl bg-surface border border-border-subtle shadow-2xl p-4 sm:p-5">
         <div className="flex items-center justify-between mb-3">
           <div>
-            <span className="text-[10px] font-mono text-brand-accent tracking-widest uppercase">{"// 🖌 EDIT GAMBAR"}</span>
-            <h3 className="text-base font-display font-black uppercase text-white truncate">{decalName}</h3>
+            <span className="text-[10px] font-mono text-brand-accent tracking-widest uppercase">{"// EDIT GAMBAR"}</span>
+            <h3 className="text-base font-display font-black uppercase text-text-primary truncate">{decalName}</h3>
           </div>
           <button
             type="button"
             onClick={onClose}
             aria-label="Tutup editor gambar"
-            className="min-w-[44px] min-h-[44px] px-2 rounded-xl bg-surface border border-white/10 text-text-muted hover:text-white transition-all font-bold"
+            className="min-w-[44px] min-h-[44px] px-2 rounded-xl bg-surface border border-border-subtle text-text-muted hover:text-text-primary transition-all font-bold flex items-center justify-center"
           >
-            ✕
+            <X size={16} />
           </button>
         </div>
         {content}

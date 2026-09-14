@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useEffect, useMemo, useRef, useState } from "react";
+import { FlaskConical } from "lucide-react";
 import * as THREE from "three";
 import { Canvas, useFrame, useThree, type ThreeEvent } from "@react-three/fiber";
 import { useConfiguratorStore } from "@/store/useConfiguratorStore";
@@ -241,16 +242,19 @@ export const ClothLab: React.FC = () => {
   return (
     <div className="p-3 rounded-xl bg-surface border border-border-subtle space-y-2">
       <div className="flex items-center justify-between">
-        <span className="text-xs font-mono font-bold text-text-primary">🧪 LAB KAIN — cubit & tarik!</span>
+        <span className="text-xs font-mono font-bold text-text-primary flex items-center gap-1.5">
+          <FlaskConical size={13} className="text-brand-accent shrink-0" />
+          <span>LAB KAIN — cubit & tarik!</span>
+        </span>
         <button
           onClick={() => setOpen(false)}
-          className="text-[10px] font-mono text-text-muted hover:text-white"
+          className="text-[10px] font-mono text-text-muted hover:text-text-primary transition-colors"
           aria-label="Tutup lab kain"
         >
           TUTUP
         </button>
       </div>
-      <div className="rounded-xl overflow-hidden border border-white/10 bg-black/60 h-56">
+      <div className="rounded-xl overflow-hidden border border-border-subtle bg-black/60 h-56">
         <Canvas
           camera={{ position: [0, -0.25, 1.1], fov: 42 }}
           dpr={[1, tier === "low" ? 1 : 2]}
@@ -280,7 +284,7 @@ export const ClothLab: React.FC = () => {
         />
         <button
           onClick={() => { cloth.reset(); setResetTick((t) => t + 1); }}
-          className="px-2.5 py-1 rounded-lg bg-canvas border border-white/10 text-[10px] font-mono font-bold text-text-muted hover:text-white"
+          className="px-2.5 py-1 rounded-lg bg-canvas border border-border-subtle text-[10px] font-mono font-bold text-text-muted hover:text-text-primary hover:border-brand-accent transition-colors"
         >
           RESET
         </button>

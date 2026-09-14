@@ -67,13 +67,13 @@ interface ProductionTaskItem {
 }
 
 const STAGES = [
-  { id: "DESIGN_PREP", label: "Persiapan File", icon: FileText, color: "border-blue-500/40 text-blue-400" },
-  { id: "SCREEN_PRINT_SETUP", label: "Setup DTF Film", icon: Layers, color: "border-cyan-500/40 text-cyan-400" },
+  { id: "DESIGN_PREP", label: "Persiapan File", icon: FileText, color: "border-blue-500/40 text-blue-700 dark:text-blue-400" },
+  { id: "SCREEN_PRINT_SETUP", label: "Setup DTF Film", icon: Layers, color: "border-cyan-500/40 text-cyan-700 dark:text-cyan-400" },
   { id: "PRINTING", label: "Sedang Dicetak DTF", icon: Printer, color: "border-brand-accent/40 text-brand-accent" },
-  { id: "PRESSING", label: "Heat Press Kaos", icon: Flame, color: "border-amber-500/40 text-amber-400" },
-  { id: "QUALITY_CHECK", label: "Quality Check", icon: CheckCircle2, color: "border-purple-500/40 text-purple-400" },
-  { id: "PACKAGING", label: "Packing & Siap", icon: Package, color: "border-emerald-500/40 text-emerald-400" },
-  { id: "DONE", label: "Selesai", icon: CheckCircle2, color: "border-emerald-600/40 text-emerald-500" },
+  { id: "PRESSING", label: "Heat Press Kaos", icon: Flame, color: "border-amber-500/40 text-amber-700 dark:text-amber-400" },
+  { id: "QUALITY_CHECK", label: "Quality Check", icon: CheckCircle2, color: "border-purple-500/40 text-purple-700 dark:text-purple-400" },
+  { id: "PACKAGING", label: "Packing & Siap", icon: Package, color: "border-emerald-500/40 text-emerald-700 dark:text-emerald-400" },
+  { id: "DONE", label: "Selesai", icon: CheckCircle2, color: "border-emerald-600/40 text-emerald-700 dark:text-emerald-500" },
 ];
 
 function DroppableColumn({ id, children, className }: { id: string; children: React.ReactNode; className?: string }) {
@@ -313,9 +313,9 @@ export default function ProductionKanbanPage() {
   return (
     <div className="p-5 sm:p-8 space-y-6 max-w-full">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-4 pb-4 border-b border-white/5">
+      <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-4 pb-4 border-b border-border-subtle">
         <div>
-          <h1 className="font-display text-2xl sm:text-3xl font-black uppercase tracking-tight text-white flex items-center gap-2.5">
+          <h1 className="font-display text-2xl sm:text-3xl font-black uppercase tracking-tight text-text-primary flex items-center gap-2.5">
             <Layers size={24} className="text-brand-accent" />
             <span>KANBAN PRODUKSI SABLON DTF</span>
           </h1>
@@ -332,13 +332,13 @@ export default function ProductionKanbanPage() {
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               placeholder="Cari pesanan / nama..."
-              className="pl-9 pr-3.5 py-2 rounded-xl bg-surface border border-white/10 text-xs font-mono text-white focus:outline-none focus:border-brand-accent"
+              className="pl-9 pr-3.5 py-2 rounded-xl bg-surface border border-border-subtle text-xs font-mono text-text-primary placeholder:text-text-muted focus:outline-none focus:border-brand-accent"
             />
           </div>
 
           <button
             onClick={() => refetch()}
-            className="p-2 rounded-xl bg-surface border border-white/10 text-text-muted hover:text-white hover:bg-white/5 transition-all"
+            className="p-2 rounded-xl bg-surface border border-border-subtle text-text-muted hover:text-text-primary hover:bg-black/5 dark:hover:bg-white/5 transition-all"
             title="Refresh Antrean"
           >
             <RefreshCw size={15} />
@@ -354,7 +354,7 @@ export default function ProductionKanbanPage() {
             className={`px-3 py-2 rounded-xl border font-mono text-[11px] font-bold transition-all flex items-center gap-1.5 ${
               teamwearOnly
                 ? "bg-brand-accent/20 border-brand-accent text-brand-accent"
-                : "bg-surface border-white/10 text-text-muted hover:text-white"
+                : "bg-surface border-border-subtle text-text-muted hover:text-text-primary"
             }`}
           >
             <Users size={13} />
@@ -363,14 +363,14 @@ export default function ProductionKanbanPage() {
         </div>
       </div>
       {actionError && (
-        <div className="p-3 rounded-xl bg-red-500/10 border border-red-500/40 text-red-300 font-mono text-xs" role="alert">
+        <div className="p-3 rounded-xl bg-red-500/10 border border-red-500/40 text-red-700 dark:text-red-300 font-mono text-xs" role="alert">
           ⚠️ {actionError}
         </div>
       )}
 
       {/* Kanban Board Horizontal Columns — Drag & Drop via @dnd-kit (BLUEPRINT-03 §3) */}
       {isError && !isLoading && (
-        <div className="p-4 rounded-xl bg-rose-500/10 border border-rose-500/40 text-rose-300 font-mono text-xs flex items-center justify-between" role="alert">
+        <div className="p-4 rounded-xl bg-rose-500/10 border border-rose-500/40 text-rose-700 dark:text-rose-300 font-mono text-xs flex items-center justify-between" role="alert">
           <span>Gagal memuat antrean produksi. Periksa koneksi server.</span>
           <button onClick={() => refetch()} className="px-4 py-2 rounded-lg bg-rose-500/20 font-bold">
             COBA LAGI
@@ -380,16 +380,16 @@ export default function ProductionKanbanPage() {
       {isLoading ? (
         <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-7 gap-4 pb-4 items-start" aria-busy="true" aria-label="Memuat antrean produksi">
           {STAGES.map((col) => (
-            <div key={col.id} className="bg-[#141416] border border-white/5 rounded-2xl p-4 space-y-3 min-w-[260px] animate-pulse">
-              <div className="h-4 rounded bg-white/10 w-2/3" />
-              <div className="h-24 rounded-xl bg-white/5" />
-              <div className="h-24 rounded-xl bg-white/5" />
+            <div key={col.id} className="bg-surface border border-border-subtle rounded-2xl p-4 space-y-3 min-w-[260px] animate-pulse">
+              <div className="h-4 rounded bg-black/10 dark:bg-white/10 w-2/3" />
+              <div className="h-24 rounded-xl bg-black/5 dark:bg-white/5" />
+              <div className="h-24 rounded-xl bg-black/5 dark:bg-white/5" />
             </div>
           ))}
         </div>
       ) : (
       <DndContext sensors={sensors} collisionDetection={closestCenter} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
-        <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-7 gap-4 overflow-x-auto pb-4 items-start min-h-[600px]">
+        <div className="flex md:grid md:grid-cols-3 lg:grid-cols-7 gap-4 overflow-x-auto snap-x snap-mandatory md:snap-none pb-4 items-start min-h-[600px]">
           {STAGES.map((col, colIdx) => {
             const colTasks = visibleTasks.filter((t) => t.stage === col.id);
             const Icon = col.icon;
@@ -411,17 +411,17 @@ export default function ProductionKanbanPage() {
               <DroppableColumn
                 key={col.id}
                 id={col.id}
-                className="bg-[#141416] border border-white/5 rounded-2xl p-4 flex flex-col space-y-3 min-w-[260px]"
+                className="bg-surface border border-border-subtle rounded-2xl p-4 flex flex-col space-y-3 min-w-[260px] w-[85vw] max-w-[320px] md:w-auto md:max-w-none shrink-0 md:shrink snap-start"
               >
                 {/* Column Header */}
-                <div className="flex items-center justify-between pb-2 border-b border-white/5">
+                <div className="flex items-center justify-between pb-2 border-b border-border-subtle">
                   <div className="flex items-center space-x-2">
                     <Icon size={14} className={col.color} />
-                    <span className="font-mono text-xs font-bold text-white uppercase tracking-wider">
+                    <span className="font-mono text-xs font-bold text-text-primary uppercase tracking-wider">
                       {col.label}
                     </span>
                   </div>
-                  <span className="font-mono text-[11px] font-bold text-text-muted bg-surface px-2 py-0.5 rounded-full border border-white/5">
+                  <span className="font-mono text-[11px] font-bold text-text-muted bg-surface px-2 py-0.5 rounded-full border border-border-subtle">
                     {colTasks.length}
                   </span>
                 </div>
@@ -448,7 +448,7 @@ export default function ProductionKanbanPage() {
                             aria-label={`${collapsed ? "Buka" : "Tutup"} grup ${first.order.orderNumber}`}
                             className="w-full flex items-center justify-between gap-2 text-left"
                           >
-                            <span className="flex items-center gap-1.5 text-[11px] font-bold text-white min-w-0">
+                            <span className="flex items-center gap-1.5 text-[11px] font-bold text-text-primary min-w-0">
                               <Users size={12} className="text-brand-accent shrink-0" />
                               <span className="truncate">{first.order.orderNumber} · {first.order.user?.name || "Pelanggan"} · {pcs} pcs</span>
                             </span>
@@ -468,7 +468,7 @@ export default function ProductionKanbanPage() {
                     {colTasks.map((task) => (
                       <div key={task.id} className={colGroupMap.has(task.orderId) && collapsedOrders[task.orderId] ? "hidden" : ""}>
                       <SortableTaskCard task={task}>
-                        <div className="p-3.5 rounded-xl bg-surface border border-white/10 hover:border-brand-accent/50 transition-all space-y-2.5 font-mono text-xs shadow-md cursor-grab active:cursor-grabbing">
+                        <div className="p-3.5 rounded-xl bg-surface border border-border-subtle hover:border-brand-accent/50 transition-all space-y-2.5 font-mono text-xs shadow-md cursor-grab active:cursor-grabbing">
                           {/* Top Row: Order ID & Priority */}
                           <div className="flex justify-between items-start">
                             <span className="font-bold text-brand-accent">{task.order.orderNumber}</span>
@@ -479,7 +479,7 @@ export default function ProductionKanbanPage() {
                               </span>
                             )}
                             {task.priority > 0 && (
-                              <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-amber-500/20 text-amber-400 border border-amber-500/40">
+                              <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-amber-500/20 text-amber-700 dark:text-amber-400 border border-amber-500/40">
                                 ⚡ EXPRESS
                               </span>
                             )}
@@ -487,7 +487,7 @@ export default function ProductionKanbanPage() {
 
                           {/* Item Details */}
                           <div>
-                            <p className="font-bold text-white leading-tight">
+                            <p className="font-bold text-text-primary leading-tight">
                               {task.order.items?.[0]?.snapshotName || "Sablon DTF Apparel"}
                               {(task.order.items?.length || 0) > 1 && (
                                 <span className="text-brand-accent"> +{(task.order.items?.length || 1) - 1} item</span>
@@ -500,14 +500,14 @@ export default function ProductionKanbanPage() {
                           </div>
 
                           {/* DTF Print Dimensions */}
-                          <div className="p-2 rounded-lg bg-black/40 border border-white/5 text-[10px] space-y-0.5">
+                          <div className="p-2 rounded-lg bg-surface border border-border-subtle text-[10px] space-y-0.5">
                             <span className="block text-text-muted">UKURAN CETAK (DTF):</span>
                             {task.printWidthCm && task.printHeightCm ? (
-                              <span className="font-bold text-white block">
+                              <span className="font-bold text-text-primary block">
                                 📏 {task.printWidthCm} cm × {task.printHeightCm} cm (Maks 30cm)
                               </span>
                             ) : (
-                              <span className="font-bold text-amber-400 block">⚠ Belum terukur</span>
+                              <span className="font-bold text-amber-700 dark:text-amber-400 block">⚠ Belum terukur</span>
                             )}
                             {task.printFileUrl && (
                               <a
@@ -515,7 +515,7 @@ export default function ProductionKanbanPage() {
                                 target="_blank"
                                 rel="noreferrer"
                                 onClick={(e) => e.stopPropagation()}
-                                className="inline-flex items-center gap-1 mt-1 px-2 py-1 rounded bg-emerald-500/15 border border-emerald-500/40 text-emerald-300 font-bold hover:bg-emerald-500/25 transition-all"
+                                className="inline-flex items-center gap-1 mt-1 px-2 py-1 rounded bg-emerald-500/15 border border-emerald-500/40 text-emerald-700 dark:text-emerald-300 font-bold hover:bg-emerald-500/25 transition-all"
                               >
                                 <span>📄 FILE CETAK 300DPI</span>
                               </a>
@@ -528,13 +528,13 @@ export default function ProductionKanbanPage() {
                           </div>
 
                           {/* Customer & Courier */}
-                          <div className="text-[10px] text-text-muted flex justify-between border-t border-white/5 pt-2">
+                          <div className="text-[10px] text-text-muted flex justify-between border-t border-border-subtle pt-2">
                             <span>{task.order.user?.name || "Pelanggan"}</span>
-                            <span className="text-white font-bold">{task.order.deliveryMethod}</span>
+                            <span className="text-text-primary font-bold">{task.order.deliveryMethod}</span>
                           </div>
 
                           {/* Move Stage Actions */}
-                          <div className="pt-2 flex items-center justify-between border-t border-white/5">
+                          <div className="pt-2 flex items-center justify-between border-t border-border-subtle">
                             <a
                               href={`/admin/orders/${task.orderId}`}
                               className="text-[10px] text-brand-accent hover:underline flex items-center gap-1"
@@ -552,12 +552,12 @@ export default function ProductionKanbanPage() {
                                     e.stopPropagation();
                                     claimTaskMutation.mutate({ taskId: task.id });
                                   }}
-                                  className="px-2.5 py-1 rounded bg-surface border border-white/15 text-white font-bold text-[10px] hover:border-brand-accent transition-all"
+                                  className="px-2.5 py-1 rounded bg-surface border border-border-strong text-text-primary font-bold text-[10px] hover:border-brand-accent transition-all"
                                 >
                                   <span>AMBIL</span>
                                 </button>
                               ) : (
-                                <span className="px-2 py-1 rounded bg-emerald-500/10 border border-emerald-500/30 text-emerald-300 text-[9px] font-bold">
+                                <span className="px-2 py-1 rounded bg-emerald-500/10 border border-emerald-500/30 text-emerald-700 dark:text-emerald-300 text-[9px] font-bold">
                                   DIPEGANG
                                 </span>
                               )}
@@ -585,7 +585,7 @@ export default function ProductionKanbanPage() {
                     ))}
 
                     {colTasks.length === 0 && (
-                      <div className="p-6 text-center text-text-muted/60 text-[11px] font-mono border border-dashed border-white/5 rounded-xl">
+                      <div className="p-6 text-center text-text-muted/60 text-[11px] font-mono border border-dashed border-border-subtle rounded-xl">
                         Kosong — drag card ke sini
                       </div>
                     )}
@@ -599,7 +599,7 @@ export default function ProductionKanbanPage() {
           {activeTask ? (
             <div className="p-3.5 rounded-xl bg-surface border border-brand-accent shadow-2xl font-mono text-xs w-[260px] opacity-90">
               <span className="font-bold text-brand-accent">{activeTask.order.orderNumber}</span>
-              <p className="font-bold text-white truncate">{activeTask.order.items?.[0]?.snapshotName}</p>
+              <p className="font-bold text-text-primary truncate">{activeTask.order.items?.[0]?.snapshotName}</p>
             </div>
           ) : null}
         </DragOverlay>

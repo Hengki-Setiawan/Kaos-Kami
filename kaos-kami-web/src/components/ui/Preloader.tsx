@@ -21,12 +21,12 @@ export const Preloader: React.FC = () => {
   const tahap = useMemo(() => tahapUntuk(active ? persen : 100), [active, persen]);
 
   useEffect(() => {
-    // Safety: tetap hilang sendiri maks ~3 dtk agar copy staged sempat terbaca,
-    // tanpa menggantung bila jaringan/3D macet.
+    // CWV: safety turun 3000→800ms agar overlay tak menahan FCP/LCP;
+    // tetap auto-hilang tanpa menggantung bila jaringan/3D macet.
     const safetyTimer = setTimeout(() => {
       setKeluar(true);
       setTimeout(() => setVisible(false), 450);
-    }, 3000);
+    }, 800);
 
     if (!active && progress >= 100) {
       const finishTimer = setTimeout(() => {

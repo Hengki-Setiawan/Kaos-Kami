@@ -70,7 +70,7 @@ export const SaveDesignSchema = z.object({
   materialFinishSlug: z.string().max(40).optional(),
   sablonMethodSlug: z.string().default("dtf"),
   decals: z.array(DecalLayerSchema).max(10, "Maks 10 lapis sablon"),
-  studioTheme: z.enum(["obsidian", "gallery", "concrete"]).default("obsidian"),
+  studioTheme: z.enum(["obsidian", "gallery", "concrete"]).default("gallery"),
   calculatedPriceIdr: z.number().positive().max(100_000_000).optional(),
   priceBreakdown: z.record(z.any()).optional().default({}),
   previewImageFrontUrl: z.string().max(500_000).optional(),

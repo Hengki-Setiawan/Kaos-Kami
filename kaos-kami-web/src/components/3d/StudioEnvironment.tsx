@@ -19,7 +19,7 @@ import { LIGHTING_TINTS } from "@/lib/constants";
 // biaya sekali jalan (~10-30ms, jauh di bawah unduh HDR).
 /** Pola eksklusif Sep 2026: tint mood SAJA (tanpa HDR/unduhan).
  * golden/sunset hangat, gallery netral terang. Lampu tak disentuh. */
-function buildStudioEquirect(tint: string | null): HTMLCanvasElement {
+function buildStudioEquirect(tint: string | null, isLight = false): HTMLCanvasElement {
   const W = 512;
   const H = 256;
   const canvas = document.createElement("canvas");
@@ -28,12 +28,19 @@ function buildStudioEquirect(tint: string | null): HTMLCanvasElement {
   const ctx = canvas.getContext("2d");
   if (!ctx) return canvas;
 
-  // Langit-langit gelap studio → lantai nyaris hitam.
+  // Langit studio — gelap obsidian vs terang gallery (hanya warna, tanpa ubah three logic).
   const sky = ctx.createLinearGradient(0, 0, 0, H);
-  sky.addColorStop(0, "#3a3f4a");
-  sky.addColorStop(0.45, "#141418");
-  sky.addColorStop(0.75, "#0c0c0e");
-  sky.addColorStop(1, "#060607");
+  if (isLight) {
+    sky.addColorStop(0, "#F5F4F0");
+    sky.addColorStop(0.45, "#E9E7E1");
+    sky.addColorStop(0.75, "#DDDAD2");
+    sky.addColorStop(1, "#D0CCC2");
+  } else {
+    sky.addColorStop(0, "#3a3f4a");
+    sky.addColorStop(0.45, "#141418");
+    sky.addColorStop(0.75, "#0c0c0e");
+    sky.addColorStop(1, "#060607");
+  }
   ctx.fillStyle = sky;
   ctx.fillRect(0, 0, W, H);
 
@@ -76,13 +83,15 @@ export const StudioEnvironment: React.FC = () => {
   const invalidate = useThree((s) => s.invalidate);
   // Tint saja per mood — lampu StudioLighting tak disentuh (fallback aman).
   const lightingPreset = useConfiguratorStore((s) => s.lightingPreset);
+  const studioTheme = useConfiguratorStore((s) => s.studioTheme);
+  const isLight = studioTheme === "gallery";
   const tint = LIGHTING_TINTS[lightingPreset] ?? null;
   useEffect(() => {
     let disposed = false;
     let rt: THREE.WebGLRenderTarget | null = null;
     let tex: THREE.CanvasTexture | null = null;
     try {
-      tex = new THREE.CanvasTexture(buildStudioEquirect(tint));
+      tex = new THREE.CanvasTexture(buildStudioEquirect(tint, isLight));
       tex.mapping = THREE.EquirectangularReflectionMapping;
       tex.colorSpace = THREE.SRGBColorSpace;
       const pmrem = new THREE.PMREMGenerator(gl);
@@ -106,6 +115,6 @@ export const StudioEnvironment: React.FC = () => {
         /* abaikan */
       }
     };
-  }, [gl, scene, invalidate, tint]);
+  }, [gl, scene, invalidate, tint, isLight]);
   return null;
 };

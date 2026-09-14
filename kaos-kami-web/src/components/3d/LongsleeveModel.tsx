@@ -3,7 +3,7 @@
 import React, { useEffect, useMemo, useRef, Suspense } from "react";
 import * as THREE from "three";
 import { useGLTF } from "@react-three/drei";
-import { useFrame } from "@react-three/fiber";
+import { useFrame, useThree } from "@react-three/fiber";
 import { easing } from "maath";
 import { useConfiguratorStore } from "@/store/useConfiguratorStore";
 import { useShallow } from "zustand/shallow";
@@ -13,18 +13,38 @@ import { createClothPhysicalMaterial } from "@/lib/materials/clothPhysicalMateri
 import { useDeviceTier } from "@/hooks/useDeviceTier";
 import { useResourceTracker, useTrackedResource } from "@/lib/threeResourceTracker";
 import { surfaceZForApparel } from "@/lib/scaleCalibration";
+import { extractApparelGeometry } from "@/lib/extractApparelGeometry";
 
-// M-sisa (11 Sep 2026): swap ke .draco.glb teroptimasi (-44%, 1204KB→673KB).
-// Node T_Shirt_male + material 0 + atribut identik (terverifikasi header GLB,
-// selisih +13 vertex jahitan ≈0.1% — aman). Rantai fallback draco→legacy ada
-// di LONGSLEEVE_MODEL_CANDIDATES (useDeviceTier) + probe CanvasStage.
-const MODEL_PATH = "/models/longsleeve.draco.glb";
-useGLTF.preload(MODEL_PATH);
+const MODEL_PATH = "/models/longsleeve.glb?v=7";
 
-const GltfLongsleeve: React.FC = () => {
+// PERF 14 Sep 2026: top-level useGLTF.preload DIHAPUS — preload terpusat
+// HANYA via idle-preload di CanvasStage (aktif + tetangga katalog) agar tak
+// berebut bandwidth first paint.
+
+/** Ambil geometri mesh (bisa T_Shirt_male atau mesh pertama di scene). */
+function firstMeshGeometry(nodes: any, scene?: THREE.Group): THREE.BufferGeometry | undefined {
+  if (nodes?.T_Shirt_male?.geometry) return nodes.T_Shirt_male.geometry as THREE.BufferGeometry;
+  const found = Object.values(nodes ?? {}).find(
+    (n: any) => n && (n as any).isMesh && (n as any).geometry
+  ) as any;
+  if (found?.geometry) return found.geometry as THREE.BufferGeometry;
+  if (scene) {
+    let geom: THREE.BufferGeometry | undefined;
+    scene.traverse((child: any) => {
+      if (!geom && child.isMesh && child.geometry) {
+        geom = child.geometry;
+      }
+    });
+    return geom;
+  }
+  return undefined;
+}
+
+const GltfLongsleeve: React.FC<{ path: string }> = ({ path }) => {
   const meshRef = useRef<THREE.Group>(null);
   const { tier } = useDeviceTier();
-  const { nodes } = useGLTF(MODEL_PATH) as any;
+  const invalidate = useThree((s) => s.invalidate);
+  const { nodes, scene } = useGLTF(path) as any;
   const {
     selectedColor,
     isRotating,
@@ -64,20 +84,13 @@ const GltfLongsleeve: React.FC = () => {
       ? 0.2
       : 0;
 
-  // baseGeometry: clone cache GLB + bobot wind — HANYA [nodes].
-  // selectedColor SENGAJA tak ada di sini: mode single-color tak butuh
-  // atribut warna sama sekali (material.color via damp di useFrame), jadi
-  // geser warna tak lagi clone+wind-weight ulang tiap frame commit.
   const baseGeometry = useMemo(() => {
-    const base = nodes?.T_Shirt_male?.geometry as THREE.BufferGeometry | undefined;
-    if (!base) return null;
-    // JANGAN mutasi cache GLB drei (audit #6–#9): clone dulu, lalu ubah
-    // clone milik sendiri (lihat TshirtModel — alasan sama).
-    const geo = base.clone();
-    // WAJIB: bobot wind per-vertex — tanpa ini preset wind diam total.
-    ensureWindWeights(geo);
-    return geo;
-  }, [nodes]);
+    return extractApparelGeometry(scene);
+  }, [scene, path]);
+
+  useEffect(() => {
+    if (baseGeometry) invalidate();
+  }, [invalidate, baseGeometry]);
 
   // Multi-part coloring for longsleeve (collar, sleeves including cuffs, body).
   // Atribut warna ditulis in-place di clone milik sendiri (+needsUpdate, tanpa
@@ -188,7 +201,7 @@ const GltfLongsleeve: React.FC = () => {
       <mesh
         castShadow
         receiveShadow
-        geometry={(coloredGeometry as any) || nodes?.T_Shirt_male?.geometry}
+        geometry={(coloredGeometry as any) || baseGeometry}
         material={material}
       >
         <DecalLayerRenderer surfaceZFront={surfaceZForApparel("longsleeve")} surfaceZBack={surfaceZForApparel("longsleeve")} />
@@ -200,7 +213,7 @@ const GltfLongsleeve: React.FC = () => {
 export const LongsleeveModel: React.FC = () => {
   return (
     <Suspense fallback={null}>
-      <GltfLongsleeve />
+      <GltfLongsleeve path={MODEL_PATH} />
     </Suspense>
   );
 };

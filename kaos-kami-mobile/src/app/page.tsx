@@ -20,6 +20,7 @@ import {
   Share2,
   Eye,
   FileText,
+  Lock,
 } from 'lucide-react';
 import {
   NativeHeader,
@@ -31,6 +32,7 @@ import {
   ColorSwatchPicker,
   BottomSheet,
   Toast,
+  ApparelVectorIcon,
 } from '@/components/ui';
 import {
   initEdgeToEdgeStatusBar,
@@ -235,7 +237,11 @@ export default function MobileApp() {
         const userId = (await getStoredUserId()) || (typeof window !== 'undefined' ? localStorage.getItem('kaoskami_user_id') || undefined : undefined);
         await mobileApiClient.registerPushToken(token, userId);
       },
-      () => {}
+      // Tap push (status sablon lunas/selesai) → tab Pesanan agar user
+      // langsung lihat tracker, bukan diam di tab aktif.
+      () => {
+        setActiveTab('orders');
+      }
     );
     // Deep link kaoskami:// (M9): tile QS & return pembayaran.
     // ANTI OPEN-REDIRECT (Sep 2026): validasi KETAT via URL parse —
@@ -316,14 +322,23 @@ export default function MobileApp() {
       }).catch(() => {});
     } catch {}
     // Keyboard menutupi input checkout → scroll elemen aktif ke pandangan (M2).
+    // iOS: keyboardWillShow; Android: Will+Did fire hampir bersamaan
+    // (docs Capacitor Keyboard) — dengar keduanya agar scroll tak miss di HP.
+    // setResizeMode HANYA iOS (Android diatur manifest adjustResize + config
+    // resizeOnFullScreen) — panggil aman di try/catch.
     let kbShow: { remove: () => void } | null = null;
+    let kbDidShow: { remove: () => void } | null = null;
     try {
-      Keyboard.addListener('keyboardWillShow', () => {
+      const scrollActiveIntoView = () => {
         setTimeout(() => {
           (document.activeElement as HTMLElement | null)?.scrollIntoView?.({ block: 'center', behavior: 'smooth' });
         }, 100);
-      }).then((h) => {
+      };
+      Keyboard.addListener('keyboardWillShow', scrollActiveIntoView).then((h) => {
         kbShow = h;
+      }).catch(() => {});
+      Keyboard.addListener('keyboardDidShow', scrollActiveIntoView).then((h) => {
+        kbDidShow = h;
       }).catch(() => {});
       Keyboard.setResizeMode({ mode: KeyboardResize.Body }).catch(() => {});
     } catch {}
@@ -332,8 +347,61 @@ export default function MobileApp() {
       cleanupSync();
       try { appUrlListener?.remove(); } catch {}
       try { kbShow?.remove(); } catch {}
+      try { kbDidShow?.remove(); } catch {}
     };
   }, []);
+
+  // Android backButton: tutup sheet/Browser DULU sebelum keluar (Capacitor 8:
+  // listener ini menonaktifkan default — wajib handle manual + exitApp).
+  // Urutan: AR → Browser bayar → checkout → customizer/admin/techpack/biometrik
+  // → tab non-home kembali ke home → baru exitApp.
+  useEffect(() => {
+    let h: { remove: () => void } | null = null;
+    try {
+      CapacitorApp.addListener('backButton', async () => {
+        try {
+          if (arOpen) {
+            setArOpen(false);
+            return;
+          }
+          try {
+            const { Browser } = await import('@capacitor/browser');
+            await Browser.close();
+          } catch {}
+          if (checkoutOpen) {
+            setCheckoutOpen(false);
+            return;
+          }
+          if (sheetOpen) {
+            setSheetOpen(false);
+            return;
+          }
+          if (adminModeOpen) {
+            setAdminModeOpen(false);
+            return;
+          }
+          if (techPackOpen) {
+            setTechPackOpen(false);
+            return;
+          }
+          if (biometricPromptOpen) {
+            setBiometricPromptOpen(false);
+            return;
+          }
+          if (activeTab !== 'home') {
+            setActiveTab('home');
+            return;
+          }
+          await CapacitorApp.exitApp();
+        } catch {}
+      }).then((lh) => {
+        h = lh;
+      }).catch(() => {});
+    } catch {}
+    return () => {
+      try { h?.remove(); } catch {}
+    };
+  }, [activeTab, sheetOpen, checkoutOpen, adminModeOpen, techPackOpen, arOpen, biometricPromptOpen]);
 
   const triggerToast = (msg: string) => {
     setToastMessage(msg);
@@ -419,14 +487,13 @@ export default function MobileApp() {
   // - pants/shorts: mockup 3D AKTIF di studio HP, order TETAP diblokir.
   const apparelOptions: { key: ApparelType; label: string; gsm: string; price: number }[] = [
     { key: 'tshirt', label: 'T-Shirt Heavyweight', gsm: '240 / 280 GSM', price: 149000 },
-    { key: 'hoodie', label: 'Streetwear Hoodie', gsm: '380 GSM', price: 269000 },
-    { key: 'shirt', label: 'Coach Jacket', gsm: '320 GSM', price: 329000 },
     { key: 'longsleeve', label: 'Longsleeve Shirt', gsm: '240 / 280 GSM', price: 169000 },
     { key: 'crewneck', label: 'Crewneck Sweater', gsm: '330 / 380 GSM', price: 249000 },
-    { key: 'sweater', label: 'Sweater Pack', gsm: '330 / 380 GSM', price: 249000 },
+    { key: 'hoodie', label: 'Streetwear Hoodie', gsm: '380 GSM', price: 269000 },
+    { key: 'shirt', label: 'Coach Jacket', gsm: '320 GSM', price: 329000 },
     { key: 'cap', label: 'Baseball Cap', gsm: 'Twill / Canvas', price: 99000 },
-    { key: 'pants', label: 'Pants / Denim', gsm: '—', price: 0 },
-    { key: 'shorts', label: 'Shorts / Celana Pendek', gsm: '—', price: 0 },
+    { key: 'pants', label: 'Cargo Pants', gsm: 'Streetwear Twill', price: 0 },
+    { key: 'shorts', label: 'Denim Shorts', gsm: 'Classic Denim', price: 0 },
   ];
 
   const handleSaveToCart = () => {
@@ -529,7 +596,7 @@ export default function MobileApp() {
   };
 
   return (
-    <div className="flex-1 flex flex-col min-h-screen bg-[#0E0E10] text-white select-none">
+    <div className="flex-1 flex flex-col min-h-dvh bg-canvas text-text-primary select-none transition-colors">
       {/* Offline Alert Strip */}
       {!isOnline && (
         <div className="bg-amber-600/90 text-black px-4 py-1.5 text-[11px] font-bold flex items-center justify-center gap-1.5 z-50">
@@ -575,7 +642,7 @@ export default function MobileApp() {
       />
 
       {/* Main Content Area */}
-      <main className="flex-1 px-4 pt-2 pb-24 flex flex-col">
+      <main className="flex-1 px-4 pt-2 pb-[calc(6rem+env(safe-area-inset-bottom))] flex flex-col">
         {/* ========================================================= */}
         {/* TAB 1: HOME */}
         {/* ========================================================= */}
@@ -634,7 +701,7 @@ export default function MobileApp() {
             </GlassCard>
 
             {/* Quick Action Grid */}
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
               <GlassCard
                 interactive
                 onClick={() => {
@@ -693,9 +760,9 @@ export default function MobileApp() {
         {/* TAB 2: STUDIO 3D CONFIGURATOR (WITH AR TRY-ON & TECH PACK) */}
         {/* ========================================================= */}
         {activeTab === 'studio' && (
-          <div className="flex-1 flex flex-col h-[calc(100vh-140px)] relative">
+          <div className="flex-1 flex flex-col h-[calc(100dvh-140px)] relative">
             {/* 3D Canvas Stage */}
-            <div className="flex-1 relative rounded-3xl overflow-hidden border border-zinc-800 shadow-2xl bg-[#0E0E10]">
+            <div className="flex-1 relative rounded-3xl overflow-hidden border border-border-subtle shadow-2xl bg-canvas transition-colors">
               <CanvasStageMobile />
               <StudioControlOverlay onNotify={(m) => triggerToast(m)} />
             </div>
@@ -749,7 +816,7 @@ export default function MobileApp() {
                 <Badge variant="success">Live Server</Badge>
               )}
             </div>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
               {(serverCatalog && serverCatalog.length > 0
                 ? serverCatalog.map((c) => {
                     // JUJUR: slug dikenal → pakai slug itu sendiri (terkunci
@@ -785,14 +852,18 @@ export default function MobileApp() {
                   className={`p-3.5 text-left ${locked ? 'opacity-60' : ''}`}
                 >
                   <div className="w-full aspect-square rounded-2xl bg-zinc-800/80 mb-2.5 flex items-center justify-center text-zinc-500 relative">
-                    <Layers className="w-8 h-8 opacity-40" />
+                    <ApparelVectorIcon type={item.key} className="w-10 h-10 opacity-70 text-zinc-300" />
                     {locked && (
                       <span className={`absolute top-2 right-2 px-2 py-0.5 rounded-full text-[9px] font-extrabold tracking-wide border ${
                         isCap
                           ? 'bg-amber-500/15 text-amber-300 border-amber-500/40'
                           : 'bg-zinc-900/90 text-zinc-400 border-zinc-700'
                       }`}>
-                        {isCap ? 'SEGERA' : '🔒 SEGERA DI HP'}
+                        {isCap ? 'SEGERA' : (
+                          <span className="inline-flex items-center gap-1">
+                            <Lock className="w-2.5 h-2.5" /> SEGERA DI HP
+                          </span>
+                        )}
                       </span>
                     )}
                   </div>
@@ -994,7 +1065,7 @@ export default function MobileApp() {
             <label className="text-xs font-semibold text-white mb-2 block font-['Syne']">
               Jenis Pakaian:
             </label>
-            <div className="grid grid-cols-2 gap-2">
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
               {apparelOptions.map((opt) => {
                 const isSelected = apparelType === opt.key;
                 // KEPUTUSAN FALLBACK (jujur, bukan mesh salah): item
@@ -1027,29 +1098,31 @@ export default function MobileApp() {
                         : 'bg-zinc-900 border-zinc-800 text-zinc-400 hover:text-white'
                     }`}
                   >
-                    <div>
-                      <p className="text-xs font-bold flex items-center gap-1.5">
-                        {opt.label}
-                        {locked && (
-                          <span className={`px-1.5 py-px rounded-full text-[8px] font-extrabold border ${
-                            isCap
-                              ? 'bg-amber-500/15 text-amber-300 border-amber-500/40'
-                              : 'bg-zinc-800 text-zinc-400 border-zinc-700'
-                          }`}>
-                            {isCap ? 'SEGERA' : 'SEGERA DI HP'}
-                          </span>
-                        )}
-                      </p>
-                      <p className="text-[10px] text-zinc-500">{opt.gsm}</p>
-                      {locked && (
-                        <p className="text-[9px] text-zinc-500 mt-0.5 leading-snug">
-                          {opt.key === 'crewneck'
-                            ? 'Pilih Sweater Pack (mesh sama).'
-                            : 'Mockup 3D di studio HP; order diblokir.'}
+                    <div className="flex items-center gap-2.5">
+                      <div className={`p-2 rounded-xl transition-colors ${
+                        isSelected
+                          ? 'bg-[#FF6B35] text-white shadow-sm shadow-orange-600/30'
+                          : 'bg-zinc-800/80 text-zinc-400'
+                      }`}>
+                        <ApparelVectorIcon type={opt.key} className="w-4 h-4" />
+                      </div>
+                      <div>
+                        <p className="text-xs font-bold flex items-center gap-1.5">
+                          {opt.label}
+                          {locked && (
+                            <span className={`px-1.5 py-px rounded-full text-[8px] font-extrabold border ${
+                              isCap
+                                ? 'bg-amber-500/15 text-amber-300 border-amber-500/40'
+                                : 'bg-zinc-800 text-zinc-400 border-zinc-700'
+                            }`}>
+                              {isCap ? 'SEGERA' : 'SEGERA DI HP'}
+                            </span>
+                          )}
                         </p>
-                      )}
+                        <p className="text-[10px] text-zinc-500">{opt.gsm}</p>
+                      </div>
                     </div>
-                    {isSelected && !locked && <Check className="w-4 h-4 text-[#FF6B35]" />}
+                    {isSelected && !locked && <Check className="w-4 h-4 text-[#FF6B35] shrink-0" />}
                   </button>
                 );
               })}

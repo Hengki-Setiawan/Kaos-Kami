@@ -3,7 +3,7 @@
 import React, { useEffect, useMemo, useRef, Suspense } from "react";
 import * as THREE from "three";
 import { useGLTF } from "@react-three/drei";
-import { useFrame } from "@react-three/fiber";
+import { useFrame, useThree } from "@react-three/fiber";
 import { easing } from "maath";
 import { useConfiguratorStore } from "@/store/useConfiguratorStore";
 import { useShallow } from "zustand/shallow";
@@ -14,6 +14,7 @@ import { useDeviceTier } from "@/hooks/useDeviceTier";
 import { useResourceTracker, useTrackedResource } from "@/lib/threeResourceTracker";
 import { surfaceZForApparel } from "@/lib/scaleCalibration";
 import { SilentModelFallback } from "@/components/ui/ModelErrorBoundary";
+import { extractApparelGeometry } from "@/lib/extractApparelGeometry";
 import { TshirtModel } from "./TshirtModel";
 
 // CELANA coming-soon (pola integrasi cap, Sep 2026).
@@ -32,21 +33,35 @@ import { TshirtModel } from "./TshirtModel";
 //   hampir simetris; decal depan di +Z sudah benar).
 // - single-color SELALU (satu panel; multi-part tak bermakna untuk celana).
 // - validSidesFor(pants) = ["front"] — PatternStudio celana nonaktif eksplisit.
-const MODEL_PATH = "/models/pants.glb";
-useGLTF.preload(MODEL_PATH);
+const MODEL_PATH = "/models/pants.glb?v=9";
+
+// PERF 14 Sep 2026: top-level useGLTF.preload DIHAPUS — preload terpusat
+// HANYA via idle-preload di CanvasStage (aktif + tetangga katalog) agar tak
+// berebut bandwidth first paint.
 
 /** Ambil geometri mesh pertama (agnostik nama node). */
-function firstMeshGeometry(nodes: any): THREE.BufferGeometry | undefined {
+function firstMeshGeometry(nodes: any, scene?: THREE.Group): THREE.BufferGeometry | undefined {
   const found = Object.values(nodes ?? {}).find(
     (n: any) => n && (n as any).isMesh && (n as any).geometry
   ) as any;
-  return found?.geometry as THREE.BufferGeometry | undefined;
+  if (found?.geometry) return found.geometry as THREE.BufferGeometry;
+  if (scene) {
+    let geom: THREE.BufferGeometry | undefined;
+    scene.traverse((child: any) => {
+      if (!geom && child.isMesh && child.geometry) {
+        geom = child.geometry;
+      }
+    });
+    return geom;
+  }
+  return undefined;
 }
 
 const GltfPants: React.FC<{ path: string }> = ({ path }) => {
   const meshRef = useRef<THREE.Group>(null);
   const { tier } = useDeviceTier();
-  const { nodes } = useGLTF(path) as any;
+  const invalidate = useThree((s) => s.invalidate);
+  const { nodes, scene } = useGLTF(path) as any;
   const {
     selectedColor,
     isRotating,
@@ -76,13 +91,12 @@ const GltfPants: React.FC<{ path: string }> = ({ path }) => {
     animationPreset === "wind" ? 0.8 * animationSpeed : animationPreset === "walking" ? 0.4 * animationSpeed : 0;
 
   const baseGeometry = useMemo(() => {
-    const base = firstMeshGeometry(nodes);
-    if (!base) return null;
-    const geo = base.clone();
-    geo.center();
-    ensureWindWeights(geo);
-    return geo;
-  }, [nodes, path]);
+    return extractApparelGeometry(scene);
+  }, [scene, path]);
+
+  useEffect(() => {
+    if (baseGeometry) invalidate();
+  }, [invalidate, baseGeometry]);
 
   const material = useMemo(() => {
     // Tak ada archetype celana — twill katun paling dekat dengan "tshirt".
@@ -101,17 +115,6 @@ const GltfPants: React.FC<{ path: string }> = ({ path }) => {
   const matTracker = useResourceTracker();
   useTrackedResource(geoTracker, baseGeometry);
   useTrackedResource(matTracker, material);
-
-  useEffect(() => {
-    if (windStrength === 0) {
-      const m = material as any;
-      if (m.onBeforeCompile) {
-        m.onBeforeCompile = undefined;
-        m.userData.shader = undefined;
-        m.needsUpdate = true;
-      }
-    }
-  }, [material, windStrength]);
 
   useFrame((state, delta) => {
     easing.dampC(material.color, new THREE.Color(selectedColor), 0.25, delta);
@@ -142,7 +145,7 @@ const GltfPants: React.FC<{ path: string }> = ({ path }) => {
       <mesh
         castShadow
         receiveShadow
-        geometry={(baseGeometry as any) || firstMeshGeometry(nodes)}
+        geometry={baseGeometry || undefined}
         material={material}
       >
         <DecalLayerRenderer surfaceZFront={surfaceZForApparel("pants")} surfaceZBack={surfaceZForApparel("pants")} />
@@ -151,18 +154,10 @@ const GltfPants: React.FC<{ path: string }> = ({ path }) => {
   );
 };
 
-/**
- * Fallback: celana TAK PUNYA draco/file lama — pants.glb gagal →
- * tampilkan TshirtModel agar studio tetap jalan dan decal tak hilang.
- * Bukan mockup celana yang benar (dinyatakan di sini, bukan
- * disembunyikan dari developer).
- */
 export const PantsModel: React.FC = () => {
   return (
     <Suspense fallback={null}>
-      <SilentModelFallback fallback={<TshirtModel />}>
-        <GltfPants path={MODEL_PATH} />
-      </SilentModelFallback>
+      <GltfPants path={MODEL_PATH} />
     </Suspense>
   );
 };

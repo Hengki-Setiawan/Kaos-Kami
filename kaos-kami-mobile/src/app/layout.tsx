@@ -9,8 +9,9 @@ export const metadata: Metadata = {
 export const viewport: Viewport = {
   width: 'device-width',
   initialScale: 1,
-  maximumScale: 1,
-  userScalable: false,
+  // A11y: izinkan pinch-zoom s/d 5x (WCAG) — JANGAN kunci maximumScale=1.
+  maximumScale: 5,
+  userScalable: true,
   viewportFit: 'cover',
   themeColor: '#0E0E10',
 };
@@ -21,8 +22,10 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="id" className="dark bg-[#0E0E10]">
-      <body className="min-h-screen bg-[#0E0E10] text-white antialiased flex flex-col pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)]">
+    <html lang="id" className="dark bg-canvas">
+      {/* P0-3: safe-area top HANYA di NativeHeader (pt-safe); body tanpa
+          pt-safe agar tak double. pb-safe milik TabBar/BottomSheet. */}
+      <body className="min-h-dvh bg-canvas text-text-primary antialiased flex flex-col transition-colors">
         {children}
       </body>
     </html>

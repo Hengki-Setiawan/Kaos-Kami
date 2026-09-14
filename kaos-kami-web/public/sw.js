@@ -1,30 +1,23 @@
-const CACHE_NAME = "kaos-kami-cache-v3";
-// M-sisa & P0-4: precache SEMUA model prod + decoder inti Draco.
-// - GLB aktif: tshirt/longsleeve/hoodie-blue/jacket/sweater/cap draco & glb.
-// - 4 decoder runtime three DRACOLoader.
-// - 2 tekstur foto cotton-jersey 512px.
+const CACHE_NAME = "kaos-kami-cache-v6";
+
+// Precache ONLY immutable 3D models and runtime assets (NEVER HTML pages!)
 const STATIC_ASSETS = [
-  "/",
-  "/studio",
   "/manifest.json",
   "/favicon.ico",
-  "/models/tshirt-heavyweight.draco.glb",
+  "/models/tee-basic.glb",
   "/models/tshirt-heavyweight.glb",
-  "/models/longsleeve.draco.glb",
   "/models/longsleeve.glb",
-  "/models/hoodie-blue.draco.glb",
   "/models/hoodie-blue.glb",
+  "/models/sweater.glb",
   "/models/jacket.glb",
-  "/models/jacket.lod1.glb",
-  "/decoders/draco/draco_decoder.js",
-  "/decoders/draco/draco_wasm_wrapper.js",
-  "/decoders/draco/draco_decoder.wasm",
-  "/decoders/draco/draco_decoder_gltf.wasm",
+  "/models/cap.glb",
+  "/models/pants.glb",
+  "/models/shorts.glb",
   "/textures/cotton-jersey-nor_gl_512.jpg",
   "/textures/cotton-jersey-rough_512.jpg",
 ];
 
-// Install event: cache shell and key 3D assets
+// Install event: cache 3D assets only
 self.addEventListener("install", (event) => {
   event.waitUntil(
     caches.open(CACHE_NAME).then((cache) => {
@@ -34,7 +27,7 @@ self.addEventListener("install", (event) => {
   self.skipWaiting();
 });
 
-// Activate event: clean up stale caches
+// Activate event: clean up all old stale caches
 self.addEventListener("activate", (event) => {
   event.waitUntil(
     caches.keys().then((keys) => {
@@ -46,12 +39,21 @@ self.addEventListener("activate", (event) => {
   self.clients.claim();
 });
 
-// Fetch event: Network-first for APIs, Cache-first for 3D GLB models & static images
+// Fetch event:
+// 1. Navigation (HTML) -> ALWAYS Network First (never serve stale index.html chunks!)
+// 2. Next.js chunks (/_next/) -> ALWAYS Network directly
+// 3. 3D GLB & textures -> Cache First
 self.addEventListener("fetch", (event) => {
   const url = new URL(event.request.url);
 
-  // APIs and auth must ALWAYS be fresh network-first
-  if (url.pathname.startsWith("/api/") || url.pathname.startsWith("/orders/")) {
+  // Navigation requests (HTML pages) and Next.js internal chunks: ALWAYS fresh network
+  if (
+    event.request.mode === "navigate" ||
+    event.request.destination === "document" ||
+    url.pathname.startsWith("/_next/") ||
+    url.pathname.startsWith("/api/") ||
+    url.pathname.startsWith("/orders/")
+  ) {
     event.respondWith(
       fetch(event.request).catch(() => caches.match(event.request))
     );
@@ -71,6 +73,7 @@ self.addEventListener("fetch", (event) => {
           (url.pathname.endsWith(".glb") ||
             url.pathname.endsWith(".png") ||
             url.pathname.endsWith(".jpg") ||
+            url.pathname.endsWith(".webp") ||
             url.pathname.endsWith(".wasm") ||
             url.pathname.endsWith(".css"))
         ) {

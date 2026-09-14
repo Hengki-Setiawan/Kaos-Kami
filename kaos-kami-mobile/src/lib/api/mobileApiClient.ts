@@ -8,6 +8,24 @@ export const API_BASE_URL = BASE_API_URL;
 // Batas waktu jaringan (CapacitorHttp Android; web fallback diabaikan aman).
 const HTTP_TIMEOUT = { connectTimeout: 15000, readTimeout: 15000 } as const;
 
+// Retry eksponensial HANYA untuk throw jaringan (tanpa respons) — status HTTP
+// error (4xx/5xx) TIDAK di-retry di sini (ditangani pemanggil per-status).
+// backoff: 500ms → 1000ms (maks 3 percobaan). OTP SENGAJA tak di-retry
+// (tiap kirim = biaya Fonnte + rate-limit server 3x/5 mnt).
+const sleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
+async function withNetworkRetry<T>(fn: () => Promise<T>, retries = 2, baseMs = 500): Promise<T> {
+  let lastErr: unknown = null;
+  for (let attempt = 0; attempt <= retries; attempt++) {
+    try {
+      return await fn();
+    } catch (e) {
+      lastErr = e;
+      if (attempt < retries) await sleep(baseMs * 2 ** attempt);
+    }
+  }
+  throw lastErr;
+}
+
 /** Platform aktual (android/ios/web) — jangan hardcode. */
 export function currentPlatform(): string {
   try {
@@ -75,13 +93,21 @@ export const mobileApiClient = {
   ): Promise<{ success: boolean; orderId?: string; orderNumber?: string; userId?: string; paymentUrl?: string; reference?: string; invoiceUrl?: string; error?: string; status?: number }> => {
     try {
       const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-      if (opts?.idempotencyKey) headers['Idempotency-Key'] = opts.idempotencyKey;
-      const response: HttpResponse = await CapacitorHttp.post({
-        url: `${BASE_API_URL}/api/mobile/orders/checkout`,
-        headers,
-        data: payload,
-        ...HTTP_TIMEOUT,
-      });
+      // Kunci stabil per panggilan: retry jaringan memakai key SAMA agar server
+      // dedupe (409 + order lama) bila request pertama ternyata sampai.
+      const stableKey =
+        opts?.idempotencyKey && opts.idempotencyKey.length >= 8
+          ? opts.idempotencyKey
+          : `retry-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
+      headers['Idempotency-Key'] = stableKey;
+      const response: HttpResponse = await withNetworkRetry(() =>
+        CapacitorHttp.post({
+          url: `${BASE_API_URL}/api/mobile/orders/checkout`,
+          headers,
+          data: payload,
+          ...HTTP_TIMEOUT,
+        })
+      );
       // CapacitorHttp TAK melempar untuk status HTTP error — response.data
       // membawa { error, orderId?, orderNumber?, invoiceUrl? } server.
       // Sertakan status agar pemanggil bisa bedakan 401/403/409/503 (jujur).

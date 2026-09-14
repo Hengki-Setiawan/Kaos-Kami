@@ -6,7 +6,9 @@
  * di `Asset 3D/` (JANGAN copy ke public/ tanpa keputusan owner — hemat
  * bundle/R2). CATATAN 14 Sep 2026: disk `public/models/` kini 22 file
  * (+pants/shorts/mannequin + 4 varian Draco) — BELUM masuk array, naik-tabel
- * menunggu owner (lihat CATATAN KEADALUWARSAAN di bawah).
+ * menunggu owner (lihat CATATAN KEADALUWARSAAN di bawah). SOFT-DISABLE Draco
+ * 14 Sep 2026: 9× *.draco.glb + decoder pindah ke backups/draco-archive/
+ * (BUKAN delete; restore: backups/draco-archive/RESTORE.md).
  *
  * Angka tris/byte/UV/tekstur 7 file STAGED: TERUKUR 12 Sep 2026 (sore) via
  * `gltf-transform inspect` (read-only) + SHA256 terbukti IDENTIK dengan master
@@ -19,9 +21,11 @@
  * LISENSI: 7 file STAGED = "✅ TERVERIFIKASI CC-BY 4.0 (12 Sep 2026, API Sketchfab) (screenshot
  * badge + URL sumber)". Klaim author/CC di note HANYA menyalin checklist,
  * BUKAN lisensi terverifikasi. "SWAP DEFAULT BELUM dipasang" KEDALUWARSA
- * 13 Sep — Fase 13 sudah wire default draco (lihat CATATAN KEADALUWARSAAN
+ * 13 Sep — Fase 13 sudah wire default (lihat CATATAN KEADALUWARSAAN
  * di bawah + `hooks/useDeviceTier.ts`); file lama tetap AKTIF sebagai
- * fallback (lihat ASSET_CREDITS §7).
+ * fallback (lihat ASSET_CREDITS §7). SOFT-DISABLE DRACO 14 Sep 2026
+ * (keputusan owner, paritas web non-Draco): default kini non-Draco;
+ * varian *.draco.glb + decoder diarsipkan ke backups/draco-archive/.
  *
  * OWNER: untuk mengubah daftar, cukup ubah array di bawah — halaman
  * `/admin/assets` ikut otomatis (satu sumber kebenaran).
@@ -120,7 +124,7 @@ export const BACKUP_FILES: AssetEntry[] = [
     uv: "ada (1/1 prim)",
     textures: "2 img / 2 tex / 1 mat",
     status: "backup",
-    note: "TERUKUR. Varian Draco tee aktif (−36% byte, tris identik). Dipakai TshirtModel sebagai MODEL_PATH.",
+    note: "TERUKUR. Varian Draco tee aktif (−36% byte, tris identik). SOFT-DISABLE 14 Sep 2026: diarsipkan ke backups/draco-archive/, default kini non-Draco (tee-basic.glb).",
   },
   {
     file: "longsleeve.draco.glb",
@@ -132,7 +136,7 @@ export const BACKUP_FILES: AssetEntry[] = [
     uv: "ada (1/1 prim)",
     textures: "2 img / 2 tex / 1 mat",
     status: "backup",
-    note: "TERUKUR. Varian Draco longsleeve aktif (−44% byte, tris identik). Dipakai LongsleeveModel.",
+    note: "TERUKUR. Varian Draco longsleeve aktif (−44% byte, tris identik). SOFT-DISABLE 14 Sep 2026: diarsipkan ke backups/draco-archive/, default kini non-Draco (longsleeve.glb).",
   },
   {
     file: "hoodie.lod1.glb",
@@ -222,7 +226,7 @@ export const STAGED_FILES: AssetEntry[] = [
     textures: "0 img / 0 tex / 1 mat (FLAT)",
     status: "staged",
     note:
-      "TERUKUR via inspect (glPrimitives 93.200, material Scene_-_Root tanpa tekstur). Salinan identik Asset 3D/sketchfab/baseball_cap.glb (SHA256 84640C2922C3…). Klaim checklist: Jarlan Perez, CC-BY 3.0 via poly.pizza — ✅ TERVERIFIKASI CC-BY 4.0 (12 Sep 2026, API Sketchfab). BERAT: wajib decimate/LOD + material ulang SEBELUM dipakai produksi.",
+      "TERUKUR via inspect (glPrimitives 93.200, material Scene_-_Root tanpa tekstur). Salinan identik Asset 3D/sketchfab/baseball_cap.glb (SHA256 84640C2922C3…). Klaim checklist: Jarlan Perez, CC-BY 3.0 via poly.pizza — ✅ TERVERIFIKASI CC-BY 4.0 (12 Sep 2026, API Sketchfab). BERAT: wajib decimate/LOD + material ulang SEBELUM dipakai produksi. DEFAULT SEMENTARA non-Draco 14 Sep 2026 (soft-disable paritas web — cap.draco.glb tetap di disk; restore: kembalikan draco ke depan rantai di hooks/useDeviceTier.ts + MobileApparelMeshRenderer).",
   },
   {
     file: "fleece-alt.glb",
@@ -436,4 +440,16 @@ export function formatTris(t: number | null): string {
  *    (lihat ASSET_CREDITS §8 + rantai di `hooks/useDeviceTier.ts`).
  * 3. `pants.glb`/`shorts.glb` (madjin, klaim MIT checklist:57) terukur ringan
  *    (1.536 / 1.078 tris, UV 1/1) — naik-tabel + Draco/LOD menunggu URL repo persis owner.
+ * 4. SOFT-DISABLE DRACO 14 Sep 2026 (keputusan owner, BUKAN delete): 9×
+ *    *.draco.glb per aplikasi + decoder diarsipkan ke backups/draco-archive/
+ *    (cara restore: backups/draco-archive/RESTORE.md); default web + mobile
+ *    kini non-Draco (paritas). Rantai di `hooks/useDeviceTier.ts` + mobile
+ *    `MobileApparelMeshRenderer.ts` = kandidat non-Draco saja.
+ * 4. SOFT-DISABLE DRACO SEMENTARA 14 Sep 2026 (paritas web non-Draco, milik
+ *    agen Draco — rantai di `hooks/useDeviceTier.ts` + `MOBILE_MODEL_CANDIDATES`
+ *    JANGAN diubah di sini): default = non-Draco (tee-basic, hoodie-blue,
+ *    longsleeve, sweater, cap); varian *.draco.glb + decoder tetap di disk
+ *    (`public/decoders/draco/`, `backups/draco-archive/`). RESTORE: majukan
+ *    lagi `*.draco.glb` ke depan tiap rantai kandidat + aktifkan
+ *    `setDecoderPath` di CanvasStage/CanvasStageMobile.
  */

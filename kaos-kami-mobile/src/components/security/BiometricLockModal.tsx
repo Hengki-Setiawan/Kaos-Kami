@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Fingerprint, ShieldAlert, CheckCircle2, Lock } from 'lucide-react';
 import { HapticButton, GlassCard } from '@/components/ui';
 import { verifyUserBiometrics } from '@/lib/bridge/biometrics';
@@ -19,6 +19,45 @@ export function BiometricLockPrompt({
 }) {
   const [isVerifying, setIsVerifying] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+
+  // AUTO-LOCK: saat app ke background (appStateChange Capacitor + fallback
+  // visibilitychange web), hentikan spinner verifikasi agar prompt kembali ke
+  // keadaan terkunci saat dibuka lagi. SENGAJA tidak memanggil onSuccess /
+  // onCancel dan tidak mengubah alur login — hanya reset state transien.
+  useEffect(() => {
+    let cancelled = false;
+    let appSub: { remove: () => void } | null = null;
+    const lockOnBackground = () => {
+      if (!cancelled) setIsVerifying(false);
+    };
+    const onVisibility = () => {
+      try {
+        if (document.hidden) lockOnBackground();
+      } catch {}
+    };
+    try {
+      document?.addEventListener?.('visibilitychange', onVisibility);
+    } catch {}
+    (async () => {
+      try {
+        const { App } = await import('@capacitor/app');
+        appSub = await App.addListener('appStateChange', ({ isActive }) => {
+          if (!isActive) lockOnBackground();
+        });
+      } catch {
+        // Non-native (web preview): cukup visibilitychange di atas.
+      }
+    })();
+    return () => {
+      cancelled = true;
+      try {
+        document?.removeEventListener?.('visibilitychange', onVisibility);
+      } catch {}
+      try {
+        appSub?.remove();
+      } catch {}
+    };
+  }, []);
 
   const handleTriggerBiometric = async () => {
     setIsVerifying(true);

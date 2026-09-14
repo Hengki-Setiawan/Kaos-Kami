@@ -67,7 +67,80 @@ import {
   setOriginalMasterDataUrl,
   uploadMasterDataUrlToR2,
 } from "@/lib/imageEditPipeline";
-import { Ruler, Wand2, Loader2, AlertTriangle, ShieldCheck, ShoppingCart, Type } from "lucide-react";
+import { Ruler, Wand2, Loader2, AlertTriangle, ShieldCheck, ShoppingCart, Type, Shirt, Scissors, Lock, CheckCircle2, Pin, Crosshair, ArrowLeft as ArrowLeftIcon, ArrowRight as ArrowRightIcon } from "lucide-react";
+
+/** Sleek modern vector icon for apparel types */
+function ApparelVectorIcon({ type, className = "w-5 h-5" }: { type: ApparelType; className?: string }) {
+  switch (type) {
+    case "tshirt":
+      return (
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className={className}>
+          <path d="M6 3.5L2 8l4 2 2-3h8l2 3 4-2-4-4.5L15 2h-6L6 3.5z" />
+          <path d="M8 5a4 4 0 0 0 8 0" />
+          <path d="M6 10v11a1 1 0 0 0 1 1h10a1 1 0 0 0 1-1V10" />
+        </svg>
+      );
+    case "longsleeve":
+      return (
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className={className}>
+          <path d="M6 3.5L1 11l3 1.5 2-5.5h12l2 5.5 3-1.5-5-7.5L15 2h-6L6 3.5z" />
+          <path d="M8 5a4 4 0 0 0 8 0" />
+          <path d="M6 10v11a1 1 0 0 0 1 1h10a1 1 0 0 0 1-1V10" />
+        </svg>
+      );
+    case "crewneck":
+      return (
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className={className}>
+          <path d="M6 4L1 11.5l3.5 1.5 2-6h11l2 6 3.5-1.5L18 4l-3-2H9L6 4z" />
+          <path d="M8.5 4.5a3.5 3.5 0 0 0 7 0" />
+          <path d="M6 11v9.5a1.5 1.5 0 0 0 1.5 1.5h9a1.5 1.5 0 0 0 1.5-1.5V11" />
+          <line x1="6" y1="20" x2="18" y2="20" strokeWidth="2.2" />
+        </svg>
+      );
+    case "hoodie":
+      return (
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className={className}>
+          <path d="M9 2a3 3 0 0 0-3 3v2l-4 3.5 3 2 2-2.5V20a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2V10l2 2.5 3-2-4-3.5V5a3 3 0 0 0-3-3H9z" />
+          <path d="M9 2v4a3 3 0 0 0 6 0V2" />
+          <path d="M8 15h8v4a1 1 0 0 1-1 1H9a1 1 0 0 1-1-1v-4z" strokeDasharray="1 1" />
+        </svg>
+      );
+    case "shirt": // Coach Jacket / Windbreaker
+      return (
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className={className}>
+          <path d="M6 4L2 9l3.5 2 1.5-4h10l1.5 4 3.5-2-4-5L15 2h-6L6 4z" />
+          <path d="M7 7v14a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1V7" />
+          <line x1="12" y1="6" x2="12" y2="22" strokeDasharray="2 2" />
+          <path d="M9 3l3 4 3-4" />
+        </svg>
+      );
+    case "cap":
+      return (
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className={className}>
+          <path d="M4 14a8 8 0 0 1 16 0v2H4v-2z" />
+          <path d="M4 16c-1.5 0-3 1-3 2.5S2.5 21 4 21h12c2 0 3-1.5 3-3v-2" />
+          <circle cx="12" cy="6" r="1" />
+        </svg>
+      );
+    case "pants":
+      return (
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className={className}>
+          <path d="M5 2h14v3l-2 16a1 1 0 0 1-1 1h-3a1 1 0 0 1-1-1l-1-10-1 10a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1L3 5V2h2z" />
+          <line x1="5" y1="5" x2="19" y2="5" />
+          <line x1="12" y1="5" x2="12" y2="11" />
+        </svg>
+      );
+    case "shorts":
+      return (
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className={className}>
+          <path d="M5 4h14v2l-1 9a1 1 0 0 1-1 1h-3.5a1 1 0 0 1-1-1l-.5-4-.5 4a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1L5 6V4z" />
+          <line x1="5" y1="7" x2="19" y2="7" />
+        </svg>
+      );
+    default:
+      return <Box className={className} />;
+  }
+}
 import { CheckoutModal } from "@/components/ui/CheckoutModal";
 import { BottomSheet } from "@/components/ui/BottomSheet";
 import { AuthModal } from "@/components/ui/AuthModal";
@@ -470,6 +543,7 @@ export const CustomizerDrawer: React.FC = () => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   // SATU sumber mobile = CSS/matchMedia (lihat useIsMobileCss) — bukan UA.
   const isMobileCss = useIsMobileCss();
+  const isLight = studioTheme === "gallery";
 
   const [isEnhancingImage, setIsEnhancingImage] = useState(false);
   const [enhancementMessage, setEnhancementMessage] = useState<string | null>(null);
@@ -1040,6 +1114,8 @@ export const CustomizerDrawer: React.FC = () => {
         reject(new Error("kanvas 2D tak tersedia"));
         return;
       }
+      // Share-card ekspor SENGAJA fixed (brand gelap) — bukan ikut studioTheme,
+      // agar hasil PNG 1080×1350 konsisten di semua perangkat & cetak arsip.
       const bg = ctx.createLinearGradient(0, 0, 0, H);
       bg.addColorStop(0, "#1a1a1e");
       bg.addColorStop(0.6, "#121214");
@@ -1230,8 +1306,8 @@ export const CustomizerDrawer: React.FC = () => {
 
   return (
     <>
-      {/* Floating Interactive Tool Switcher (Top Left) */}
-      <div className="fixed top-20 left-4 sm:left-8 z-40 flex items-center space-x-1.5 p-1.5 rounded-2xl glass-panel shadow-xl pointer-events-auto border border-border-subtle">
+      {/* Floating Interactive Tool Switcher (mobile: bottom-88px di atas BottomSheet; desktop: top-20) */}
+      <div className="fixed top-auto bottom-[88px] md:top-20 md:bottom-auto left-4 sm:left-8 z-40 flex items-center space-x-1.5 p-1.5 rounded-2xl glass-panel shadow-xl pointer-events-auto border border-border-subtle">
         <button
           onClick={() => setInteractionTool("rotate")}
           className={`flex items-center space-x-1.5 px-3 py-2 rounded-xl text-xs font-mono transition-all ${
@@ -1367,7 +1443,7 @@ export const CustomizerDrawer: React.FC = () => {
           </div>
 
           {/* Clean Robust Tab Navigation */}
-          <div className="flex border-b border-border-subtle bg-canvas/80 text-xs font-mono">
+          <div className="flex overflow-x-auto border-b border-border-subtle bg-canvas/80 text-xs font-mono">
             {[
               { id: "apparel", label: "APPAREL", icon: Layers },
               { id: "decals", label: `SABLON (${decals.length})`, icon: Sliders },
@@ -1380,7 +1456,7 @@ export const CustomizerDrawer: React.FC = () => {
               <button
                 key={id}
                 onClick={() => setActiveTab(id as StudioTab)}
-                className={`flex-1 py-3 px-1.5 flex items-center justify-center space-x-1 border-b-2 transition-all ${
+                className={`shrink-0 min-w-[96px] md:min-w-0 md:flex-1 py-3 px-1.5 flex items-center justify-center space-x-1 border-b-2 whitespace-nowrap transition-all ${
                   activeTab === id
                     ? "border-brand-accent text-brand-accent font-bold bg-surface/60 shadow-inner"
                     : "border-transparent text-text-muted hover:text-text-primary hover:bg-surface/30"
@@ -1432,12 +1508,10 @@ export const CustomizerDrawer: React.FC = () => {
                         >
                           {comingSoon && (
                             <span className="absolute top-1 right-1 px-1.5 py-px rounded-full bg-amber-500/20 border border-amber-500/40 text-amber-300 text-[8px] font-black tracking-wider">
-                              {locked ? "🔒 SEGERA" : "SEGERA"}
+                              {locked ? "SEGERA" : "SEGERA"}
                             </span>
                           )}
-                          <span className="text-base">
-                            {type === "tshirt" ? "👕" : type === "longsleeve" ? "🦾" : type === "crewneck" ? "🎽" : type === "hoodie" ? "🧥" : type === "shirt" ? "👔" : type === "cap" ? "🧢" : type === "shorts" ? "🩳" : "👖"}
-                          </span>
+                          <ApparelVectorIcon type={type} className="w-5 h-5" />
                           <span className="text-[9px] sm:text-[10px] tracking-wider font-bold">
                             {type === "tshirt"
                               ? "T-SHIRT"
@@ -1476,8 +1550,8 @@ export const CustomizerDrawer: React.FC = () => {
                       </span>
                       <div className="grid grid-cols-3 gap-1.5">
                         {[
-                          { id: "body", label: "👕 BODI" },
-                          { id: "sleeves", label: "💪 LENGAN" },
+                          { id: "body", label: "BODI" },
+                          { id: "sleeves", label: "LENGAN" },
                           { id: "collar", label: "⭕ KERAH" },
                         ].map((part) => {
                           const currentColor = partColors[part.id] || selectedColor;
@@ -1489,12 +1563,12 @@ export const CustomizerDrawer: React.FC = () => {
                               className={`py-1.5 px-1 rounded-lg border text-[10px] flex flex-col items-center justify-center space-y-1 transition-all ${
                                 isActive
                                   ? "bg-brand-accent/20 border-brand-accent text-brand-accent"
-                                  : "bg-black/40 border-white/10 hover:border-brand-accent"
+                                  : "bg-surface border-border-subtle hover:border-brand-accent"
                               }`}
                             >
                               <span className="font-bold">{part.label}</span>
                               <span
-                                className="w-4 h-4 rounded-full border border-white/20"
+                                className="w-4 h-4 rounded-full border border-border-strong"
                                 style={{ backgroundColor: currentColor }}
                               />
                             </button>
@@ -1584,7 +1658,7 @@ export const CustomizerDrawer: React.FC = () => {
                 {/* Starter 1-klik — contoh siap pakai biar kanvas tak kosong */}
                 <div className="p-3 rounded-xl bg-brand-accent/10 border border-brand-accent/30 space-y-2">
                   <span className="block text-[10px] font-mono text-brand-accent font-bold uppercase">
-                    ✨ MULAI DARI CONTOH (1 KLIK):
+                    MULAI DARI CONTOH:
                   </span>
                   <div className="grid grid-cols-3 gap-1.5">
                     {STUDIO_STARTER_TEMPLATES.map((t) => (
@@ -1594,9 +1668,9 @@ export const CustomizerDrawer: React.FC = () => {
                         onClick={() => void handleApplyStarterTemplate(t.id)}
                         disabled={isEnhancingImage}
                         title={`${t.label} — ${t.desc}`}
-                        className="py-2 px-1 rounded-xl bg-surface border border-white/10 hover:border-brand-accent text-center transition-all disabled:opacity-50"
+                        className="py-2 px-1 rounded-xl bg-surface border border-border-subtle hover:border-brand-accent text-center transition-all disabled:opacity-50"
                       >
-                        <span className="block text-[11px] font-mono font-bold text-white">{t.label}</span>
+                        <span className="block text-[11px] font-mono font-bold text-text-primary">{t.label}</span>
                         <span className="block mt-0.5 text-[9px] font-mono text-text-muted leading-tight">{t.desc}</span>
                       </button>
                     ))}
@@ -1645,7 +1719,7 @@ export const CustomizerDrawer: React.FC = () => {
                     className={`w-full flex items-center justify-center gap-1.5 py-2.5 rounded-xl border text-[11px] font-mono font-bold transition-all ${
                       showFabricEditor
                         ? "bg-brand-accent text-canvas border-brand-accent"
-                        : "bg-surface border-white/10 text-text-muted hover:text-brand-accent"
+                        : "bg-surface border-border-subtle text-text-muted hover:text-brand-accent"
                     }`}
                   >
                     <Layers size={13} />
@@ -1696,7 +1770,7 @@ export const CustomizerDrawer: React.FC = () => {
                           value={customTextString}
                           onChange={(e) => setCustomTextString(e.target.value)}
                           placeholder="mis. MAKASSAR NEVER DIES"
-                          className="w-full px-3 py-2 rounded-xl bg-canvas border border-white/10 text-white focus:outline-none focus:border-brand-accent text-xs font-bold"
+                          className="w-full px-3 py-2 rounded-xl bg-canvas border border-border-subtle text-text-primary focus:outline-none focus:border-brand-accent text-xs font-bold"
                         />
                       </div>
 
@@ -1708,7 +1782,7 @@ export const CustomizerDrawer: React.FC = () => {
                           <select
                             value={customTextFont}
                             onChange={(e) => setCustomTextFont(e.target.value as any)}
-                            className="w-full px-2.5 py-1.5 rounded-lg bg-canvas border border-white/10 text-white text-[10px] focus:outline-none focus:border-brand-accent"
+                            className="w-full px-2.5 py-1.5 rounded-lg bg-canvas border border-border-subtle text-text-primary text-[10px] focus:outline-none focus:border-brand-accent"
                           >
                             {FONT_PRESETS.map((font) => (
                               <option key={font.id} value={font.id}>
@@ -1729,7 +1803,7 @@ export const CustomizerDrawer: React.FC = () => {
                                 type="button"
                                 onClick={() => setCustomTextColor(c)}
                                 className={`w-5 h-5 rounded-full border ${
-                                  customTextColor === c ? "border-brand-accent ring-2 ring-brand-accent/40" : "border-white/20"
+                                  customTextColor === c ? "border-brand-accent ring-2 ring-brand-accent/40" : "border-border-strong"
                                 }`}
                                 style={{ backgroundColor: c }}
                               />
@@ -1767,11 +1841,11 @@ export const CustomizerDrawer: React.FC = () => {
                     <span className="block text-xs font-mono text-text-muted font-bold">LAPISAN SABLON AKTIF:</span>
                     {/* M3.6: hijau = master https tersimpan; kuning = base64 lokal
                         (guest via server-hosting saat Save/Checkout — tetap master penuh). */}
-                    <div className="p-2.5 rounded-xl bg-black/40 border border-white/10 space-y-1.5 font-mono text-[10px]">
+                    <div className="p-2.5 rounded-xl bg-surface border border-border-subtle space-y-1.5 font-mono text-[10px]">
                       <span className="block font-bold text-text-muted uppercase">STATUS FILE CETAK:</span>
                       {masterStatusList.map((m) => (
                         <div key={m.id} className="flex items-center justify-between gap-2">
-                          <span className="text-white truncate">{m.name}</span>
+                          <span className="text-text-primary truncate">{m.name}</span>
                           {m.https ? (
                             <span className="shrink-0 text-emerald-300 font-bold">✅ File cetak tersimpan</span>
                           ) : (
@@ -1801,8 +1875,8 @@ export const CustomizerDrawer: React.FC = () => {
                           >
                             <span>#{index + 1} {d.targetSide.toUpperCase()}</span>
                             <span className="text-[10px] opacity-75">({sablonInfo?.tier})</span>
-                            <span title={saved ? "Master https tersimpan" : "Master base64 lokal — belum tersimpan"}>
-                              {saved ? "🟢" : "🟡"}
+                            <span title={saved ? "Master https tersimpan" : "Master base64 lokal — belum tersimpan"} className="flex items-center">
+                              <span className={`w-2 h-2 rounded-full inline-block ${saved ? "bg-emerald-500 shadow-[0_0_6px_rgba(16,185,129,0.7)]" : "bg-amber-500 shadow-[0_0_6px_rgba(245,158,11,0.7)]"}`} />
                             </span>
                           </button>
                         );
@@ -1836,11 +1910,11 @@ export const CustomizerDrawer: React.FC = () => {
                           <div className="grid grid-cols-5 gap-1 font-mono text-[10px]">
                             {(
                               [
-                                { id: "front", label: activeApparel === "cap" ? "🧢 DEPAN TOPI" : activeApparel === "pants" ? "👖 PAHA DEPAN" : activeApparel === "shorts" ? "🩳 PAHA DEPAN" : "👕 DADA" },
-                                { id: "back", label: "🔙 PUNGGUNG" },
-                                { id: "left_sleeve", label: "👈 LGN KIRI" },
-                                { id: "right_sleeve", label: "👉 LGN KANAN" },
-                                { id: "hood", label: "🧢 TUDUNG" },
+                                { id: "front", label: activeApparel === "cap" ? "DEPAN TOPI" : activeApparel === "pants" || activeApparel === "shorts" ? "PAHA DEPAN" : "DADA" },
+                                { id: "back", label: "PUNGGUNG" },
+                                { id: "left_sleeve", label: "LGN KIRI" },
+                                { id: "right_sleeve", label: "LGN KANAN" },
+                                { id: "hood", label: "TUDUNG" },
                               ] as Array<{ id: string; label: string }>
                             )
                               .filter((side) =>
@@ -1854,7 +1928,7 @@ export const CustomizerDrawer: React.FC = () => {
                                   className={`py-1.5 px-1 rounded-lg border font-bold text-center transition-all ${
                                     activeDecal.targetSide === side.id
                                       ? "bg-brand-accent text-canvas border-brand-accent shadow-sm"
-                                      : "bg-surface border-white/10 text-text-muted hover:text-white"
+                                      : "bg-surface border-border-subtle text-text-muted hover:text-text-primary hover:border-brand-accent"
                                   }`}
                                 >
                                   {side.label}
@@ -1871,13 +1945,14 @@ export const CustomizerDrawer: React.FC = () => {
                                 <Ruler size={13} className="text-brand-accent" />
                                 <span>UKURAN CETAK ASLI:</span>
                               </span>
-                              <span className="font-mono text-xs font-bold text-white bg-black/40 px-2 py-0.5 rounded border border-white/10">
-                                📏 {physicalDimensions.formattedText}
+                              <span className="font-mono text-xs font-bold text-brand-accent bg-brand-accent/10 px-2 py-0.5 rounded border border-brand-accent/30 flex items-center gap-1">
+                                <Ruler size={11} />
+                                <span>{physicalDimensions.formattedText}</span>
                               </span>
                             </div>
 
                             {qualityReport && (
-                              <div className="flex items-center justify-between pt-1 border-t border-white/5">
+                              <div className="flex items-center justify-between pt-1 border-t border-border-subtle">
                                 <span className="text-[11px] font-mono text-text-muted">KETAJAMAN SABLON:</span>
                                 <span className={`text-[11px] font-mono font-bold px-2 py-0.5 rounded border ${qualityReport.badgeColor}`}>
                                   {qualityReport.badgeLabel}
@@ -1901,17 +1976,18 @@ export const CustomizerDrawer: React.FC = () => {
                         )}
 
                         {/* M3.4 — BG remover: tolerance slider + checker preview + putih/hitam */}
-                        <div className="p-3 rounded-xl bg-surface border border-white/10 space-y-2.5">
+                        <div className="p-3 rounded-xl bg-surface border border-border-subtle space-y-2.5">
                           <span className="block text-[10px] font-mono text-text-muted font-bold uppercase">
                             HAPUS LATAR FOTO (TEPI RAPI 1PX)
                           </span>
                           {/* Preview checkerboard jujur: transparan terlihat kotak-kotak */}
                           <div
-                            className="rounded-xl overflow-hidden border border-white/10 flex items-center justify-center min-h-[96px] max-h-[160px] p-2"
+                            className="rounded-xl overflow-hidden border border-border-subtle flex items-center justify-center min-h-[96px] max-h-[160px] p-2"
                             style={{
-                              backgroundImage:
-                                "linear-gradient(45deg, #3a3a3e 25%, transparent 25%, transparent 75%, #3a3a3e 75%), linear-gradient(45deg, #3a3a3e 25%, transparent 25%, transparent 75%, #3a3a3e 75%)",
-                              backgroundColor: "#1c1c1f",
+                              backgroundImage: isLight
+                                ? "linear-gradient(45deg, #D8D5CE 25%, transparent 25%, transparent 75%, #D8D5CE 75%), linear-gradient(45deg, #D8D5CE 25%, transparent 25%, transparent 75%, #D8D5CE 75%)"
+                                : "linear-gradient(45deg, #3a3a3e 25%, transparent 25%, transparent 75%, #3a3a3e 75%), linear-gradient(45deg, #3a3a3e 25%, transparent 25%, transparent 75%, #3a3a3e 75%)",
+                              backgroundColor: isLight ? "#F5F4F0" : "#1c1c1f",
                               backgroundSize: "16px 16px",
                               backgroundPosition: "0 0, 8px 8px",
                             }}
@@ -1931,7 +2007,7 @@ export const CustomizerDrawer: React.FC = () => {
                               className={`py-2 rounded-xl border text-[11px] font-mono font-bold transition-all ${
                                 bgTarget === "white"
                                   ? "bg-brand-accent/20 border-brand-accent text-brand-accent"
-                                  : "bg-surface border-white/10 text-text-muted hover:text-white"
+                                  : "bg-surface border-border-subtle text-text-muted hover:text-text-primary"
                               }`}
                             >
                               ⬜ BG PUTIH
@@ -1944,7 +2020,7 @@ export const CustomizerDrawer: React.FC = () => {
                               className={`py-2 rounded-xl border text-[11px] font-mono font-bold transition-all ${
                                 bgTarget === "black"
                                   ? "bg-brand-accent/20 border-brand-accent text-brand-accent"
-                                  : "bg-surface border-white/10 text-text-muted hover:text-white"
+                                  : "bg-surface border-border-subtle text-text-muted hover:text-text-primary"
                               }`}
                             >
                               ⬛ BG HITAM (FOTO MALAM)
@@ -1977,17 +2053,17 @@ export const CustomizerDrawer: React.FC = () => {
                               className="flex items-center justify-center gap-1.5 py-2 px-2.5 rounded-xl bg-brand-accent/15 border border-brand-accent/40 hover:bg-brand-accent/25 text-[11px] font-mono font-bold text-brand-accent transition-all col-span-2"
                               title="Sesuaikan warna, potong & putar, efek sablon, atau hapus background dengan AI"
                             >
-                              <span>🖌 EDIT GAMBAR</span>
+                              <span>EDIT GAMBAR</span>
                             </button>
                             <button
                               type="button"
                               disabled={isEnhancingImage}
                               onClick={handleRemoveWhiteBg}
-                              className="flex items-center justify-center gap-1.5 py-2 px-2.5 rounded-xl bg-surface border border-white/10 hover:border-brand-accent text-[11px] font-mono font-bold text-text-primary hover:text-white transition-all disabled:opacity-50 col-span-2"
+                              className="flex items-center justify-center gap-1.5 py-2 px-2.5 rounded-xl bg-surface border border-border-subtle hover:border-brand-accent text-[11px] font-mono font-bold text-text-primary hover:text-brand-accent transition-all disabled:opacity-50 col-span-2"
                               title={`Hapus background ${bgTarget === "white" ? "putih" : "hitam"} dari MASTER penuh (tolerance ${bgTolerance})`}
                             >
                               {isEnhancingImage ? <Loader2 size={13} className="animate-spin" /> : <Wand2 size={13} className="text-brand-accent" />}
-                              <span>✨ HAPUS BG {bgTarget === "white" ? "PUTIH" : "HITAM"} (TOL {bgTolerance})</span>
+                              <span>HAPUS BG {bgTarget === "white" ? "PUTIH" : "HITAM"} (TOL {bgTolerance})</span>
                             </button>
                             {/* M3.3 — Kembalikan asli (tampil bila original ada) */}
                             {(() => {
@@ -2014,13 +2090,13 @@ export const CustomizerDrawer: React.FC = () => {
                         </div>
 
                         {/* Interactive Direct-Manipulation Gizmo Toggle Banner */}
-                        <div className="p-3 rounded-xl bg-surface border border-white/10 hover:border-brand-accent/40 flex items-center justify-between gap-2.5 text-xs font-mono transition-all">
+                        <div className="p-3 rounded-xl bg-surface border border-border-subtle hover:border-brand-accent/40 flex items-center justify-between gap-2.5 text-xs font-mono transition-all">
                           <div className="flex items-center gap-2.5">
-                            <div className={`w-8 h-8 rounded-lg ${isGizmoVisible ? "bg-brand-accent text-canvas" : "bg-neutral-800 text-neutral-400"} flex items-center justify-center shrink-0 shadow-md transition-all`}>
+                            <div className={`w-8 h-8 rounded-lg ${isGizmoVisible ? "bg-brand-accent text-canvas" : "bg-black/5 dark:bg-neutral-800 text-text-muted"} flex items-center justify-center shrink-0 shadow-md transition-all`}>
                               <Move size={16} className={isGizmoVisible ? "animate-pulse" : ""} />
                             </div>
                             <div>
-                              <span className="font-bold text-white block">GIZMO KONTROL 3D</span>
+                              <span className="font-bold text-text-primary block">GIZMO KONTROL 3D</span>
                               <span className="text-[10px] text-text-muted">
                                 {isGizmoVisible ? "Aktif di atas baju 3D" : "Disembunyikan (Mode Preview Bersih)"}
                               </span>
@@ -2032,7 +2108,7 @@ export const CustomizerDrawer: React.FC = () => {
                             className={`py-1.5 px-3 rounded-lg font-mono text-[11px] font-bold transition-all ${
                               isGizmoVisible
                                 ? "bg-brand-accent text-canvas shadow-[0_0_10px_rgba(230,81,0,0.3)] hover:brightness-110"
-                                : "bg-white/10 text-white hover:bg-white/20"
+                                : "bg-surface text-text-muted border border-border-subtle hover:text-text-primary"
                             }`}
                           >
                             {isGizmoVisible ? "SEMBUNYIKAN" : "TAMPILKAN"}
@@ -2051,10 +2127,10 @@ export const CustomizerDrawer: React.FC = () => {
                                 setLogoPresetPos(0);
                                 applyLogoPreset();
                               }}
-                              className="py-2 px-1 rounded-xl bg-surface border border-white/10 hover:border-brand-accent hover:text-brand-accent text-white font-bold transition-all text-center"
+                              className="py-2 px-1 rounded-xl bg-surface border border-border-subtle hover:border-brand-accent hover:text-brand-accent text-text-primary font-bold transition-all text-center"
                               title="Posisikan logo di saku dada kiri"
                             >
-                              📍 SAKU KIRI
+                              SAKU KIRI
                             </button>
                             <button
                               type="button"
@@ -2062,10 +2138,10 @@ export const CustomizerDrawer: React.FC = () => {
                                 setLogoPresetPos(1);
                                 applyLogoPreset();
                               }}
-                              className="py-2 px-1 rounded-xl bg-surface border border-white/10 hover:border-brand-accent hover:text-brand-accent text-white font-bold transition-all text-center"
+                              className="py-2 px-1 rounded-xl bg-surface border border-border-subtle hover:border-brand-accent hover:text-brand-accent text-text-primary font-bold transition-all text-center"
                               title="Posisikan logo di tengah dada"
                             >
-                              📍 TENGAH
+                              TENGAH
                             </button>
                             <button
                               type="button"
@@ -2073,10 +2149,10 @@ export const CustomizerDrawer: React.FC = () => {
                                 setLogoPresetPos(2);
                                 applyLogoPreset();
                               }}
-                              className="py-2 px-1 rounded-xl bg-surface border border-white/10 hover:border-brand-accent hover:text-brand-accent text-white font-bold transition-all text-center"
+                              className="py-2 px-1 rounded-xl bg-surface border border-border-subtle hover:border-brand-accent hover:text-brand-accent text-text-primary font-bold transition-all text-center"
                               title="Posisikan logo di saku dada kanan"
                             >
-                              📍 SAKU KANAN
+                              SAKU KANAN
                             </button>
                           </div>
                         </div>
@@ -2187,7 +2263,7 @@ export const CustomizerDrawer: React.FC = () => {
                                   className={`py-1 rounded bg-surface border text-center transition-all ${
                                     Math.abs(activeDecal.scale - preset.scale) < preset.scale * 0.15
                                       ? "border-brand-accent text-brand-accent font-bold"
-                                      : "border-white/10 text-text-muted hover:text-white"
+                                      : "border-border-subtle text-text-muted hover:text-text-primary"
                                   }`}
                                 >
                                   {preset.label}
@@ -2738,7 +2814,7 @@ export const CustomizerDrawer: React.FC = () => {
                 {/* 1. Download Views Suite */}
                 <div className="p-4 rounded-xl glass-panel border border-border-subtle space-y-3">
                   <span className="text-xs font-mono font-bold text-text-primary block">
-                    📸 UNDUH GAMBAR MOCKUP:
+                    UNDUH GAMBAR MOCKUP:
                   </span>
                   <div className="grid grid-cols-2 gap-2">
                     <button
@@ -2772,7 +2848,7 @@ export const CustomizerDrawer: React.FC = () => {
                     className="w-full py-3.5 rounded-xl bg-surface border border-brand-accent/50 hover:bg-brand-accent/10 text-brand-accent font-display font-black text-xs uppercase tracking-wider transition-all flex items-center justify-center space-x-2 disabled:opacity-50"
                   >
                     <Share2 size={15} />
-                    <span>{isSharing ? "MENYIAPKAN KARTU…" : "BAGIKAN KARTU MOCKUP 📤"}</span>
+                    <span>{isSharing ? "MENYIAPKAN KARTU…" : "BAGIKAN KARTU MOCKUP"}</span>
                   </button>
 
                   {/* 360° Turntable Video Exporter (D2: mediabunny MP4/WebM + gifenc GIF) */}
@@ -2959,7 +3035,7 @@ export const CustomizerDrawer: React.FC = () => {
                   className={`min-h-[44px] px-3 py-1.5 rounded-full border text-[10px] font-bold whitespace-nowrap ${
                     activeTab === t.id
                       ? "bg-brand-accent text-canvas border-brand-accent"
-                      : "bg-surface border-white/10 text-text-muted"
+                      : "bg-surface border-border-subtle text-text-muted"
                   }`}
                 >
                   {t.label}
@@ -2986,8 +3062,8 @@ export const CustomizerDrawer: React.FC = () => {
                         activeApparel === type
                           ? "bg-brand-accent/15 border-brand-accent text-brand-accent"
                           : locked
-                            ? "bg-surface border-white/10 text-text-muted opacity-40"
-                            : "bg-surface border-white/10 text-white"
+                            ? "bg-surface border-border-subtle text-text-muted opacity-40"
+                            : "bg-surface border-border-subtle text-text-primary"
                       }`}
                     >
                       {String(type)}
@@ -3013,7 +3089,7 @@ export const CustomizerDrawer: React.FC = () => {
                   </button>
                   <button
                     onClick={() => setShowTextInput((v) => !v)}
-                    className="flex-1 min-h-[44px] px-3 py-2 rounded-xl bg-surface border border-white/10 text-white font-bold text-[11px] uppercase"
+                    className="flex-1 min-h-[44px] px-3 py-2 rounded-xl bg-surface border border-border-subtle text-text-primary font-bold text-[11px] uppercase"
                   >
                     + TEKS
                   </button>
@@ -3025,7 +3101,7 @@ export const CustomizerDrawer: React.FC = () => {
                       onChange={(e) => setCustomTextString(e.target.value)}
                       placeholder="Tulis teks sablon…"
                       maxLength={24}
-                      className="flex-1 min-h-[44px] px-3 rounded-xl bg-surface border border-white/10 text-white text-base"
+                      className="flex-1 min-h-[44px] px-3 rounded-xl bg-surface border border-border-subtle text-text-primary text-base"
                     />
                     <button
                       onClick={handleAddTextDecal}
@@ -3042,10 +3118,10 @@ export const CustomizerDrawer: React.FC = () => {
                     <div
                       key={d.id}
                       className={`flex items-center justify-between p-2 rounded-xl border ${
-                        selectedDecalId === d.id ? "border-brand-accent bg-brand-accent/10" : "border-white/10 bg-surface"
+                        selectedDecalId === d.id ? "border-brand-accent bg-brand-accent/10" : "border-border-subtle bg-surface"
                       }`}
                     >
-                      <button onClick={() => setSelectedDecalId(d.id)} className="flex-1 text-left text-[11px] text-white truncate min-h-[44px] flex items-center">
+                      <button onClick={() => setSelectedDecalId(d.id)} className="flex-1 text-left text-[11px] text-text-primary truncate min-h-[44px] flex items-center">
                         {d.name}
                       </button>
                       <button
@@ -3055,16 +3131,16 @@ export const CustomizerDrawer: React.FC = () => {
                         }}
                         aria-label={`Edit gambar ${d.name}`}
                         title="Edit gambar (sesuaikan, potong, efek, hapus BG)"
-                        className="min-w-[44px] min-h-[44px] px-2 text-brand-accent font-bold text-sm"
+                        className="min-w-[44px] min-h-[44px] px-2 text-brand-accent font-bold flex items-center justify-center hover:scale-110 transition-transform"
                       >
-                        🖌
+                        <PenTool size={14} />
                       </button>
                       <button
                         onClick={() => handleRemoveDecal(d.id)}
                         aria-label={`Hapus ${d.name}`}
-                        className="min-w-[44px] min-h-[44px] px-2 text-rose-300 font-bold"
+                        className="min-w-[44px] min-h-[44px] px-2 text-rose-400 hover:text-rose-500 font-bold flex items-center justify-center hover:scale-110 transition-transform"
                       >
-                        ✕
+                        <Trash2 size={14} />
                       </button>
                     </div>
                   ))
@@ -3090,7 +3166,7 @@ export const CustomizerDrawer: React.FC = () => {
                       className={`min-h-[44px] px-3 py-2 rounded-xl border text-[11px] font-bold uppercase ${
                         modelMode === id
                           ? "bg-brand-accent/15 border-brand-accent text-brand-accent"
-                          : "bg-surface border-white/10 text-white"
+                          : "bg-surface border-border-subtle text-text-primary"
                       }`}
                     >
                       {label}
@@ -3114,7 +3190,7 @@ export const CustomizerDrawer: React.FC = () => {
                           className={`min-h-[44px] px-1 py-2 rounded-xl border text-[11px] font-bold uppercase ${
                             motionClip === id
                               ? "bg-brand-accent/15 border-brand-accent text-brand-accent"
-                              : "bg-surface border-white/10 text-white"
+                              : "bg-surface border-border-subtle text-text-primary"
                           }`}
                         >
                           {label}
@@ -3145,7 +3221,7 @@ export const CustomizerDrawer: React.FC = () => {
                     className={`flex-1 min-h-[44px] px-3 py-2 rounded-xl border text-[11px] font-bold uppercase ${
                       animationPreset === p
                         ? "bg-brand-accent/15 border-brand-accent text-brand-accent"
-                        : "bg-surface border-white/10 text-white"
+                        : "bg-surface border-border-subtle text-text-primary"
                     }`}
                   >
                     {p}
@@ -3163,7 +3239,7 @@ export const CustomizerDrawer: React.FC = () => {
                     onChange={(e) => setDesignTitleInput(e.target.value.slice(0, 60))}
                     placeholder="Nama desain…"
                     maxLength={60}
-                    className="flex-1 min-h-[44px] px-3 rounded-xl bg-surface border border-white/10 text-white text-base"
+                    className="flex-1 min-h-[44px] px-3 rounded-xl bg-surface border border-border-subtle text-text-primary text-base"
                   />
                   <button
                     onClick={handleSaveDesign}
@@ -3185,7 +3261,7 @@ export const CustomizerDrawer: React.FC = () => {
                     <button
                       key={d.id}
                       onClick={() => loadSavedDesign(d.id)}
-                      className="w-full min-h-[44px] p-2 rounded-xl border border-white/10 bg-surface text-left text-[11px] text-white truncate"
+                      className="w-full min-h-[44px] p-2 rounded-xl border border-border-subtle bg-surface text-left text-[11px] text-text-primary truncate"
                     >
                       {d.title}
                     </button>
@@ -3199,13 +3275,13 @@ export const CustomizerDrawer: React.FC = () => {
                 <div className="grid grid-cols-2 gap-2">
                   <button
                     onClick={() => handleExportPNG("front-view")}
-                    className="min-h-[44px] px-3 py-2 rounded-xl bg-surface border border-white/10 text-white font-bold text-[11px] uppercase"
+                    className="min-h-[44px] px-3 py-2 rounded-xl bg-surface border border-border-subtle text-text-primary font-bold text-[11px] uppercase"
                   >
                     PNG DEPAN
                   </button>
                   <button
                     onClick={() => void handleExportBackPNG("back-view")}
-                    className="min-h-[44px] px-3 py-2 rounded-xl bg-surface border border-white/10 text-white font-bold text-[11px] uppercase"
+                    className="min-h-[44px] px-3 py-2 rounded-xl bg-surface border border-border-subtle text-text-primary font-bold text-[11px] uppercase"
                   >
                     PNG BELAKANG
                   </button>
@@ -3213,9 +3289,10 @@ export const CustomizerDrawer: React.FC = () => {
                 <button
                   onClick={() => void handleShareMockup()}
                   disabled={isSharing}
-                  className="w-full min-h-[48px] px-3 py-2 rounded-xl bg-surface border border-brand-accent/50 text-brand-accent font-bold text-[11px] uppercase disabled:opacity-50"
+                  className="w-full min-h-[48px] px-3 py-2 rounded-xl bg-surface border border-brand-accent/50 text-brand-accent font-bold text-[11px] uppercase disabled:opacity-50 flex items-center justify-center gap-1.5"
                 >
-                  {isSharing ? "MENYIAPKAN KARTU…" : "📤 BAGIKAN KARTU MOCKUP"}
+                  <Share2 size={13} />
+                  <span>{isSharing ? "MENYIAPKAN KARTU…" : "BAGIKAN KARTU MOCKUP"}</span>
                 </button>
                 <div className="grid grid-cols-3 gap-2" role="radiogroup" aria-label="Format video 360">
                   {(["mp4", "webm", "gif"] as const).map((f) => (
@@ -3228,7 +3305,7 @@ export const CustomizerDrawer: React.FC = () => {
                       className={`min-h-[44px] px-2 py-2 rounded-xl border text-[11px] font-bold uppercase disabled:opacity-50 ${
                         export360Format === f
                           ? "bg-brand-accent/15 border-brand-accent text-brand-accent"
-                          : "bg-surface border-white/10 text-white"
+                          : "bg-surface border-border-subtle text-text-primary"
                       }`}
                     >
                       {f}
@@ -3238,16 +3315,19 @@ export const CustomizerDrawer: React.FC = () => {
                 <button
                   onClick={() => void handleExport360Video()}
                   disabled={isRecording360}
-                  className="w-full min-h-[48px] px-3 py-2 rounded-xl bg-surface border border-brand-accent/50 text-brand-accent font-bold text-[11px] uppercase disabled:opacity-50"
+                  className="w-full min-h-[48px] px-3 py-2 rounded-xl bg-surface border border-brand-accent/50 text-brand-accent font-bold text-[11px] uppercase disabled:opacity-50 flex items-center justify-center gap-1.5"
                 >
-                  {isRecording360
-                    ? `MEREKAM 360° ${export360Format.toUpperCase()} (${recordingProgress}%)…`
-                    : `🎥 EKSPOR 360° ${export360Format.toUpperCase()}`}
+                  <Video size={13} />
+                  <span>
+                    {isRecording360
+                      ? `MEREKAM 360° ${export360Format.toUpperCase()} (${recordingProgress}%)…`
+                      : `EKSPOR 360° ${export360Format.toUpperCase()}`}
+                  </span>
                 </button>
               </div>
             )}
 
-            <div className="p-3 rounded-xl bg-surface/60 border border-white/10 flex justify-between items-center">
+            <div className="p-3 rounded-xl bg-surface/60 border border-border-subtle flex justify-between items-center">
               <span className="text-[11px] text-text-muted">ESTIMASI</span>
               <span className="font-bold text-brand-accent">{pricing.formattedTotal}</span>
             </div>

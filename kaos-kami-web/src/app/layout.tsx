@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from "next";
-import { Syne, JetBrains_Mono, Plus_Jakarta_Sans } from "next/font/google";
+import { Syne, Plus_Jakarta_Sans } from "next/font/google";
 import { SmoothScrollProvider } from "@/components/providers/SmoothScrollProvider";
 import { QueryProvider } from "@/components/providers/QueryProvider";
 import { DesignSyncProvider } from "@/components/providers/DesignSyncProvider";
@@ -12,13 +12,9 @@ const syne = Syne({
   weight: ["700", "800"],
   variable: "--font-display",
   display: "swap",
-});
-
-const mono = JetBrains_Mono({
-  subsets: ["latin"],
-  weight: ["400", "500", "700"],
-  variable: "--font-mono",
-  display: "swap",
+  // CWV: font hero/LCP — preload woff2 eksplisit (next/font menyuntik
+  // <link rel="preload" as="font"> untuk file ini).
+  preload: true,
 });
 
 const jakarta = Plus_Jakarta_Sans({
@@ -27,6 +23,8 @@ const jakarta = Plus_Jakarta_Sans({
   variable: "--font-sans",
   display: "swap",
 });
+// CWV: JetBrains_Mono DICABUT (hemat 1 family ≈ 3 file woff2). Kelas
+// `font-mono` kini map ke tumpukan monospace sistem di tailwind.config.ts.
 
 const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://kaoskami.biz.id";
 const gaId = process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID;
@@ -75,18 +73,27 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  themeColor: "#121214",
+  // Default = gallery; script theme-init di bawah menimpa ke #121214 utk dark.
+  themeColor: "#F5F4F0",
   width: "device-width",
   initialScale: 1,
   maximumScale: 5,
+  viewportFit: "cover",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html
       lang="id"
-      className={`${syne.variable} ${mono.variable} ${jakarta.variable} dark`}
+      data-theme="gallery"
+      suppressHydrationWarning
+      className={`${syne.variable} ${jakarta.variable}`}
     >
+      {/* P0 fondasi tema: blocking pre-paint — set data-theme + theme-color
+          dari localStorage (default gallery) agar tak flash obsidian. */}
+      <Script id="theme-init" strategy="beforeInteractive">
+        {`(function(){try{var t=localStorage.getItem("kaos-studio-theme");if(t!=="gallery"&&t!=="obsidian"&&t!=="concrete")t="gallery";var d=document.documentElement;d.setAttribute("data-theme",t);d.style.colorScheme=t==="gallery"?"light":"dark";var c=t==="gallery"?"#F5F4F0":"#121214";var m=document.querySelector('meta[name="theme-color"]');if(m){m.setAttribute("content",c);}else{var n=document.createElement("meta");n.name="theme-color";n.content=c;document.head.appendChild(n);}}catch(e){document.documentElement.setAttribute("data-theme","gallery");}})();`}
+      </Script>
       <body className="bg-canvas text-text-primary selection:bg-brand-accent selection:text-canvas min-h-screen">
         <Script
           src={
@@ -137,6 +144,21 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             strategy="afterInteractive"
           />
         )}
+
+        {/* Global ChunkLoadError Auto-Recovery */}
+        <Script id="chunk-error-recovery" strategy="beforeInteractive">
+          {`
+            window.addEventListener('error', function(e) {
+              if (e && e.message && (e.message.indexOf('Loading chunk') !== -1 || e.message.indexOf('ChunkLoadError') !== -1)) {
+                var k = 'chk_rel_' + (e.filename || 'app');
+                if (!sessionStorage.getItem(k)) {
+                  sessionStorage.setItem(k, '1');
+                  window.location.reload();
+                }
+              }
+            });
+          `}
+        </Script>
 
         <QueryProvider>
           <DesignSyncProvider>

@@ -43,12 +43,11 @@ export const Navbar: React.FC = () => {
   const isLight = studioTheme === "gallery";
 
   return (
-    <header
-      className={`fixed top-0 left-0 right-0 z-50 px-4 sm:px-8 md:px-12 py-3.5 flex items-center justify-between pointer-events-auto backdrop-blur-xl border-b transition-all duration-500 ${
-        isLight
-          ? "bg-[#F5F4F0]/80 border-black/10 text-neutral-900"
-          : "bg-[#121214]/80 border-border-subtle text-text-primary"
-      } ${isHideWebsiteUI ? "opacity-30 hover:opacity-100" : "opacity-100"}`}
+    <>
+      <header
+      className={`fixed top-0 left-0 right-0 z-50 px-4 sm:px-8 md:px-12 py-3.5 flex items-center justify-between pointer-events-auto backdrop-blur-xl border-b bg-canvas/80 border-border-subtle text-text-primary transition-all duration-500 ${
+        isHideWebsiteUI ? "opacity-30 hover:opacity-100" : "opacity-100"
+      }`}
     >
       {/* Brand Wordmark & Nav Links */}
       <div className="flex items-center space-x-6">
@@ -70,19 +69,19 @@ export const Navbar: React.FC = () => {
         <nav className="hidden md:flex items-center space-x-5 text-xs font-mono" aria-label="Navigasi utama">
           <Link
             href="/catalog"
-            className="text-text-muted hover:text-white transition-colors font-bold uppercase tracking-wider"
+            className="text-text-muted hover:text-text-primary transition-colors font-bold uppercase tracking-wider"
           >
             KATALOG PRODUK
           </Link>
           <Link
             href="/studio"
-            className="text-text-muted hover:text-white transition-colors font-bold uppercase tracking-wider"
+            className="text-text-muted hover:text-text-primary transition-colors font-bold uppercase tracking-wider"
           >
             STUDIO 3D
           </Link>
           <Link
             href="/track"
-            className="text-text-muted hover:text-white transition-colors font-bold uppercase tracking-wider"
+            className="text-text-muted hover:text-text-primary transition-colors font-bold uppercase tracking-wider"
           >
             LACAK PESANAN
           </Link>
@@ -106,10 +105,10 @@ export const Navbar: React.FC = () => {
           )}
         </button>
 
-        {/* Light / Dark Mode Quick Toggle */}
+        {/* Light / Dark Mode Quick Toggle (sembunyi <380px agar muat) */}
         <button
           onClick={() => setStudioTheme(isLight ? "obsidian" : "gallery")}
-          className="p-2.5 rounded-full bg-surface border border-border-subtle text-text-muted hover:text-text-primary transition-all"
+          className="max-[379px]:hidden p-2.5 rounded-full bg-surface border border-border-subtle text-text-muted hover:text-text-primary transition-all"
           title={isLight ? "Mode Gelap (Obsidian)" : "Mode Terang (Gallery)"}
           aria-label="Toggle Light/Dark Mode"
         >
@@ -144,7 +143,7 @@ export const Navbar: React.FC = () => {
         {/* Enter 3D Sandbox Dedicated Page (Clean CTA, No Sparkles) */}
         <Link
           href="/studio"
-          className="px-4 py-2 rounded-full font-mono text-xs uppercase tracking-wider bg-brand-accent text-canvas font-bold shadow-[0_0_16px_rgba(230,81,0,0.3)] hover:brightness-110 active:scale-95 transition-all"
+          className="inline-flex items-center min-h-[44px] px-4 py-2 rounded-full font-mono text-xs uppercase tracking-wider bg-brand-accent text-canvas font-bold shadow-[0_0_16px_rgba(230,81,0,0.3)] hover:brightness-110 active:scale-95 transition-all"
           aria-label="Enter 3D Studio"
         >
           <span className="hidden sm:inline">CUSTOM 3D</span>
@@ -152,16 +151,10 @@ export const Navbar: React.FC = () => {
         </Link>
       </div>
 
-      {/* Cart Drawer */}
-      <CartDrawer />
-
-      {/* Auth Dialog Modal */}
-      <AuthModal isOpen={isAuthOpen} onClose={() => setIsAuthOpen(false)} />
-
       {/* Mobile dropdown menu */}
       {isMenuOpen && (
         <nav
-          className="md:hidden absolute top-full left-0 right-0 bg-[#121214]/95 backdrop-blur-xl border-b border-border-subtle px-4 py-3 flex flex-col gap-1 text-xs font-mono"
+          className="md:hidden absolute top-full left-0 right-0 bg-surface/95 backdrop-blur-xl border-b border-border-subtle px-4 py-3 flex flex-col gap-1 text-xs font-mono"
           aria-label="Menu mobile"
         >
           {[
@@ -174,7 +167,7 @@ export const Navbar: React.FC = () => {
               key={l.href}
               href={l.href}
               onClick={() => setIsMenuOpen(false)}
-              className="px-3 py-2.5 rounded-xl text-text-muted hover:text-white hover:bg-white/5 font-bold uppercase tracking-wider"
+              className="px-3 py-2.5 rounded-xl text-text-muted hover:text-text-primary hover:bg-surface/60 font-bold uppercase tracking-wider transition-colors"
             >
               {l.label}
             </Link>
@@ -182,5 +175,12 @@ export const Navbar: React.FC = () => {
         </nav>
       )}
     </header>
+
+    {/* Cart Drawer */}
+    <CartDrawer />
+
+    {/* Auth Dialog Modal */}
+    <AuthModal isOpen={isAuthOpen} onClose={() => setIsAuthOpen(false)} />
+    </>
   );
 };

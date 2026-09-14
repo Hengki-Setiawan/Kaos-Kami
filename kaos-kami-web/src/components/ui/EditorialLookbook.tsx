@@ -63,6 +63,8 @@ export const EditorialLookbook: React.FC = () => {
               src={look.src}
               caption={look.caption}
               seed={i}
+              // Look pertama = kandidat LCP mobile → priority preload.
+              priority={i === 0}
               className="w-full h-full object-cover transition-transform duration-700 ease-out group-hover:scale-105"
             />
             <div className="absolute inset-0 bg-gradient-to-t from-canvas/90 via-canvas/20 to-transparent opacity-80 group-hover:opacity-60 transition-opacity" />

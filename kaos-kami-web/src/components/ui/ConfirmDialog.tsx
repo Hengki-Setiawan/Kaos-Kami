@@ -54,16 +54,16 @@ export function ConfirmDialog({
       aria-label={title}
     >
       <div
-        className="w-full max-w-sm rounded-2xl bg-[#141416] border border-white/10 p-5 space-y-3 shadow-2xl"
+        className="w-full max-w-sm rounded-2xl bg-surface border border-border-subtle p-5 space-y-3 shadow-2xl"
         onClick={(e) => e.stopPropagation()}
       >
-        <h3 className="font-display font-black text-base uppercase text-white">{title}</h3>
+        <h3 className="font-display font-black text-base uppercase text-text-primary">{title}</h3>
         <p className="font-mono text-xs text-text-muted leading-relaxed">{message}</p>
         <div className="flex gap-2 pt-1">
           <button
             onClick={onCancel}
             disabled={busy}
-            className="flex-1 py-2.5 rounded-xl bg-surface border border-white/10 text-white font-bold text-xs uppercase disabled:opacity-50"
+            className="flex-1 py-2.5 rounded-xl bg-surface border border-border-subtle text-text-primary font-bold text-xs uppercase disabled:opacity-50"
           >
             {cancelLabel}
           </button>

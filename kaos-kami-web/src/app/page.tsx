@@ -8,6 +8,12 @@ const CanvasStage = dynamic(
   () => import("@/components/3d/CanvasStage").then((m) => m.CanvasStage),
   { ssr: false }
 );
+// CWV: StaticShowcase (fallback no-WebGL) di-lazy agar tak membebani
+// bundle awal home; hanya diunduh bila benar-benar dirender.
+const StaticShowcase = dynamic(
+  () => import("@/components/ui/StaticShowcase").then((m) => m.StaticShowcase),
+  { ssr: false }
+);
 import { JsonLd, CanvasErrorBoundary } from "@/components/ui/JsonLd";
 import { Navbar } from "@/components/ui/Navbar";
 import { Footer } from "@/components/ui/Footer";
@@ -15,7 +21,6 @@ import { HeroOverlay } from "@/components/ui/HeroOverlay";
 import { TechSpecsOverlay } from "@/components/ui/TechSpecsOverlay";
 import { BackGraphicOverlay } from "@/components/ui/BackGraphicOverlay";
 import { CustomizerDrawer } from "@/components/ui/CustomizerDrawer";
-import { StaticShowcase } from "@/components/ui/StaticShowcase";
 import { EditorialLookbook } from "@/components/ui/EditorialLookbook";
 import { HomeCatalogSection } from "@/components/ui/HomeCatalogSection";
 import { useScrollPhases } from "@/hooks/useScrollPhases";

@@ -3,7 +3,7 @@
 import React, { useEffect, useMemo, useRef, Suspense } from "react";
 import * as THREE from "three";
 import { useGLTF } from "@react-three/drei";
-import { useFrame } from "@react-three/fiber";
+import { useFrame, useThree } from "@react-three/fiber";
 import { easing } from "maath";
 import { useConfiguratorStore } from "@/store/useConfiguratorStore";
 import { useShallow } from "zustand/shallow";
@@ -14,29 +14,39 @@ import { useDeviceTier } from "@/hooks/useDeviceTier";
 import { useResourceTracker, useTrackedResource } from "@/lib/threeResourceTracker";
 import { surfaceZForApparel } from "@/lib/scaleCalibration";
 import { SilentModelFallback } from "@/components/ui/ModelErrorBoundary";
+import { extractApparelGeometry } from "@/lib/extractApparelGeometry";
 import { HoodieModel } from "./HoodieModel";
 
 // FASE 13 — crewneck akhirnya punya mesh SENDIRI (sweater.glb, sweater_pack
 // Sketchfab, TANPA tudung — bukan lagi pinjaman hoodie). Struktur meniru
 // TshirtModel (single-mesh + center + cloth material + DecalLayerRenderer).
 // Fallback DIAM ke mesh cadangan (HoodieModel / hoodie-blue) bila sweater gagal dimuat.
-const MODEL_PATH_NEW_DRC = "/models/sweater.draco.glb";
-const MODEL_PATH_NEW = "/models/sweater.glb";
-useGLTF.preload(MODEL_PATH_NEW_DRC);
-useGLTF.preload(MODEL_PATH_NEW);
+const MODEL_PATH_NEW = "/models/sweater.glb?v=7";
+
+// PERF 14 Sep 2026: top-level useGLTF.preload DIHAPUS — preload terpusat
+// HANYA via idle-preload di CanvasStage (aktif + tetangga katalog) agar tak
+// berebut bandwidth first paint.
 
 /** Ambil geometri mesh pertama (agnostik nama node Sketchfab). */
-function firstMeshGeometry(nodes: any): THREE.BufferGeometry | undefined {
+function firstMeshGeometry(nodes: any, scene?: any): THREE.BufferGeometry | undefined {
   const found = Object.values(nodes ?? {}).find(
     (n: any) => n && (n as any).isMesh && (n as any).geometry
   ) as any;
-  return found?.geometry as THREE.BufferGeometry | undefined;
+  if (found?.geometry) return found.geometry as THREE.BufferGeometry;
+  let meshGeo: THREE.BufferGeometry | undefined;
+  scene?.traverse?.((child: any) => {
+    if (!meshGeo && child.isMesh && child.geometry) {
+      meshGeo = child.geometry;
+    }
+  });
+  return meshGeo;
 }
 
 const GltfCrewneckNew: React.FC<{ path: string }> = ({ path }) => {
   const meshRef = useRef<THREE.Group>(null);
   const { tier } = useDeviceTier();
-  const { nodes } = useGLTF(path) as any;
+  const invalidate = useThree((s) => s.invalidate);
+  const { nodes, scene } = useGLTF(path) as any;
   const {
     selectedColor,
     isRotating,
@@ -69,17 +79,13 @@ const GltfCrewneckNew: React.FC<{ path: string }> = ({ path }) => {
   const windStrength =
     animationPreset === "wind" ? 0.8 * animationSpeed : animationPreset === "walking" ? 0.4 * animationSpeed : animationPreset === "knit" ? 0.2 : 0;
 
-  // baseGeometry: clone cache GLB + center + bobot wind — HANYA [nodes, path].
-  // FASE 13: center() WAJIB (sweater mentah melayang Y 0.92–1.62); kalibrasi
-  // collar/surfaceZ Fase 13 diukur di ruang centered ini.
   const baseGeometry = useMemo(() => {
-    const base = firstMeshGeometry(nodes);
-    if (!base) return null;
-    const geo = base.clone();
-    geo.center();
-    ensureWindWeights(geo);
-    return geo;
-  }, [nodes, path]);
+    return extractApparelGeometry(scene);
+  }, [scene, path]);
+
+  useEffect(() => {
+    if (baseGeometry) invalidate();
+  }, [invalidate, baseGeometry]);
 
   // Multi-part by vertex position. FASE 13 ambang di ruang centered (collar
   // terukur 0.32, jahitan bahu 0.19): y>0.28 kerah, |x|>0.21 lengan.
@@ -139,15 +145,7 @@ const GltfCrewneckNew: React.FC<{ path: string }> = ({ path }) => {
       const firstPartColor = Object.values(partColors)[0];
       if (firstPartColor) material.color.set(firstPartColor);
     }
-    if (windStrength === 0) {
-      const m = material as any;
-      if (m.onBeforeCompile) {
-        m.onBeforeCompile = undefined;
-        m.userData.shader = undefined;
-        m.needsUpdate = true;
-      }
-    }
-  }, [material, activeColorMode, partColors, windStrength]);
+  }, [material, activeColorMode, partColors]);
 
   useFrame((state, delta) => {
     if (activeColorMode !== "multi-part") {
@@ -186,7 +184,7 @@ const GltfCrewneckNew: React.FC<{ path: string }> = ({ path }) => {
       <mesh
         castShadow
         receiveShadow
-        geometry={(coloredGeometry as any) || firstMeshGeometry(nodes)}
+        geometry={(coloredGeometry as any) || baseGeometry}
         material={material}
       >
         <DecalLayerRenderer surfaceZFront={surfaceZForApparel("crewneck")} surfaceZBack={surfaceZForApparel("crewneck")} />
@@ -195,28 +193,10 @@ const GltfCrewneckNew: React.FC<{ path: string }> = ({ path }) => {
   );
 };
 
-/**
- * Fallback warisan: perilaku crewneck LAMA = pinjam HoodieModel (ada tudung
- * secara geometri — tampilan salah untuk crewneck, tapi lebih baik dari
- * kanvas kosong bila sweater.glb hilang). Rantai fallback HoodieModel
- * (biru→master→hoodie.glb) berlaku penuh di sini.
- */
-const GltfCrewneckLegacy: React.FC = () => {
-  return <HoodieModel />;
-};
-
 export const CrewneckModel: React.FC = () => {
   return (
     <Suspense fallback={null}>
-      <SilentModelFallback
-        fallback={
-          <SilentModelFallback fallback={<GltfCrewneckLegacy />}>
-            <GltfCrewneckNew path={MODEL_PATH_NEW} />
-          </SilentModelFallback>
-        }
-      >
-        <GltfCrewneckNew path={MODEL_PATH_NEW_DRC} />
-      </SilentModelFallback>
+      <GltfCrewneckNew path={MODEL_PATH_NEW} />
     </Suspense>
   );
 };

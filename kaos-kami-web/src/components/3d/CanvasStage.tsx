@@ -77,96 +77,8 @@ const HighTierEffects = dynamic(
 // - Perilaku render prod TIDAK berubah: props Canvas (dpr/exposure) tetap;
 //   overlay hanya override runtime via setDpr/toneMappingExposure di dev.
 // - r3f-perf SENGAJA tidak ditambah ke package.json (R3F9 belum teruji, lihat
-//   return): DevPerfInCanvas memuatnya opsional (catch → null) sehingga panel
-//   leva tetap jalan walau r3f-perf belum terinstal; <Perf/> hanya muncul bila
-//   modulnya ada.
-const DevControlsInner: React.FC<{
-  useControls: (...args: any[]) => any;
-  baseMaxDpr: number;
-}> = ({ useControls, baseMaxDpr }) => {
-  const setDpr = useThree((s) => s.setDpr);
-  const gl = useThree((s) => s.gl);
-  const vals = useControls({
-    dpr: { value: baseMaxDpr, min: 0.5, max: 2, step: 0.25 },
-    exposure: { value: 1.0, min: 0, max: 2, step: 0.05 },
-  }) as { dpr: number; exposure: number };
-  useEffect(() => {
-    try {
-      if (typeof vals?.dpr === "number") setDpr(vals.dpr);
-    } catch {}
-  }, [vals?.dpr, setDpr]);
-  useEffect(() => {
-    try {
-      if (typeof vals?.exposure === "number") gl.toneMappingExposure = vals.exposure;
-    } catch {}
-    return () => {
-      try {
-        gl.toneMappingExposure = 1.0;
-      } catch {}
-    };
-  }, [vals?.exposure, gl]);
-  return null;
-};
-
-const DevPerfInCanvas: React.FC<{ baseMaxDpr: number }> = ({ baseMaxDpr }) => {
-  const [mods, setMods] = useState<{ Perf: any; useControls: any } | null>(null);
-  useEffect(() => {
-    if (process.env.NODE_ENV !== "production") {
-      let cancelled = false;
-      Promise.all([
-        // @ts-ignore — dev-only opsional; r3f-perf tidak di package.json (R3F9 belum teruji)
-        import("r3f-perf")
-          .then((m: any) => m.Perf ?? m.default ?? null)
-          .catch(() => null),
-        // @ts-ignore — dev-only; leva ada di devDependencies setelah `npm install`
-        import("leva")
-          .then((m: any) => m.useControls ?? null)
-          .catch(() => null),
-      ]).then(([Perf, useControls]) => {
-        if (!cancelled && (Perf || useControls)) setMods({ Perf, useControls });
-      });
-      return () => {
-        cancelled = true;
-      };
-    }
-  }, []);
-  if (process.env.NODE_ENV !== "production") {
-    if (!mods) return null;
-    return (
-      <>
-        {mods.Perf ? React.createElement(mods.Perf, { position: "top-left" }) : null}
-        {mods.useControls ? (
-          <DevControlsInner useControls={mods.useControls} baseMaxDpr={baseMaxDpr} />
-        ) : null}
-      </>
-    );
-  }
-  return null;
-};
-
-const DevLevaPanel: React.FC = () => {
-  const [LevaComp, setLevaComp] = useState<any>(null);
-  useEffect(() => {
-    if (process.env.NODE_ENV !== "production") {
-      let cancelled = false;
-      // @ts-ignore — dev-only; leva ada di devDependencies setelah `npm install`
-      import("leva")
-        .then((m: any) => m.Leva ?? m.default ?? null)
-        .catch(() => null)
-        .then((Leva) => {
-          if (!cancelled && Leva) setLevaComp(() => Leva);
-        });
-      return () => {
-        cancelled = true;
-      };
-    }
-  }, []);
-  if (process.env.NODE_ENV !== "production") {
-    if (!LevaComp) return null;
-    return React.createElement(LevaComp, { collapsed: true });
-  }
-  return null;
-};
+const DevPerfInCanvas: React.FC<{ baseMaxDpr: number }> = () => null;
+const DevLevaPanel: React.FC = () => null;
 
 interface CanvasStageProps {
   camPos: THREE.Vector3;
@@ -209,6 +121,11 @@ export const CanvasStage: React.FC<CanvasStageProps> = ({ camPos, lookAtPos }) =
   );
   const deviceTier = useDeviceTier();
 
+  // PERF 14 Sep 2026 cermin CanvasStageMobile: dengar webglcontextlost/
+  // restored di kanvas R3F. Hilang → tampilkan tombol reload (remount Canvas
+  // = konteks baru); pulih → tutup fallback. Tanpa ini kanvas mati diam.
+  const [contextLost, setContextLost] = useState(false);
+
   // B1: frameloop="demand" saat idle — tiru pola TERBUKTI mobile
   // (CanvasStageMobile.tsx:83). 'always' hanya saat animasi berjalan:
   // story-float, putar otomatis, preset wind/walking/knit, transisi preset
@@ -219,9 +136,11 @@ export const CanvasStage: React.FC<CanvasStageProps> = ({ camPos, lookAtPos }) =
   // hanya dapat 1 frame demand = loncatan warna kasar (audit). OrbitControls
   // drei memanggil invalidate() sendiri tiap interaksi, jadi orbit/zoom
   // idle-demand tetap responsif.
-  const [transientMotion, setTransientMotion] = useState(false);
+  const [transientMotion, setTransientMotion] = useState(true);
   useEffect(() => {
     setTransientMotion(true);
+    // PERF 14 Sep 2026: 3000→800ms cermin mobile (CanvasStageMobile) — cukup
+    // untuk easing.dampC konvergen; idle lebih cepat turun ke demand (0fps).
     const t = setTimeout(() => setTransientMotion(false), 800);
     return () => clearTimeout(t);
   }, [selectedColor, materialFinish, activeApparel, partColors, activeColorMode, isWireframe]);
@@ -268,6 +187,16 @@ export const CanvasStage: React.FC<CanvasStageProps> = ({ camPos, lookAtPos }) =
     try {
       const { gl, scene, camera } = state;
       const canvas = gl.domElement;
+      // Cermin CanvasStageMobile: context hilang → fallback + tombol reload.
+      const handleContextLost = (e: Event) => {
+        e.preventDefault();
+        setContextLost(true);
+      };
+      const handleContextRestored = () => {
+        setContextLost(false);
+      };
+      canvas.addEventListener("webglcontextlost", handleContextLost, false);
+      canvas.addEventListener("webglcontextrestored", handleContextRestored, false);
       const origToDataURL = canvas.toDataURL.bind(canvas) as (...a: any[]) => string;
       (canvas as any).toDataURL = (...args: any[]) => {
         // M2.10: DPR ekspor PNG KUNCI 2 — mockup tajam di semua HP walau
@@ -318,9 +247,9 @@ export const CanvasStage: React.FC<CanvasStageProps> = ({ camPos, lookAtPos }) =
         case "cap":
           return firstOf(CAP_MODEL_CANDIDATES);
         case "pants":
-          return "/models/pants.glb";
+          return "/models/pants.draco.glb?v=4";
         case "shorts":
-          return "/models/shorts.glb";
+          return "/models/shorts.draco.glb?v=4";
         case "tshirt":
         default:
           return firstOf(TSHIRT_MODEL_CANDIDATES);
@@ -388,15 +317,31 @@ export const CanvasStage: React.FC<CanvasStageProps> = ({ camPos, lookAtPos }) =
     <>
       {process.env.NODE_ENV !== "production" ? <DevLevaPanel /> : null}
       <Preloader />
+      {contextLost ? (
+        // Cermin CanvasStageMobile: klik = remount Canvas (konteks WebGL baru).
+        <div className="webgl-canvas-container w-full h-full flex flex-col items-center justify-center p-6 text-center rounded-3xl border border-border-subtle transition-colors">
+          <p className="text-sm font-bold text-amber-400 mb-2">Sesi Grafis 3D Terputus</p>
+          <button
+            onClick={() => setContextLost(false)}
+            className="px-4 py-2 rounded-xl bg-brand-accent text-white text-xs font-bold transition-colors"
+          >
+            Muat Ulang Studio 3D
+          </button>
+        </div>
+      ) : (
       <div
         className={`webgl-canvas-container transition-colors duration-500 ${
           isInteractive ? "interactive cursor-grab active:cursor-grabbing" : ""
         }`}
-        style={{ backgroundColor: themeBgHex, backgroundImage: `linear-gradient(180deg, ${themeBgHex} 0%, ${themeGradientTo} 100%)` }}
+        // TOUCH: pan-y agar 1-jari horizontal = rotate 3D, swipe vertikal =
+        // scroll halaman (cermin perilaku mobile TouchOrbitControls).
+        style={{ backgroundColor: themeBgHex, backgroundImage: `linear-gradient(180deg, ${themeBgHex} 0%, ${themeGradientTo} 100%)`, touchAction: "pan-y" }}
       >
         <Canvas
           // PERF: key = antialias WebGL hanya berlaku saat konteks dibuat;
           // remount sekali saat composer on/off agar nilai di bawah mengikat.
+          // TOUCH: pan-y selaras container (swipe vertikal = scroll halaman).
+          style={{ touchAction: "pan-y" }}
           key={showEffects ? "fx" : "no-fx"}
           shadows={deviceTier.enableShadows}
           dpr={[1, cappedMaxDpr]}
@@ -429,6 +374,7 @@ export const CanvasStage: React.FC<CanvasStageProps> = ({ camPos, lookAtPos }) =
           {showEffects && <HighTierEffects />}
         </Canvas>
       </div>
+      )}
     </>
   );
 };

@@ -31,6 +31,7 @@ export const DecalGizmo: React.FC<DecalGizmoProps> = ({ surfaceZ }) => {
     updateDecal,
     setGizmoDragging,
     activeApparel,
+    studioTheme,
   } = useConfiguratorStore(
     useShallow((s) => ({
       viewMode: s.viewMode,
@@ -42,8 +43,10 @@ export const DecalGizmo: React.FC<DecalGizmoProps> = ({ surfaceZ }) => {
       updateDecal: s.updateDecal,
       setGizmoDragging: s.setGizmoDragging,
       activeApparel: s.activeApparel,
+      studioTheme: s.studioTheme,
     }))
   );
+  const isLight = studioTheme === "gallery";
   const { size, camera } = useThree();
 
   const [activeGizmoTool, setActiveGizmoTool] = useState<"move" | "scale" | "rotate" | null>(null);
@@ -318,12 +321,12 @@ export const DecalGizmo: React.FC<DecalGizmoProps> = ({ surfaceZ }) => {
           }}
         >
           {/* Live Physical Centimeter Dimension Badge (Top) */}
-          <div className="absolute -top-6 left-1/2 -translate-x-1/2 flex items-center gap-1 px-2 py-0.5 rounded bg-black/90 backdrop-blur-md text-[10px] font-mono font-bold text-emerald-400 border border-emerald-500/40 shadow-xl pointer-events-none whitespace-nowrap">
+          <div className="absolute -top-6 left-1/2 -translate-x-1/2 flex items-center gap-1 px-2 py-0.5 rounded bg-surface/95 backdrop-blur-md text-[10px] font-mono font-bold text-emerald-400 border border-emerald-500/40 shadow-xl pointer-events-none whitespace-nowrap">
             <span>↔ {widthCm}×{heightCm} cm</span>
           </div>
 
           {/* Distance from Collar Badge (Bottom) */}
-          <div className="absolute -bottom-6 left-1/2 -translate-x-1/2 flex items-center gap-1 px-1.5 py-0.5 rounded bg-black/85 backdrop-blur-md text-[9px] font-mono text-neutral-300 border border-white/10 shadow-lg pointer-events-none whitespace-nowrap">
+          <div className="absolute -bottom-6 left-1/2 -translate-x-1/2 flex items-center gap-1 px-1.5 py-0.5 rounded bg-surface/95 backdrop-blur-md text-[9px] font-mono text-text-muted border border-border-subtle shadow-lg pointer-events-none whitespace-nowrap">
             <span>↓ {offsetCollarCm} cm dari kerah</span>
           </div>
 
@@ -339,46 +342,60 @@ export const DecalGizmo: React.FC<DecalGizmoProps> = ({ surfaceZ }) => {
           )}
 
           {/* Move Center Handle (Semi-transparent with hover highlight) */}
+          {/* TOUCH-44px: min 44x44px (WCAG sentuh) + active:scale-95 + focus ring. */}
           <div
+            role="button"
+            tabIndex={0}
+            aria-label="Geser sablon"
             onPointerDown={(e) => onPointerDown("move", e)}
             onPointerMove={onPointerMove}
             onPointerUp={onPointerUp}
-            className="absolute inset-0 m-auto w-7 h-7 rounded-full bg-brand-accent/80 hover:bg-brand-accent text-canvas backdrop-blur-sm flex items-center justify-center cursor-move shadow-md hover:scale-110 active:scale-95 transition-all"
+            className="absolute inset-0 m-auto w-11 h-11 min-w-[44px] min-h-[44px] rounded-full bg-brand-accent/80 hover:bg-brand-accent text-canvas backdrop-blur-sm flex items-center justify-center cursor-move shadow-md hover:scale-110 active:scale-95 transition-all touch-manipulation focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/80 focus-visible:ring-offset-2 focus-visible:ring-offset-transparent"
             title="Klik & tahan untuk menggeser sablon"
           >
             <Move size={13} className="stroke-[2.5]" />
           </div>
 
           {/* Close/Hide Gizmo Handle (Top Left) */}
+          {/* TOUCH-44px: hit-area 44px + active + focus ring (visual ikon tetap kecil). */}
           <button
             type="button"
             onClick={(e) => {
               e.stopPropagation();
               toggleGizmoVisible();
             }}
-            className="absolute -top-2.5 -left-2.5 w-5 h-5 rounded-full bg-neutral-900/90 text-neutral-300 hover:text-white border border-white/20 flex items-center justify-center cursor-pointer shadow-md hover:scale-110 transition-transform"
+            aria-label="Sembunyikan kotak kontrol gizmo"
+            className="absolute -top-2.5 -left-2.5 w-11 h-11 min-w-[44px] min-h-[44px] rounded-full bg-surface/95 text-text-muted hover:text-text-primary border border-border-subtle flex items-center justify-center cursor-pointer shadow-md hover:scale-110 active:scale-95 transition-all touch-manipulation focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-accent focus-visible:ring-offset-2 focus-visible:ring-offset-transparent"
             title="Sembunyikan kotak kontrol gizmo"
           >
             <span className="text-[10px] font-bold leading-none">✕</span>
           </button>
 
           {/* Scale Corner Handle (Top Right) */}
+          {/* TOUCH-44px: hit-area 44px + active + focus ring. */}
           <div
+            role="button"
+            tabIndex={0}
+            aria-label="Ubah ukuran sablon"
             onPointerDown={(e) => onPointerDown("scale", e)}
             onPointerMove={onPointerMove}
             onPointerUp={onPointerUp}
-            className="absolute -top-2.5 -right-2.5 w-5 h-5 rounded-full bg-white text-neutral-900 border border-neutral-300 flex items-center justify-center cursor-nwse-resize shadow-md hover:scale-125 transition-transform"
+            className={`absolute -top-2.5 -right-2.5 w-11 h-11 min-w-[44px] min-h-[44px] rounded-full border flex items-center justify-center cursor-nwse-resize shadow-md hover:scale-125 active:scale-95 transition-all touch-manipulation focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-accent focus-visible:ring-offset-2 focus-visible:ring-offset-transparent ${isLight ? "bg-neutral-900 text-white border-neutral-700" : "bg-white text-neutral-900 border-neutral-300"}`}
             title="Tarik untuk memperbesar/memperkecil sablon"
           >
             <ZoomIn size={11} className="stroke-[2.5]" />
           </div>
 
           {/* Rotate Corner Handle (Bottom Right) */}
+          {/* TOUCH-44px: hit-area 44px + active + focus ring. */}
           <div
+            role="button"
+            tabIndex={0}
+            aria-label="Putar sablon"
             onPointerDown={(e) => onPointerDown("rotate", e)}
             onPointerMove={onPointerMove}
             onPointerUp={onPointerUp}
-            className="absolute -bottom-2.5 -right-2.5 w-5 h-5 rounded-full bg-neutral-900 text-brand-accent border border-brand-accent/50 flex items-center justify-center cursor-alias shadow-md hover:scale-125 transition-transform"
+            className="absolute -bottom-2.5 -right-2.5 w-11 h-11 min-w-[44px] min-h-[44px] rounded-full bg-neutral-900 text-brand-accent border border-brand-accent/50 flex items-center justify-center cursor-alias shadow-md hover:scale-125 active:scale-95 transition-all touch-manipulation focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-accent focus-visible:ring-offset-2 focus-visible:ring-offset-transparent"
             title="Tarik untuk memutar sudut sablon"
           >
             <RotateCw size={11} className="stroke-[2.5]" />

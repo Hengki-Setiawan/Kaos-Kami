@@ -5,17 +5,13 @@ import { Browser } from '@capacitor/browser';
  * Transaksi dibuat SERVER (/api/mobile/orders/checkout) → HP hanya menerima
  * `paymentUrl` + `reference`. JANGAN hardcode secret di sini.
  *
- * Alur return (JUJUR Sep 2026 — BELUM tersambung end-to-end):
- * server BELUM redirect ke deep-link (createCharge di
- * kaos-kami-web/src/lib/payments/duitku.ts:128 SELALU returnUrl web
- * `${siteUrl}/orders/<id>`; param returnUrlOverride BELUM ADA — DEPENDENSI
- * milik agen lain, lihat TODO di mobile checkout route). APK kini mengandalkan
- * paymentUrl di Browser + polling status; skema `kaoskami://payment[/callback]`
- * aktif untuk return manual/masa depan (`returnUrlOverride=
- * kaoskami://payment/callback?orderId=<id>` setelah dependensi landed).
- * Ditangani appUrlOpen di src/app/page.tsx (allowlist ketat host+path +
- * parseDuitkuReturnUrl di bawah untuk orderId|merchantOrderId dan
- * status|resultCode Duitku: 00=lunas).
+ * Alur return (tersambung): server mengirim returnUrl deep-link
+ * `kaoskami://payment/callback?orderId=<id>` via returnUrlOverride
+ * (kaos-kami-web/src/lib/payments/duitku.ts + route mobile checkout) →
+ * Duitku kembali ke APK → appUrlOpen di src/app/page.tsx (allowlist ketat
+ * host+path + parseDuitkuReturnUrl di bawah untuk orderId|merchantOrderId dan
+ * status|resultCode Duitku: 00=lunas). Fallback tetap ada: paymentUrl di
+ * Browser + polling status bila return tak terpicu.
  */
 
 export interface PaymentRequest {
@@ -43,7 +39,19 @@ declare global {
 
 /** True untuk return pembayaran (mencakup /callback + varian query Duitku). */
 export function isDuitkuReturnUrl(url: string): boolean {
-  return (url || '').startsWith('kaoskami://payment');
+  // KETAT seperti allowlist appUrlOpen di page.tsx (anti open-redirect):
+  // protocol wajib kaoskami:, host persis "payment", path "/" atau
+  // "/callback". startsWith longgar SENGAJA tak dipakai (lolos
+  // kaoskami://payment-evil, kaoskami://payment@evil.com).
+  try {
+    const parsed = new URL(url || '');
+    if (parsed.protocol !== 'kaoskami:') return false;
+    if ((parsed.hostname || '').toLowerCase() !== 'payment') return false;
+    const path = (parsed.pathname || '').replace(/\/+$/, '') || '/';
+    return path === '/' || path === '/callback';
+  } catch {
+    return false;
+  }
 }
 
 export type DuitkuReturnStatus = 'COMPLETED' | 'PENDING' | 'CANCELLED' | 'UNKNOWN';

@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { useSession, signIn, signUp, signOut } from "@/lib/auth-client";
 import { RegisterPhoneSchema, LoginPhoneSchema } from "@/lib/schemas/auth";
 import { X, User, Phone, Lock, Mail, ArrowRight, Loader2, CheckCircle2, LogOut, ShieldCheck, Chrome, Eye, EyeOff } from "lucide-react";
@@ -31,9 +32,11 @@ export const AuthModal: React.FC<AuthModalProps> = ({
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
+  const [isClient, setIsClient] = useState(false);
   const mounted = useRef(true);
 
   useEffect(() => {
+    setIsClient(true);
     mounted.current = true;
     return () => {
       mounted.current = false;
@@ -55,7 +58,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
     }
   }, [isOpen, defaultMode, onClose]);
 
-  if (!isOpen) return null;
+  if (!isOpen || !isClient || typeof document === "undefined") return null;
 
   const later = (fn: () => void, ms: number) => {
     // Timeout aman-unmount (audit #2/#39): jangan setState pasca-unmount.
@@ -144,26 +147,27 @@ export const AuthModal: React.FC<AuthModalProps> = ({
     }
   };
 
-  return (
+  return createPortal(
     <div
-      className="fixed inset-0 z-[100] overflow-y-auto bg-black/80 backdrop-blur-md animate-fadeIn flex min-h-full items-center justify-center p-4 sm:p-6"
+      className="fixed inset-0 z-[120] overflow-y-auto bg-canvas/60 dark:bg-black/80 backdrop-blur-md animate-fadeIn"
       onClick={onClose}
       role="dialog"
       aria-modal="true"
       aria-label="Masuk atau daftar akun"
     >
-      {/* Modal Dialog */}
-      <div
-        className="relative w-full max-w-md bg-[#161619] border border-white/10 rounded-2xl p-5 sm:p-7 shadow-2xl text-text-primary my-auto"
-        onClick={(e) => e.stopPropagation()}
-      >
-        {/* Decorative Top Accent Glow */}
-        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-48 h-1 bg-gradient-to-r from-transparent via-brand-accent to-transparent" />
+      <div className="min-h-full flex items-center justify-center p-4 sm:p-6 text-center">
+        {/* Modal Dialog */}
+        <div
+          className="relative w-full max-w-md bg-surface border border-border-subtle rounded-2xl p-5 sm:p-7 shadow-2xl text-text-primary my-8 text-left"
+          onClick={(e) => e.stopPropagation()}
+        >
+          {/* Decorative Top Accent Glow */}
+          <div className="absolute top-0 left-1/2 -translate-x-1/2 w-48 h-1 bg-gradient-to-r from-transparent via-brand-accent to-transparent" />
 
         {/* Close Button */}
         <button
           onClick={onClose}
-          className="absolute top-4 right-4 p-2 rounded-full text-text-muted hover:text-white hover:bg-white/5 transition-all z-10"
+          className="absolute top-4 right-4 p-2 rounded-full text-text-muted hover:text-text-primary hover:bg-surface/50 transition-all z-10"
           aria-label="Tutup modal"
         >
           <X size={18} />
@@ -176,7 +180,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
               <User size={30} />
             </div>
             <div>
-              <h3 className="font-display text-xl font-bold tracking-tight text-white">
+              <h3 className="font-display text-xl font-bold tracking-tight text-text-primary">
                 Halo, {session.user.name || "Pelanggan Kaos Kami"}
               </h3>
               <p className="font-mono text-xs text-text-muted mt-1">
@@ -186,7 +190,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
               </p>
             </div>
 
-            <div className="bg-surface/50 border border-white/5 rounded-xl p-3 text-left space-y-1.5 font-mono text-xs">
+            <div className="bg-surface/50 border border-border-subtle rounded-xl p-3 text-left space-y-1.5 font-mono text-xs">
               <div className="flex items-center justify-between text-text-muted">
                 <span>Status Akun</span>
                 <span className="flex items-center gap-1 text-emerald-400">
@@ -227,7 +231,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
               <div className="inline-flex items-center gap-2 px-2 py-0.5 rounded-md bg-brand-accent/10 border border-brand-accent/20 text-brand-accent text-[10px] font-mono tracking-wider uppercase mb-1.5">
                 <span>Makassar DTF Sablon</span>
               </div>
-              <h2 className="font-display text-xl sm:text-2xl font-black tracking-tight text-white uppercase">
+              <h2 className="font-display text-xl sm:text-2xl font-black tracking-tight text-text-primary uppercase">
                 {mode === "login" ? "Masuk Akun" : "Daftar Akun Baru"}
               </h2>
               <p className="font-sans text-xs text-text-muted mt-0.5">
@@ -251,19 +255,19 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                   setLoading(false);
                 }
               }}
-              className="w-full mb-3 py-2.5 sm:py-3 rounded-xl bg-white text-black font-mono font-bold text-xs flex items-center justify-center gap-2 hover:bg-zinc-100 active:scale-[0.99] transition-all shadow-md"
+              className="w-full mb-3 py-2.5 sm:py-3 rounded-xl bg-white text-black font-mono font-bold text-xs flex items-center justify-center gap-2 hover:bg-zinc-100 active:scale-[0.99] transition-all dark:shadow-md border border-black/10 dark:border-white/25"
             >
               <Chrome size={16} className="text-[#4285F4]" />
               <span>LANJUT DENGAN GOOGLE</span>
             </button>
             <div className="flex items-center gap-3 mb-3">
-              <div className="h-px flex-1 bg-white/10" />
+              <div className="h-px flex-1 bg-border-subtle" />
               <span className="text-[10px] font-mono text-text-muted">ATAU EMAIL / NO. WA</span>
-              <div className="h-px flex-1 bg-white/10" />
+              <div className="h-px flex-1 bg-border-subtle" />
             </div>
 
             {/* Mode Switcher */}
-            <div className="flex p-1 bg-surface rounded-xl border border-white/5 mb-4 font-mono text-xs">
+            <div className="flex p-1 bg-surface rounded-xl border border-border-subtle mb-4 font-mono text-xs">
               <button
                 type="button"
                 onClick={() => {
@@ -273,7 +277,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                 className={`flex-1 py-1.5 sm:py-2 rounded-lg font-bold transition-all ${
                   mode === "login"
                     ? "bg-brand-accent text-canvas shadow"
-                    : "text-text-muted hover:text-white"
+                    : "text-text-muted hover:text-text-primary"
                 }`}
               >
                 MASUK
@@ -287,7 +291,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                 className={`flex-1 py-1.5 sm:py-2 rounded-lg font-bold transition-all ${
                   mode === "register"
                     ? "bg-brand-accent text-canvas shadow"
-                    : "text-text-muted hover:text-white"
+                    : "text-text-muted hover:text-text-primary"
                 }`}
               >
                 DAFTAR
@@ -321,7 +325,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                       value={name}
                       onChange={(e) => setName(e.target.value)}
                       placeholder="e.g. Andi Muhammad"
-                      className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-surface border border-white/10 focus:border-brand-accent text-base text-white placeholder:text-neutral-600 focus:outline-none transition-all font-sans"
+                      className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-surface border border-border-subtle focus:border-brand-accent text-base text-text-primary placeholder:text-neutral-600 focus:outline-none transition-all font-sans"
                     />
                   </div>
                 </div>
@@ -339,7 +343,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                     value={phoneNumber}
                     onChange={(e) => setPhoneNumber(e.target.value)}
                     placeholder="081234567890"
-                    className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-surface border border-white/10 focus:border-brand-accent text-base text-white placeholder:text-neutral-600 focus:outline-none transition-all font-mono"
+                    className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-surface border border-border-subtle focus:border-brand-accent text-base text-text-primary placeholder:text-neutral-600 focus:outline-none transition-all font-mono"
                   />
                 </div>
               </div>
@@ -356,7 +360,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
                       placeholder="nama@email.com"
-                      className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-surface border border-white/10 focus:border-brand-accent text-base text-white placeholder:text-neutral-600 focus:outline-none transition-all font-sans"
+                      className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-surface border border-border-subtle focus:border-brand-accent text-base text-text-primary placeholder:text-neutral-600 focus:outline-none transition-all font-sans"
                     />
                   </div>
                 </div>
@@ -376,13 +380,13 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                     onChange={(e) => setPassword(e.target.value)}
                     placeholder="Minimal 6 karakter"
                     autoComplete={mode === "login" ? "current-password" : "new-password"}
-                    className="w-full pl-10 pr-11 py-2.5 rounded-xl bg-surface border border-white/10 focus:border-brand-accent text-base text-white placeholder:text-neutral-600 focus:outline-none transition-all font-mono"
+                    className="w-full pl-10 pr-11 py-2.5 rounded-xl bg-surface border border-border-subtle focus:border-brand-accent text-base text-text-primary placeholder:text-neutral-600 focus:outline-none transition-all font-mono"
                   />
                   <button
                     type="button"
                     onClick={() => setShowPassword((v) => !v)}
                     aria-label={showPassword ? "Sembunyikan password" : "Tampilkan password"}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-text-muted hover:text-white p-1"
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-text-muted hover:text-text-primary p-1"
                   >
                     {showPassword ? <EyeOff size={15} /> : <Eye size={15} />}
                   </button>
@@ -404,7 +408,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
               <button
                 type="submit"
                 disabled={loading}
-                className="w-full mt-2 py-3 px-4 rounded-xl font-mono text-xs font-bold tracking-wider uppercase bg-brand-accent text-canvas shadow-[0_0_20px_rgba(230,81,0,0.35)] hover:brightness-110 active:scale-[0.99] disabled:opacity-50 transition-all flex items-center justify-center gap-2"
+                className="w-full mt-2 py-3 px-4 rounded-xl font-mono text-xs font-bold tracking-wider uppercase bg-brand-accent text-canvas dark:shadow-[0_0_20px_rgba(230,81,0,0.35)] hover:brightness-110 active:scale-[0.99] disabled:opacity-50 transition-all flex items-center justify-center gap-2"
               >
                 {loading ? (
                   <>
@@ -421,7 +425,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
             </form>
 
             {/* Guest Checkout Notice */}
-            <div className="mt-5 pt-4 border-t border-white/5 text-center">
+            <div className="mt-5 pt-4 border-t border-border-subtle text-center">
               <p className="font-mono text-[11px] text-text-muted">
                 Pemesanan tanpa akun?{" "}
                 <button
@@ -436,6 +440,8 @@ export const AuthModal: React.FC<AuthModalProps> = ({
           </>
         )}
       </div>
-    </div>
+      </div>
+    </div>,
+    document.body
   );
 };

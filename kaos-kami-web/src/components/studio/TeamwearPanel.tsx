@@ -283,7 +283,7 @@ export const TeamwearPanel: React.FC = () => {
                   placeholder="Nama (mis. HENGKI)"
                   maxLength={24}
                   aria-label={`Nama pemain ${idx + 1}`}
-                  className="col-span-3 px-3 py-2.5 rounded-lg bg-black/40 border border-white/10 font-mono text-xs text-white placeholder:text-text-muted focus:outline-none focus:border-brand-accent"
+                  className="col-span-3 px-3 py-2.5 rounded-lg bg-surface border border-border-subtle font-mono text-xs text-text-primary placeholder:text-text-muted focus:outline-none focus:border-brand-accent"
                 />
                 <input
                   value={r.nomor}
@@ -291,13 +291,13 @@ export const TeamwearPanel: React.FC = () => {
                   placeholder="No"
                   inputMode="numeric"
                   aria-label={`Nomor pemain ${idx + 1}`}
-                  className="col-span-1 px-2 py-2.5 rounded-lg bg-black/40 border border-white/10 font-mono text-xs text-white text-center placeholder:text-text-muted focus:outline-none focus:border-brand-accent"
+                  className="col-span-1 px-2 py-2.5 rounded-lg bg-surface border border-border-subtle font-mono text-xs text-text-primary text-center placeholder:text-text-muted focus:outline-none focus:border-brand-accent"
                 />
                 <select
                   value={r.size}
                   onChange={(e) => patchRow(r.key, { size: e.target.value })}
                   aria-label={`Ukuran pemain ${idx + 1}`}
-                  className="col-span-1 px-1 py-2.5 rounded-lg bg-black/40 border border-white/10 font-mono text-xs text-white focus:outline-none focus:border-brand-accent"
+                  className="col-span-1 px-1 py-2.5 rounded-lg bg-surface border border-border-subtle font-mono text-xs text-text-primary focus:outline-none focus:border-brand-accent"
                 >
                   {sizes.map((s) => (
                     <option key={s} value={s}>{s}</option>
@@ -328,7 +328,7 @@ export const TeamwearPanel: React.FC = () => {
           );
         }}
         disabled={rows.length >= TEAMWEAR_MAX_ROWS}
-        className="w-full py-2.5 rounded-xl bg-surface border border-dashed border-white/15 text-xs font-mono font-bold text-text-muted hover:text-white hover:border-brand-accent transition-all disabled:opacity-40 flex items-center justify-center gap-1.5"
+        className="w-full py-2.5 rounded-xl bg-surface border border-dashed border-border-strong text-xs font-mono font-bold text-text-muted hover:text-text-primary hover:border-brand-accent transition-all disabled:opacity-40 flex items-center justify-center gap-1.5"
       >
         <Plus size={14} /> TAMBAH BARIS ({rows.length}/{TEAMWEAR_MAX_ROWS})
       </button>
@@ -356,7 +356,7 @@ export const TeamwearPanel: React.FC = () => {
       </button>
       {totalEstimate > 0 && (
         <p className="text-center text-[11px] font-mono text-text-muted">
-          Estimasi total tampil: <strong className="text-white">{fmtRp(totalEstimate)}</strong> (final di server)
+          Estimasi total tampil: <strong className="text-text-primary">{fmtRp(totalEstimate)}</strong> (final di server)
         </p>
       )}
     </div>

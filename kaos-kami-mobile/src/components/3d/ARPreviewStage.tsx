@@ -266,7 +266,8 @@ export function ARPreviewStage({ onClose, onNotify }: { onClose: () => void; onN
       {/* Silhouette Guide (Visible when AI tracking is off or searching) */}
       {(!useAITracking || !poseTransform.detected) && (
         <div className="absolute inset-0 pointer-events-none flex flex-col items-center justify-center z-10">
-          <div className="w-72 h-80 border-2 border-dashed border-white/40 rounded-t-[100px] rounded-b-[40px] flex items-center justify-center relative animate-pulse">
+          {/* HP kecil 360px: guide muat (min 72vw / 320px), tak overflow. */}
+          <div className="w-[min(72vw,320px)] h-80 border-2 border-dashed border-white/40 rounded-t-[100px] rounded-b-[40px] flex items-center justify-center relative animate-pulse">
             <span className="absolute top-4 px-3 py-1 rounded-full bg-black/60 backdrop-blur-md text-[10px] font-bold text-white border border-white/20">
               {useAITracking ? 'Mendeteksi Posisi Bahu (MediaPipe)...' : 'Sejajarkan Bahu Anda di Garis Ini'}
             </span>

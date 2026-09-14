@@ -10,10 +10,12 @@ import { registerStudioSnapshot } from '@/lib/3d/exportStudio';
 import { TouchOrbitControls } from './TouchOrbitControls';
 import { AnimationController } from './AnimationController';
 import { MobileApparelMeshRenderer, mobilePriorityFor } from './MobileApparelMeshRenderer';
-import { MobileStudioLighting } from './MobileStudioLighting';
+import { MobileStudioLighting, MobileStudioTheme } from './MobileStudioLighting';
 
-// Rantai draco→legacy (cermin web CanvasStage): decoder WASM/lokal.
-// Guard window agar SSR/export statis aman.
+// SOFT-DISABLE DRACO 14 Sep 2026 (keputusan owner, paritas web non-Draco):
+// setDecoderPath dibiarkan (harmless bila tak ada mesh Draco) — nonaktif
+// sementara, arsip di backups/draco-archive/. Guard window agar SSR/export
+// statis aman.
 if (typeof window !== 'undefined') {
   try {
     (useGLTF as any).setDecoderPath?.('/decoders/draco/');
@@ -35,9 +37,9 @@ function PerfAdaptive() {
 
 function StudioLoader() {
   return (
-    <div className="absolute inset-0 flex flex-col items-center justify-center bg-[#0E0E10] z-20">
-      <div className="w-10 h-10 border-3 border-[#FF6B35]/30 border-t-[#FF6B35] rounded-full animate-spin mb-3" />
-      <p className="text-xs font-semibold text-zinc-400 font-['Syne']">Memuat Model 3D...</p>
+    <div className="absolute inset-0 flex flex-col items-center justify-center bg-canvas transition-colors z-20">
+      <div className="w-10 h-10 border-3 border-brand-accent/30 border-t-brand-accent rounded-full animate-spin mb-3" />
+      <p className="text-xs font-semibold text-text-muted font-['Syne']">Memuat Model 3D...</p>
     </div>
   );
 }
@@ -58,7 +60,7 @@ function SceneDisposer() {
   return null;
 }
 
-export function CanvasStageMobile() {
+export function CanvasStageMobile({ theme = 'obsidian' }: { theme?: MobileStudioTheme }) {
   const { dpr, antialias, tier, isResolved } = useMobileDeviceTier();
   const activeAnimation = useMobileStudioStore((s) => s.activeAnimation);
   const apparelType = useMobileStudioStore((s) => s.apparelType);
@@ -84,14 +86,15 @@ export function CanvasStageMobile() {
   }, [color, sleeveColor, collarColor, apparelType, decalUrl, cameraAngle, activeAnimation]);
   const needsContinuous = activeAnimation !== 'none' || transientMotion || isGizmoDragging;
 
-  // PERF (tiru web CanvasStage): preload PRIORITAS (kandidat pertama =
-  // draco/master, tanpa HEAD probe = hemat round-trip) — HANYA setelah
-  // isResolved agar HP low tak ikut unduh model high. Aktif segera, tetangga
-  // katalog prefetch via requestIdleCallback agar tak berebut first paint.
+  // PERF (tiru web CanvasStage): preload PRIORITAS non-Draco (kandidat
+  // pertama = master non-Draco paritas web, tanpa HEAD probe = hemat
+  // round-trip) — HANYA setelah isResolved agar HP low tak ikut unduh model
+  // high. Aktif segera, tetangga katalog prefetch via requestIdleCallback
+  // agar tak berebut first paint.
   // Urutan = urutan picker; tipe terkunci (crewneck) dilewati (tak ada file —
   // preload-nya jatuh ke fallback tshirt = unduhan sia-sia).
-  // sweater/cap mockup-saja ikut diprefetch sebagai tetangga (cap.draco murah
-  // 0.22MB; sweater 2.27MB — hanya tetangga langsung, bukan eager semua).
+  // sweater/cap mockup-saja ikut diprefetch sebagai tetangga (cap.glb,
+  // sweater.glb master non-Draco — hanya tetangga langsung, bukan eager semua).
   // pants/shorts mockup-saja ikut diprefetch sebagai tetangga (murah: 1 file each).
   useEffect(() => {
     if (!isResolved || tier === 'no-webgl') return;
@@ -143,20 +146,20 @@ export function CanvasStageMobile() {
 
   if (tier === 'no-webgl') {
     return (
-      <div className="w-full h-full flex flex-col items-center justify-center p-6 text-center bg-zinc-900 rounded-3xl border border-zinc-800">
-        <p className="text-sm font-bold text-white mb-1">WebGL Tidak Didukung</p>
-        <p className="text-xs text-zinc-400">Gunakan perangkat dengan dukungan akselerasi grafis 3D.</p>
+      <div className="w-full h-full flex flex-col items-center justify-center p-6 text-center bg-surface rounded-3xl border border-border-subtle transition-colors">
+        <p className="text-sm font-bold text-text-primary mb-1">WebGL Tidak Didukung</p>
+        <p className="text-xs text-text-muted">Gunakan perangkat dengan dukungan akselerasi grafis 3D.</p>
       </div>
     );
   }
 
   if (contextLost) {
     return (
-      <div className="w-full h-full flex flex-col items-center justify-center p-6 text-center bg-zinc-900 rounded-3xl border border-zinc-800">
+      <div className="w-full h-full flex flex-col items-center justify-center p-6 text-center bg-surface rounded-3xl border border-border-subtle transition-colors">
         <p className="text-sm font-bold text-amber-400 mb-2">Sesi Grafis 3D Terputus</p>
         <button
           onClick={() => setContextLost(false)}
-          className="px-4 py-2 rounded-xl bg-[#FF6B35] text-white text-xs font-bold"
+          className="px-4 py-2 rounded-xl bg-brand-accent text-white text-xs font-bold transition-colors"
         >
           Muat Ulang Studio 3D
         </button>
@@ -164,8 +167,12 @@ export function CanvasStageMobile() {
     );
   }
 
+  // P0-3: bg default #0E0E10 (obsidian/concrete gelap); gallery → #F5F4F0
+  // cermin web CanvasStage themeBgHex.
+  const themeBgHex = theme === 'gallery' ? '#F5F4F0' : theme === 'concrete' ? '#222326' : '#0E0E10';
+
   return (
-    <div id="kk-studio" className="relative w-full h-full select-none touch-none overflow-hidden rounded-3xl bg-[#0E0E10]">
+    <div id="kk-studio" className="relative w-full h-full select-none touch-none overflow-hidden rounded-3xl bg-canvas transition-colors" style={{ backgroundColor: themeBgHex }}>
       <Suspense fallback={<StudioLoader />}>
         <Canvas
           camera={{ position: [0, 0, 2.5], fov: 45 }}
@@ -199,7 +206,7 @@ export function CanvasStageMobile() {
         >
           <SceneDisposer />
           <PerfAdaptive />
-          <MobileStudioLighting />
+          <MobileStudioLighting theme={theme} />
           <TouchOrbitControls />
           <AnimationController>
             <MobileApparelMeshRenderer />

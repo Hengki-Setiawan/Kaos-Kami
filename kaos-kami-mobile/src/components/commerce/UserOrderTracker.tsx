@@ -11,6 +11,7 @@ import {
   Truck,
   MessageCircle,
   ExternalLink,
+  PartyPopper,
 } from 'lucide-react';
 import { GlassCard, Badge, HapticButton } from '@/components/ui';
 import { openDuitkuPaymentModal } from '@/lib/payments/duitkuMobile';
@@ -189,7 +190,7 @@ export function UserOrderTracker({
       {order.status === 'PENDING_PAYMENT' && (
         <div className="space-y-2">
           <div className="p-3 rounded-2xl bg-emerald-500/10 border border-emerald-500/25 text-xs text-emerald-300">
-            <p className="font-bold">🎉 Desain Kaos Anda telah disetujui Admin!</p>
+            <p className="font-bold flex items-center gap-1.5"><PartyPopper className="w-4 h-4 text-emerald-400 shrink-0" /> Desain Kaos Anda telah disetujui Admin!</p>
             <p className="text-[10px] text-emerald-300/80 mt-0.5">
               Silakan selesaikan pembayaran untuk langsung memasukkan baju Anda ke antrean cetak DTF.
             </p>

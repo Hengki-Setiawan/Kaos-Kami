@@ -126,17 +126,17 @@ export default function AdminShippingPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="font-display text-xl font-black uppercase text-white">ONGKIR & ZONA EKSPEDISI</h1>
+        <h1 className="font-display text-xl font-black uppercase text-text-primary">ONGKIR & ZONA EKSPEDISI</h1>
         <p className="font-mono text-[11px] text-text-muted">
           Tarif luar kota (fallback bila API live down) + pantau kuota AgenWebsite.
         </p>
       </div>
 
       {/* Kuota AgenWebsite */}
-      <div className="p-4 rounded-xl bg-surface/50 border border-white/5 font-mono text-xs">
+      <div className="p-4 rounded-xl bg-surface/50 border border-border-subtle font-mono text-xs">
         <span className="block text-[11px] text-text-muted uppercase mb-2">Kuota AgenWebsite (hari ini)</span>
         {usageConfigured === false && (
-          <p className="text-amber-400">
+          <p className="text-amber-700 dark:text-amber-400">
             API key belum dipasang. Tarif pakai tabel zona di bawah. Pasang key via secret{" "}
             <span className="font-bold">AGENWEBSITE_RATE_API_KEY</span> (lihat RUNBOOK §10).
           </p>
@@ -147,11 +147,11 @@ export default function AdminShippingPage() {
               <span>
                 Paket {usage.plan} · {usage.used}/{usage.limit} · sisa {usage.remaining}
               </span>
-              <span className={pct >= 95 ? "text-rose-400 font-bold" : pct >= 80 ? "text-amber-400 font-bold" : "text-emerald-400 font-bold"}>
+              <span className={pct >= 95 ? "text-rose-700 dark:text-rose-400 font-bold" : pct >= 80 ? "text-amber-700 dark:text-amber-400 font-bold" : "text-emerald-700 dark:text-emerald-400 font-bold"}>
                 {pct}%
               </span>
             </div>
-            <div className="h-2 rounded-full bg-white/10 overflow-hidden">
+            <div className="h-2 rounded-full bg-black/10 dark:bg-white/10 overflow-hidden">
               <div
                 className={`h-full ${pct >= 95 ? "bg-rose-500" : pct >= 80 ? "bg-amber-500" : "bg-emerald-500"}`}
                 style={{ width: `${Math.min(100, pct)}%` }}
@@ -162,26 +162,26 @@ export default function AdminShippingPage() {
         )}
       </div>
 
-      {msg && <p className="font-mono text-xs text-amber-400">{msg}</p>}
+      {msg && <p className="font-mono text-xs text-amber-700 dark:text-amber-400">{msg}</p>}
 
       {/* Tambah zona */}
-      <form onSubmit={handleAdd} className="p-4 rounded-xl bg-surface/50 border border-white/5 grid grid-cols-2 sm:grid-cols-4 gap-2 font-mono text-xs">
-        <input value={form.city} onChange={(e) => setForm({ ...form, city: e.target.value })} placeholder="Kota *" required aria-label="Kota tujuan" className="px-2 py-2 rounded-lg bg-black/40 border border-white/10 text-white" />
-        <input value={form.province} onChange={(e) => setForm({ ...form, province: e.target.value })} placeholder="Provinsi *" required aria-label="Provinsi" className="px-2 py-2 rounded-lg bg-black/40 border border-white/10 text-white" />
-        <input value={form.courier} onChange={(e) => setForm({ ...form, courier: e.target.value })} placeholder="Kurir (JNE/J&T) *" required aria-label="Kurir" className="px-2 py-2 rounded-lg bg-black/40 border border-white/10 text-white" />
-        <input value={form.service} onChange={(e) => setForm({ ...form, service: e.target.value })} placeholder="Layanan (REG) *" required aria-label="Layanan kurir" className="px-2 py-2 rounded-lg bg-black/40 border border-white/10 text-white" />
-        <input type="number" value={form.costIdr} onChange={(e) => setForm({ ...form, costIdr: Number(e.target.value) })} placeholder="Ongkir Rp *" required min={0} aria-label="Ongkir rupiah" className="px-2 py-2 rounded-lg bg-black/40 border border-white/10 text-white" />
-        <input value={form.etdLabel} onChange={(e) => setForm({ ...form, etdLabel: e.target.value })} placeholder="Estimasi (2-3 hari) *" required aria-label="Estimasi tiba" className="px-2 py-2 rounded-lg bg-black/40 border border-white/10 text-white" />
+      <form onSubmit={handleAdd} className="p-4 rounded-xl bg-surface/50 border border-border-subtle grid grid-cols-2 sm:grid-cols-4 gap-2 font-mono text-xs">
+        <input value={form.city} onChange={(e) => setForm({ ...form, city: e.target.value })} placeholder="Kota *" required aria-label="Kota tujuan" className="px-2 py-2 rounded-lg bg-surface border border-border-subtle text-text-primary placeholder:text-text-muted" />
+        <input value={form.province} onChange={(e) => setForm({ ...form, province: e.target.value })} placeholder="Provinsi *" required aria-label="Provinsi" className="px-2 py-2 rounded-lg bg-surface border border-border-subtle text-text-primary placeholder:text-text-muted" />
+        <input value={form.courier} onChange={(e) => setForm({ ...form, courier: e.target.value })} placeholder="Kurir (JNE/J&T) *" required aria-label="Kurir" className="px-2 py-2 rounded-lg bg-surface border border-border-subtle text-text-primary placeholder:text-text-muted" />
+        <input value={form.service} onChange={(e) => setForm({ ...form, service: e.target.value })} placeholder="Layanan (REG) *" required aria-label="Layanan kurir" className="px-2 py-2 rounded-lg bg-surface border border-border-subtle text-text-primary placeholder:text-text-muted" />
+        <input type="number" value={form.costIdr} onChange={(e) => setForm({ ...form, costIdr: Number(e.target.value) })} placeholder="Ongkir Rp *" required min={0} aria-label="Ongkir rupiah" className="px-2 py-2 rounded-lg bg-surface border border-border-subtle text-text-primary placeholder:text-text-muted" />
+        <input value={form.etdLabel} onChange={(e) => setForm({ ...form, etdLabel: e.target.value })} placeholder="Estimasi (2-3 hari) *" required aria-label="Estimasi tiba" className="px-2 py-2 rounded-lg bg-surface border border-border-subtle text-text-primary placeholder:text-text-muted" />
         <button type="submit" className="col-span-2 sm:col-span-2 px-3 py-2 rounded-lg bg-brand-accent text-canvas font-bold">
           + TAMBAH ZONA
         </button>
       </form>
 
       {/* Tabel zona */}
-      <div className="rounded-xl border border-white/5 overflow-hidden font-mono text-xs">
+      <div className="rounded-xl border border-border-subtle overflow-hidden font-mono text-xs bg-surface">
         <div className="max-h-[480px] overflow-y-auto">
           <table className="w-full text-left">
-            <thead className="sticky top-0 bg-[#1a1a1e] text-text-muted uppercase text-[10px]">
+            <thead className="sticky top-0 bg-surface-elevated text-text-muted uppercase text-[10px]">
               <tr>
                 <th className="p-2">Kota</th>
                 <th className="p-2">Kurir</th>
@@ -191,7 +191,7 @@ export default function AdminShippingPage() {
                 <th className="p-2">Aksi</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-white/5">
+            <tbody className="divide-y divide-border-subtle">
               {loading && (
                 <tr>
                   <td colSpan={6} className="p-4 text-text-muted">
@@ -204,7 +204,7 @@ export default function AdminShippingPage() {
                 const isDefault = z.id === "zone_default_lainnya";
                 return (
                   <tr key={z.id} className={!z.isActive ? "opacity-50" : ""}>
-                    <td className="p-2 text-white">
+                    <td className="p-2 text-text-primary">
                       {z.city}
                       <span className="block text-[10px] text-text-muted">{z.province}</span>
                     </td>
@@ -220,10 +220,10 @@ export default function AdminShippingPage() {
                           onChange={(e) =>
                             setEdits({ ...edits, [z.id]: { ...ed, costIdr: Number(e.target.value) } })
                           }
-                          className="w-24 px-1 py-1 rounded bg-black/40 border border-white/10 text-white"
+                          className="w-24 px-1 py-1 rounded bg-surface border border-border-subtle text-text-primary"
                         />
                       ) : (
-                        <span className="text-white">Rp {z.costIdr.toLocaleString("id-ID")}</span>
+                        <span className="text-text-primary">Rp {z.costIdr.toLocaleString("id-ID")}</span>
                       )}
                     </td>
                     <td className="p-2">
@@ -234,7 +234,7 @@ export default function AdminShippingPage() {
                           onChange={(e) =>
                             setEdits({ ...edits, [z.id]: { ...ed, etdLabel: e.target.value } })
                           }
-                          className="w-24 px-1 py-1 rounded bg-black/40 border border-white/10 text-white"
+                          className="w-24 px-1 py-1 rounded bg-surface border border-border-subtle text-text-primary"
                         />
                       ) : (
                         <span className="text-text-muted">{z.etdLabel}</span>
@@ -244,7 +244,7 @@ export default function AdminShippingPage() {
                       <button
                         onClick={() => handleToggle(z)}
                         disabled={isDefault}
-                        className={`px-2 py-1 rounded text-[10px] font-bold disabled:opacity-40 ${z.isActive ? "bg-emerald-500/20 text-emerald-400" : "bg-white/10 text-text-muted"}`}
+                        className={`px-2 py-1 rounded text-[10px] font-bold disabled:opacity-40 ${z.isActive ? "bg-emerald-500/20 text-emerald-700 dark:text-emerald-400" : "bg-black/5 dark:bg-white/10 text-text-muted"}`}
                       >
                         {z.isActive ? "ON" : "OFF"}
                       </button>
@@ -257,13 +257,13 @@ export default function AdminShippingPage() {
                       ) : (
                         <button
                           onClick={() => setEdits({ ...edits, [z.id]: { costIdr: z.costIdr, etdLabel: z.etdLabel } })}
-                          className="px-2 py-1 rounded bg-white/10 text-white text-[10px]"
+                          className="px-2 py-1 rounded bg-black/5 dark:bg-white/10 text-text-primary text-[10px]"
                         >
                           EDIT
                         </button>
                       )}
                       {!isDefault && (
-                        <button onClick={() => handleDelete(z)} className="px-2 py-1 rounded bg-rose-500/20 text-rose-300 text-[10px]">
+                        <button onClick={() => handleDelete(z)} className="px-2 py-1 rounded bg-rose-500/20 text-rose-700 dark:text-rose-300 text-[10px]">
                           HAPUS
                         </button>
                       )}

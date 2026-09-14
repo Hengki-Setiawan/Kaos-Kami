@@ -404,12 +404,34 @@ export default function GangSheetBuilderPage() {
       ? `https://wa.me/${digitMaklon}?text=${encodeURIComponent(rekap)}`
       : null;
 
+  // P1-3: SVG review sadar tema — baca data-theme (gallery=terang #FFFFFF, else gelap #101014).
+  const [isGangLight, setIsGangLight] = useState(false);
+  useEffect(() => {
+    const sync = () => {
+      try {
+        setIsGangLight(document.documentElement.getAttribute("data-theme") === "gallery");
+      } catch {
+        setIsGangLight(false);
+      }
+    };
+    sync();
+    const obs = new MutationObserver(sync);
+    try {
+      obs.observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
+    } catch {
+      /* abaikan */
+    }
+    return () => obs.disconnect();
+  }, []);
+  const gangPaperFill = isGangLight ? "#FFFFFF" : "#101014";
+  const gangGuideStroke = isGangLight ? "#a1a1aa" : "#3f3f46";
+
   // ── Render ──
   return (
-    <div className="p-5 sm:p-8 space-y-6 max-w-6xl mx-auto">
+    <div className="p-5 sm:p-8 space-y-6 max-w-6xl mx-auto print:bg-white">
       {/* Kepala */}
-      <div className="pb-4 border-b border-white/5">
-        <h1 className="font-display text-2xl sm:text-3xl font-black uppercase tracking-tight text-white">
+      <div className="pb-4 border-b border-border-subtle">
+        <h1 className="font-display text-2xl sm:text-3xl font-black uppercase tracking-tight text-text-primary">
           Gang-Sheet Builder
         </h1>
         <p className="font-mono text-xs text-text-muted mt-1">
@@ -420,20 +442,20 @@ export default function GangSheetBuilderPage() {
       </div>
 
       {/* (1) KOLEKTOR */}
-      <section className="rounded-2xl border border-white/10 bg-[#141416] p-4 space-y-3">
+      <section className="rounded-2xl border border-border-subtle bg-surface p-4 space-y-3">
         <div className="flex flex-col sm:flex-row sm:items-center gap-2 justify-between">
-          <h2 className="font-bold text-white">1 — Kolektor desain siap-cetak</h2>
+          <h2 className="font-bold text-text-primary">1 — Kolektor desain siap-cetak</h2>
           <div className="flex gap-2">
             <input
               value={cari}
               onChange={(e) => setCari(e.target.value)}
               placeholder="Cari nomor order / desain…"
-              className="px-3 py-2 rounded-xl bg-black/40 border border-white/10 text-sm text-white placeholder:text-zinc-500 w-56"
+              className="px-3 py-2 rounded-xl bg-surface border border-border-subtle text-sm text-text-primary placeholder:text-text-muted w-56"
             />
             <button
               onClick={() => void muatTask()}
               disabled={memuat}
-              className="px-3 py-2 rounded-xl bg-white/5 border border-white/10 text-sm text-white font-bold disabled:opacity-50"
+              className="px-3 py-2 rounded-xl bg-black/5 dark:bg-white/5 border border-border-subtle text-sm text-text-primary font-bold disabled:opacity-50"
             >
               {memuat ? "Memuat…" : "Muat ulang"}
             </button>
@@ -441,7 +463,7 @@ export default function GangSheetBuilderPage() {
         </div>
 
         {galatMuat && (
-          <p className="text-sm text-red-400 font-mono">
+          <p className="text-sm text-red-700 dark:text-red-400 font-mono">
             {galatMuat}{" "}
             <button onClick={() => void muatTask()} className="underline">
               coba lagi
@@ -459,7 +481,7 @@ export default function GangSheetBuilderPage() {
           <div className="overflow-x-auto -mx-4 px-4">
             <table className="w-full text-sm min-w-[720px]">
               <thead>
-                <tr className="text-left font-mono text-[11px] uppercase text-zinc-500 border-b border-white/10">
+                <tr className="text-left font-mono text-[11px] uppercase text-text-muted border-b border-border-subtle bg-surface-elevated">
                   <th className="py-2 pr-2 w-10">Pilih</th>
                   <th className="py-2 pr-2">Desain</th>
                   <th className="py-2 pr-2">Order</th>
@@ -473,7 +495,7 @@ export default function GangSheetBuilderPage() {
                   const st = siapCetak(t);
                   const orderNo = t.order?.orderNumber || "—";
                   return (
-                    <tr key={t.id} className="border-b border-white/5 align-middle">
+                    <tr key={t.id} className="border-b border-border-subtle align-middle">
                       <td className="py-2 pr-2">
                         <input
                           type="checkbox"
@@ -493,23 +515,23 @@ export default function GangSheetBuilderPage() {
                             <img
                               src={t.printFileUrl}
                               alt={labelBaris(t)}
-                              className="h-11 w-11 rounded-lg object-cover bg-black/50 border border-white/10 shrink-0"
+                              className="h-11 w-11 rounded-lg object-cover bg-surface border border-border-subtle shrink-0"
                               loading="lazy"
                             />
                           ) : (
-                            <div className="h-11 w-11 rounded-lg bg-black/50 border border-dashed border-white/15 text-[9px] text-zinc-500 flex items-center justify-center text-center shrink-0">
+                            <div className="h-11 w-11 rounded-lg bg-surface border border-dashed border-border-strong text-[9px] text-text-muted flex items-center justify-center text-center shrink-0">
                               tanpa
                               <br />
                               file
                             </div>
                           )}
-                          <span className="text-white font-medium line-clamp-2">{labelBaris(t)}</span>
+                          <span className="text-text-primary font-medium line-clamp-2">{labelBaris(t)}</span>
                         </div>
                       </td>
-                      <td className="py-2 pr-2 font-mono text-xs text-zinc-300 whitespace-nowrap">
+                      <td className="py-2 pr-2 font-mono text-xs text-text-muted whitespace-nowrap">
                         {orderNo}
                       </td>
-                      <td className="py-2 pr-2 font-mono text-xs text-zinc-300 whitespace-nowrap">
+                      <td className="py-2 pr-2 font-mono text-xs text-text-muted whitespace-nowrap">
                         {fmtCm(t.printWidthCm)}×{fmtCm(t.printHeightCm)} cm
                       </td>
                       <td className="py-2 pr-2">
@@ -528,17 +550,17 @@ export default function GangSheetBuilderPage() {
                             }));
                           }}
                           title={`Bawaan dari item induk: ${qtyDariItemInduk(t)}`}
-                          className="w-20 px-2 py-1.5 rounded-lg bg-black/40 border border-white/10 text-white text-sm disabled:opacity-50"
+                          className="w-20 px-2 py-1.5 rounded-lg bg-surface border border-border-subtle text-text-primary text-sm disabled:opacity-50 placeholder:text-text-muted"
                         />
                       </td>
                       <td className="py-2">
                         {st.ok ? (
-                          <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">
+                          <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border border-emerald-500/30">
                             Siap
                           </span>
                         ) : (
                           <span
-                            className="text-[11px] font-mono px-2 py-0.5 rounded-full bg-white/5 text-zinc-500 border border-white/10"
+                            className="text-[11px] font-mono px-2 py-0.5 rounded-full bg-black/5 dark:bg-white/5 text-text-muted border border-border-subtle"
                             title={st.alasan}
                           >
                             {st.alasan}
@@ -557,19 +579,19 @@ export default function GangSheetBuilderPage() {
           <div className="flex flex-wrap gap-2">
             <button
               onClick={pilihSemuaSiap}
-              className="px-3 py-2 rounded-xl bg-white/5 border border-white/10 text-sm text-white font-bold"
+              className="px-3 py-2 rounded-xl bg-black/5 dark:bg-white/5 border border-border-subtle text-sm text-text-primary font-bold"
             >
               Pilih semua siap ({idSiap.length})
             </button>
             <button
               onClick={bersihkanPilihan}
-              className="px-3 py-2 rounded-xl bg-white/5 border border-white/10 text-sm text-zinc-400"
+              className="px-3 py-2 rounded-xl bg-black/5 dark:bg-white/5 border border-border-subtle text-sm text-text-muted"
             >
               Bersihkan
             </button>
           </div>
           <div className="flex flex-wrap items-end gap-3">
-            <label className="text-xs text-zinc-400 font-mono">
+            <label className="text-xs text-text-muted font-mono">
               Harga film /meter (Rp)
               <input
                 type="number"
@@ -577,7 +599,7 @@ export default function GangSheetBuilderPage() {
                 step={500}
                 value={hargaPerMeter}
                 onChange={(e) => setHargaPerMeter(Math.max(0, Math.round(Number(e.target.value) || 0)))}
-                className="ml-2 w-32 px-2 py-1.5 rounded-lg bg-black/40 border border-white/10 text-white text-sm"
+                className="ml-2 w-32 px-2 py-1.5 rounded-lg bg-surface border border-border-subtle text-text-primary text-sm"
               />
             </label>
             <button
@@ -593,31 +615,31 @@ export default function GangSheetBuilderPage() {
 
       {/* (2) HASIL SUSUN */}
       {hasil && (
-        <section className="rounded-2xl border border-white/10 bg-[#141416] p-4 space-y-3">
-          <h2 className="font-bold text-white">2 — Hasil susunan</h2>
+        <section className="rounded-2xl border border-border-subtle bg-surface p-4 space-y-3">
+          <h2 className="font-bold text-text-primary">2 — Hasil susunan</h2>
           <div className="grid sm:grid-cols-3 gap-3">
-            <div className="rounded-xl bg-black/40 border border-white/10 p-3">
-              <p className="font-mono text-[11px] uppercase text-zinc-500">Utilisasi (packer)</p>
-              <p className="text-2xl font-black text-amber-400">{hasil.utilizationPct.toFixed(1)}%</p>
-              <p className="font-mono text-[11px] text-zinc-500">
+            <div className="rounded-xl bg-surface border border-border-subtle p-3">
+              <p className="font-mono text-[11px] uppercase text-text-muted">Utilisasi (packer)</p>
+              <p className="text-2xl font-black text-amber-700 dark:text-amber-400">{hasil.utilizationPct.toFixed(1)}%</p>
+              <p className="font-mono text-[11px] text-text-muted">
                 Review meter ini: {utilLive.toFixed(1)}% · {kopiTerpasang} kopi terpasang
               </p>
-              <div className="h-2 rounded-full bg-white/10 mt-2 overflow-hidden">
+              <div className="h-2 rounded-full bg-black/10 dark:bg-white/10 mt-2 overflow-hidden">
                 <div
                   className="h-full bg-amber-400 rounded-full"
                   style={{ width: `${Math.min(100, Math.max(0, hasil.utilizationPct))}%` }}
                 />
               </div>
             </div>
-            <div className="rounded-xl bg-black/40 border border-white/10 p-3">
-              <p className="font-mono text-[11px] uppercase text-zinc-500">Estimasi biaya film</p>
-              <p className="text-2xl font-black text-white">{fmtRp(totalBiaya)}</p>
-              <p className="font-mono text-[11px] text-zinc-500">
+            <div className="rounded-xl bg-surface border border-border-subtle p-3">
+              <p className="font-mono text-[11px] uppercase text-text-muted">Estimasi biaya film</p>
+              <p className="text-2xl font-black text-text-primary">{fmtRp(totalBiaya)}</p>
+              <p className="font-mono text-[11px] text-text-muted">
                 ≈ {fmtRp(biayaPerDesain)}/desain · {binCount} meter × {fmtRp(hargaPerMeter)}
               </p>
             </div>
-            <div className="rounded-xl bg-black/40 border border-white/10 p-3">
-              <p className="font-mono text-[11px] uppercase text-zinc-500">Lembar</p>
+            <div className="rounded-xl bg-surface border border-border-subtle p-3">
+              <p className="font-mono text-[11px] uppercase text-text-muted">Lembar</p>
               <div className="flex flex-wrap gap-1.5 mt-1">
                 {hasil.bins.map((_, i) => (
                   <button
@@ -629,27 +651,27 @@ export default function GangSheetBuilderPage() {
                     className={`px-3 py-1.5 rounded-lg text-sm font-bold border ${
                       i === binAktif
                         ? "bg-amber-400 text-black border-amber-400"
-                        : "bg-white/5 text-white border-white/10"
+                        : "bg-black/5 dark:bg-white/5 text-text-primary border-border-subtle"
                     }`}
                   >
                     Meter {i + 1}
                   </button>
                 ))}
               </div>
-              <p className="font-mono text-[11px] text-zinc-500 mt-1.5">
+              <p className="font-mono text-[11px] text-text-muted mt-1.5">
                 {hasil.binWmm}×{hasil.binHmm}mm per meter
               </p>
             </div>
           </div>
 
           {binCount > 1 && (
-            <p className="text-sm font-bold text-amber-300 bg-amber-400/10 border border-amber-400/30 rounded-xl px-3 py-2">
+            <p className="text-sm font-bold text-amber-700 dark:text-amber-300 bg-amber-400/10 border border-amber-400/30 rounded-xl px-3 py-2">
               Muatan meluber ke meter-2 (total {binCount} meter film). Siapkan roll {binCount} meter;
               tiap meter diekspor sebagai PNG terpisah.
             </p>
           )}
           {hasil.unplaced.length > 0 && (
-            <div className="text-sm text-red-300 bg-red-500/10 border border-red-500/30 rounded-xl px-3 py-2">
+            <div className="text-sm text-red-700 dark:text-red-300 bg-red-500/10 border border-red-500/30 rounded-xl px-3 py-2">
               <p className="font-bold">{hasil.unplaced.length} desain tak muat di lembar kosong (cek dimensi):</p>
               <ul className="list-disc ml-5 font-mono text-xs mt-1">
                 {hasil.unplaced.map((u) => (
@@ -665,11 +687,11 @@ export default function GangSheetBuilderPage() {
 
       {/* (3) REVIEW */}
       {hasil && kotakEdit && (
-        <section className="rounded-2xl border border-white/10 bg-[#141416] p-4 space-y-3">
+        <section className="rounded-2xl border border-border-subtle bg-surface p-4 space-y-3">
           <div className="flex flex-col sm:flex-row sm:items-center gap-2 justify-between">
-            <h2 className="font-bold text-white">3 — Review meter {binAktif + 1}</h2>
+            <h2 className="font-bold text-text-primary">3 — Review meter {binAktif + 1}</h2>
             <div className="flex flex-wrap items-center gap-2 text-sm">
-              <label className="font-mono text-xs text-zinc-400 flex items-center gap-1.5">
+              <label className="font-mono text-xs text-text-muted flex items-center gap-1.5">
                 Zoom
                 <input
                   type="range"
@@ -682,7 +704,7 @@ export default function GangSheetBuilderPage() {
                 />
                 <span className="w-10">{Math.round(zoom * 100)}%</span>
               </label>
-              <label className="font-mono text-xs text-zinc-300 flex items-center gap-1.5 cursor-pointer">
+              <label className="font-mono text-xs text-text-primary flex items-center gap-1.5 cursor-pointer">
                 <input
                   type="checkbox"
                   checked={tampilPotong}
@@ -694,34 +716,34 @@ export default function GangSheetBuilderPage() {
               <button
                 onClick={putarTerpilih}
                 disabled={terpilih === null}
-                className="px-3 py-1.5 rounded-lg bg-white/5 border border-white/10 text-white font-bold disabled:opacity-40"
+                className="px-3 py-1.5 rounded-lg bg-black/5 dark:bg-white/5 border border-border-subtle text-text-primary font-bold disabled:opacity-40"
               >
                 Putar 90°
               </button>
               <button
                 onClick={hapusTerpilih}
                 disabled={terpilih === null}
-                className="px-3 py-1.5 rounded-lg bg-red-500/15 border border-red-500/30 text-red-300 font-bold disabled:opacity-40"
+                className="px-3 py-1.5 rounded-lg bg-red-500/15 border border-red-500/30 text-red-700 dark:text-red-300 font-bold disabled:opacity-40"
               >
                 Hapus
               </button>
               <button
                 onClick={resetBinAktif}
-                className="px-3 py-1.5 rounded-lg bg-white/5 border border-white/10 text-zinc-300"
+                className="px-3 py-1.5 rounded-lg bg-black/5 dark:bg-white/5 border border-border-subtle text-text-muted"
               >
                 Reset
               </button>
             </div>
           </div>
 
-          <p className="font-mono text-[11px] text-zinc-500">
+          <p className="font-mono text-[11px] text-text-muted">
             Klik kotak untuk memilih · seret untuk geser (snap 1mm, tertahan di dalam lembar) ·{" "}
             {itemTerpilih
               ? `terpilih: Order ${itemTerpilih.orderNumber} — ${(itemTerpilih.wMm / 10).toFixed(1)}×${(itemTerpilih.hMm / 10).toFixed(1)}cm @ ${itemTerpilih.xMm},${itemTerpilih.yMm}mm${itemTerpilih.rot ? " (diputar)" : ""}`
               : "belum ada yang dipilih"}
           </p>
 
-          <div className="overflow-auto rounded-xl bg-black/60 border border-white/10 p-3 touch-none select-none">
+          <div className="overflow-auto rounded-xl bg-zinc-200 dark:bg-black/60 border border-border-subtle p-3 touch-none select-none">
             <svg
               ref={svgRef}
               viewBox={`0 0 ${hasil.binWmm} ${hasil.binHmm}`}
@@ -735,15 +757,15 @@ export default function GangSheetBuilderPage() {
               className="block h-auto mx-auto"
               style={{ width: `${Math.round(zoom * 100)}%`, minWidth: "320px", cursor: "default" }}
             >
-              {/* Latar + panduan margin aman */}
-              <rect x={0} y={0} width={hasil.binWmm} height={hasil.binHmm} fill="#101014" />
+              {/* Latar + panduan margin aman — sadar data-theme */}
+              <rect x={0} y={0} width={hasil.binWmm} height={hasil.binHmm} fill={gangPaperFill} />
               <rect
                 x={GANG_MARGIN_MM}
                 y={GANG_MARGIN_MM}
                 width={hasil.binWmm - GANG_MARGIN_MM * 2}
                 height={hasil.binHmm - GANG_MARGIN_MM * 2}
                 fill="none"
-                stroke="#3f3f46"
+                stroke={gangGuideStroke}
                 strokeWidth={2}
                 strokeDasharray="10 8"
               />
@@ -829,7 +851,7 @@ export default function GangSheetBuilderPage() {
               })}
             </svg>
           </div>
-          <p className="font-mono text-[11px] text-zinc-500">
+          <p className="font-mono text-[11px] text-text-muted">
             Kotak sempit hanya menampilkan nomor urut — detail order tetap ada di rekap ekspor. Gambar
             pratinjau bisa kosong bila file R2 menolak hotlink; PNG ekspor mencatatnya jujur di
             peringatan.
@@ -839,18 +861,18 @@ export default function GangSheetBuilderPage() {
 
       {/* (4) EKSPOR */}
       {hasil && kotakEdit && (
-        <section className="rounded-2xl border border-white/10 bg-[#141416] p-4 space-y-3">
-          <h2 className="font-bold text-white">4 — Ekspor ke maklon</h2>
+        <section className="rounded-2xl border border-border-subtle bg-surface p-4 space-y-3">
+          <h2 className="font-bold text-text-primary">4 — Ekspor ke maklon</h2>
           <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-3 text-sm">
-            <label className="font-mono text-xs text-zinc-400">
+            <label className="font-mono text-xs text-text-muted">
               ID gang
               <input
                 value={gangId}
                 onChange={(e) => setGangId(e.target.value)}
-                className="mt-1 w-full px-2.5 py-2 rounded-lg bg-black/40 border border-white/10 text-white"
+                className="mt-1 w-full px-2.5 py-2 rounded-lg bg-surface border border-border-subtle text-text-primary placeholder:text-text-muted"
               />
             </label>
-            <div className="font-mono text-xs text-zinc-400">
+            <div className="font-mono text-xs text-text-muted">
               Resolusi
               <div className="mt-1 flex gap-1.5">
                 {([150, 300] as const).map((d) => (
@@ -860,25 +882,25 @@ export default function GangSheetBuilderPage() {
                     className={`px-3 py-2 rounded-lg border font-bold ${
                       dpi === d
                         ? "bg-amber-400 text-black border-amber-400"
-                        : "bg-white/5 text-white border-white/10"
+                        : "bg-black/5 dark:bg-white/5 text-text-primary border-border-subtle"
                     }`}
                   >
                     {d} DPI
                   </button>
                 ))}
               </div>
-              <p className="mt-1 text-[10px] text-zinc-500">
+              <p className="mt-1 text-[10px] text-text-muted">
                 300 = HD maksimal (±puluhan MB, wajar). 150 bila browser/HP macet.
               </p>
             </div>
-            <label className="font-mono text-xs text-zinc-400">
+            <label className="font-mono text-xs text-text-muted">
               Nomor WA maklon (cth 62812…)
               <input
                 value={nomorMaklon}
                 onChange={(e) => setNomorMaklon(e.target.value)}
                 inputMode="tel"
                 placeholder="6281234567890"
-                className="mt-1 w-full px-2.5 py-2 rounded-lg bg-black/40 border border-white/10 text-white"
+                className="mt-1 w-full px-2.5 py-2 rounded-lg bg-surface border border-border-subtle text-text-primary placeholder:text-text-muted"
               />
             </label>
             <div className="flex items-end">
@@ -893,11 +915,11 @@ export default function GangSheetBuilderPage() {
           </div>
 
           {isiBinAktif.length === 0 && (
-            <p className="text-sm text-amber-300 font-mono">
+            <p className="text-sm text-amber-700 dark:text-amber-300 font-mono">
               Meter ini kosong (semua kotak dihapus) — pilih meter lain atau Reset.
             </p>
           )}
-          {galatEkspor && <p className="text-sm text-red-400 font-mono">{galatEkspor}</p>}
+          {galatEkspor && <p className="text-sm text-red-700 dark:text-red-400 font-mono">{galatEkspor}</p>}
 
           {rekap && (
             <div className="space-y-2">
@@ -921,25 +943,25 @@ export default function GangSheetBuilderPage() {
                     Kirim rekap via WA
                   </a>
                 ) : (
-                  <span className="px-4 py-2 rounded-xl bg-white/5 border border-white/10 text-zinc-500 text-sm font-mono">
+                  <span className="px-4 py-2 rounded-xl bg-black/5 dark:bg-white/5 border border-border-subtle text-text-muted text-sm font-mono">
                     Isi nomor WA maklon untuk tombol kirim
                   </span>
                 )}
                 <button
                   onClick={() => void salinRekap()}
-                  className="px-4 py-2 rounded-xl bg-white/5 border border-white/10 text-white text-sm font-bold"
+                  className="px-4 py-2 rounded-xl bg-black/5 dark:bg-white/5 border border-border-subtle text-text-primary text-sm font-bold"
                 >
                   {disalin ? "Tersalin ✓" : "Salin rekap"}
                 </button>
               </div>
               {peringatanEkspor.length > 0 && (
-                <ul className="text-xs font-mono text-amber-300 bg-amber-400/10 border border-amber-400/30 rounded-xl px-3 py-2 list-disc ml-5">
+                <ul className="text-xs font-mono text-amber-700 dark:text-amber-300 bg-amber-400/10 border border-amber-400/30 rounded-xl px-3 py-2 list-disc ml-5">
                   {peringatanEkspor.map((w, i) => (
                     <li key={i}>{w}</li>
                   ))}
                 </ul>
               )}
-              <pre className="whitespace-pre-wrap font-mono text-xs text-zinc-200 bg-black/50 border border-white/10 rounded-xl p-3 max-h-72 overflow-auto">
+              <pre className="whitespace-pre-wrap font-mono text-xs text-text-primary bg-surface border border-border-subtle rounded-xl p-3 max-h-72 overflow-auto">
                 {rekap}
               </pre>
             </div>

@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { Navbar } from "@/components/ui/Navbar";
 import { Footer } from "@/components/ui/Footer";
 import { useCartStore } from "@/store/useCartStore";
@@ -149,7 +150,7 @@ export function CatalogClient() {
 
           <Link
             href="/studio"
-            className="flex items-center space-x-2 px-5 py-3 rounded-full bg-brand-accent text-canvas font-mono font-bold text-xs uppercase tracking-wider hover:brightness-110 active:scale-95 transition-all shadow-[0_0_20px_rgba(230,81,0,0.35)]"
+            className="flex items-center space-x-2 px-5 py-3 rounded-full bg-brand-accent text-canvas font-mono font-bold text-xs uppercase tracking-wider hover:brightness-110 active:scale-95 transition-all dark:shadow-[0_0_20px_rgba(230,81,0,0.35)]"
           >
             <span>KUSTOM SABLON DTF</span>
           </Link>
@@ -157,7 +158,7 @@ export function CatalogClient() {
 
         {/* Filter Bar */}
         <div className="flex flex-wrap items-center justify-between gap-4 font-mono text-xs">
-          <div className="flex items-center space-x-2">
+          <div className="flex items-center gap-2 overflow-x-auto max-w-full pb-1 -mx-1 px-1">
             <Filter size={13} className="text-text-muted" />
             <span className="text-text-muted font-bold mr-1">KATEGORI:</span>
             {[
@@ -169,7 +170,7 @@ export function CatalogClient() {
                 key={f.id}
                 onClick={() => setSelectedFilter(f.id)}
                 aria-pressed={selectedFilter === f.id}
-                className={`px-3 py-1.5 rounded-full border transition-all ${
+                className={`shrink-0 whitespace-nowrap min-h-[44px] px-3 py-1.5 rounded-full border transition-all ${
                   selectedFilter === f.id
                     ? "bg-brand-accent text-canvas border-brand-accent font-bold"
                     : "bg-surface border-border-subtle text-text-muted hover:text-text-primary"
@@ -187,15 +188,15 @@ export function CatalogClient() {
               SIZES (lib/constants.ts) maks XXL, tak ada varian XXXL di DB.
               JANGAN tambah opsi ini tanpa varian DB + pola size chart.
               Surcharge XXXL di pricingEngine tetap (SSOT harga, jangan ubah). */}
-          <div className="flex items-center space-x-1.5">
-            <span className="text-text-muted font-bold mr-1">UKURAN:</span>
+          <div className="flex items-center gap-1.5 overflow-x-auto max-w-full pb-1 -mx-1 px-1">
+            <span className="text-text-muted font-bold mr-1 shrink-0">UKURAN:</span>
             {["ALL", "S", "M", "L", "XL", "XXL"].map((sz) => (
               <button
                 key={sz}
                 onClick={() => setSelectedSizeFilter(sz)}
                 aria-pressed={selectedSizeFilter === sz}
                 aria-label={sz === "ALL" ? "Semua ukuran" : `Ukuran ${sz}`}
-                className={`w-7 h-7 rounded-lg border flex items-center justify-center font-bold text-[11px] transition-all ${
+                className={`w-11 h-11 min-w-[44px] min-h-[44px] shrink-0 rounded-lg border flex items-center justify-center font-bold text-[11px] transition-all ${
                   selectedSizeFilter === sz
                     ? "bg-brand-accent text-canvas border-brand-accent"
                     : "bg-surface border-border-subtle text-text-muted hover:text-text-primary"
@@ -217,9 +218,20 @@ export function CatalogClient() {
           </div>
         )}
         {isLoading ? (
-          <div className="py-24 text-center font-mono text-xs text-text-muted space-y-2">
-            <div className="w-8 h-8 rounded-full border-2 border-brand-accent border-t-transparent animate-spin mx-auto" />
-            <p>Memuat koleksi produk pakaian...</p>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6" aria-busy="true" aria-label="Memuat koleksi produk">
+            {[0, 1, 2, 3, 4, 5].map((i) => (
+              <div key={i} className="rounded-2xl bg-surface/60 border border-border-subtle overflow-hidden animate-pulse">
+                <div className="aspect-[4/5] bg-black/10 dark:bg-white/10" />
+                <div className="p-5 space-y-2">
+                  <div className="h-3 rounded bg-black/10 dark:bg-white/10 w-2/3" />
+                  <div className="h-5 rounded bg-black/10 dark:bg-white/10 w-1/3" />
+                  <div className="grid grid-cols-2 gap-2 pt-2">
+                    <div className="h-11 rounded-xl bg-black/10 dark:bg-white/10" />
+                    <div className="h-11 rounded-xl bg-black/10 dark:bg-white/10" />
+                  </div>
+                </div>
+              </div>
+            ))}
           </div>
         ) : fetchError ? (
           <div className="py-24 text-center font-mono text-xs text-rose-300 p-8 rounded-2xl bg-rose-500/5 border border-rose-500/20 space-y-3">
@@ -238,35 +250,37 @@ export function CatalogClient() {
           </div>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-            {filteredProducts.map((p) => (
+            {filteredProducts.map((p, idx) => (
               <div
                 key={p.id}
-                className="group rounded-2xl bg-surface/60 border border-border-subtle hover:border-brand-accent/50 transition-all duration-300 overflow-hidden flex flex-col justify-between shadow-lg hover:shadow-2xl"
+                className="group min-w-0 rounded-2xl bg-surface/60 border border-border-subtle hover:border-brand-accent/50 transition-all duration-300 overflow-hidden flex flex-col justify-between shadow-lg hover:shadow-2xl"
               >
                 {/* Product Image & Badges */}
-                <div className="relative aspect-[4/5] bg-[#0E0E10] overflow-hidden">
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img
+                <div className="relative aspect-[4/5] bg-surface overflow-hidden">
+                  {/* CWV: next/image + sizes responsif; kartu pertama priority (LCP). */}
+                  <Image
                     src={(Array.isArray(p.images) && p.images[0]) || "/lookbook/look-01.jpg"}
                     alt={p.name}
                     width={800}
                     height={1000}
                     className="w-full h-full object-cover transition-transform duration-700 ease-out group-hover:scale-105"
-                    loading="lazy"
+                    sizes="(max-width: 768px) 100vw, 33vw"
+                    priority={idx === 0}
+                    loading={idx === 0 ? undefined : "lazy"}
                   />
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent opacity-60 group-hover:opacity-40 transition-opacity" />
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/40 dark:from-black/80 via-transparent to-transparent opacity-60 group-hover:opacity-40 transition-opacity" />
 
                   {/* Top Badges (Clean, No Emoji Slop) */}
                   <div className="absolute top-3 left-3 right-3 flex justify-between items-center">
-                    <span className="px-2.5 py-1 rounded-full bg-black/60 backdrop-blur-md border border-white/10 font-mono text-[10px] text-white font-bold uppercase">
+                    <span className="px-2.5 py-1 rounded-full bg-canvas/60 backdrop-blur-md border border-border-subtle font-mono text-[10px] text-text-primary font-bold uppercase">
                       {p.isPreDesigned ? "EDISI GRAFIS DROP" : "KATUN POLOS HEAVYWEIGHT"}
                     </span>
-                    <span className="w-5 h-5 rounded-full border border-white/20 shadow-md" style={{ backgroundColor: p.colorHex }} title={p.colorName} />
+                    <span className="w-5 h-5 rounded-full border border-border-strong dark:shadow-md" style={{ backgroundColor: p.colorHex }} title={p.colorName} />
                   </div>
 
                   {/* Bottom Stock & Size Overlay */}
                   <div className="absolute bottom-3 left-3 right-3 flex justify-between items-end font-mono text-[11px]">
-                    <span className="px-2 py-0.5 rounded bg-black/70 text-brand-accent font-bold border border-white/10">
+                    <span className="px-2 py-0.5 rounded bg-canvas/60 backdrop-blur-md text-brand-accent font-bold border border-border-subtle">
                       SIZE: {p.size}
                     </span>
                     <span className="text-text-muted text-[10px]">
@@ -281,7 +295,7 @@ export function CatalogClient() {
                     <span className="block text-[10px] font-mono text-text-muted uppercase">
                       {p.colorName} · Ready Makassar
                     </span>
-                    <h3 className="font-display font-black text-lg uppercase text-white mt-1 group-hover:text-brand-accent transition-colors line-clamp-2">
+                    <h3 className="font-display font-black text-lg uppercase text-text-primary mt-1 group-hover:text-brand-accent transition-colors line-clamp-2">
                       {p.name}
                     </h3>
                     <div className="mt-2 text-xl font-mono font-bold text-brand-accent">
@@ -294,7 +308,7 @@ export function CatalogClient() {
                     <button
                       onClick={() => handleQuickBuy(p)}
                       disabled={(p.stockQty ?? 0) <= 0}
-                      className="py-2.5 px-3 rounded-xl bg-surface border border-white/10 hover:border-brand-accent hover:text-brand-accent text-white font-mono text-[11px] font-bold uppercase transition-all flex items-center justify-center space-x-1.5 active:scale-95 disabled:opacity-40 disabled:pointer-events-none"
+                      className="min-h-[44px] py-2.5 px-3 rounded-xl bg-surface border border-border-subtle hover:border-brand-accent hover:text-brand-accent text-text-primary font-mono text-[11px] font-bold uppercase transition-all flex items-center justify-center space-x-1.5 active:scale-95 disabled:opacity-40 disabled:pointer-events-none"
                     >
                       <ShoppingBag size={13} />
                       <span>{(p.stockQty ?? 0) <= 0 ? "HABIS" : "+ KERANJANG"}</span>
@@ -303,7 +317,7 @@ export function CatalogClient() {
                     <Link
                       href="/studio"
                       onClick={() => handleOpenInStudio(p)}
-                      className="py-2.5 px-3 rounded-xl bg-brand-accent/15 border border-brand-accent/30 text-brand-accent hover:bg-brand-accent hover:text-canvas font-mono text-[11px] font-bold uppercase transition-all flex items-center justify-center space-x-1.5 active:scale-95"
+                      className="min-h-[44px] py-2.5 px-3 rounded-xl bg-brand-accent/15 border border-brand-accent/30 text-brand-accent hover:bg-brand-accent hover:text-canvas font-mono text-[11px] font-bold uppercase transition-all flex items-center justify-center space-x-1.5 active:scale-95"
                     >
                       <span>KUSTOM SABLON</span>
                     </Link>

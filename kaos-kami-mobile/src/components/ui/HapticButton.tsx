@@ -42,13 +42,15 @@ export function HapticButton({
       'bg-red-600 text-white shadow-lg shadow-red-600/30 active:bg-red-700 font-bold border border-red-500/40',
   };
 
+  // TOUCH: min 44px sudah ada; whileTap (motion) + active:scale CSS sebagai
+  // fallback bila reduced-motion; focus-visible ring untuk keyboard.
   return (
     <motion.button
       whileTap={{ scale: disabled || loading ? 1 : 0.96 }}
       transition={{ type: 'spring', stiffness: 500, damping: 25 }}
       onClick={handleClick}
       disabled={disabled || loading}
-      className={`min-h-[44px] px-5 py-3 rounded-2xl flex items-center justify-center gap-2 text-sm transition-colors duration-150 disabled:opacity-50 disabled:cursor-not-allowed ${variants[variant]} ${className}`}
+      className={`min-h-[44px] min-w-[44px] px-5 py-3 rounded-2xl flex items-center justify-center gap-2 text-sm transition-all duration-150 touch-manipulation select-none outline-none focus-visible:ring-2 focus-visible:ring-orange-400/70 focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-950 active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed disabled:active:scale-100 ${variants[variant]} ${className}`}
       {...props}
     >
       {loading ? (

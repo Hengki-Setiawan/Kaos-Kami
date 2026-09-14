@@ -117,7 +117,10 @@ export interface SyncQueueOptions {
 /**
  * Replay batch didukung → server via mobileApiClient yang sudah ada.
  * Dipakai handler onSync pemanggil (lihat src/app/page.tsx).
- * - Tanpa userId → throw agar antrean DIPERTAHANKAN (bukan dihapus diam-diam).
+ * - SUBMIT_ORDER TANPA userId DIIZINKAN (checkout tamu: server membuat User
+ *   dari phoneNumber + OTP di body; userId bukan bagian payload checkout).
+ *   Hanya SAVE_DESIGN butuh userId (sync desain terikat akun) — tanpa itu
+ *   throw agar antrean DIPERTAHANKAN (bukan dihapus diam-diam).
  * - checkout 502 fail-closed (success=false TAPI orderId ada) = SUKSES
  *   (order PENDING tersimpan server, cermin CheckoutSheet) — JANGAN throw.
  * - Gagal lain → throw agar poison-guard initOfflineSyncQueue menahan antrean.
@@ -127,12 +130,12 @@ export async function replaySupportedMutations(
   opts?: { userId?: string }
 ): Promise<{ syncedDesigns: number; submittedOrders: number }> {
   const userId = opts?.userId || '';
-  if (!userId) throw new Error('tanpa userId (belum checkout) — tahan antrean');
   const supported = mutations.filter((m) => (SUPPORTED_MUTATION_TYPES as string[]).includes(m.type));
   const designs = supported
     .filter((m) => m.type === 'SAVE_DESIGN')
     .flatMap((m) => (Array.isArray(m.payload?.designs) ? m.payload.designs : [m.payload]));
   const orders = supported.filter((m) => m.type === 'SUBMIT_ORDER');
+  if (designs.length > 0 && !userId) throw new Error('tanpa userId (belum checkout) — tahan antrean');
   let syncedDesigns = 0;
   let submittedOrders = 0;
   if (designs.length > 0) {
@@ -145,7 +148,9 @@ export async function replaySupportedMutations(
     if (!body || !Array.isArray((body as { items?: unknown }).items) || (body as { items: unknown[] }).items.length === 0) {
       throw new Error(`SUBMIT_ORDER ${m.id} payload tak valid (butuh items[])`);
     }
-    const res = await mobileApiClient.checkout(body);
+    // Idempotency-Key = ID mutasi (stabil antar-replay) → retry/replay key
+    // SAMA dibalas server 409 + order lama (tanpa order ganda).
+    const res = await mobileApiClient.checkout(body, { idempotencyKey: m.id });
     // success ATAU orderId (502 fail-closed PENDING) = replay selesai.
     if (!res.success && !res.orderId) throw new Error(res.error || `checkout replay ${m.id} gagal`);
     submittedOrders += 1;

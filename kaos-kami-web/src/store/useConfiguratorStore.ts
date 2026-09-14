@@ -214,6 +214,25 @@ function revokeBlobDecals(decals: { url?: string }[]) {
 
 const getInitialSavedDesigns = (): SavedMockupDesign[] => readStoredDesigns();
 
+// P0 fondasi tema (single default "gallery"): persist lokal agar tak flash,
+// DB tetap menang saat login (hydrateFromServer menimpa dari server).
+export const STUDIO_THEME_KEY = "kaos-studio-theme";
+function readStoredTheme(): StudioTheme {
+  try {
+    const v = localStorage.getItem(STUDIO_THEME_KEY);
+    if (v === "gallery" || v === "obsidian" || v === "concrete") return v;
+  } catch {}
+  return "gallery";
+}
+function persistTheme(theme: StudioTheme) {
+  try {
+    localStorage.setItem(STUDIO_THEME_KEY, theme);
+  } catch {}
+  if (typeof document !== "undefined") {
+    document.documentElement.setAttribute("data-theme", theme);
+  }
+}
+
 export const useConfiguratorStore = create<ConfiguratorState>((set, get) => ({
   viewMode: "story",
   activePhase: 1,
@@ -224,8 +243,8 @@ export const useConfiguratorStore = create<ConfiguratorState>((set, get) => ({
   interactionTool: "rotate",
 
   activeApparel: "tshirt",
-  selectedColor: PRODUCT_COLORS[0]?.hex ?? "#121214",
-  activeColorName: PRODUCT_COLORS[0]?.name ?? "Obsidian Black",
+  selectedColor: PRODUCT_COLORS[0]?.hex ?? "#FFFFFF",
+  activeColorName: PRODUCT_COLORS[0]?.name ?? "Chalk White",
   selectedSize: "L",
 
   modelPosX: 0,
@@ -254,7 +273,7 @@ export const useConfiguratorStore = create<ConfiguratorState>((set, get) => ({
   frontGraphicUrl: null,
   backGraphicUrl: null,
 
-  studioTheme: "obsidian",
+  studioTheme: readStoredTheme(),
   materialFinish: "combed-cotton",
   lightingPreset: "editorial",
   isAccurateColor: false,
@@ -524,9 +543,7 @@ export const useConfiguratorStore = create<ConfiguratorState>((set, get) => ({
       decals: [...found.decals],
     });
 
-    if (typeof document !== "undefined") {
-      document.documentElement.setAttribute("data-theme", found.theme);
-    }
+    persistTheme(found.theme);
   },
 
   deleteSavedDesign: (id) => {
@@ -539,9 +556,7 @@ export const useConfiguratorStore = create<ConfiguratorState>((set, get) => ({
   },
 
   setStudioTheme: (theme) => {
-    if (typeof document !== "undefined") {
-      document.documentElement.setAttribute("data-theme", theme);
-    }
+    persistTheme(theme);
     set({ studioTheme: theme });
   },
 

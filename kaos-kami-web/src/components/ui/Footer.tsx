@@ -11,7 +11,12 @@ export const Footer: React.FC = () => {
           <img
             src="/brand/logo-white-clean.png"
             alt="Kaos Kami"
-            className="h-9 w-auto object-contain mb-2"
+            className="h-9 w-auto object-contain mb-2 logo-dark-mode"
+          />
+          <img
+            src="/brand/logo-black-clean.png"
+            alt="Kaos Kami"
+            className="h-9 w-auto object-contain mb-2 logo-light-mode"
           />
           <p className="text-xs font-mono text-text-muted max-w-sm leading-relaxed">
             Platform Sablon DTF 3D & Heavyweight Streetwear Apparel. {SHOP_WORKSHOP_ADDRESS}.
@@ -29,16 +34,16 @@ export const Footer: React.FC = () => {
         <nav className="flex flex-wrap gap-8 text-xs font-mono uppercase tracking-wider" aria-label="Navigasi footer">
           <div className="space-y-2">
             <span className="block text-[10px] text-brand-accent font-bold">BELANJA</span>
-            <Link href="/catalog" className="block text-text-muted hover:text-white">Katalog Produk</Link>
-            <Link href="/studio" className="block text-text-muted hover:text-white">Studio 3D</Link>
-            <Link href="/track" className="block text-text-muted hover:text-white">Lacak Pesanan</Link>
+            <Link href="/catalog" className="block text-text-muted hover:text-text-primary transition-colors">Katalog Produk</Link>
+            <Link href="/studio" className="block text-text-muted hover:text-text-primary transition-colors">Studio 3D</Link>
+            <Link href="/track" className="block text-text-muted hover:text-text-primary transition-colors">Lacak Pesanan</Link>
           </div>
           <div className="space-y-2">
             <span className="block text-[10px] text-brand-accent font-bold">BANTUAN</span>
-            <Link href="/kalkulator-sablon" className="block text-text-muted hover:text-white">Kalkulator Sablon</Link>
-            <Link href="/privacy" className="block text-text-muted hover:text-white">Kebijakan Privasi</Link>
-            <Link href="/kredit" className="block text-text-muted hover:text-white">Kredit Aset 3D</Link>
-            <a href={shopWaLink("Halo Kaos Kami, saya butuh bantuan pesanan.")} target="_blank" rel="noopener noreferrer" className="block text-text-muted hover:text-white">
+            <Link href="/kalkulator-sablon" className="block text-text-muted hover:text-text-primary transition-colors">Kalkulator Sablon</Link>
+            <Link href="/privacy" className="block text-text-muted hover:text-text-primary transition-colors">Kebijakan Privasi</Link>
+            <Link href="/kredit" className="block text-text-muted hover:text-text-primary transition-colors">Kredit Aset 3D</Link>
+            <a href={shopWaLink("Halo Kaos Kami, saya butuh bantuan pesanan.")} target="_blank" rel="noopener noreferrer" className="block text-text-muted hover:text-text-primary transition-colors">
               Hubungi Workshop
             </a>
           </div>

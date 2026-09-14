@@ -3,7 +3,7 @@
 import React, { Suspense, useEffect, useState } from "react";
 import Link from "next/link";
 import dynamic from "next/dynamic";
-import { ArrowLeft, Sparkles, Sun, Moon, Maximize2, Minimize2, Move, CircleHelp } from "lucide-react";
+import { ArrowLeft, Sparkles, Sun, Moon, Maximize2, Minimize2, Move, CircleHelp, Shirt, RotateCw, ZoomIn, Layers } from "lucide-react";
 // P0 bundle: CanvasStage (three/fiber/drei) + three lazy client-only agar
 // chunk 3D tak masuk bundle awal. Vector3 dibuat via dynamic import("three").
 const CanvasStage = dynamic(
@@ -90,7 +90,7 @@ export function StudioClient() {
         className={`fixed top-0 left-0 right-0 z-50 px-4 sm:px-8 py-3.5 flex items-center justify-between pointer-events-auto backdrop-blur-xl border-b transition-all duration-500 ${
           isLight
             ? "bg-[#F5F4F0]/80 border-black/10 text-neutral-900"
-            : "bg-[#121214]/80 border-border-subtle text-text-primary"
+            : "bg-surface/80 border-border-subtle text-text-primary"
         } ${isHideWebsiteUI ? "opacity-20 hover:opacity-100" : "opacity-100"}`}
       >
         {/* Left: Back to Home & Brand */}
@@ -148,41 +148,60 @@ export function StudioClient() {
           {/* M4.4 + pola eksklusif Sep 2026 — jalan pintas kamera: ikon +
               status aktif + Detail Makro kerah (cek rib dari dekat). */}
           <div className="hidden md:flex items-center gap-1 p-1 rounded-full bg-surface border border-border-subtle" role="group" aria-label="Jalan pintas tampilan kamera">
-            {(
-              [
-                { label: "DEPAN", preset: "front", ikon: "👕", judul: "Lihat dari depan" },
-                { label: "BLKNG", preset: "back", ikon: "🔙", judul: "Lihat dari belakang" },
-                { label: "KERAH ⌕", preset: "collar", ikon: "🔍", judul: "Detail makro kerah — cek jahitan rib dari dekat" },
-              ] as const
-            ).map((b) => (
-              <button
-                key={b.label}
-                onClick={() => setCameraPreset(b.preset)}
-                aria-pressed={cameraPreset === b.preset}
-                className={`px-2.5 py-1.5 rounded-full font-mono text-[10px] uppercase font-bold transition-colors ${
-                  cameraPreset === b.preset
-                    ? "bg-brand-accent text-canvas shadow-[0_0_10px_rgba(230,81,0,0.4)]"
-                    : "text-text-muted hover:text-brand-accent"
-                }`}
-                title={b.judul}
-              >
-                <span aria-hidden="true">{b.ikon} </span>{b.label}
-              </button>
-            ))}
+            <button
+              onClick={() => setCameraPreset("front")}
+              aria-pressed={cameraPreset === "front"}
+              className={`flex items-center gap-1 px-2.5 py-1.5 rounded-full font-mono text-[10px] uppercase font-bold transition-colors ${
+                cameraPreset === "front"
+                  ? "bg-brand-accent text-canvas shadow-[0_0_10px_rgba(230,81,0,0.4)]"
+                  : "text-text-muted hover:text-brand-accent"
+              }`}
+              title="Lihat dari depan"
+            >
+              <Shirt size={12} />
+              <span>DEPAN</span>
+            </button>
+            <button
+              onClick={() => setCameraPreset("back")}
+              aria-pressed={cameraPreset === "back"}
+              className={`flex items-center gap-1 px-2.5 py-1.5 rounded-full font-mono text-[10px] uppercase font-bold transition-colors ${
+                cameraPreset === "back"
+                  ? "bg-brand-accent text-canvas shadow-[0_0_10px_rgba(230,81,0,0.4)]"
+                  : "text-text-muted hover:text-brand-accent"
+              }`}
+              title="Lihat dari belakang"
+            >
+              <RotateCw size={12} />
+              <span>BLKNG</span>
+            </button>
+            <button
+              onClick={() => setCameraPreset("collar")}
+              aria-pressed={cameraPreset === "collar"}
+              className={`flex items-center gap-1 px-2.5 py-1.5 rounded-full font-mono text-[10px] uppercase font-bold transition-colors ${
+                cameraPreset === "collar"
+                  ? "bg-brand-accent text-canvas shadow-[0_0_10px_rgba(230,81,0,0.4)]"
+                  : "text-text-muted hover:text-brand-accent"
+              }`}
+              title="Detail makro kerah — cek jahitan rib dari dekat"
+            >
+              <ZoomIn size={12} />
+              <span>KERAH</span>
+            </button>
             <button
               onClick={() => {
                 setCameraPreset(sisiLengan);
                 setSisiLengan((s) => (s === "left" ? "right" : "left"));
               }}
               aria-pressed={cameraPreset === "left" || cameraPreset === "right"}
-              className={`px-2.5 py-1.5 rounded-full font-mono text-[10px] uppercase font-bold transition-colors ${
+              className={`flex items-center gap-1 px-2.5 py-1.5 rounded-full font-mono text-[10px] uppercase font-bold transition-colors ${
                 cameraPreset === "left" || cameraPreset === "right"
                   ? "bg-brand-accent text-canvas shadow-[0_0_10px_rgba(230,81,0,0.4)]"
                   : "text-text-muted hover:text-brand-accent"
               }`}
               title="Lihat lengan (bergantian kiri/kanan)"
             >
-              💪 LNGN
+              <Layers size={12} />
+              <span>LNGN</span>
             </button>
           </div>
 
@@ -255,11 +274,55 @@ export function StudioClient() {
         </div>
       </header>
 
+      {/* Preset kamera mobile: strip horizontal scroll (desktop = grup pill di header) */}
+      <div className="md:hidden fixed top-[64px] left-0 right-0 z-30 px-3 pointer-events-none">
+        <div
+          className="pointer-events-auto flex gap-1.5 overflow-x-auto pb-1 pt-1 px-1 rounded-full bg-surface/80 backdrop-blur-xl border border-border-subtle w-fit max-w-full mx-auto"
+          role="group"
+          aria-label="Jalan pintas tampilan kamera"
+        >
+          {(
+            [
+              { id: "front", label: "DEPAN" },
+              { id: "back", label: "BLKNG" },
+              { id: "collar", label: "KERAH" },
+            ] as const
+          ).map((p) => (
+            <button
+              key={p.id}
+              onClick={() => setCameraPreset(p.id)}
+              aria-pressed={cameraPreset === p.id}
+              className={`shrink-0 min-h-[44px] px-3.5 flex items-center rounded-full font-mono text-[10px] uppercase font-bold transition-colors ${
+                cameraPreset === p.id
+                  ? "bg-brand-accent text-canvas"
+                  : "text-text-muted hover:text-brand-accent"
+              }`}
+            >
+              {p.label}
+            </button>
+          ))}
+          <button
+            onClick={() => {
+              setCameraPreset(sisiLengan);
+              setSisiLengan((s) => (s === "left" ? "right" : "left"));
+            }}
+            aria-pressed={cameraPreset === "left" || cameraPreset === "right"}
+            className={`shrink-0 min-h-[44px] px-3.5 flex items-center rounded-full font-mono text-[10px] uppercase font-bold transition-colors ${
+              cameraPreset === "left" || cameraPreset === "right"
+                ? "bg-brand-accent text-canvas"
+                : "text-text-muted hover:text-brand-accent"
+            }`}
+          >
+            LNGN
+          </button>
+        </div>
+      </div>
+
       {/* Fullscreen 3D WebGL Canvas Layer — dengan fallback non-WebGL (audit H5) */}
       {webglSupported === false ? (
         <div className="absolute inset-0 flex items-center justify-center p-6 text-center">
           <div className="max-w-sm space-y-3 font-mono text-xs">
-            <p className="text-white font-bold text-sm">Perangkat tidak mendukung 3D</p>
+            <p className="text-text-primary font-bold text-sm">Perangkat tidak mendukung 3D</p>
             <p className="text-text-muted">
               Studio 3D butuh WebGL yang tidak tersedia di browser ini. Kamu tetap bisa pesan via katalog atau hubungi workshop langsung.
             </p>
@@ -267,7 +330,7 @@ export function StudioClient() {
               <Link href="/catalog" className="px-5 py-2.5 rounded-xl bg-brand-accent text-canvas font-bold">
                 BUKA KATALOG
               </Link>
-              <Link href="/" className="px-5 py-2.5 rounded-xl bg-surface border border-white/10 text-white font-bold">
+              <Link href="/" className="px-5 py-2.5 rounded-xl bg-surface border border-border-subtle text-text-primary font-bold">
                 BERANDA
               </Link>
             </div>

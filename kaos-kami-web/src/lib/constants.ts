@@ -7,7 +7,7 @@
  * - orderable=false → checkout server tolak 400 jujur; dashboard tetap boleh simpan.
  */
 export type ApparelType = "tshirt" | "longsleeve" | "crewneck" | "hoodie" | "shirt" | "cap" | "pants" | "shorts";
-export type StudioTheme = "obsidian" | "gallery" | "concrete";
+export type StudioTheme = "gallery" | "obsidian" | "concrete";
 export type MaterialFinish = "combed-cotton" | "french-terry" | "poplin";
 /** Pola eksklusif Sep 2026: 3 mood baru TANPA HDR — hanya tint IBL prosedural
  * (StudioEnvironment) + tombol di drawer. Lampu StudioLighting tak disentuh
@@ -201,13 +201,13 @@ export const APPAREL_CATALOG: Record<ApparelType, ApparelOption> = {
   },
   crewneck: {
     id: "crewneck",
-    name: "Heavyweight Crewneck Sweater",
+    name: "Crewneck Sweater",
     tagline: "330 & 380 GSM Premium Loopback French Terry",
     weightGsm: "330 / 380 GSM",
     basePriceIdr: 249000,
     formattedPrice: "IDR 249.000",
     sizes: ["M", "L", "XL", "XXL"],
-    description: "Classic relaxed streetwear sweater without hood, featuring dense ribbed collar, cuffs, and hem.",
+    description: "Classic relaxed streetwear crewneck sweater without hood, featuring dense ribbed collar, cuffs, and hem.",
     mockupEnabled: true,
     orderable: true,
   },
@@ -226,12 +226,12 @@ export const APPAREL_CATALOG: Record<ApparelType, ApparelOption> = {
   shirt: {
     id: "shirt",
     name: "Streetwear Coach Jacket",
-    tagline: "320 GSM Technical Canvas & Hardware",
-    weightGsm: "320 GSM",
-    basePriceIdr: 329000,
-    formattedPrice: "IDR 329.000",
+    tagline: "Water-Repellent Windbreaker / Technical Outerwear",
+    weightGsm: "Ripstop Canvas",
+    basePriceIdr: 279000,
+    formattedPrice: "IDR 279.000",
     sizes: ["S", "M", "L", "XL", "XXL"],
-    description: "Architectural boxy zip jacket with front hardware, side pockets, and durable tactical weave.",
+    description: "Technical coach jacket with snap buttons, classic fold collar, and weather-resistant canvas weave.",
     mockupEnabled: true,
     orderable: true,
   },
@@ -293,18 +293,18 @@ export interface ProductColor {
 
 export const PRODUCT_COLORS: ProductColor[] = [
   {
+    id: "chalk",
+    name: "Chalk White",
+    hex: "#FFFFFF",
+    isSpecialPigment: false,
+    description: "Pure white combed cotton, high-contrast DTF sablon canvas.",
+  },
+  {
     id: "obsidian",
     name: "Obsidian Black",
     hex: "#121214",
     isSpecialPigment: false,
     description: "Deep reactive carbon dyed combed cotton.",
-  },
-  {
-    id: "chalk",
-    name: "Chalk Ecru",
-    hex: "#EFECE6",
-    isSpecialPigment: false,
-    description: "Natural unbleached raw organic cotton flecks.",
   },
   {
     id: "tangerine",

@@ -13,6 +13,7 @@ import { MobileDecalLayerRenderer } from './MobileDecalLayerRenderer';
 import { DecalGizmoMobile } from './DecalGizmoMobile';
 import { MobileSweaterModel } from './MobileSweaterModel';
 import { MobileCapModel } from './MobileCapModel';
+import { extractMobileApparelGeometry } from '@/lib/3d/extractMobileApparelGeometry';
 
 // KEPUTUSAN OWNER Sep 2026: mesh aktif DIGANTI — kaos→basic_t-shirt,
 // hoodie→blue_hoodie (file lama = fallback).
@@ -31,10 +32,10 @@ import { MobileCapModel } from './MobileCapModel';
 // sebagai fallback render defensif, tapi picker mengarahkan ke Sweater Pack).
 // sweater/cap DIBUKA untuk mockup (mockupEnabled true, orderable FALSE cermin
 // web — order tetap diblokir client ≈400 + server wajib menolak ulang):
-// public/models/sweater.glb (2.50MB, arsip-mobile — geometri identik master
-// web) + sweater.draco.glb (2.27MB, dari web) + cap.glb (2.84MB, arsip) +
-// cap.draco.glb (0.22MB, dari web, −92%). +7.83MB bundle — harga mockup topi/
-// sweater di HP (lihat MobileSweaterModel/MobileCapModel untuk kalibrasi).
+// public/models/sweater.glb + cap.glb master non-Draco (varian draco
+// SOFT-DISABLE 14 Sep 2026 → diarsipkan ke backups/draco-archive/).
+// Harga mockup topi/sweater di HP (lihat MobileSweaterModel/MobileCapModel
+// untuk kalibrasi).
 // Model tak dipakai/duplikat (tee-alt, fleece-alt, hoodie-flat,
 // hoodie.optimized, jacket.optimized) tetap diarsipkan.
 // PANTS & SHORTS = PENGECUALIAN MOCKUP-SAJA (12 Sep 2026): pants.glb &
@@ -46,17 +47,20 @@ import { MobileCapModel } from './MobileCapModel';
 // PERF: tak ada useGLTF.preload di level modul — preload HANYA setelah
 // isResolved (efek idle di CanvasStageMobile + gate komponen di bawah):
 // aktif segera, sisanya prefetch idle.
-// Rantai draco→legacy cermin web useDeviceTier (hemat HP: tee -18%,
-// hoodie-blue -15%, longsleeve -44%). Decoder di /public/decoders/draco/
-// (disalin dari web 12 Sep 2026).
+// SOFT-DISABLE DRACO 14 Sep 2026 (keputusan owner, paritas web non-Draco):
+// rantai kini non-Draco first cermin web useDeviceTier (tee-basic.glb,
+// hoodie-blue.glb, dst). Varian *.draco.glb + decoder diarsipkan ke
+// backups/draco-archive/ (BUKAN delete). setDecoderPath di CanvasStageMobile
+// dibiarkan (harmless) + ditandai nonaktif sementara.
 const MOBILE_TSHIRT_FALLBACK = '/models/tshirt-heavyweight.glb';
 const MOBILE_HOODIE_FALLBACK_HIGH = '/models/hoodie-blue.glb';
 // Pants/shorts = file tunggal non-Draco (tanpa rantai; 404 = mesh tak tampil
 // tapi tak crash — tipe ini orderable false sehingga aman).
 const MOBILE_PANTS_MODEL = '/models/pants.glb';
 const MOBILE_SHORTS_MODEL = '/models/shorts.glb';
-// Sweater/cap: rantai draco→master cermin web (decoder di
-// /public/decoders/draco/). Diekspor untuk MobileSweaterModel/MobileCapModel.
+// Sweater/cap: single non-Draco cermin web (SOFT-DISABLE Draco 14 Sep 2026;
+// varian draco diarsipkan ke backups/draco-archive/). Diekspor untuk
+// MobileSweaterModel/MobileCapModel.
 export const MOBILE_SWEATER_FALLBACK = '/models/sweater.glb';
 export const MOBILE_CAP_FALLBACK = '/models/cap.glb';
 // Lebar lama TERUKUR cermin web scaleCalibration (tshirt 0.55, hoodie 0.631)
@@ -64,27 +68,27 @@ export const MOBILE_CAP_FALLBACK = '/models/cap.glb';
 const MOBILE_TSHIRT_TARGET_WIDTH = 0.55;
 const MOBILE_HOODIE_TARGET_WIDTH = 0.631;
 
-// Kandidat berlapis per apparel+tier, cermin web *_MODEL_CANDIDATES:
-// primer .draco.glb (lebih kecil = hemat HP, tier-low pun pakai draco),
-// ekor = legacy non-Draco agar studio tetap jalan walau draco 404/decoder
-// gagal. Jacket tak punya varian draco di web (rantai lod1→prod).
+// Kandidat berlapis per apparel+tier, cermin web *_MODEL_CANDIDATES
+// (SOFT-DISABLE Draco 14 Sep 2026): primer = non-Draco master; ekor =
+// legacy non-Draco agar studio tetap jalan walau primer 404. Jacket tak
+// punya varian draco di web (rantai lod1→prod).
 // Diekspor untuk efek preload idle di CanvasStageMobile (tiru web CanvasStage).
 export const MOBILE_MODEL_CANDIDATES: Record<string, Record<'high' | 'low', string[]>> = {
   tshirt: {
-    high: ['/models/tee-basic.draco.glb', '/models/tee-basic.glb', MOBILE_TSHIRT_FALLBACK],
-    low: ['/models/tee-basic.draco.glb', '/models/tee-basic.glb', MOBILE_TSHIRT_FALLBACK],
+    high: ['/models/tee-basic.glb', MOBILE_TSHIRT_FALLBACK],
+    low: ['/models/tee-basic.glb', MOBILE_TSHIRT_FALLBACK],
   },
   hoodie: {
-    high: ['/models/hoodie-blue.draco.glb', '/models/hoodie-blue.glb'],
-    low: ['/models/hoodie-blue.draco.glb', '/models/hoodie-blue.glb'],
+    high: ['/models/hoodie-blue.glb'],
+    low: ['/models/hoodie-blue.glb'],
   },
   shirt: {
     high: ['/models/jacket.glb'],
     low: ['/models/jacket.lod1.glb', '/models/jacket.glb'],
   },
   longsleeve: {
-    high: ['/models/longsleeve.draco.glb', '/models/longsleeve.glb'],
-    low: ['/models/longsleeve.draco.glb', '/models/longsleeve.glb'],
+    high: ['/models/longsleeve.glb'],
+    low: ['/models/longsleeve.glb'],
   },
   // Mockup-saja (orderable false): satu file, high/low sama.
   pants: {
@@ -95,20 +99,20 @@ export const MOBILE_MODEL_CANDIDATES: Record<string, Record<'high' | 'low', stri
     high: [MOBILE_SHORTS_MODEL],
     low: [MOBILE_SHORTS_MODEL],
   },
-  // Sweater/cap mockup-saja (orderable false): draco→master cermin web.
+  // Sweater/cap mockup-saja (orderable false): single non-Draco cermin web.
   // crewneck (tipe alias, picker terkunci) ikut memakai rantai sweater bila
   // defensif ter-render (lihat cabang di ResolvedApparelMeshRenderer).
   sweater: {
-    high: ['/models/sweater.draco.glb', MOBILE_SWEATER_FALLBACK],
-    low: ['/models/sweater.draco.glb', MOBILE_SWEATER_FALLBACK],
+    high: [MOBILE_SWEATER_FALLBACK],
+    low: [MOBILE_SWEATER_FALLBACK],
   },
   crewneck: {
-    high: ['/models/sweater.draco.glb', MOBILE_SWEATER_FALLBACK],
-    low: ['/models/sweater.draco.glb', MOBILE_SWEATER_FALLBACK],
+    high: [MOBILE_SWEATER_FALLBACK],
+    low: [MOBILE_SWEATER_FALLBACK],
   },
   cap: {
-    high: ['/models/cap.draco.glb', MOBILE_CAP_FALLBACK],
-    low: ['/models/cap.draco.glb', MOBILE_CAP_FALLBACK],
+    high: [MOBILE_CAP_FALLBACK],
+    low: [MOBILE_CAP_FALLBACK],
   },
 };
 
@@ -142,8 +146,9 @@ export function candidatesFor(apparelType: string, tier: string): string[] {
   );
 }
 
-/** Kandidat PRIORITAS (pertama = draco/master) untuk preload idle cermin web.
- *  Dipakai CanvasStageMobile: aktif segera + tetangga prefetch idle. */
+/** Kandidat PRIORITAS (pertama = non-Draco master, paritas web) untuk
+ *  preload idle cermin web. Dipakai CanvasStageMobile: aktif segera +
+ *  tetangga prefetch idle. */
 export function mobilePriorityFor(apparelType: string, tier: string): string | undefined {
   const urls = candidatesFor(apparelType, tier);
   return urls[0];
@@ -239,43 +244,47 @@ function GenericApparelMeshRenderer({
 
   const { scene } = useGLTF(modelPath);
 
-  // Clone scene & apply PBR cloth materials + normalisasi mesh baru.
+  const isPants = apparelType === 'pants';
+  const isShorts = apparelType === 'shorts';
+
+  // Ekstraksi geometri terstandarisasi untuk Pants & Shorts:
+  // 1. Mem-bake child.matrixWorld (memperbaiki rotasi -90 deg X Sketchfab).
+  // 2. Shorts: scaleMultiplier 0.0125 (Maya cm -> metric 0.406m, anti meledak 32.5m).
+  // 3. Menempatkan titik origin di center dan menghitung wind weights.
+  const extractedGeometry = useMemo(() => {
+    if (!isPants && !isShorts) return null;
+    return extractMobileApparelGeometry(scene, isShorts ? { scaleMultiplier: 0.0125 } : undefined);
+  }, [scene, isPants, isShorts]);
+
+  useEffect(() => {
+    return () => {
+      try {
+        extractedGeometry?.dispose();
+      } catch {}
+    };
+  }, [extractedGeometry]);
+
+  // Clone scene & apply PBR cloth materials + normalisasi mesh baru (untuk tops/outer).
   const materialRef = useRef<THREE.Material | null>(null);
   const clonedScene = useMemo(() => {
+    if (isPants || isShorts) return null;
     const cloned = scene.clone();
-    // Scale-up/down node bila perlu (tiru pola web center): mesh Sketchfab
-    // baru offset + beda skala (tee-basic z 0.84–1.63 w 0.71; hoodie-blue
-    // y 4.3–7.0 w 5.41 — TERUKUR bbox accessor 12 Sep 2026). Tanpa ini model
-    // raksasa/hilang dari kamera. Uniform k = target/lebar agar klaim cm lama
-    // tetap berlaku; posisi = -center*k agar bbox tepat di origin.
-    // Follow-up kalibrasi penuh (multiplier/surfaceZ/kerah per mesh baru).
+    // Scale-up/down node bila perlu: mesh Sketchfab baru offset + beda skala
     const isNewTee = modelPath.includes('tee-basic.glb');
     const isNewHoodie = modelPath.includes('hoodie-blue.glb');
-    const isPants = modelPath.includes('pants.glb');
-    const isShorts = modelPath.includes('shorts.glb');
-    if (isNewTee || isNewHoodie || isPants || isShorts) {
+    if (isNewTee || isNewHoodie) {
       try {
         cloned.updateMatrixWorld(true);
         const box = new THREE.Box3().setFromObject(cloned);
         const size = box.getSize(new THREE.Vector3());
         const center = box.getCenter(new THREE.Vector3());
-        if (isPants || isShorts) {
-          // PANTS/SHORTS TERUKUR + cermin web (12 Sep 2026): skala NATIVE
-          // (k=1, tanpa target lebar), center Box3 saja.
-          // - pants: Y 0.11–1.11 (center 0.61 ≈ heuristik Y+0.5).
-          // - shorts: Y −0.32…0.26 (center −0.028, bbox 0.332×0.585×0.240).
-          // Klaim cm/DPI + jangkar decal panel paha = follow-up
-          // (orderable false → angka tak pernah masuk produksi).
-          cloned.position.set(-center.x, -center.y, -center.z);
+        const target = isNewHoodie ? MOBILE_HOODIE_TARGET_WIDTH : MOBILE_TSHIRT_TARGET_WIDTH;
+        if (Number.isFinite(size.x) && size.x > 1e-6) {
+          const k = target / size.x;
+          cloned.scale.setScalar(k);
+          cloned.position.set(-center.x * k, -center.y * k, -center.z * k);
         } else {
-          const target = isNewHoodie ? MOBILE_HOODIE_TARGET_WIDTH : MOBILE_TSHIRT_TARGET_WIDTH;
-          if (Number.isFinite(size.x) && size.x > 1e-6) {
-            const k = target / size.x;
-            cloned.scale.setScalar(k);
-            cloned.position.set(-center.x * k, -center.y * k, -center.z * k);
-          } else {
-            cloned.position.set(-center.x, -center.y, -center.z);
-          }
+          cloned.position.set(-center.x, -center.y, -center.z);
         }
       } catch {}
     }
@@ -294,20 +303,29 @@ function GenericApparelMeshRenderer({
     });
 
     return cloned;
-  }, [scene, color, apparelType, modelPath]);
+  }, [scene, color, apparelType, modelPath, isPants, isShorts]);
+
+  // Material untuk extractedGeometry
+  const extractedMaterial = useMemo(() => {
+    if (!isPants && !isShorts) return null;
+    const mat = createClothPhysicalMaterial(color, apparelToArchetype(apparelType));
+    applyMobileWind(mat, 0.25);
+    return mat;
+  }, [color, apparelType, isPants, isShorts]);
+
+  const activeMaterial = extractedMaterial ?? materialRef.current;
 
   // VRAM: material lama dibuang tiap ganti warna/apparel + saat unmount.
-  // Geometri SENGAJA tak di-dispose (milik cache useGLTF, dipakai ulang);
-  // normalMap SENGAJA tak di-dispose (cache tunggal getProceduralWeaveTexture).
-  // material.dispose() hanya melepas program GPU, bukan tekstur — aman.
   useEffect(() => {
     const stale = materialRef.current;
+    const staleExt = extractedMaterial;
     return () => {
       try {
         stale?.dispose();
+        staleExt?.dispose();
       } catch {}
     };
-  }, [clonedScene]);
+  }, [clonedScene, extractedMaterial]);
 
   // Inertial physics simulation step per frame
   useFrame((state, delta) => {
@@ -337,7 +355,7 @@ function GenericApparelMeshRenderer({
 
       // Umpan sway ke shader: kain bergelombang proporsional goyangan,
       // kembali tenang (0.2) saat idle.
-      const sh = (materialRef.current as any)?.userData?.shader?.uniforms;
+      const sh = (activeMaterial as any)?.userData?.shader?.uniforms;
       if (sh?.uWindStrength) {
         sh.uWindStrength.value = 0.2 + Math.min(1, Math.abs(swayAngle) * 6) * 0.9;
       }
@@ -347,8 +365,16 @@ function GenericApparelMeshRenderer({
 
   return (
     <group ref={groupRef} scale={[1.4, 1.4, 1.4]} position={[0, -0.15, 0]}>
-      <primitive object={clonedScene} />
-      <MobileDecalLayerRenderer />
+      {extractedGeometry && extractedMaterial ? (
+        <mesh castShadow receiveShadow geometry={extractedGeometry} material={extractedMaterial}>
+          <MobileDecalLayerRenderer />
+        </mesh>
+      ) : clonedScene ? (
+        <>
+          <primitive object={clonedScene} />
+          <MobileDecalLayerRenderer />
+        </>
+      ) : null}
       <DecalGizmoMobile />
     </group>
   );

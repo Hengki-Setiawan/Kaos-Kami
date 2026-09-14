@@ -27,10 +27,10 @@ jobs:
           # BUKAN secret asli — tidak dipakai untuk auth beneran di CI.
           BETTER_AUTH_SECRET: "ci-only-dummy-secret-min-32-chars-0000"
       - run: npm run mobile:build
-      # LHCI di-skip (butuh server prod + config; audit: path salah + selalu hijau
-      # via `|| echo` sehingga tak ada nilai). Aktifkan lagi bila ada preview deploy.
-      - name: Lighthouse CI (desktop)
-        if: false
+      # LHCI desktop + mobile (motoG4/4G). Budget digate di config:
+      # LCP < 3500ms & CLS < 0.1 = error; perf/a11y score minimum.
+      - name: Lighthouse CI (desktop + mobile)
         run: |
           npm install -g @lhci/cli@0.15.x
           lhci autorun --config=./kaos-kami-web/lighthouserc.js
+          lhci autorun --config=./kaos-kami-web/lighthouserc.mobile.js

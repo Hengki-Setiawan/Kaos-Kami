@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useEffect, useRef, useState } from "react";
+import { useConfiguratorStore } from "@/store/useConfiguratorStore";
 
 interface TurnstileWidgetProps {
   onVerify: (token: string) => void;
@@ -36,7 +37,7 @@ export const TurnstileWidget: React.FC<TurnstileWidgetProps> = ({
   onVerify,
   onError,
   onExpire,
-  theme = "dark",
+  theme = "auto",
   size = "normal",
   className = "",
 }) => {
@@ -46,6 +47,11 @@ export const TurnstileWidget: React.FC<TurnstileWidgetProps> = ({
   const cbRef = useRef({ onVerify, onError, onExpire });
   cbRef.current = { onVerify, onError, onExpire };
   const [loadError, setLoadError] = useState(false);
+  // P1-3: map studioTheme gallery→light else dark (obsidian/concrete→dark).
+  // `theme` eksplisit ("dark"/"light") tetap dihormati; "auto" ikut tema studio.
+  const studioTheme = useConfiguratorStore((s) => s.studioTheme);
+  const resolvedTheme: "dark" | "light" =
+    theme === "auto" ? (studioTheme === "gallery" ? "light" : "dark") : theme;
 
   const siteKey =
     process.env.NEXT_PUBLIC_CLOUDFLARE_TURNSTILE_SITE_KEY ||
@@ -78,7 +84,7 @@ export const TurnstileWidget: React.FC<TurnstileWidgetProps> = ({
           "expired-callback": () => {
             if (isMounted) cbRef.current.onExpire?.();
           },
-          theme,
+          theme: resolvedTheme,
           size,
         });
         widgetIdRef.current = id;
@@ -135,7 +141,7 @@ export const TurnstileWidget: React.FC<TurnstileWidgetProps> = ({
         widgetIdRef.current = null;
       }
     };
-  }, [siteKey, theme, size]);
+  }, [siteKey, resolvedTheme, size]);
 
   return (
     <div
@@ -143,7 +149,7 @@ export const TurnstileWidget: React.FC<TurnstileWidgetProps> = ({
       className={`min-h-[65px] flex items-center justify-center my-2 ${className}`}
     >
       {loadError && (
-        <p className="font-mono text-[11px] text-amber-300">
+        <p className="font-mono text-[11px] text-amber-700 dark:text-amber-300">
           Verifikasi anti-bot gagal dimuat. Periksa koneksi lalu muat ulang halaman.
         </p>
       )}

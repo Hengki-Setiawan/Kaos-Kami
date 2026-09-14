@@ -53,7 +53,7 @@ export function Toast({
           animate={{ opacity: 1, y: 0, scale: 1 }}
           exit={{ opacity: 0, y: -20, scale: 0.92 }}
           transition={{ type: 'spring', stiffness: 500, damping: 30 }}
-          className="fixed top-4 inset-x-4 z-50 flex justify-center pointer-events-none"
+          className="fixed top-[max(1rem,env(safe-area-inset-top))] inset-x-4 z-50 flex justify-center pointer-events-none"
         >
           <div
             className={`pointer-events-auto max-w-sm w-full p-3.5 rounded-2xl border shadow-2xl backdrop-blur-2xl flex items-start justify-between gap-3 ${color.bg}`}
@@ -67,7 +67,8 @@ export function Toast({
             </div>
             <button
               onClick={onClose}
-              className="w-6 h-6 rounded-lg flex items-center justify-center flex-shrink-0 text-zinc-400 hover:text-white"
+              aria-label="Tutup notifikasi"
+              className="w-11 h-11 min-w-[44px] min-h-[44px] rounded-lg flex items-center justify-center flex-shrink-0 text-zinc-400 hover:text-white"
             >
               <X className="w-3.5 h-3.5" />
             </button>

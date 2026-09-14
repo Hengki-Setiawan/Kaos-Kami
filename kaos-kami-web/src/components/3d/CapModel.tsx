@@ -3,7 +3,7 @@
 import React, { useEffect, useMemo, useRef, Suspense } from "react";
 import * as THREE from "three";
 import { useGLTF } from "@react-three/drei";
-import { useFrame } from "@react-three/fiber";
+import { useFrame, useThree } from "@react-three/fiber";
 import { easing } from "maath";
 import { useConfiguratorStore } from "@/store/useConfiguratorStore";
 import { useShallow } from "zustand/shallow";
@@ -14,6 +14,7 @@ import { useDeviceTier } from "@/hooks/useDeviceTier";
 import { useResourceTracker, useTrackedResource } from "@/lib/threeResourceTracker";
 import { surfaceZForApparel } from "@/lib/scaleCalibration";
 import { SilentModelFallback } from "@/components/ui/ModelErrorBoundary";
+import { extractApparelGeometry } from "@/lib/extractApparelGeometry";
 import { TshirtModel } from "./TshirtModel";
 
 // FASE 13 — topi baseball (baseball_cap Sketchfab → cap.glb; draco -92%).
@@ -25,26 +26,38 @@ import { TshirtModel } from "./TshirtModel";
 // - lidah menghadap +Z (penonton) — decal depan di +Z sudah benar.
 // - single-color SELALU (satu panel; multi-part tak bermakna untuk topi).
 // - validSidesFor(cap) = ["front"] — PatternStudio cap nonaktif eksplisit.
-const MODEL_PATH_NEW_DRC = "/models/cap.draco.glb";
-const MODEL_PATH_NEW = "/models/cap.glb";
-useGLTF.preload(MODEL_PATH_NEW_DRC);
-useGLTF.preload(MODEL_PATH_NEW);
+const MODEL_PATH_NEW = "/models/cap.glb?v=7";
+
+// PERF 14 Sep 2026: top-level useGLTF.preload DIHAPUS — preload terpusat
+// HANYA via idle-preload di CanvasStage (aktif + tetangga katalog) agar tak
+// berebut bandwidth first paint.
 
 /** Offset agar crown (bukan bbox-center) tepat di origin. TERUKUR Fase 13. */
 const CAP_CROWN_Y_OFFSET = -0.11;
 
 /** Ambil geometri mesh pertama (agnostik nama node Sketchfab). */
-function firstMeshGeometry(nodes: any): THREE.BufferGeometry | undefined {
+function firstMeshGeometry(nodes: any, scene?: THREE.Group): THREE.BufferGeometry | undefined {
   const found = Object.values(nodes ?? {}).find(
     (n: any) => n && (n as any).isMesh && (n as any).geometry
   ) as any;
-  return found?.geometry as THREE.BufferGeometry | undefined;
+  if (found?.geometry) return found.geometry as THREE.BufferGeometry;
+  if (scene) {
+    let geom: THREE.BufferGeometry | undefined;
+    scene.traverse((child: any) => {
+      if (!geom && child.isMesh && child.geometry) {
+        geom = child.geometry;
+      }
+    });
+    return geom;
+  }
+  return undefined;
 }
 
 const GltfCap: React.FC<{ path: string }> = ({ path }) => {
   const meshRef = useRef<THREE.Group>(null);
   const { tier } = useDeviceTier();
-  const { nodes } = useGLTF(path) as any;
+  const invalidate = useThree((s) => s.invalidate);
+  const { nodes, scene } = useGLTF(path) as any;
   const {
     selectedColor,
     isRotating,
@@ -74,13 +87,12 @@ const GltfCap: React.FC<{ path: string }> = ({ path }) => {
     animationPreset === "wind" ? 0.8 * animationSpeed : animationPreset === "walking" ? 0.4 * animationSpeed : 0;
 
   const baseGeometry = useMemo(() => {
-    const base = firstMeshGeometry(nodes);
-    if (!base) return null;
-    const geo = base.clone();
-    geo.center();
-    ensureWindWeights(geo);
-    return geo;
-  }, [nodes, path]);
+    return extractApparelGeometry(scene, { crownYOffset: CAP_CROWN_Y_OFFSET });
+  }, [scene, path]);
+
+  useEffect(() => {
+    if (baseGeometry) invalidate();
+  }, [invalidate, baseGeometry]);
 
   const material = useMemo(() => {
     // Tak ada archetype topi — twill katun paling dekat dengan "tshirt".
@@ -99,17 +111,6 @@ const GltfCap: React.FC<{ path: string }> = ({ path }) => {
   const matTracker = useResourceTracker();
   useTrackedResource(geoTracker, baseGeometry);
   useTrackedResource(matTracker, material);
-
-  useEffect(() => {
-    if (windStrength === 0) {
-      const m = material as any;
-      if (m.onBeforeCompile) {
-        m.onBeforeCompile = undefined;
-        m.userData.shader = undefined;
-        m.needsUpdate = true;
-      }
-    }
-  }, [material, windStrength]);
 
   useFrame((state, delta) => {
     easing.dampC(material.color, new THREE.Color(selectedColor), 0.25, delta);
@@ -140,7 +141,7 @@ const GltfCap: React.FC<{ path: string }> = ({ path }) => {
       <mesh
         castShadow
         receiveShadow
-        geometry={(baseGeometry as any) || firstMeshGeometry(nodes)}
+        geometry={baseGeometry || undefined}
         material={material}
       >
         <DecalLayerRenderer surfaceZFront={surfaceZForApparel("cap")} surfaceZBack={surfaceZForApparel("cap")} />
@@ -159,9 +160,7 @@ export const CapModel: React.FC = () => {
   return (
     <Suspense fallback={null}>
       <SilentModelFallback fallback={<TshirtModel />}>
-        <SilentModelFallback fallback={<GltfCap path={MODEL_PATH_NEW} />}>
-          <GltfCap path={MODEL_PATH_NEW_DRC} />
-        </SilentModelFallback>
+        <GltfCap path={MODEL_PATH_NEW} />
       </SilentModelFallback>
     </Suspense>
   );

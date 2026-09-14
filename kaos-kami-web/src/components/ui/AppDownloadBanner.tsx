@@ -65,15 +65,21 @@ export function AppDownloadBanner() {
       className="fixed bottom-0 left-0 right-0 z-50 px-3"
       style={{ paddingBottom: "max(0.75rem, env(safe-area-inset-bottom))" }}
     >
-      <div className="mx-auto max-w-xl rounded-2xl border border-white/10 bg-[#141416]/95 backdrop-blur p-3.5 flex items-center gap-3 shadow-[0_-4px_30px_rgba(0,0,0,0.5)]">
+      <div className="mx-auto max-w-xl rounded-2xl border border-border-subtle bg-surface/95 backdrop-blur p-3.5 flex items-center gap-3 shadow-[0_-4px_30px_rgba(0,0,0,0.5)]">
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
           src="/brand/logo-white-clean.png"
           alt="Kaos Kami"
-          className="h-10 w-10 rounded-xl object-contain bg-black/40 border border-white/10 shrink-0"
+          className="h-10 w-10 rounded-xl object-contain bg-surface border border-border-subtle shrink-0 logo-dark-mode"
+        />
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src="/brand/logo-black-clean.png"
+          alt="Kaos Kami"
+          className="h-10 w-10 rounded-xl object-contain bg-surface border border-border-subtle shrink-0 logo-light-mode"
         />
         <div className="flex-1 min-w-0">
-          <p className="font-bold text-white text-sm leading-tight">
+          <p className="font-bold text-text-primary text-sm leading-tight">
             {isIOS ? "Kaos Kami di iPhone" : "Buka di Aplikasi Kaos Kami"}
           </p>
           <p className="font-mono text-[11px] text-text-muted leading-tight mt-0.5">
@@ -93,7 +99,7 @@ export function AppDownloadBanner() {
         <button
           onClick={dismiss}
           aria-label="Tutup"
-          className="shrink-0 w-8 h-8 rounded-lg text-text-muted hover:text-white hover:bg-white/10 transition-colors text-lg leading-none"
+          className="shrink-0 w-8 h-8 rounded-lg text-text-muted hover:text-text-primary hover:bg-black/5 dark:hover:bg-white/10 transition-colors text-lg leading-none"
         >
           ×
         </button>

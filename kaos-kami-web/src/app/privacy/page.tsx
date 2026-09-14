@@ -21,7 +21,7 @@ export default function PrivacyPage() {
       <Link href="/" className="font-mono text-xs text-text-muted hover:text-brand-accent">
         ← KEMBALI KE BERANDA
       </Link>
-      <h1 className="font-display text-3xl font-black uppercase text-white">
+      <h1 className="font-display text-3xl font-black uppercase text-text-primary">
         Kebijakan Privasi
       </h1>
       <p className="font-mono text-xs text-text-muted">
@@ -29,7 +29,7 @@ export default function PrivacyPage() {
       </p>
       <div className="space-y-4 font-mono text-xs leading-relaxed text-text-muted">
         <section className="space-y-1.5">
-          <h2 className="font-bold text-white text-sm">1. Data yang kami kumpulkan</h2>
+          <h2 className="font-bold text-text-primary text-sm">1. Data yang kami kumpulkan</h2>
           <p>
             Nama penerima, nomor WhatsApp, alamat pengiriman, dan foto/desain yang Anda
             unggah untuk keperluan produksi sablon DTF. Aplikasi mobile dapat meminta akses
@@ -38,7 +38,7 @@ export default function PrivacyPage() {
           </p>
         </section>
         <section className="space-y-1.5">
-          <h2 className="font-bold text-white text-sm">2. Penggunaan data</h2>
+          <h2 className="font-bold text-text-primary text-sm">2. Penggunaan data</h2>
           <p>
             Data dipakai untuk memproses pesanan, notifikasi status produksi via WhatsApp,
             dan peningkatan layanan. Kami tidak menjual data Anda kepada pihak ketiga.
@@ -46,7 +46,7 @@ export default function PrivacyPage() {
           </p>
         </section>
         <section className="space-y-1.5">
-          <h2 className="font-bold text-white text-sm">3. Penyimpanan & keamanan</h2>
+          <h2 className="font-bold text-text-primary text-sm">3. Penyimpanan & keamanan</h2>
           <p>
             Data tersimpan di database Turso (edge) dan aset di Cloudflare R2. Invoice
             publik hanya menampilkan status — data pribadi (telepon, email, alamat)
@@ -54,10 +54,10 @@ export default function PrivacyPage() {
           </p>
         </section>
         <section className="space-y-1.5">
-          <h2 className="font-bold text-white text-sm">4. Hak Anda</h2>
+          <h2 className="font-bold text-text-primary text-sm">4. Hak Anda</h2>
           <p>
             Anda dapat meminta salinan, perbaikan, atau penghapusan data melalui WhatsApp{" "}
-            <span className="text-white">6281244002026</span> (Workshop Kaos Kami, Makassar).
+            <span className="text-text-primary">6281244002026</span> (Workshop Kaos Kami, Makassar).
           </p>
         </section>
       </div>

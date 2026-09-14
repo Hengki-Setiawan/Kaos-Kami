@@ -71,7 +71,7 @@ export function DesignCardActions({ id, title }: { id: string; title: string }) 
           setRenaming(true);
         }}
         disabled={busy}
-        className="flex-1 py-1.5 rounded-lg bg-surface border border-white/10 hover:border-brand-accent text-white text-[11px] font-bold disabled:opacity-50 transition-all"
+        className="flex-1 py-1.5 rounded-lg bg-surface border border-border-subtle hover:border-brand-accent text-text-primary text-[11px] font-bold disabled:opacity-50 transition-all"
       >
         ✏️ GANTI NAMA
       </button>
@@ -86,17 +86,17 @@ export function DesignCardActions({ id, title }: { id: string; title: string }) 
 
       {renaming && (
         <div
-          className="fixed inset-0 z-[120] flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4"
           onClick={() => setRenaming(false)}
           role="dialog"
           aria-modal="true"
           aria-label="Ganti nama desain"
         >
           <div
-            className="w-full max-w-sm rounded-2xl bg-[#141416] border border-white/10 p-5 space-y-3"
+            className="w-full max-w-sm rounded-2xl bg-surface border border-border-subtle p-5 space-y-3"
             onClick={(e) => e.stopPropagation()}
           >
-            <h3 className="font-display font-black text-base uppercase text-white">Ganti nama desain</h3>
+            <h3 className="font-display font-black text-base uppercase text-text-primary">Ganti nama desain</h3>
             <input
               value={nextTitle}
               onChange={(e) => setNextTitle(e.target.value.slice(0, 60))}
@@ -106,12 +106,12 @@ export function DesignCardActions({ id, title }: { id: string; title: string }) 
                 if (e.key === "Enter") doRename();
                 if (e.key === "Escape") setRenaming(false);
               }}
-              className="w-full px-3 py-2.5 rounded-xl bg-surface border border-white/10 text-white focus:outline-none focus:border-brand-accent"
+              className="w-full px-3 py-2.5 rounded-xl bg-surface border border-border-subtle text-text-primary focus:outline-none focus:border-brand-accent"
             />
             <div className="flex gap-2">
               <button
                 onClick={() => setRenaming(false)}
-                className="flex-1 py-2.5 rounded-xl bg-surface border border-white/10 text-white font-bold text-xs uppercase"
+                className="flex-1 py-2.5 rounded-xl bg-surface border border-border-subtle text-text-primary font-bold text-xs uppercase"
               >
                 Batal
               </button>

@@ -29,8 +29,8 @@ export const MOBILE_SURFACE_Z: Record<ApparelType, number> = {
   // pants 0.122 (0.244/2), shorts 0.120 (0.240/2). Celah antar-kaki bisa
   // menyesatkan di area selangkangan — ukur panel paha + cek visual menyusul
   // (orderable false → mockup saja).
-  pants: 0.122,
-  shorts: 0.12,
+  pants: 0.145,
+  shorts: 0.145,
 };
 /** EPS gizmo SSOT web (+0.01 target sentuh/hover; renderer +0.004, guide +0.002). */
 const GIZMO_SURFACE_EPS = 0.01;

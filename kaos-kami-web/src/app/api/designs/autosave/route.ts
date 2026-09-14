@@ -64,7 +64,7 @@ export async function POST(req: NextRequest) {
               size: size || 'L',
               materialFinishSlug: materialFinishSlug || 'combed-cotton',
               decals: decalsStr,
-              studioTheme: studioTheme || 'obsidian',
+              studioTheme: studioTheme || 'gallery',
               priceBreakdown: priceBreakdownStr,
             })
             .where(eq(Design.id, existingDraft.id));
@@ -79,7 +79,7 @@ export async function POST(req: NextRequest) {
             size: size || 'L',
             materialFinishSlug: materialFinishSlug || 'combed-cotton',
             decals: decalsStr,
-            studioTheme: studioTheme || 'obsidian',
+            studioTheme: studioTheme || 'gallery',
             calculatedPriceIdr: 149000,
             priceBreakdown: priceBreakdownStr,
             status: 'DRAFT',

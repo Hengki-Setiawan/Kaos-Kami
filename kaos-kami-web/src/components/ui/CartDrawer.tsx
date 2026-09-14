@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import Image from "next/image";
 import Link from "next/link";
 import { X, ShoppingBag, Trash2, Plus, Minus, ArrowRight, ShieldCheck } from "lucide-react";
@@ -32,6 +33,11 @@ export const CartDrawer: React.FC = () => {
   const panelRef = useRef<HTMLElement>(null);
   const closeBtnRef = useRef<HTMLButtonElement>(null);
   const noticeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [isClient, setIsClient] = useState(false);
+
+  useEffect(() => {
+    setIsClient(true);
+  }, []);
 
   // A11y dialog (tiru AuthModal/BottomSheet): ESC-to-close, fokus awal ke
   // tombol tutup, focus-trap Tab sederhana di dalam panel drawer.
@@ -117,9 +123,9 @@ export const CartDrawer: React.FC = () => {
         onClose={() => setIsCheckoutModalOpen(false)}
         checkoutMode="cart"
       />
-      {isCartOpen && (
+      {isCartOpen && isClient && typeof document !== "undefined" && createPortal(
       <div
-        className="fixed inset-0 z-50 flex justify-end"
+        className="fixed inset-0 z-[110] flex justify-end"
         role="dialog"
         aria-modal="true"
         aria-label="Keranjang belanja"
@@ -134,9 +140,9 @@ export const CartDrawer: React.FC = () => {
         {/* Drawer Panel */}
         <aside
           ref={panelRef}
-          className="relative z-10 w-full max-w-md bg-[#121214] border-l border-white/10 text-text-primary h-full flex flex-col shadow-2xl animate-slideLeft">
+          className="relative z-10 w-full max-w-md bg-surface border-l border-border-subtle text-text-primary h-full flex flex-col shadow-2xl animate-slideLeft">
           {/* Header */}
-          <div className="p-5 border-b border-white/10 flex items-center justify-between">
+          <div className="p-5 border-b border-border-subtle flex items-center justify-between">
             <div className="flex items-center space-x-2">
               <ShoppingBag size={18} className="text-brand-accent" />
               <span className="font-display font-black text-base uppercase tracking-tight">
@@ -150,7 +156,7 @@ export const CartDrawer: React.FC = () => {
               ref={closeBtnRef}
               onClick={closeCart}
               aria-label="Tutup keranjang"
-              className="min-w-[44px] min-h-[44px] p-2.5 rounded-lg bg-surface border border-white/10 text-text-muted hover:text-white flex items-center justify-center"
+              className="min-w-[44px] min-h-[44px] p-2.5 rounded-lg bg-surface border border-border-subtle text-text-muted hover:text-text-primary flex items-center justify-center transition-colors"
             >
               <X size={16} />
             </button>
@@ -183,10 +189,10 @@ export const CartDrawer: React.FC = () => {
                 return (
                 <div
                   key={rowKey}
-                  className="p-3.5 rounded-xl bg-surface/70 border border-white/5 flex gap-3.5 font-mono text-xs"
+                  className="p-3.5 rounded-xl bg-surface/70 border border-border-subtle flex gap-3.5 font-mono text-xs"
                 >
                   {/* Thumbnail */}
-                  <div className="w-16 h-20 rounded-lg overflow-hidden relative bg-black/40 border border-white/10 shrink-0">
+                  <div className="w-16 h-20 rounded-lg overflow-hidden relative bg-surface border border-border-subtle shrink-0">
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img
                       src={isSafeImageUrl(item.image) ? item.image : "/lookbook/look-01.jpg"}
@@ -203,22 +209,22 @@ export const CartDrawer: React.FC = () => {
                   </div>
 
                   {/* Details */}
-                  <div className="flex-1 flex flex-col justify-between">
+                  <div className="flex-1 min-w-0 flex flex-col justify-between">
                     <div>
                       <div className="flex justify-between items-start gap-2">
-                        <span className="font-bold text-white text-xs leading-tight line-clamp-1">
+                        <span className="font-bold text-text-primary text-xs leading-tight line-clamp-1">
                           {item.name}
                         </span>                        <button
                           onClick={() => removeItem(item.id, item.size)}
                           aria-label={`Hapus ${item.name} ukuran ${item.size}`}
-                          className="text-text-muted hover:text-red-400 min-w-[44px] min-h-[44px] flex items-center justify-center"
+                          className="text-text-muted hover:text-red-700 dark:hover:text-red-400 min-w-[44px] min-h-[44px] flex items-center justify-center"
                         >
                           <Trash2 size={15} />
                         </button>
                       </div>
                       <div className="text-[10px] text-text-muted mt-1 space-x-2">
-                        <span>SIZE: <strong className="text-white">{item.size}</strong></span>
-                        <span>WARNA: <strong className="text-white">{item.colorName}</strong></span>
+                        <span>SIZE: <strong className="text-text-primary">{item.size}</strong></span>
+                        <span>WARNA: <strong className="text-text-primary">{item.colorName}</strong></span>
                       </div>
                       {/* M4.1 teamwear: label personal + jumlah sablon per item. */}
                       {item.teamwearLabel && (
@@ -233,7 +239,7 @@ export const CartDrawer: React.FC = () => {
                           bila diketahui agar user paham batas tombol +. */}
                       {cap !== null && (
                         <div
-                          className={`text-[10px] mt-1 font-bold ${atCap ? "text-amber-400" : "text-text-muted"}`}
+                          className={`text-[10px] mt-1 font-bold ${atCap ? "text-amber-700 dark:text-amber-400" : "text-text-muted"}`}
                           aria-live="polite"
                         >
                           {atCap ? `Maks stok (${cap} pcs)` : `Stok: ${cap} pcs`}
@@ -256,7 +262,7 @@ export const CartDrawer: React.FC = () => {
                         <button
                           onClick={() => updateQuantity(item.id, item.size, -1)}
                           aria-label="Kurangi jumlah"
-                          className="w-9 h-9 rounded bg-black/50 border border-white/10 text-white flex items-center justify-center hover:border-brand-accent"
+                          className="w-11 h-11 min-w-[44px] min-h-[44px] rounded bg-surface border border-border-subtle text-text-primary flex items-center justify-center hover:border-brand-accent"
                         >
                           <Minus size={12} />
                         </button>
@@ -279,14 +285,14 @@ export const CartDrawer: React.FC = () => {
                           // SENGAJA tanpa `disabled` attr: tombol terkunci tetap
                           // bisa diklik agar pesan stok tampil (jangan gagal diam-diam).
                           title={atCap ? `Stok maks ${cap} pcs` : "Tambah jumlah"}
-                          className={`w-9 h-9 rounded bg-black/50 border border-white/10 text-white flex items-center justify-center hover:border-brand-accent ${atCap ? "opacity-40 cursor-not-allowed hover:border-white/10" : ""}`}
+                          className={`w-11 h-11 min-w-[44px] min-h-[44px] rounded bg-surface border border-border-subtle text-text-primary flex items-center justify-center hover:border-brand-accent ${atCap ? "opacity-40 cursor-not-allowed hover:border-border-subtle" : ""}`}
                         >
                           <Plus size={12} />
                         </button>
                       </div>
                     </div>
                     {stockNoticeKey === rowKey && atCap && (
-                      <p className="text-[10px] text-amber-400 font-bold pt-1" role="status">
+                      <p className="text-[10px] text-amber-700 dark:text-amber-400 font-bold pt-1" role="status">
                         Stok varian ini tinggal {cap} pcs — kurangi item lain atau pilih ukuran lain.
                       </p>
                     )}
@@ -299,7 +305,7 @@ export const CartDrawer: React.FC = () => {
 
           {/* Footer Subtotal & Checkout Button */}
           {items.length > 0 && (
-            <div className="p-5 border-t border-white/10 bg-[#0E0E10] space-y-3 font-mono text-xs">
+            <div className="p-5 border-t border-border-subtle bg-canvas space-y-3 font-mono text-xs">
               {priceChecking && (
                 <p className="text-[10px] text-text-muted" role="status">
                   Mengecek harga terbaru katalog…
@@ -308,7 +314,7 @@ export const CartDrawer: React.FC = () => {
               {priceNotice && priceNotice.diff !== 0 && (
                 <div
                   role="status"
-                  className="p-2.5 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-300 text-[11px] font-bold leading-snug"
+                  className="p-2.5 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-700 dark:text-amber-300 text-[11px] font-bold leading-snug"
                 >
                   Harga katalog berubah: Rp {priceNotice.oldTotal.toLocaleString("id-ID")} → Rp{" "}
                   {priceNotice.newTotal.toLocaleString("id-ID")} (selisih {formatIdr(priceNotice.diff)}).
@@ -317,13 +323,13 @@ export const CartDrawer: React.FC = () => {
               )}
               <div className="flex justify-between items-center text-sm font-bold">
                 <span className="text-text-muted">SUBTOTAL:</span>
-                <span className="text-white text-base">
+                <span className="text-text-primary text-base">
                   Rp {totalPrice.toLocaleString("id-ID")}
                 </span>
               </div>
 
               <p className="text-[10px] text-text-muted flex items-center gap-1">
-                <ShieldCheck size={13} className="text-emerald-400" />
+                <ShieldCheck size={13} className="text-emerald-700 dark:text-emerald-400" />
                 <span>Harga final dihitung server. Diantar gratis se-Makassar / ambil di workshop.</span>
               </p>
 
@@ -340,7 +346,8 @@ export const CartDrawer: React.FC = () => {
             </div>
           )}
         </aside>
-      </div>
+      </div>,
+      document.body
       )}
     </>
   );

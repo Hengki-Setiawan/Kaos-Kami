@@ -104,38 +104,38 @@ export default async function OrderReceiptPage({ params, searchParams }: OrderRe
       </Link>
 
       {/* Main Receipt Card */}
-      <div className="bg-[#151518] border border-white/10 rounded-2xl p-6 sm:p-8 shadow-2xl space-y-6">
+      <div className="bg-surface border border-border-subtle rounded-2xl p-6 sm:p-8 dark:shadow-2xl space-y-6">
         {/* Status Header Banner */}
-        <div className="text-center space-y-2 pb-6 border-b border-white/5">
+        <div className="text-center space-y-2 pb-6 border-b border-border-subtle">
           <div className="w-16 h-16 rounded-full bg-brand-accent/20 border border-brand-accent/40 text-brand-accent flex items-center justify-center mx-auto mb-3">
             {isSuccess ? <CheckCircle2 size={32} /> : <Clock size={32} />}
           </div>
           <span className="inline-block px-3 py-1 rounded-full font-mono text-[11px] font-bold uppercase tracking-wider bg-brand-accent/15 text-brand-accent border border-brand-accent/30">
             {order.status}
           </span>
-          <h1 className="font-display text-2xl sm:text-3xl font-black uppercase tracking-tight text-white">
+          <h1 className="font-display text-2xl sm:text-3xl font-black uppercase tracking-tight text-text-primary">
             {isSuccess ? "PESANAN BERHASIL DITERIMA" : "INVOICE PESANAN"}
           </h1>
           <p className="font-mono text-xs text-text-muted">
-            Nomor Pesanan: <span className="text-white font-bold">{order.orderNumber}</span>
+            Nomor Pesanan: <span className="text-text-primary font-bold">{order.orderNumber}</span>
           </p>
         </div>
 
         {/* Order Details Grid */}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 font-mono text-xs">
-          <div className="p-4 rounded-xl bg-surface/50 border border-white/5 space-y-1.5">
+          <div className="p-4 rounded-xl bg-surface/50 border border-border-subtle space-y-1.5">
             <span className="block text-[11px] text-text-muted uppercase">Penerima & Kontak</span>
-            <p className="font-bold text-white text-sm">{order.shippingAddress?.recipientName || order.user?.name || "Pelanggan"}</p>
+            <p className="font-bold text-text-primary text-sm">{order.shippingAddress?.recipientName || order.user?.name || "Pelanggan"}</p>
             <p className="text-text-muted">{maskPhone(order.user?.phoneNumber || order.shippingAddress?.phoneNumber)}</p>
             <p className="text-text-muted truncate">{maskEmail(order.user?.email)}</p>
           </div>
 
-          <div className="p-4 rounded-xl bg-surface/50 border border-white/5 space-y-1.5">
+          <div className="p-4 rounded-xl bg-surface/50 border border-border-subtle space-y-1.5">
             <span className="block text-[11px] text-text-muted uppercase">Pengiriman Makassar</span>
             <p className="font-bold text-brand-accent text-sm">{order.deliveryMethod}</p>
             {order.deliveryMethod === "PICKUP" ? (
               <>
-                <p className="text-white text-[11px]">Ambil di: {SHOP_WORKSHOP_ADDRESS}</p>
+                <p className="text-text-primary text-[11px]">Ambil di: {SHOP_WORKSHOP_ADDRESS}</p>
                 <p className="text-text-muted text-[10px]">Tunjukkan nomor pesanan saat pengambilan.</p>
               </>
             ) : (
@@ -165,16 +165,16 @@ export default async function OrderReceiptPage({ params, searchParams }: OrderRe
           <h3 className="font-mono text-xs font-bold uppercase tracking-wider text-text-muted">
             RINCIAN ITEM SABLON DTF
           </h3>
-          <div className="divide-y divide-white/5 border border-white/5 rounded-xl bg-surface/30 overflow-hidden font-mono text-xs">
+          <div className="divide-y divide-border-subtle border border-border-subtle rounded-xl bg-surface/30 overflow-hidden font-mono text-xs">
             {order.items.map((item) => (
-              <div key={item.id} className="p-3.5 flex justify-between items-center">
-                <div>
-                  <p className="font-bold text-white">{item.snapshotName}</p>
-                  <p className="text-[11px] text-text-muted">
+              <div key={item.id} className="p-3.5 flex justify-between items-center gap-3">
+                <div className="min-w-0 flex-1">
+                  <p className="font-bold text-text-primary truncate">{item.snapshotName}</p>
+                  <p className="text-[11px] text-text-muted truncate">
                     Ukuran: {item.snapshotSize} · Warna: {item.snapshotColorName} · Qty: {item.quantity}
                   </p>
                 </div>
-                <span className="font-bold text-white">
+                <span className="font-bold text-text-primary shrink-0">
                   Rp {item.lineTotalIdr.toLocaleString("id-ID")}
                 </span>
               </div>
@@ -183,7 +183,7 @@ export default async function OrderReceiptPage({ params, searchParams }: OrderRe
         </div>
 
         {/* Payment Summary */}
-        <div className="p-4 rounded-xl bg-black/50 border border-white/10 space-y-2 font-mono text-xs">
+        <div className="p-4 rounded-xl bg-surface border border-border-subtle space-y-2 font-mono text-xs">
           <div className="flex justify-between text-text-muted">
             <span>Subtotal Kaos & Sablon</span>
             <span>Rp {order.subtotalIdr.toLocaleString("id-ID")}</span>
@@ -198,7 +198,7 @@ export default async function OrderReceiptPage({ params, searchParams }: OrderRe
               <span>−Rp {order.discountIdr.toLocaleString("id-ID")}</span>
             </div>
           )}
-          <div className="flex justify-between items-baseline pt-2 border-t border-white/10 text-sm font-bold text-white">
+          <div className="flex justify-between items-baseline pt-2 border-t border-border-subtle text-sm font-bold text-text-primary">
             <span>TOTAL TAGIHAN:</span>
             <span className="text-brand-accent text-lg">
               Rp {order.totalIdr.toLocaleString("id-ID")}
@@ -207,22 +207,22 @@ export default async function OrderReceiptPage({ params, searchParams }: OrderRe
           {order.payment && (
             <div className="flex justify-between text-text-muted pt-1">
               <span>Pembayaran ({order.payment.method || "Duitku"})</span>
-              <span className="font-bold text-white">{order.payment.status}</span>
+              <span className="font-bold text-text-primary">{order.payment.status}</span>
             </div>
           )}
         </div>
 
         {/* Riwayat perjalanan pesanan */}
         {order.statusHistory.length > 0 && (
-          <div className="p-4 rounded-xl bg-surface/30 border border-white/5 font-mono text-xs space-y-0">
+          <div className="p-4 rounded-xl bg-surface/30 border border-border-subtle font-mono text-xs space-y-0">
             <h3 className="text-[11px] font-bold uppercase tracking-wider text-text-muted pb-2">
               Perjalanan pesanan
             </h3>
-            <div className="divide-y divide-white/5">
+            <div className="divide-y divide-border-subtle">
               {order.statusHistory.map((h) => (
                 <div key={h.id} className="py-2 flex justify-between items-center gap-3">
                   <div>
-                    <span className="font-bold text-white block text-[11px]">{h.status.replace(/_/g, " ")}</span>
+                    <span className="font-bold text-text-primary block text-[11px]">{h.status.replace(/_/g, " ")}</span>
                     {h.note && <span className="text-text-muted text-[10px]">{h.note}</span>}
                   </div>
                   <span className="text-text-muted text-[10px] shrink-0">
@@ -243,7 +243,7 @@ export default async function OrderReceiptPage({ params, searchParams }: OrderRe
                 href={waPayLink}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="block text-center font-mono text-[11px] text-text-muted hover:text-white transition-colors"
+                className="block text-center font-mono text-[11px] text-text-muted hover:text-text-primary transition-colors"
               >
                 atau minta link via WhatsApp →
               </a>
@@ -253,7 +253,7 @@ export default async function OrderReceiptPage({ params, searchParams }: OrderRe
             href={waLink}
             target="_blank"
             rel="noopener noreferrer"
-            className="flex-1 py-3 px-4 rounded-xl bg-[#25D366] text-white font-mono font-bold text-xs uppercase tracking-wider hover:brightness-110 active:scale-95 transition-all shadow-[0_0_16px_rgba(37,211,102,0.3)] flex items-center justify-center gap-2 text-center"
+            className="flex-1 py-3 px-4 rounded-xl bg-[#25D366] text-white font-mono font-bold text-xs uppercase tracking-wider hover:brightness-110 active:scale-95 transition-all dark:shadow-[0_0_16px_rgba(37,211,102,0.3)] flex items-center justify-center gap-2 text-center"
           >
             <MessageCircle size={15} />
             <span>KONFIRMASI VIA WHATSAPP (MANUAL)</span>
@@ -261,7 +261,7 @@ export default async function OrderReceiptPage({ params, searchParams }: OrderRe
 
           <Link
             href="/studio"
-            className="py-3 px-5 rounded-xl bg-surface border border-white/10 text-white hover:bg-white/10 font-mono font-bold text-xs uppercase tracking-wider transition-all text-center flex items-center justify-center"
+            className="py-3 px-5 rounded-xl bg-surface border border-border-subtle text-text-primary hover:border-brand-accent hover:text-brand-accent font-mono font-bold text-xs uppercase tracking-wider transition-all text-center flex items-center justify-center"
           >
             BUAT DESAIN LAIN
           </Link>

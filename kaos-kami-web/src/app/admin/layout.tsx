@@ -28,17 +28,19 @@ export default async function AdminLayout({ children }: { children: React.ReactN
     redirect("/");
   }
   return (
-    <div className="min-h-screen bg-[#0E0E10] text-text-primary flex flex-col md:flex-row">
+    <div className="min-h-screen bg-canvas text-text-primary flex flex-col md:flex-row">
       {/* Sidebar */}
-      <aside className="w-full md:w-64 bg-[#141416] border-r border-white/5 flex flex-col justify-between shrink-0">
+      <aside className="w-full md:w-64 bg-surface border-r border-border-subtle flex flex-col justify-between shrink-0">
         <div>
           {/* Brand Header */}
-          <div className="p-5 border-b border-white/5 flex items-center justify-between">
+          <div className="p-5 border-b border-border-subtle flex items-center justify-between">
             <Link href="/admin" className="flex items-center space-x-2.5">
               {/* eslint-disable-next-line @next/next/no-img-element -- logo mungil lokal; images.unoptimized=true sehingga next/image tak menambah nilai */}
-              <img src="/brand/logo-white-clean.png" alt="Kaos Kami" className="h-7 w-auto object-contain" />
-              <div className="border-l border-white/20 pl-2.5">
-                <span className="font-display font-black text-xs uppercase tracking-tight text-white block leading-tight">
+              <img src="/brand/logo-white-clean.png" alt="Kaos Kami" className="h-7 w-auto object-contain logo-dark-mode" />
+              {/* eslint-disable-next-line @next/next/no-img-element -- varian gelap untuk light mode */}
+              <img src="/brand/logo-black-clean.png" alt="Kaos Kami" className="h-7 w-auto object-contain logo-light-mode" />
+              <div className="border-l border-border-strong pl-2.5">
+                <span className="font-display font-black text-xs uppercase tracking-tight text-text-primary block leading-tight">
                   WORKSHOP OPS
                 </span>
                 <span className="font-mono text-[9px] text-brand-accent font-bold leading-tight">
@@ -56,7 +58,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
       </aside>
 
       {/* Main Content Viewport */}
-      <main className="flex-1 min-w-0 bg-[#0E0E10] overflow-y-auto">
+      <main className="flex-1 min-w-0 bg-canvas overflow-y-auto">
         {children}
       </main>
     </div>

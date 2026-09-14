@@ -11,7 +11,7 @@
  */
 
 import React, { useCallback, useEffect, useState } from "react";
-import { X, ChevronRight, ChevronLeft, Maximize2, Expand } from "lucide-react";
+import { X, ChevronRight, ChevronLeft, Maximize2, Expand, ZoomIn } from "lucide-react";
 import { useConfiguratorStore } from "@/store/useConfiguratorStore";
 import { useShallow } from "zustand/shallow";
 import {
@@ -144,7 +144,7 @@ export const StudioTour: React.FC = () => {
     return (
       <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-[60] pointer-events-auto">
         <div
-          className="flex items-center gap-1.5 pl-3 pr-1.5 py-1.5 rounded-full bg-[#121214]/90 border border-white/10 backdrop-blur-xl shadow-xl"
+          className="flex items-center gap-1.5 pl-3 pr-1.5 py-1.5 rounded-full bg-canvas/90 border border-border-subtle backdrop-blur-xl shadow-xl"
           role="navigation"
           aria-label="Langkah studio (bilah mini)"
         >
@@ -163,7 +163,7 @@ export const StudioTour: React.FC = () => {
                   ? "bg-brand-accent text-canvas shadow-[0_0_10px_rgba(230,81,0,0.4)]"
                   : i < langkah
                     ? "bg-brand-accent/25 text-brand-accent"
-                    : "bg-surface text-text-muted hover:text-white"
+                    : "bg-surface text-text-muted hover:text-text-primary"
               }`}
             >
               {i + 1}
@@ -185,14 +185,14 @@ export const StudioTour: React.FC = () => {
     <div
       role="dialog"
       aria-label="Panduan studio 3 langkah"
-      className="fixed bottom-4 left-1/2 -translate-x-1/2 z-[60] w-[calc(100%-2rem)] max-w-md p-4 rounded-2xl bg-[#121214]/95 border border-brand-accent/40 shadow-[0_0_30px_rgba(230,81,0,0.35)] backdrop-blur-xl"
+      className="fixed bottom-4 left-1/2 -translate-x-1/2 z-[60] w-[calc(100%-2rem)] max-w-md p-4 rounded-2xl bg-surface/95 border border-brand-accent/40 shadow-[0_0_30px_rgba(230,81,0,0.35)] backdrop-blur-xl"
     >
       <div className="flex items-start justify-between gap-2">
         <p className="text-xs font-mono font-black text-brand-accent uppercase">{step.judul}</p>
         <button
           onClick={() => tutup(true)}
           aria-label="Ciutkan panduan (bilah mini tetap ada di bawah)"
-          className="p-1.5 rounded-lg text-text-muted hover:text-white"
+          className="p-1.5 rounded-lg text-text-muted hover:text-text-primary"
         >
           <X size={14} />
         </button>
@@ -204,13 +204,13 @@ export const StudioTour: React.FC = () => {
           <div className="grid grid-cols-2 gap-2">
             <button
               onClick={() => terapkanSkala("fit")}
-              className="py-2.5 px-2 rounded-xl bg-surface border border-white/10 hover:border-brand-accent text-[11px] font-mono font-bold text-white transition-all flex items-center justify-center gap-1.5"
+              className="py-2.5 px-2 rounded-xl bg-surface border border-border-subtle hover:border-brand-accent text-[11px] font-mono font-bold text-text-primary transition-all flex items-center justify-center gap-1.5"
             >
               <Maximize2 size={13} className="text-brand-accent" /> PASKAN (FIT)
             </button>
             <button
               onClick={() => terapkanSkala("fill")}
-              className="py-2.5 px-2 rounded-xl bg-surface border border-white/10 hover:border-brand-accent text-[11px] font-mono font-bold text-white transition-all flex items-center justify-center gap-1.5"
+              className="py-2.5 px-2 rounded-xl bg-surface border border-border-subtle hover:border-brand-accent text-[11px] font-mono font-bold text-text-primary transition-all flex items-center justify-center gap-1.5"
             >
               <Expand size={13} className="text-brand-accent" /> PENUHI (FILL)
             </button>
@@ -221,7 +221,8 @@ export const StudioTour: React.FC = () => {
             title="Kamera zoom ke kerah — cek jahitan rib dari dekat"
             className="w-full py-2.5 px-2 rounded-xl bg-brand-accent/15 border border-brand-accent/40 hover:bg-brand-accent/25 text-[11px] font-mono font-bold text-brand-accent transition-all flex items-center justify-center gap-1.5"
           >
-            🔍 LIHAT DETAIL KERAH (MAKRO)
+            <ZoomIn size={13} />
+            <span>LIHAT DETAIL KERAH (MAKRO)</span>
           </button>
         </div>
       )}
@@ -245,7 +246,7 @@ export const StudioTour: React.FC = () => {
                 setPesan(null);
                 setLangkah((l) => Math.max(0, l - 1));
               }}
-              className="p-2 rounded-lg bg-surface border border-white/10 text-text-muted hover:text-white"
+              className="p-2 rounded-lg bg-surface border border-border-subtle text-text-muted hover:text-text-primary"
               aria-label="Langkah sebelumnya"
             >
               <ChevronLeft size={14} />

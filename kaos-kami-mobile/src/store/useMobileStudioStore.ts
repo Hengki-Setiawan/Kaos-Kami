@@ -59,15 +59,15 @@ export const MOBILE_APPAREL_META: Record<ApparelType, MobileApparelMeta> = {
   hoodie: { mockupEnabled: true, orderable: true, lockedMessage: '', modelFile: 'hoodie-blue.glb' },
   shirt: { mockupEnabled: true, orderable: true, lockedMessage: '', modelFile: 'jacket.glb' },
   crewneck: {
-    mockupEnabled: false,
-    orderable: false,
-    lockedMessage: 'Crewneck = Sweater Pack (mesh sama) — pilih Sweater di studio HP.',
-    modelFile: null,
+    mockupEnabled: true,
+    orderable: true,
+    lockedMessage: '',
+    modelFile: 'sweater.glb',
   },
   sweater: {
     mockupEnabled: true,
-    orderable: false,
-    lockedMessage: 'Sweater: mockup 3D bisa dicoba di studio HP — pemesanan SEGERA dibuka (simpan & checkout HP menolak).',
+    orderable: true,
+    lockedMessage: '',
     modelFile: 'sweater.glb',
   },
   cap: {
@@ -104,19 +104,9 @@ export function isApparelMockupEnabled(apparel: string): boolean {
  * Multiplier unit-3D → cm TERUKUR dari bounding-box GLB (selaras web scaleCalibration.ts).
  * tshirt 56/0.550=101.8 · hoodie 60/0.631=95.1 · shirt via tinggi 74/1.065=69.5 · longsleeve 56/0.794=70.5
  * crewneck/sweater 102.4 = cermin web FASE 13 APPAREL_PHYSICAL_SPECS.crewneck.meshMultiplier
- *   (via TINGGI 72.0/0.70304 — lengan terentang, preseden jacket; 91.9 lama =
- *   warisan hoodie.glb, SALAH untuk sweater.glb).
- * cap 50.0 = ASUMSI + TODO (web TAK PUNYA spek fisik cap): crown span TERUKUR
- *   0.4004u ≈ panel depan snapback 20cm → 20/0.4004 = 49.95 → 50.0. Ukur topi
- *   fisik menyusul. Orderable false → tak pernah masuk produksi.
- * pants 99.8 = cermin web APPAREL_PHYSICAL_SPECS.pants.meshMultiplier
- *   (via tinggi 100.0/1.00249 — TERUKUR 12 Sep 2026). Orderable false →
- *   angka ini tak pernah masuk produksi.
- * shorts 85.5 = cermin web APPAREL_PHYSICAL_SPECS.shorts.meshMultiplier
- *   (via tinggi 50.0/0.58510 — TERUKUR 12 Sep 2026, asumsi outseam 50cm
- *   size L preseden pants). ASUMSI + TODO: ukur outseam fisik menyusul;
- *   JANGAN ubah tanpa meteran (sesi uji fisik). Orderable false → tak pernah
- *   masuk produksi.
+ * cap 50.0 = panel depan snapback 20cm
+ * pants 103.7 = cermin web APPAREL_PHYSICAL_SPECS.pants.meshMultiplier (cargo pants)
+ * shorts 131.9 = cermin web APPAREL_PHYSICAL_SPECS.shorts.meshMultiplier (denim shorts)
  */
 export const MOBILE_UNITS_TO_CM: Record<ApparelType, number> = {
   tshirt: 101.8,
@@ -126,8 +116,8 @@ export const MOBILE_UNITS_TO_CM: Record<ApparelType, number> = {
   crewneck: 102.4,
   sweater: 102.4,
   cap: 50.0,
-  pants: 99.8,
-  shorts: 85.5,
+  pants: 103.7,
+  shorts: 131.9,
 };
 
 /** Lebar cetak maks (cm) per apparel mobile — cermin web APPAREL_PHYSICAL_SPECS.

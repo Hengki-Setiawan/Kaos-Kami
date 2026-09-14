@@ -1,0 +1,30 @@
+{
+  "extends": "next/core-web-vitals",
+  "overrides": [
+    {
+      "files": ["src/app/**/*.{js,ts,jsx,tsx}", "src/components/**/*.{js,ts,jsx,tsx}"],
+      "excludedFiles": ["**/*print*", "**/*job-ticket*", "**/*job_ticket*"],
+      "rules": {
+        "no-restricted-syntax": [
+          "error",
+          {
+            "selector": "Literal[value=/bg-\\[#(121214|141416|0E0E10)\\]/]",
+            "message": "Warna kanvas mentah bg-[#…] dilarang — pakai token semantik (bg-canvas / bg-surface). Escape hatch: // eslint-disable-next-line no-restricted-syntax -- theme-allow"
+          },
+          {
+            "selector": "TemplateElement[value.raw=/bg-\\[#(121214|141416|0E0E10)\\]/]",
+            "message": "Warna kanvas mentah bg-[#…] dilarang — pakai token semantik (bg-canvas / bg-surface). Escape hatch: // eslint-disable-next-line no-restricted-syntax -- theme-allow"
+          },
+          {
+            "selector": "Literal[value=/\\b(bg-white|text-white|text-black)\\b/]",
+            "message": "Warna mentah bg-white/text-white/text-black dilarang — pakai token semantik (bg-canvas / bg-surface-elevated / text-primary). Escape hatch: // eslint-disable-next-line no-restricted-syntax -- theme-allow"
+          },
+          {
+            "selector": "TemplateElement[value.raw=/\\b(bg-white|text-white|text-black)\\b/]",
+            "message": "Warna mentah bg-white/text-white/text-black dilarang — pakai token semantik (bg-canvas / bg-surface-elevated / text-primary). Escape hatch: // eslint-disable-next-line no-restricted-syntax -- theme-allow"
+          }
+        ]
+      }
+    }
+  ]
+}

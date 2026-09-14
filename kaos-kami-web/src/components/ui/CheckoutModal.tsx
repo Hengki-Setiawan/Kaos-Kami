@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { useConfiguratorStore } from "@/store/useConfiguratorStore";
 import { useShallow } from "zustand/shallow";
 import {
@@ -152,6 +153,11 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
   // Token anti-bot Turnstile (opsional — wajib hanya bila server mengonfigurasi secret).
   const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
   const turnstileEnabled = !!process.env.NEXT_PUBLIC_CLOUDFLARE_TURNSTILE_SITE_KEY;
+  const [isClient, setIsClient] = useState(false);
+
+  useEffect(() => {
+    setIsClient(true);
+  }, []);
 
   // A11y dialog (tiru AuthModal/BottomSheet): ESC-to-close, fokus awal ke
   // tombol tutup, focus-trap Tab sederhana di dalam panel modal.
@@ -413,7 +419,7 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
   const effectiveSubtotal = isCartCheckout ? getCartTotalPrice() : pricing.totalPriceIdr;
   const grandTotal = effectiveSubtotal + shippingCost + turnaroundSurcharge;
 
-  if (!isOpen) return null;
+  if (!isOpen || !isClient || typeof document === "undefined") return null;
 
   const handleCheckoutSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -704,28 +710,28 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
     }
   };
 
-  return (
+  return createPortal(
     <div
-      className="fixed inset-0 z-[110] flex items-center justify-center p-3 sm:p-5 bg-black/80 backdrop-blur-md animate-fadeIn overflow-y-auto"
+      className="fixed inset-0 z-[130] flex items-center justify-center p-3 sm:p-5 bg-black/80 backdrop-blur-md animate-fadeIn overflow-y-auto"
       role="dialog"
       aria-modal="true"
       aria-label="Checkout pesanan sablon DTF"
     >
       <div
         ref={panelRef}
-        className="relative w-full max-w-2xl bg-[#141416] border border-white/10 rounded-2xl shadow-2xl text-text-primary my-auto overflow-hidden"
+        className="relative w-full max-w-2xl max-h-[92dvh] flex flex-col bg-surface border border-border-subtle rounded-2xl shadow-2xl text-text-primary my-auto overflow-hidden"
       >
         {/* Top Orange Glow Accent */}
         <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-brand-accent via-amber-500 to-brand-accent" />
 
         {/* Modal Header */}
-        <div className="flex items-center justify-between p-5 border-b border-white/5">
+        <div className="flex items-center justify-between p-5 border-b border-border-subtle">
           <div className="flex items-center space-x-2.5">
             <div className="w-8 h-8 rounded-lg bg-brand-accent/20 border border-brand-accent/40 flex items-center justify-center text-brand-accent">
               <ShoppingBag size={17} />
             </div>
             <div>
-              <h2 className="font-display text-lg sm:text-xl font-bold uppercase tracking-tight text-white">
+              <h2 className="font-display text-lg sm:text-xl font-bold uppercase tracking-tight text-text-primary">
                 CHECKOUT PESANAN SABLON DTF
               </h2>
               <p className="font-mono text-[11px] text-text-muted">
@@ -736,7 +742,7 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
           <button
             ref={closeBtnRef}
             onClick={onClose}
-            className="p-1.5 rounded-lg text-text-muted hover:text-white hover:bg-white/5 transition-all"
+            className="min-w-[44px] min-h-[44px] p-1.5 rounded-lg text-text-muted hover:text-text-primary hover:bg-surface/50 transition-all flex items-center justify-center shrink-0"
             aria-label="Tutup checkout"
           >
             <X size={18} />
@@ -744,7 +750,7 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
         </div>
 
         {/* Form Body */}
-        <form onSubmit={handleCheckoutSubmit} className="p-5 space-y-5 max-h-[75vh] overflow-y-auto">
+        <form onSubmit={handleCheckoutSubmit} className="p-5 space-y-5 flex-1 min-h-0 overflow-y-auto">
           {errorMessage && (
             <div className="p-3 rounded-xl bg-red-500/10 border border-red-500/30 text-red-400 text-xs font-sans flex items-center gap-2">
               <AlertCircle size={15} />
@@ -753,7 +759,7 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
           )}
 
           {/* Section 1: Order Summary Card */}
-          <div className="p-4 rounded-xl bg-surface/70 border border-white/5 space-y-3 font-mono text-xs">
+          <div className="p-4 rounded-xl bg-surface/70 border border-border-subtle space-y-3 font-mono text-xs">
             {/* M3.6 — Peringatan master belum tersimpan = SOFT-GATE SENGAJA FAIL-SAFE
                 (peringatan "maafkan", BUKAN gate pemblokir — perilaku tak boleh diubah):
                 - Checkout 100% TETAP LANJUT walau warning tampil (tak ada throw /
@@ -790,8 +796,8 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
                 return null;
               }
             })()}
-            <div className="flex justify-between items-center pb-2 border-b border-white/5">
-              <span className="font-bold text-white uppercase">
+            <div className="flex justify-between items-center pb-2 border-b border-border-subtle">
+              <span className="font-bold text-text-primary uppercase">
                 {isCartCheckout ? `KERANJANG BELANJA (${cartItems.length} ITEM)` : `${activeApparel} (SABLON DTF)`}
               </span>
               <span className="text-brand-accent font-bold">
@@ -816,13 +822,13 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
                   </div>
                 )}
                 {cartItems.map((item) => (
-                  <div key={`${item.id}-${item.size}`} className="flex justify-between items-center text-[11px] border-b border-white/5 pb-1.5">
+                  <div key={`${item.id}-${item.size}`} className="flex justify-between items-center text-[11px] border-b border-border-subtle pb-1.5">
                     <div className="flex items-center space-x-2 truncate max-w-[240px]">
                       <span className="text-brand-accent font-bold">x{item.quantity}</span>
-                      <span className="text-white truncate">{item.name}</span>
+                      <span className="text-text-primary truncate">{item.name}</span>
                       <span className="text-text-muted">({item.size})</span>
                     </div>
-                    <span className="text-white font-bold shrink-0">
+                    <span className="text-text-primary font-bold shrink-0">
                       Rp {(item.priceIdr * item.quantity).toLocaleString("id-ID")}
                     </span>
                   </div>
@@ -832,26 +838,26 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-[11px] text-text-muted">
                 <div>
                   <span className="block opacity-75">WARNA:</span>
-                  <span className="text-white font-bold">{activeColorName}</span>
+                  <span className="text-text-primary font-bold">{activeColorName}</span>
                 </div>
                 <div>
                   <span className="block opacity-75">UKURAN:</span>
-                  <span className="text-white font-bold">{selectedSize}</span>
+                  <span className="text-text-primary font-bold">{selectedSize}</span>
                 </div>
                 <div>
                   <span className="block opacity-75">SABLON:</span>
-                  <span className="text-white font-bold">{decals.length} Layer DTF</span>
+                  <span className="text-text-primary font-bold">{decals.length} Layer DTF</span>
                 </div>
                 <div>
                   <span className="block opacity-75">FINISH:</span>
-                  <span className="text-white font-bold">{materialFinish.toUpperCase()}</span>
+                  <span className="text-text-primary font-bold">{materialFinish.toUpperCase()}</span>
                 </div>
               </div>
             )}
 
             {/* Quantity Selector & Bulk Size Breakdown Matrix (Only for 3D single item) */}
             {!isCartCheckout && (
-            <div className="pt-2 border-t border-white/5 space-y-3">
+            <div className="pt-2 border-t border-border-subtle space-y-3">
               <div className="flex items-center justify-between">
                 <div className="flex items-center space-x-2">
                   <span className="text-text-muted text-[11px]">TOTAL JUMLAH:</span>
@@ -860,16 +866,16 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
                       type="button"
                       disabled={useCustomSizeBreakdown}
                       onClick={() => setQuantity(Math.max(1, quantity - 1))}
-                      className="w-7 h-7 rounded-lg bg-surface border border-white/10 text-white font-bold flex items-center justify-center hover:border-brand-accent disabled:opacity-40"
+                      className="w-11 h-11 min-w-[44px] min-h-[44px] rounded-lg bg-surface border border-border-subtle text-text-primary font-bold flex items-center justify-center hover:border-brand-accent disabled:opacity-40"
                     >
                       -
                     </button>
-                    <span className="w-8 text-center font-bold text-white text-sm">{quantity}</span>
+                    <span className="w-8 text-center font-bold text-text-primary text-sm">{quantity}</span>
                     <button
                       type="button"
                       disabled={useCustomSizeBreakdown}
                       onClick={() => setQuantity(quantity + 1)}
-                      className="w-7 h-7 rounded-lg bg-surface border border-white/10 text-white font-bold flex items-center justify-center hover:border-brand-accent disabled:opacity-40"
+                      className="w-11 h-11 min-w-[44px] min-h-[44px] rounded-lg bg-surface border border-border-subtle text-text-primary font-bold flex items-center justify-center hover:border-brand-accent disabled:opacity-40"
                     >
                       +
                     </button>
@@ -882,7 +888,7 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
                   className={`text-[10px] px-2 py-1 rounded border font-bold transition-all ${
                     useCustomSizeBreakdown
                       ? "bg-brand-accent/20 border-brand-accent text-brand-accent"
-                      : "bg-surface border-white/10 text-text-muted hover:text-white"
+                      : "bg-surface border-border-subtle text-text-muted hover:text-text-primary hover:border-brand-accent"
                   }`}
                 >
                   {useCustomSizeBreakdown ? "✓ RINCIAN UKURAN AKTIF" : "⚡ BAGI UKURAN (S–XXL)"}
@@ -891,29 +897,29 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
 
               {/* Size Breakdown Matrix Grid (For Event / Class / Community) */}
               {useCustomSizeBreakdown && (
-                <div className="p-3 rounded-xl bg-black/40 border border-white/10 space-y-2 animate-fadeIn">
+                <div className="p-3 rounded-xl bg-surface border border-border-subtle space-y-2 animate-fadeIn">
                   <span className="block text-[10px] text-text-muted">
                     Tentukan jumlah kaos per ukuran untuk workshop sablon:
                   </span>
                   <div className="grid grid-cols-3 sm:grid-cols-5 gap-2">
                     {["S", "M", "L", "XL", "XXL"].map((sz) => (
-                      <div key={sz} className="p-2 rounded-lg bg-surface border border-white/5 text-center">
+                      <div key={sz} className="p-2 rounded-lg bg-surface border border-border-subtle text-center">
                         <span className="block text-[10px] font-bold text-text-muted">{sz}</span>
                         <div className="flex items-center justify-center gap-1 mt-1">
                           <button
                             type="button"
                             onClick={() => handleSizeCountChange(sz, -1)}
-                            className="w-5 h-5 rounded bg-black/50 text-white flex items-center justify-center text-xs font-bold hover:bg-brand-accent"
+                            className="w-11 h-11 min-w-[44px] min-h-[44px] rounded bg-surface text-text-primary flex items-center justify-center text-xs font-bold hover:bg-brand-accent"
                           >
                             -
                           </button>
-                          <span className="font-bold text-white text-xs w-4">
+                          <span className="font-bold text-text-primary text-xs w-4">
                             {sizeDistribution[sz] || 0}
                           </span>
                           <button
                             type="button"
                             onClick={() => handleSizeCountChange(sz, 1)}
-                            className="w-5 h-5 rounded bg-black/50 text-white flex items-center justify-center text-xs font-bold hover:bg-brand-accent"
+                            className="w-11 h-11 min-w-[44px] min-h-[44px] rounded bg-surface text-text-primary flex items-center justify-center text-xs font-bold hover:bg-brand-accent"
                           >
                             +
                           </button>
@@ -952,7 +958,7 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
                   value={recipientName}
                   onChange={(e) => setRecipientName(e.target.value)}
                   placeholder="e.g. Sultan Hasanuddin"
-                  className="w-full px-3.5 py-2.5 rounded-xl bg-surface border border-white/10 focus:border-brand-accent text-base text-white focus:outline-none"
+                  className="w-full px-3.5 py-2.5 rounded-xl bg-surface border border-border-subtle focus:border-brand-accent text-base text-text-primary focus:outline-none"
                 />
               </div>
 
@@ -975,7 +981,7 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
                     }}
                     placeholder="081234567890"
                     aria-label="Nomor WhatsApp untuk OTP"
-                    className="flex-1 px-3.5 py-2.5 rounded-xl bg-surface border border-white/10 focus:border-brand-accent text-sm text-white font-mono focus:outline-none"
+                    className="flex-1 min-w-0 px-3.5 py-2.5 rounded-xl bg-surface border border-border-subtle focus:border-brand-accent text-base text-text-primary font-mono focus:outline-none"
                   />
                   <button
                     type="button"
@@ -997,7 +1003,7 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
                       }}
                       placeholder="6 digit OTP"
                       aria-label="Kode OTP 6 digit dari WhatsApp"
-                      className="flex-1 px-3 py-2 rounded-xl bg-surface border border-white/10 text-base text-white font-mono focus:outline-none"
+                      className="flex-1 px-3 py-2 rounded-xl bg-surface border border-border-subtle text-base text-text-primary font-mono focus:outline-none"
                       maxLength={6}
                     />
                     <button type="button" onClick={handleVerifyOtp} className="px-3 py-2 rounded-xl bg-brand-accent text-canvas text-xs font-bold">
@@ -1025,7 +1031,7 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
                   className={`p-3 rounded-xl border cursor-pointer transition-all flex flex-col justify-between ${
                     deliveryMethod === opt.method
                       ? "bg-brand-accent/15 border-brand-accent shadow-[0_0_12px_rgba(230,81,0,0.2)]"
-                      : "bg-surface/50 border-white/5 hover:border-white/20"
+                      : "bg-surface/50 border-border-subtle hover:border-border-strong"
                   }`}
                 >
                   <div className="flex items-start justify-between">
@@ -1042,7 +1048,7 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
                         }}
                         className="accent-brand-accent"
                       />
-                      <span className="font-mono text-xs font-bold text-white">{opt.name}</span>
+                      <span className="font-mono text-xs font-bold text-text-primary">{opt.name}</span>
                     </div>
                   </div>
                   <p className="font-sans text-[11px] text-text-muted mt-1 leading-snug">
@@ -1065,7 +1071,7 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
                       value={destQuery}
                       onChange={(e) => handleDestSearch(e.target.value)}
                       placeholder="cth: Gowa, Jakarta, Surabaya"
-                      className="w-full px-3 py-2.5 rounded-xl bg-black/40 border border-white/10 focus:border-brand-accent text-base text-white focus:outline-none"
+                      className="w-full px-3 py-2.5 rounded-xl bg-surface border border-border-subtle focus:border-brand-accent text-base text-text-primary focus:outline-none"
                     />
                     {locLoading && <p className="font-mono text-[11px] text-text-muted">Mencari kota...</p>}
                     {locSuggest.length > 0 && (
@@ -1079,7 +1085,7 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
                               setSelectedPostal(l.postalCode);
                               setLocSuggest([]);
                             }}
-                            className="w-full text-left px-2.5 py-1.5 rounded-lg bg-black/40 border border-white/10 hover:border-brand-accent font-mono text-[11px] text-white"
+                            className="w-full text-left px-2.5 py-1.5 rounded-lg bg-surface border border-border-subtle hover:border-brand-accent font-mono text-[11px] text-text-primary"
                           >
                             {l.label}{" "}
                             <span className="text-brand-accent font-bold">{l.postalCode}</span>
@@ -1099,7 +1105,7 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
                       type="button"
                       onClick={handleUseGps}
                       disabled={gpsLoading}
-                      className="w-full py-1.5 rounded-lg bg-black/40 border border-white/10 font-mono text-[11px] text-brand-accent disabled:opacity-50"
+                      className="w-full py-1.5 rounded-lg bg-surface border border-border-subtle font-mono text-[11px] text-brand-accent disabled:opacity-50"
                     >
                       {gpsLoading ? "MEMBACA GPS..." : "📍 ISI KOTA DARI GPS HP"}
                     </button>
@@ -1117,7 +1123,7 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
                           className={`p-2.5 rounded-xl border cursor-pointer flex items-center justify-between ${
                             selectedQuoteKey === q.key
                               ? "bg-brand-accent/15 border-brand-accent"
-                              : "bg-black/40 border-white/10 hover:border-white/25"
+                              : "bg-surface border-border-subtle hover:border-border-strong"
                           }`}
                         >
                           <div className="flex items-center gap-2">
@@ -1129,7 +1135,7 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
                               className="accent-brand-accent"
                             />
                             <div>
-                              <p className="font-mono text-xs font-bold text-white">
+                              <p className="font-mono text-xs font-bold text-text-primary">
                                 {q.courier} {q.service}
                               </p>
                               <p className="font-mono text-[10px] text-text-muted">Estimasi {q.etd}</p>
@@ -1151,7 +1157,7 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
                 <select
                   value={district}
                   onChange={(e) => setDistrict(e.target.value)}
-                  className="w-full px-3 py-2.5 rounded-xl bg-surface border border-white/10 focus:border-brand-accent text-xs font-mono text-white focus:outline-none"
+                  className="w-full px-3 py-2.5 rounded-xl bg-surface border border-border-subtle focus:border-brand-accent text-xs font-mono text-text-primary focus:outline-none"
                 >
                   {MAKASSAR_SUBDISTRICTS.map((sub) => (
                     <option key={sub} value={sub}>
@@ -1163,7 +1169,7 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
                   type="button"
                   onClick={handleUseGps}
                   disabled={gpsLoading}
-                  className="mt-1.5 w-full py-1.5 rounded-lg bg-surface border border-white/10 text-[11px] font-mono text-brand-accent hover:bg-brand-accent/10 disabled:opacity-50"
+                  className="mt-1.5 w-full py-1.5 rounded-lg bg-surface border border-border-subtle text-[11px] font-mono text-brand-accent hover:bg-brand-accent/10 disabled:opacity-50"
                 >
                   {gpsLoading ? "MEMBACA GPS..." : "📍 PAKAI LOKASI SAAT INI (GPS)"}
                 </button>
@@ -1181,7 +1187,7 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
                       value={courierNotes}
                       onChange={(e) => setCourierNotes(e.target.value)}
                       placeholder="e.g. Dekat Pintu 1 Unhas / Pagar Putih"
-                      className="w-full px-3.5 py-2.5 rounded-xl bg-surface border border-white/10 focus:border-brand-accent text-base text-white focus:outline-none font-sans"
+                      className="w-full px-3.5 py-2.5 rounded-xl bg-surface border border-border-subtle focus:border-brand-accent text-base text-text-primary focus:outline-none font-sans"
                     />
                   </div>
 
@@ -1195,7 +1201,7 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
                     value={fullAddress}
                     onChange={(e) => setFullAddress(e.target.value)}
                     placeholder="Nama jalan, nomor rumah, RT/RW, kelurahan"
-                    className="w-full px-3.5 py-2 rounded-xl bg-surface border border-white/10 focus:border-brand-accent text-xs font-sans text-white focus:outline-none"
+                    className="w-full px-3.5 py-2 rounded-xl bg-surface border border-border-subtle focus:border-brand-accent text-xs font-sans text-text-primary focus:outline-none"
                   />
                 </div>
               </div>
@@ -1216,7 +1222,7 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
                   className={`p-3 rounded-xl border cursor-pointer transition-all flex items-center justify-between ${
                     turnaroundTier === sla.tier
                       ? "bg-brand-accent/15 border-brand-accent"
-                      : "bg-surface/50 border-white/5 hover:border-white/20"
+                      : "bg-surface/50 border-border-subtle hover:border-border-strong"
                   }`}
                 >
                   <div className="flex items-center space-x-2">
@@ -1228,7 +1234,7 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
                       className="accent-brand-accent"
                     />
                     <div>
-                      <span className="font-mono text-xs font-bold text-white block">{sla.label}</span>
+                      <span className="font-mono text-xs font-bold text-text-primary block">{sla.label}</span>
                       <span className="font-sans text-[11px] text-text-muted">{sla.description}</span>
                     </div>
                   </div>
@@ -1238,7 +1244,7 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
           </div>
 
           {/* Section 5: Total Calculation & Submit Button */}
-          <div className="p-4 rounded-xl bg-black/60 border border-white/10 space-y-2.5 font-mono text-xs">
+          <div className="p-4 rounded-xl bg-surface border border-border-subtle space-y-2.5 font-mono text-xs">
             <div className="flex justify-between text-text-muted">
               <span>Subtotal Kaos & Sablon ({totalQty} pcs)</span>
               <span>Rp {effectiveSubtotal.toLocaleString("id-ID")}</span>
@@ -1277,14 +1283,14 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
                 onChange={(e) => setCouponCode(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 32))}
                 placeholder="cth: HEMAT10"
                 autoComplete="off"
-                className="w-full px-3 py-2 rounded-xl bg-surface border border-white/10 text-white uppercase placeholder:normal-case placeholder:text-text-muted"
+                className="w-full px-3 py-2 rounded-xl bg-surface border border-border-subtle text-text-primary uppercase placeholder:normal-case placeholder:text-text-muted"
               />
               <p className="text-text-muted text-[11px] mt-1">
                 Potongan dihitung otomatis oleh server saat bayar.
               </p>
             </div>
 
-            <div className="flex justify-between items-baseline pt-2 border-t border-white/10 text-sm sm:text-base font-bold text-white">
+            <div className="flex justify-between items-baseline pt-2 border-t border-border-subtle text-sm sm:text-base font-bold text-text-primary">
               <span>TOTAL PEMBAYARAN:</span>
               <span className="text-brand-accent text-lg sm:text-xl">
                 Rp {grandTotal.toLocaleString("id-ID")}
@@ -1323,6 +1329,7 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
           </button>
         </form>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 };

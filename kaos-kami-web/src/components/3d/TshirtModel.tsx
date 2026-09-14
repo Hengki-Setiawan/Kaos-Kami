@@ -3,7 +3,7 @@
 import React, { useEffect, useMemo, useRef, Suspense } from "react";
 import * as THREE from "three";
 import { useGLTF } from "@react-three/drei";
-import { useFrame } from "@react-three/fiber";
+import { useFrame, useThree } from "@react-three/fiber";
 import { easing } from "maath";
 import { useConfiguratorStore } from "@/store/useConfiguratorStore";
 import { useShallow } from "zustand/shallow";
@@ -14,29 +14,38 @@ import { useDeviceTier } from "@/hooks/useDeviceTier";
 import { useResourceTracker, useTrackedResource } from "@/lib/threeResourceTracker";
 import { surfaceZForApparel } from "@/lib/scaleCalibration";
 import { SilentModelFallback } from "@/components/ui/ModelErrorBoundary";
+import { extractApparelGeometry } from "@/lib/extractApparelGeometry";
 
 // FASE 13 (keputusan owner: mesh aktif DIGANTI): kaos → tee-basic.glb
 // (basic_t-shirt Sketchfab; draco -18% bila decoder ada). Rantai fallback
 // DIAM: draco → master → file lama (tanpa chrome error).
-const MODEL_PATH_NEW_DRC = "/models/tee-basic.draco.glb";
-const MODEL_PATH_NEW = "/models/tee-basic.glb";
-const MODEL_PATH_LEGACY = "/models/tshirt-heavyweight.glb";
-useGLTF.preload(MODEL_PATH_NEW_DRC);
-useGLTF.preload(MODEL_PATH_NEW);
-useGLTF.preload(MODEL_PATH_LEGACY);
+const MODEL_PATH_NEW = "/models/tee-basic.glb?v=7";
+const MODEL_PATH_LEGACY = "/models/tshirt-heavyweight.glb?v=7";
+
+// PERF 14 Sep 2026: top-level useGLTF.preload DIHAPUS — preload terpusat
+// HANYA via idle-preload di CanvasStage (aktif + tetangga katalog) agar tak
+// berebut bandwidth first paint.
 
 /** Ambil geometri mesh pertama (agnostik nama node Sketchfab). */
-function firstMeshGeometry(nodes: any): THREE.BufferGeometry | undefined {
+function firstMeshGeometry(nodes: any, scene?: any): THREE.BufferGeometry | undefined {
   const found = Object.values(nodes ?? {}).find(
     (n: any) => n && (n as any).isMesh && (n as any).geometry
   ) as any;
-  return found?.geometry as THREE.BufferGeometry | undefined;
+  if (found?.geometry) return found.geometry as THREE.BufferGeometry;
+  let meshGeo: THREE.BufferGeometry | undefined;
+  scene?.traverse?.((child: any) => {
+    if (!meshGeo && child.isMesh && child.geometry) {
+      meshGeo = child.geometry;
+    }
+  });
+  return meshGeo;
 }
 
 const GltfTeeNew: React.FC<{ path: string }> = ({ path }) => {
   const meshRef = useRef<THREE.Group>(null);
   const { tier } = useDeviceTier();
-  const { nodes } = useGLTF(path) as any;
+  const invalidate = useThree((s) => s.invalidate);
+  const { nodes, scene } = useGLTF(path) as any;
   const {
     selectedColor,
     isRotating,
@@ -78,18 +87,12 @@ const GltfTeeNew: React.FC<{ path: string }> = ({ path }) => {
   // atribut warna sama sekali (material.color via damp di useFrame), jadi
   // geser warna tak lagi clone+wind-weight ulang tiap frame commit.
   const baseGeometry = useMemo(() => {
-    const base = firstMeshGeometry(nodes);
-    if (!base) return null;
-    // JANGAN mutasi cache GLB drei (audit #6–#9): clone dulu, lalu ubah
-    // clone milik sendiri. ensureWindWeights menambah atribut `windWeight`
-    // ke geometri yang disentuh — bila base cache disentuh langsung, semua
-    // pemakai cache ikut berubah dan tak bisa di-dispose dengan aman.
-    const geo = base.clone();
-    geo.center();
-    // WAJIB: bobot wind per-vertex — tanpa ini preset wind diam total.
-    ensureWindWeights(geo);
-    return geo;
-  }, [nodes, path]);
+    return extractApparelGeometry(scene);
+  }, [scene, path]);
+
+  useEffect(() => {
+    if (baseGeometry) invalidate();
+  }, [invalidate, baseGeometry]);
 
   // Multi-part fake by vertex position (tanpa Blender re-export) — body/sleeves/collar by |x|/y threshold.
   // FASE 13 ambang di ruang centered (collar terukur 0.34, jahitan bahu 0.24):
@@ -151,24 +154,12 @@ const GltfTeeNew: React.FC<{ path: string }> = ({ path }) => {
   useTrackedResource(matTracker, material);
 
   useEffect(() => {
-    // Afilah multi-part: if multi-part mode, override with first part color
+    // Multi-part color update
     if (activeColorMode === "multi-part" && Object.keys(partColors).length > 0) {
       const firstPartColor = Object.values(partColors)[0];
       if (firstPartColor) material.color.set(firstPartColor);
     }
-    // Wind sudah di-apply sekali di factory createClothPhysicalMaterial —
-    // JANGAN applyWindToMaterial lagi di sini (apply ganda = replace
-    // #include dobel + program cache bengkak). Di sini hanya bersihkan
-    // onBeforeCompile basi saat preset kembali ke static (windStrength===0).
-    if (windStrength === 0) {
-      const m = material as any;
-      if (m.onBeforeCompile) {
-        m.onBeforeCompile = undefined;
-        m.userData.shader = undefined;
-        m.needsUpdate = true;
-      }
-    }
-  }, [material, activeColorMode, partColors, windStrength]);
+  }, [material, activeColorMode, partColors]);
 
   useFrame((state, delta) => {
     if (activeColorMode !== "multi-part") {
@@ -211,7 +202,7 @@ const GltfTeeNew: React.FC<{ path: string }> = ({ path }) => {
       <mesh
         castShadow
         receiveShadow
-        geometry={(coloredGeometry as any) || firstMeshGeometry(nodes)}
+        geometry={(coloredGeometry as any) || baseGeometry}
         material={material}
       >
         <DecalLayerRenderer surfaceZFront={surfaceZForApparel("tshirt")} surfaceZBack={surfaceZForApparel("tshirt")} />
@@ -319,15 +310,7 @@ const GltfTeeLegacy: React.FC = () => {
       const firstPartColor = Object.values(partColors)[0];
       if (firstPartColor) material.color.set(firstPartColor);
     }
-    if (windStrength === 0) {
-      const m = material as any;
-      if (m.onBeforeCompile) {
-        m.onBeforeCompile = undefined;
-        m.userData.shader = undefined;
-        m.needsUpdate = true;
-      }
-    }
-  }, [material, activeColorMode, partColors, windStrength]);
+  }, [material, activeColorMode, partColors]);
 
   useFrame((state, delta) => {
     if (activeColorMode !== "multi-part") {
@@ -378,14 +361,8 @@ const GltfTeeLegacy: React.FC = () => {
 export const TshirtModel: React.FC = () => {
   return (
     <Suspense fallback={null}>
-      <SilentModelFallback
-        fallback={
-          <SilentModelFallback fallback={<GltfTeeLegacy />}>
-            <GltfTeeNew path={MODEL_PATH_NEW} />
-          </SilentModelFallback>
-        }
-      >
-        <GltfTeeNew path={MODEL_PATH_NEW_DRC} />
+      <SilentModelFallback fallback={<GltfTeeLegacy />}>
+        <GltfTeeNew path={MODEL_PATH_NEW} />
       </SilentModelFallback>
     </Suspense>
   );

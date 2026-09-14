@@ -54,8 +54,9 @@ import {
 // 4. Tanpa knit/walking/isRotating per-komponen (AnimationController luar yang
 //    menangani preset idle/walking/waving/spin/none) + wind tetap 0.25
 //    (cermin renderer generik) + sway inersia yang sama.
-// 5. Tanpa fallback mesh lain: draco 404 → master lokal (keduanya kini di
-//    public/models). JANGAN fallback ke hoodie (siluet salah = menipu).
+// 5. Tanpa fallback mesh lain: primer 404 → master lokal non-Draco
+//    (SOFT-DISABLE Draco 14 Sep 2026; varian draco diarsipkan ke
+//    backups/draco-archive/). JANGAN fallback ke hoodie (siluet salah = menipu).
 export function MobileSweaterModel() {
   const groupRef = useRef<THREE.Group>(null);
   const color = useMobileStudioStore((s) => s.color);
@@ -63,7 +64,8 @@ export function MobileSweaterModel() {
 
   const clothPhysics = useMemo(() => new ClothInertiaSimulator({ stiffness: 38.0, damping: 7.2 }), []);
 
-  // Rantai draco→master cermin web (probe HEAD berlapis, tak pernah throw).
+  // Rantai non-Draco cermin web (probe HEAD berlapis, tak pernah throw;
+  // SOFT-DISABLE Draco 14 Sep 2026 — kandidat = master non-Draco saja).
   const [resolvedPath, setResolvedPath] = useState<string | null>(null);
   useEffect(() => {
     let alive = true;

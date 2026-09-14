@@ -60,13 +60,13 @@ export const KalkulatorSablonClient: React.FC = () => {
         </h1>
         <p className="text-sm font-mono text-text-muted leading-relaxed">
           Semua angka di halaman ini dihitung dari standar produksi yang sama dengan mesin
-          harga checkout: lebar cetak maks <strong className="text-white">30 cm</strong> (batas
+          harga checkout: lebar cetak maks <strong className="text-text-primary">30 cm</strong> (batas
           printhead DTF), tier A6–A3, dan berat kain GSM per apparel.
         </p>
       </header>
 
       {/* 1 — Kalkulator ukuran print */}
-      <section aria-label="Kalkulator ukuran print" className="p-5 rounded-2xl bg-surface/60 border border-white/10 space-y-4">
+      <section aria-label="Kalkulator ukuran print" className="p-5 rounded-2xl bg-surface/60 border border-border-subtle space-y-4">
         <h2 className="font-display font-black text-base uppercase">1 · Berapa tier desainmu?</h2>
         <div className="grid grid-cols-2 gap-3">
           <label className="space-y-1 block">
@@ -75,7 +75,7 @@ export const KalkulatorSablonClient: React.FC = () => {
               value={lebar}
               onChange={(e) => setLebar(e.target.value.replace(/[^0-9.,]/g, "").slice(0, 5))}
               inputMode="decimal"
-              className="w-full px-3 py-2.5 rounded-xl bg-black/40 border border-white/10 font-mono text-sm text-white focus:outline-none focus:border-brand-accent"
+              className="w-full px-3 py-2.5 rounded-xl bg-surface border border-border-subtle font-mono text-sm text-text-primary focus:outline-none focus:border-brand-accent"
             />
           </label>
           <label className="space-y-1 block">
@@ -84,7 +84,7 @@ export const KalkulatorSablonClient: React.FC = () => {
               value={tinggi}
               onChange={(e) => setTinggi(e.target.value.replace(/[^0-9.,]/g, "").slice(0, 5))}
               inputMode="decimal"
-              className="w-full px-3 py-2.5 rounded-xl bg-black/40 border border-white/10 font-mono text-sm text-white focus:outline-none focus:border-brand-accent"
+              className="w-full px-3 py-2.5 rounded-xl bg-surface border border-border-subtle font-mono text-sm text-text-primary focus:outline-none focus:border-brand-accent"
             />
           </label>
         </div>
@@ -115,7 +115,7 @@ export const KalkulatorSablonClient: React.FC = () => {
           <table className="w-full text-xs font-mono">
             <caption className="text-left text-[11px] text-text-muted pb-2 font-bold uppercase">Tabel tier baku</caption>
             <thead>
-              <tr className="text-left text-text-muted border-b border-white/10">
+              <tr className="text-left text-text-muted border-b border-border-subtle">
                 <th className="py-2 pr-3">Tier</th>
                 <th className="py-2 pr-3">Sisi maks</th>
                 <th className="py-2 pr-3">Nama</th>
@@ -124,7 +124,7 @@ export const KalkulatorSablonClient: React.FC = () => {
             </thead>
             <tbody>
               {(Object.keys(PRINT_TIER_COST_IDR) as PrintTier[]).map((t) => (
-                <tr key={t} className={`border-b border-white/5 ${hasil?.tier === t ? "text-brand-accent font-bold" : ""}`}>
+                <tr key={t} className={`border-b border-border-subtle ${hasil?.tier === t ? "text-brand-accent font-bold" : ""}`}>
                   <td className="py-2 pr-3">{t}</td>
                   <td className="py-2 pr-3">{t === "A6" ? "≤ 10 cm" : t === "A5" ? "≤ 15 cm" : t === "A4" ? "≤ 25 cm" : "≤ 30 cm"}</td>
                   <td className="py-2 pr-3">{PRINT_TIER_LABEL[t]}</td>
@@ -137,7 +137,7 @@ export const KalkulatorSablonClient: React.FC = () => {
       </section>
 
       {/* 2 — Tabel GSM */}
-      <section aria-label="Tabel kain GSM" className="p-5 rounded-2xl bg-surface/60 border border-white/10 space-y-3">
+      <section aria-label="Tabel kain GSM" className="p-5 rounded-2xl bg-surface/60 border border-border-subtle space-y-3">
         <h2 className="font-display font-black text-base uppercase">2 · Pilih ketebalan kain (GSM)</h2>
         <p className="text-xs font-mono text-text-muted leading-relaxed">
           Makin kecil angka benang (16s), makin tebal kain dan ada tambahan biaya bahan.
@@ -145,7 +145,7 @@ export const KalkulatorSablonClient: React.FC = () => {
         <div className="overflow-x-auto">
           <table className="w-full text-xs font-mono">
             <thead>
-              <tr className="text-left text-text-muted border-b border-white/10">
+              <tr className="text-left text-text-muted border-b border-border-subtle">
                 <th className="py-2 pr-3">Kain</th>
                 <th className="py-2 pr-3">Ketebalan</th>
                 <th className="py-2 pr-3">Tambahan</th>
@@ -154,8 +154,8 @@ export const KalkulatorSablonClient: React.FC = () => {
             </thead>
             <tbody>
               {FABRIC_ROWS.map((r) => (
-                <tr key={r.kain} className="border-b border-white/5">
-                  <td className="py-2 pr-3 font-bold text-white">{r.kain}</td>
+                <tr key={r.kain} className="border-b border-border-subtle">
+                  <td className="py-2 pr-3 font-bold text-text-primary">{r.kain}</td>
                   <td className="py-2 pr-3">{r.gsm}</td>
                   <td className="py-2 pr-3 text-brand-accent font-bold">{r.tambah}</td>
                   <td className="py-2">{r.cocok}</td>
@@ -168,7 +168,7 @@ export const KalkulatorSablonClient: React.FC = () => {
           <table className="w-full text-xs font-mono">
             <caption className="text-left text-[11px] text-text-muted pb-2 font-bold uppercase">Kain bawaan tiap apparel</caption>
             <thead>
-              <tr className="text-left text-text-muted border-b border-white/10">
+              <tr className="text-left text-text-muted border-b border-border-subtle">
                 <th className="py-2 pr-3">Apparel</th>
                 <th className="py-2 pr-3">GSM bawaan</th>
                 <th className="py-2 text-right">Harga dasar</th>
@@ -176,8 +176,8 @@ export const KalkulatorSablonClient: React.FC = () => {
             </thead>
             <tbody>
               {APPAREL_ORDER.map((a) => (
-                <tr key={a} className="border-b border-white/5">
-                  <td className="py-2 pr-3 font-bold text-white">{APPAREL_CATALOG[a].name}</td>
+                <tr key={a} className="border-b border-border-subtle">
+                  <td className="py-2 pr-3 font-bold text-text-primary">{APPAREL_CATALOG[a].name}</td>
                   <td className="py-2 pr-3">{APPAREL_CATALOG[a].weightGsm}</td>
                   <td className="py-2 text-right">{fmtRp(APPAREL_CATALOG[a].basePriceIdr)}</td>
                 </tr>
@@ -188,7 +188,7 @@ export const KalkulatorSablonClient: React.FC = () => {
       </section>
 
       {/* 3 — Tabel placement baku */}
-      <section aria-label="Tabel placement baku" className="p-5 rounded-2xl bg-surface/60 border border-white/10 space-y-3">
+      <section aria-label="Tabel placement baku" className="p-5 rounded-2xl bg-surface/60 border border-border-subtle space-y-3">
         <h2 className="font-display font-black text-base uppercase">3 · Placement baku (maks cm + tier)</h2>
         <p className="text-xs font-mono text-text-muted leading-relaxed">
           Ukuran maksimum tiap sisi dalam cm (terkalibrasi 1:1 dengan mesin cetak) beserta
@@ -212,7 +212,7 @@ export const KalkulatorSablonClient: React.FC = () => {
                   {APPAREL_CATALOG[a].name}
                 </caption>
                 <thead>
-                  <tr className="text-left text-text-muted border-b border-white/10">
+                  <tr className="text-left text-text-muted border-b border-border-subtle">
                     <th className="py-2 pr-3">Sisi</th>
                     <th className="py-2 pr-3">Maks (cm)</th>
                     <th className="py-2 pr-3">Tier</th>
@@ -223,8 +223,8 @@ export const KalkulatorSablonClient: React.FC = () => {
                   {rows.map((r) => {
                     const t = tierOf(Math.max(r.w, r.h));
                     return (
-                      <tr key={r.sisi} className="border-b border-white/5">
-                        <td className="py-2 pr-3 font-bold text-white">{r.sisi}</td>
+                      <tr key={r.sisi} className="border-b border-border-subtle">
+                        <td className="py-2 pr-3 font-bold text-text-primary">{r.sisi}</td>
                         <td className="py-2 pr-3">{r.w} × {r.h}</td>
                         <td className="py-2 pr-3">{t} · {PRINT_TIER_LABEL[t]}</td>
                         <td className="py-2 text-right">{fmtRp(PRINT_TIER_COST_IDR[t])}</td>
@@ -252,7 +252,7 @@ export const KalkulatorSablonClient: React.FC = () => {
         </Link>
         <Link
           href="/catalog"
-          className="flex-1 text-center py-3.5 rounded-xl bg-surface border border-white/10 font-display font-black text-xs uppercase tracking-wider hover:border-brand-accent transition-all"
+          className="flex-1 text-center py-3.5 rounded-xl bg-surface border border-border-subtle font-display font-black text-xs uppercase tracking-wider hover:border-brand-accent transition-all"
         >
           Lihat Katalog
         </Link>

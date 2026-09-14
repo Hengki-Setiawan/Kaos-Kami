@@ -146,7 +146,7 @@ export const PrintZoneGuide: React.FC<PrintZoneGuideProps> = ({ surfaceZ }) => {
         </mesh>
         <Html center position={[0, -boxHeightUnits / 2 - 0.02, 0]} zIndexRange={[50, 0]} pointerEvents="none">
           <div className="flex flex-col items-center gap-1 pointer-events-none">
-            <div className="flex items-center gap-1 px-1.5 py-0.5 rounded bg-black/80 backdrop-blur-sm border border-emerald-500/30 whitespace-nowrap">
+            <div className="flex items-center gap-1 px-1.5 py-0.5 rounded bg-surface/90 backdrop-blur-sm border border-emerald-500/30 whitespace-nowrap">
               <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
               <span className="text-[8px] font-mono tracking-wider font-semibold text-emerald-400 uppercase">
                 2× Panel {boxCm.w}×{boxCm.h}cm — resleting tengah
@@ -179,7 +179,7 @@ export const PrintZoneGuide: React.FC<PrintZoneGuideProps> = ({ surfaceZ }) => {
       {/* Label + peringatan (HTML kecil, tak mengklaim skala) */}
       <Html center position={[0, -boxHeightUnits / 2 - 0.02, 0]} zIndexRange={[50, 0]} pointerEvents="none">
         <div className="flex flex-col items-center gap-1 pointer-events-none">
-          <div className="flex items-center gap-1 px-1.5 py-0.5 rounded bg-black/80 backdrop-blur-sm border border-emerald-500/30 whitespace-nowrap">
+          <div className="flex items-center gap-1 px-1.5 py-0.5 rounded bg-surface/90 backdrop-blur-sm border border-emerald-500/30 whitespace-nowrap">
             <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
             <span className="text-[8px] font-mono tracking-wider font-semibold text-emerald-400 uppercase">
               Batas Cetak {boxCm.w}×{boxCm.h}cm
