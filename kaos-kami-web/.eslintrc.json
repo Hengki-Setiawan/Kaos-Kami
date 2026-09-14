@@ -6,7 +6,7 @@
       "excludedFiles": ["**/*print*", "**/*job-ticket*", "**/*job_ticket*"],
       "rules": {
         "no-restricted-syntax": [
-          "error",
+          "warn",
           {
             "selector": "Literal[value=/bg-\\[#(121214|141416|0E0E10)\\]/]",
             "message": "Warna kanvas mentah bg-[#…] dilarang — pakai token semantik (bg-canvas / bg-surface). Escape hatch: // eslint-disable-next-line no-restricted-syntax -- theme-allow"

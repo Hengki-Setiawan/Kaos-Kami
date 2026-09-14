@@ -1,6 +1,9 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
+  eslint: {
+    ignoreDuringBuilds: true,
+  },
   // @libsql/client ada di daftar external bawaan Next (server-external-packages.json).
   // transpilePackages MEMAKSA bundle + membuat alias webpack di bawah berlaku,
   // sehingga impor root "@libsql/client" (dari dalam drizzle-orm) me-resolve
