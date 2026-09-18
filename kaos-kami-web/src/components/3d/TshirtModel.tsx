@@ -15,6 +15,7 @@ import { useResourceTracker, useTrackedResource } from "@/lib/threeResourceTrack
 import { surfaceZForApparel } from "@/lib/scaleCalibration";
 import { SilentModelFallback } from "@/components/ui/ModelErrorBoundary";
 import { extractApparelGeometry } from "@/lib/extractApparelGeometry";
+import { getStretchFactors } from "@/lib/3d/stretchPhysics";
 
 // FASE 13 (keputusan owner: mesh aktif DIGANTI): kaos → tee-basic.glb
 // (basic_t-shirt Sketchfab; draco -18% bila decoder ada). Rantai fallback
@@ -73,8 +74,14 @@ const GltfTeeNew: React.FC<{ path: string }> = ({ path }) => {
   );
   const roughness = materialFinish === "french-terry" ? 0.88 : 0.84;
 
-  const { animationPreset, animationSpeed } = useConfiguratorStore(
-    useShallow((s) => ({ animationPreset: s.animationPreset, animationSpeed: s.animationSpeed }))
+  const { animationPreset, animationSpeed, testLabMode, stretchIntensity, stretchDirection } = useConfiguratorStore(
+    useShallow((s) => ({
+      animationPreset: s.animationPreset,
+      animationSpeed: s.animationSpeed,
+      testLabMode: s.testLabMode,
+      stretchIntensity: s.stretchIntensity,
+      stretchDirection: s.stretchDirection,
+    }))
   );
   // Wind strength via animationPreset (BLUEPRINT-02 §4)
   const windStrength =
@@ -85,20 +92,17 @@ const GltfTeeNew: React.FC<{ path: string }> = ({ path }) => {
   // kalibrasi collar/surfaceZ Fase 13 diukur di ruang centered ini.
   // selectedColor SENGAJA tak ada di sini: mode single-color tak butuh
   // atribut warna sama sekali (material.color via damp di useFrame), jadi
-  // geser warna tak lagi clone+wind-weight ulang tiap frame commit.
+  // FASE KALIBRASI PROPORSIONAL (selaras Hoodie acuan emas):
+  // scaleMultiplier 0.72 (lebar 51.5cm = Size L) & crownYOffset -0.12 (kerah turun ke pangkal leher, dada di Y=0).
   const baseGeometry = useMemo(() => {
-    return extractApparelGeometry(scene);
+    return extractApparelGeometry(scene, { scaleMultiplier: 0.72, crownYOffset: -0.12 });
   }, [scene, path]);
 
   useEffect(() => {
     if (baseGeometry) invalidate();
   }, [invalidate, baseGeometry]);
 
-  // Multi-part fake by vertex position (tanpa Blender re-export) — body/sleeves/collar by |x|/y threshold.
-  // FASE 13 ambang di ruang centered (collar terukur 0.34, jahitan bahu 0.24):
-  // y>0.30 kerah, |x|>0.27 lengan. Cek visual bila mesh ganti lagi.
-  // Atribut warna ditulis in-place di clone milik sendiri (+needsUpdate, tanpa
-  // alokasi/merge ulang).
+  // Multi-part fake by vertex position (ruang terkalibrasi: kerah y>0.12, lengan |x|>0.18)
   const coloredGeometry = useMemo(() => {
     if (!baseGeometry) return null;
     if (activeColorMode !== "multi-part") {
@@ -120,8 +124,8 @@ const GltfTeeNew: React.FC<{ path: string }> = ({ path }) => {
     for (let i = 0; i < pos.count; i++) {
       const x = pos.getX(i);
       const y = pos.getY(i);
-      if (y > 0.3) tmp.copy(colCollar);
-      else if (Math.abs(x) > 0.27) tmp.copy(colSleeve);
+      if (y > 0.12) tmp.copy(colCollar);
+      else if (Math.abs(x) > 0.18) tmp.copy(colSleeve);
       else tmp.copy(colBody);
       arr[i * 3] = tmp.r;
       arr[i * 3 + 1] = tmp.g;
@@ -184,6 +188,10 @@ const GltfTeeNew: React.FC<{ path: string }> = ({ path }) => {
         // subtle scale reveal for knit
         const s = 0.9 + prog * 0.1;
         meshRef.current.scale.set(s, s, s);
+      } else if (animationPreset === "wind") {
+        const t = state.clock.getElapsedTime() * animationSpeed;
+        meshRef.current.rotation.z = Math.sin(t * 1.8) * 0.02 * windStrength;
+        meshRef.current.position.x = (viewMode === "story" ? 0 : modelPosX) + Math.sin(t * 1.3) * 0.015 * windStrength;
       }
     }
   });
@@ -192,11 +200,14 @@ const GltfTeeNew: React.FC<{ path: string }> = ({ path }) => {
   const posY = viewMode === "story" ? -0.05 : modelPosY - 0.05;
   const scale = viewMode === "story" ? 1.0 : modelScale;
 
+  // 🧲 Skala Elastisitas Kain Uji Tarik (Pull & Stretch Test)
+  const stretchFactors = getStretchFactors(testLabMode, stretchIntensity, stretchDirection);
+
   return (
     <group
       ref={meshRef}
       position={[posX, posY, 0]}
-      scale={[scale, scale, scale]}
+      scale={[scale * stretchFactors.stretchX, scale * stretchFactors.stretchY, scale * stretchFactors.stretchZ]}
       dispose={null}
     >
       <mesh
@@ -242,8 +253,14 @@ const GltfTeeLegacy: React.FC = () => {
     useShallow((s) => ({ partColors: s.partColors, activeColorMode: s.activeColorMode }))
   );
 
-  const { animationPreset, animationSpeed } = useConfiguratorStore(
-    useShallow((s) => ({ animationPreset: s.animationPreset, animationSpeed: s.animationSpeed }))
+  const { animationPreset, animationSpeed, testLabMode, stretchIntensity, stretchDirection } = useConfiguratorStore(
+    useShallow((s) => ({
+      animationPreset: s.animationPreset,
+      animationSpeed: s.animationSpeed,
+      testLabMode: s.testLabMode,
+      stretchIntensity: s.stretchIntensity,
+      stretchDirection: s.stretchDirection,
+    }))
   );
   const windStrength =
     animationPreset === "wind" ? 0.8 * animationSpeed : animationPreset === "walking" ? 0.4 * animationSpeed : animationPreset === "knit" ? 0.2 : 0;
@@ -331,6 +348,10 @@ const GltfTeeLegacy: React.FC = () => {
         const prog = Math.min(1, (state.clock.getElapsedTime() % 3) / 2);
         const s = 0.9 + prog * 0.1;
         meshRef.current.scale.set(s, s, s);
+      } else if (animationPreset === "wind") {
+        const t = state.clock.getElapsedTime() * animationSpeed;
+        meshRef.current.rotation.z = Math.sin(t * 1.8) * 0.02 * windStrength;
+        meshRef.current.position.x = (viewMode === "story" ? 0 : modelPosX) + Math.sin(t * 1.3) * 0.015 * windStrength;
       }
     }
   });
@@ -339,11 +360,13 @@ const GltfTeeLegacy: React.FC = () => {
   const posY = viewMode === "story" ? -0.05 : modelPosY - 0.05;
   const scale = viewMode === "story" ? 1.0 : modelScale;
 
+  const stretchFactors = getStretchFactors(testLabMode, stretchIntensity, stretchDirection);
+
   return (
     <group
       ref={meshRef}
       position={[posX, posY, 0]}
-      scale={[scale, scale, scale]}
+      scale={[scale * stretchFactors.stretchX, scale * stretchFactors.stretchY, scale * stretchFactors.stretchZ]}
       dispose={null}
     >
       <mesh

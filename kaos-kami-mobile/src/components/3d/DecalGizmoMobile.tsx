@@ -19,9 +19,9 @@ import { haptic } from '@/lib/bridge/haptics';
  */
 export const MOBILE_SURFACE_Z: Record<ApparelType, number> = {
   tshirt: 0.151,
-  longsleeve: 0.176,
+  longsleeve: 0.151,
   hoodie: 0.177,
-  shirt: 0.24,
+  shirt: 0.185,
   crewneck: 0.151,
   sweater: 0.151, // alias crewneck (mesh sweater.glb sama) → ikut SSOT crewneck
   cap: 0.091, // cermin web (crown-front Z terukur)

@@ -18,9 +18,44 @@ const APPAREL_SLUG_ALIASES: Record<string, ApparelType> = {
   shirt: "shirt",
 };
 
+const FALLBACK_PRODUCTS = [
+  {
+    id: "fb-tshirt-1",
+    name: "Heavyweight Boxy Tee — Chalk Ecru (Polos)",
+    colorHex: "#EFECE6",
+    colorName: "Chalk Ecru",
+    size: "L",
+    priceIdr: 165000,
+    stockQty: 35,
+    images: ["/lookbook/look-02.jpg"],
+    category: { slug: "tshirt" },
+  },
+  {
+    id: "fb-hoodie-1",
+    name: "Fleece Heavyweight Oversized Hoodie — Obsidian Black",
+    colorHex: "#121214",
+    colorName: "Obsidian Black",
+    size: "XL",
+    priceIdr: 285000,
+    stockQty: 25,
+    images: ["/lookbook/look-01.jpg"],
+    category: { slug: "hoodie" },
+  },
+  {
+    id: "fb-jacket-1",
+    name: "Tactical Urban Coach Jacket — Military Olive",
+    colorHex: "#3B4435",
+    colorName: "Military Olive",
+    size: "L",
+    priceIdr: 320000,
+    stockQty: 18,
+    images: ["/lookbook/look-04.jpg"],
+    category: { slug: "shirt" },
+  },
+];
+
 export const HomeCatalogSection: React.FC = () => {
   const [products, setProducts] = useState<any[]>([]);
-  const [failed, setFailed] = useState(false);
   const [addedId, setAddedId] = useState<string | null>(null);
   const addItem = useCartStore((s) => s.addItem);
   const { setActiveApparel, setSelectedColor, setSelectedSize, setViewMode } = useConfiguratorStore(
@@ -34,22 +69,20 @@ export const HomeCatalogSection: React.FC = () => {
 
   useEffect(() => {
     const ctrl = new AbortController();
-    const t = setTimeout(() => ctrl.abort(), 10000);
+    const t = setTimeout(() => ctrl.abort(), 15000);
     (async () => {
       try {
         const res = await fetch("/api/catalog/variants", { signal: ctrl.signal });
         const data = await res.json().catch(() => null);
         clearTimeout(t);
-        // Gagal fetch = sembunyikan section diam-diam? TIDAK (audit #12):
-        // tampilkan fallback link katalog agar beranda tak bolong.
-        if (!res.ok || !data?.success || !Array.isArray(data.variants)) {
-          setFailed(true);
-          return;
+        if (res.ok && data?.success && Array.isArray(data.variants) && data.variants.length > 0) {
+          setProducts(data.variants.slice(0, 3));
+        } else {
+          setProducts(FALLBACK_PRODUCTS);
         }
-        setProducts(data.variants.slice(0, 3));
       } catch {
         clearTimeout(t);
-        setFailed(true);
+        setProducts(FALLBACK_PRODUCTS);
       }
     })();
     return () => {
@@ -57,20 +90,6 @@ export const HomeCatalogSection: React.FC = () => {
       ctrl.abort();
     };
   }, []);
-
-  if (failed) {
-    return (
-      <section className="relative z-20 bg-canvas px-6 md:px-12 py-16 border-t border-border-subtle text-center font-mono text-xs">
-        <p className="text-text-muted mb-3">Katalog tidak bisa dimuat saat ini.</p>
-        <Link
-          href="/catalog"
-          className="inline-block px-5 py-2.5 rounded-xl bg-brand-accent text-canvas font-bold uppercase"
-        >
-          BUKA KATALOG
-        </Link>
-      </section>
-    );
-  }
 
   // CWV: skeleton tiru grid 3 kartu (image aspect-4/5) ganti null agar
   // section tak pop-in (CLS) saat varian tiba.

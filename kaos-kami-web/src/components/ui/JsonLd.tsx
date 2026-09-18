@@ -9,7 +9,7 @@ export function JsonLd() {
     "@context": "https://schema.org",
     "@type": "Product",
     name: PRODUCT_DETAILS.productTitle,
-    description: "Heavyweight 240 & 280 GSM Cotton Combed Oversized Streetwear Apparel 3D Sandbox.",
+    description: "Kaos polos katun combed berkualitas dan layanan sablon DTF satuan tanpa minimal order di Kota Makassar.",
     brand: {
       "@type": "Brand",
       name: PRODUCT_DETAILS.brand,

@@ -18,33 +18,25 @@ export const HeroOverlay: React.FC = () => {
   const isVisible = activePhase === 1 && viewMode === "story";
   const apparel = APPAREL_CATALOG[activeApparel];
   // Judul hero dari CMS (R2) — gagal = default editorial.
-  // CWV stale-while-revalidate: tampilkan cache sesi (stale) instan agar
-  // teks hero tak pop-in (CLS), lalu revalidasi di background.
-  const [cmsTitle, setCmsTitle] = React.useState<string | null>(() => {
-    try {
-      const raw = sessionStorage.getItem("kaos-hero-cms");
-      if (raw) {
-        const d = JSON.parse(raw) as { heroTitle?: unknown };
-        if (typeof d?.heroTitle === "string" && d.heroTitle) {
-          return d.heroTitle.slice(0, 80);
-        }
-      }
-    } catch {}
-    return null;
-  });
-  const [cmsSubtitle, setCmsSubtitle] = React.useState<string | null>(() => {
-    try {
-      const raw = sessionStorage.getItem("kaos-hero-cms");
-      if (raw) {
-        const d = JSON.parse(raw) as { heroSubtitle?: unknown };
-        if (typeof d?.heroSubtitle === "string" && d.heroSubtitle) {
-          return (d.heroSubtitle as string).slice(0, 200);
-        }
-      }
-    } catch {}
-    return null;
-  });
+  // Inisialisasi null di SSR agar markup server & client identik (0 hydration mismatch),
+  // lalu baca cache sessionStorage dan revalidasi CMS di useEffect.
+  const [cmsTitle, setCmsTitle] = React.useState<string | null>(null);
+  const [cmsSubtitle, setCmsSubtitle] = React.useState<string | null>(null);
+
   React.useEffect(() => {
+    try {
+      const raw = sessionStorage.getItem("kaos-hero-cms");
+      if (raw) {
+        const d = JSON.parse(raw);
+        if (typeof d?.heroTitle === "string" && d.heroTitle) {
+          setCmsTitle(d.heroTitle.slice(0, 80));
+        }
+        if (typeof d?.heroSubtitle === "string" && d.heroSubtitle) {
+          setCmsSubtitle(String(d.heroSubtitle).slice(0, 200));
+        }
+      }
+    } catch {}
+
     const ctrl = new AbortController();
     const t = setTimeout(() => ctrl.abort(), 8000);
     (async () => {
@@ -77,8 +69,9 @@ export const HeroOverlay: React.FC = () => {
       ctrl.abort();
     };
   }, []);
-  const titleLines = (cmsTitle || "HEAVYWEIGHT BOXY TEE").split("\n");
-  const subtitle = cmsSubtitle || "Katun combed tebal berkarakter boxy tegap dengan pola drop-shoulder modern & sablon DTF resolusi tinggi.";
+
+  const titleLines = (cmsTitle || "BIKIN KAOS IMPIANMU\nDENGAN MOCKUP 3D").split("\n");
+  const subtitle = cmsSubtitle || "Platform sablon DTF kustom satuan & kaos polos katun combed berkualitas di Makassar. Simulasikan desainmu 360° secara akurat.";
 
   return (
     <section
@@ -89,11 +82,11 @@ export const HeroOverlay: React.FC = () => {
       }`}
     >
       {/* Top Clean Editorial Category */}
-      <div className="max-w-xs sm:max-w-sm pt-2">
+      <div className="max-w-xs sm:max-w-md pt-2">
         <span className="font-mono text-xs text-brand-accent tracking-widest uppercase font-bold block mb-1">
-          MAKASSAR STREETWEAR // {apparel.weightGsm}
+          KAOS KAMI · SABLON DTF & KAOS CUSTOM MAKASSAR
         </span>
-        <p className="font-sans text-xs text-text-muted leading-relaxed min-h-[3rem]">
+        <p suppressHydrationWarning className="font-sans text-xs text-text-muted leading-relaxed min-h-[3rem]">
           {subtitle}
         </p>
       </div>
@@ -102,7 +95,7 @@ export const HeroOverlay: React.FC = () => {
       <div className="my-auto max-w-sm sm:max-w-md space-y-3 z-20">
         {/* CWV: min-h cadangkan slot judul agar swap teks CMS
             (stale→fresh) tak menggeser layout (CLS). */}
-        <h1 className="text-[clamp(1.65rem,7.5vw,2.25rem)] sm:text-4xl md:text-[44px] font-display font-black uppercase tracking-tight leading-[0.96] text-text-primary min-h-[5.5rem] sm:min-h-[6rem]">
+        <h1 suppressHydrationWarning className="text-[clamp(1.65rem,7.5vw,2.25rem)] sm:text-4xl md:text-[44px] font-display font-black uppercase tracking-tight leading-[0.96] text-text-primary min-h-[5.5rem] sm:min-h-[6rem]">
           {titleLines.map((line, i) => (
             <React.Fragment key={i}>
               {i > 0 && <br />}
@@ -111,7 +104,7 @@ export const HeroOverlay: React.FC = () => {
           ))}
         </h1>
         <p className="font-mono text-xs sm:text-sm text-brand-accent tracking-wider uppercase font-bold">
-          {`KATUN COMBED 240/280 GSM · ${apparel.formattedPrice}`}
+          {`KATUN COMBED ADEM · MULAI ${apparel.formattedPrice}`}
         </p>
 
         {/* Action Buttons: Clean, Confident, Zero Gimmick */}
@@ -120,13 +113,13 @@ export const HeroOverlay: React.FC = () => {
             href="/studio"
             className="inline-flex items-center px-6 py-3 rounded-full bg-brand-accent text-canvas font-mono font-bold text-xs uppercase tracking-wider hover:brightness-110 transition-all dark:shadow-[0_0_20px_rgba(230,81,0,0.35)] active:scale-95"
           >
-            <span>KUSTOM SABLON 3D</span>
+            <span>KUSTOM DESAIN (3D)</span>
           </Link>
           <Link
             href="/catalog"
             className="inline-flex items-center px-6 py-3 rounded-full bg-surface border border-border-subtle text-text-primary font-mono font-bold text-xs uppercase tracking-wider hover:border-brand-accent hover:text-brand-accent transition-all active:scale-95"
           >
-            <span>BELI KAOS POLOS</span>
+            <span>KATALOG SIAP BELI</span>
           </Link>
         </div>
       </div>
@@ -135,21 +128,21 @@ export const HeroOverlay: React.FC = () => {
       <div className="flex flex-col sm:flex-row items-start sm:items-end justify-between gap-6 pb-2 border-t border-border-subtle pt-4">
         <div className="flex gap-6 md:gap-10 font-mono text-xs">
           <div>
-            <span className="block text-[10px] text-text-muted uppercase tracking-wider">POLA POTONGAN</span>
-            <span className="font-bold text-text-primary">BOXY OVERSIZED</span>
+            <span className="block text-[10px] text-text-muted uppercase tracking-wider">LAYANAN</span>
+            <span className="font-bold text-text-primary">SABLON DTF & POLOS</span>
           </div>
           <div>
-            <span className="block text-[10px] text-text-muted uppercase tracking-wider">GRAMASI</span>
-            <span className="font-bold text-brand-accent">{apparel.weightGsm}</span>
+            <span className="block text-[10px] text-text-muted uppercase tracking-wider">MINIMAL ORDER</span>
+            <span className="font-bold text-brand-accent">BEBAS SATUAN (0 MIN)</span>
           </div>
           <div>
-            <span className="block text-[10px] text-text-muted uppercase tracking-wider">ORIGIN</span>
-            <span className="font-bold text-text-primary">MAKASSAR, ID</span>
+            <span className="block text-[10px] text-text-muted uppercase tracking-wider">LOKASI</span>
+            <span className="font-bold text-text-primary">KOTA MAKASSAR, ID</span>
           </div>
         </div>
 
         <div className="flex items-center space-x-3 font-mono text-xs text-text-muted animate-bounce">
-          <span className="tracking-widest uppercase">SCROLL TO EXPLORE STORY</span>
+          <span className="tracking-widest uppercase">GULIR UNTUK JELAJAHI FITUR</span>
           <ChevronDown size={16} className="text-brand-accent" />
         </div>
       </div>

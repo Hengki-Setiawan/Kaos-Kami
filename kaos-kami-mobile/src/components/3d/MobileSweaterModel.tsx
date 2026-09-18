@@ -8,7 +8,8 @@ import { useMobileStudioStore } from '@/store/useMobileStudioStore';
 import { useMobileDeviceTier } from '@/hooks/useMobileDeviceTier';
 import { apparelToArchetype, createClothPhysicalMaterial } from '@/lib/materials/clothPhysicalMaterial';
 import { ClothInertiaSimulator } from '@/lib/3d/clothInertiaPhysics';
-import { applyMobileWind, ensureWindWeights } from '@/lib/3d/windShader';
+import { applyMobileWind } from '@/lib/3d/windShader';
+import { extractMobileApparelGeometry } from '@/lib/3d/extractMobileApparelGeometry';
 import { MobileDecalLayerRenderer } from './MobileDecalLayerRenderer';
 import { DecalGizmoMobile } from './DecalGizmoMobile';
 import {
@@ -81,35 +82,8 @@ export function MobileSweaterModel() {
   const modelPath = resolvedPath ?? MOBILE_SWEATER_FALLBACK;
   const { scene } = useGLTF(modelPath);
 
-  // Geometri milik sendiri: clone + bake world (Z-up fix) + center + wind.
-  // HANYA [scene] — stabil saat ganti warna (tanpa re-bake per tick).
   const baseGeometry = useMemo(() => {
-    try {
-      scene.updateMatrixWorld(true);
-    } catch {}
-    let picked: THREE.BufferGeometry | null = null;
-    const spares: THREE.BufferGeometry[] = [];
-    scene.traverse((child: THREE.Object3D) => {
-      const mesh = child as THREE.Mesh;
-      if (mesh.isMesh && mesh.geometry) {
-        const g = (mesh.geometry as THREE.BufferGeometry).clone();
-        try {
-          g.applyMatrix4(mesh.matrixWorld);
-        } catch {}
-        if (!picked) picked = g;
-        else spares.push(g);
-      }
-    });
-    for (const g of spares) {
-      try {
-        g.dispose();
-      } catch {}
-    }
-    if (!picked) return null;
-    const geo: THREE.BufferGeometry = picked;
-    geo.center();
-    ensureWindWeights(geo);
-    return geo;
+    return extractMobileApparelGeometry(scene, { scaleMultiplier: 0.74, crownYOffset: -0.10 });
   }, [scene]);
 
   const material = useMemo(() => {

@@ -15,9 +15,9 @@ export function MobileStudioLighting({ theme = 'obsidian' }: { theme?: MobileStu
   // fill/rim, shadow). gallery = terang, concrete = abu gelap, obsidian = default.
   const isLightMode = theme === 'gallery';
   const shadowColor = isLightMode ? '#707080' : '#050508';
-  const hemiSky = isLightMode ? '#ffffff' : theme === 'concrete' ? '#f1f3f9' : '#F8FAFC';
-  const hemiGround = isLightMode ? '#d8d5cf' : '#2a2b30';
-  const hemiIntensity = isLightMode ? 0.5 : 0.4;
+  const hemiSky = isLightMode ? '#eae7e1' : theme === 'concrete' ? '#f1f3f9' : '#F8FAFC';
+  const hemiGround = isLightMode ? '#d4d0c7' : '#2a2b30';
+  const hemiIntensity = isLightMode ? 0.35 : 0.4;
   const fillColor = isLightMode ? '#e2e8f0' : '#E0E7FF';
   const rimColor = isLightMode ? '#f8fafc' : '#FF8A50';
 

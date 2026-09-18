@@ -17,6 +17,7 @@ import { createClothPhysicalMaterial } from "@/lib/materials/clothPhysicalMateri
 import { useResourceTracker, useTrackedResource } from "@/lib/threeResourceTracker";
 import { surfaceZForApparel } from "@/lib/scaleCalibration";
 import { SilentModelFallback } from "@/components/ui/ModelErrorBoundary";
+import { getStretchFactors } from "@/lib/3d/stretchPhysics";
 
 // FASE 13 & P0-4: hoodie default & fallback = hoodie-blue (lisensi CC-BY 4.0 Irevex11).
 // Model legacy hoodie.glb dipensiunkan ke backups/ demi keamanan lisensi.
@@ -63,8 +64,14 @@ const GltfHoodieNew: React.FC<{ path: string }> = ({ path }) => {
     useShallow((s) => ({ partColors: s.partColors, activeColorMode: s.activeColorMode }))
   );
 
-  const { animationPreset, animationSpeed } = useConfiguratorStore(
-    useShallow((s) => ({ animationPreset: s.animationPreset, animationSpeed: s.animationSpeed }))
+  const { animationPreset, animationSpeed, testLabMode, stretchIntensity, stretchDirection } = useConfiguratorStore(
+    useShallow((s) => ({
+      animationPreset: s.animationPreset,
+      animationSpeed: s.animationSpeed,
+      testLabMode: s.testLabMode,
+      stretchIntensity: s.stretchIntensity,
+      stretchDirection: s.stretchDirection,
+    }))
   );
   const windStrength =
     animationPreset === "wind" ? 0.8 * animationSpeed : animationPreset === "walking" ? 0.4 * animationSpeed : 0;
@@ -161,11 +168,13 @@ const GltfHoodieNew: React.FC<{ path: string }> = ({ path }) => {
   const posY = viewMode === "story" ? -0.05 : modelPosY - 0.05;
   const scale = viewMode === "story" ? 1.0 : modelScale;
 
+  const stretchFactors = getStretchFactors(testLabMode, stretchIntensity, stretchDirection);
+
   return (
     <group
       ref={meshRef}
       position={[posX, posY, 0]}
-      scale={[scale, scale, scale]}
+      scale={[scale * stretchFactors.stretchX, scale * stretchFactors.stretchY, scale * stretchFactors.stretchZ]}
       dispose={null}
     >
       <mesh

@@ -15,6 +15,7 @@ import { useResourceTracker, useTrackedResource } from "@/lib/threeResourceTrack
 import { surfaceZForApparel } from "@/lib/scaleCalibration";
 import { SilentModelFallback } from "@/components/ui/ModelErrorBoundary";
 import { extractApparelGeometry } from "@/lib/extractApparelGeometry";
+import { getStretchFactors } from "@/lib/3d/stretchPhysics";
 import { HoodieModel } from "./HoodieModel";
 
 // FASE 13 — crewneck akhirnya punya mesh SENDIRI (sweater.glb, sweater_pack
@@ -73,22 +74,29 @@ const GltfCrewneckNew: React.FC<{ path: string }> = ({ path }) => {
     useShallow((s) => ({ partColors: s.partColors, activeColorMode: s.activeColorMode }))
   );
 
-  const { animationPreset, animationSpeed } = useConfiguratorStore(
-    useShallow((s) => ({ animationPreset: s.animationPreset, animationSpeed: s.animationSpeed }))
+  const { animationPreset, animationSpeed, testLabMode, stretchIntensity, stretchDirection } = useConfiguratorStore(
+    useShallow((s) => ({
+      animationPreset: s.animationPreset,
+      animationSpeed: s.animationSpeed,
+      testLabMode: s.testLabMode,
+      stretchIntensity: s.stretchIntensity,
+      stretchDirection: s.stretchDirection,
+    }))
   );
   const windStrength =
     animationPreset === "wind" ? 0.8 * animationSpeed : animationPreset === "walking" ? 0.4 * animationSpeed : animationPreset === "knit" ? 0.2 : 0;
 
+  // FASE KALIBRASI PROPORSIONAL (selaras Hoodie acuan emas):
+  // scaleMultiplier 0.74 (lebar 0.88m = selaras lebar Hoodie 0.87m) & crownYOffset -0.10 (kerah di +0.16m, dada di Y=0).
   const baseGeometry = useMemo(() => {
-    return extractApparelGeometry(scene);
+    return extractApparelGeometry(scene, { scaleMultiplier: 0.74, crownYOffset: -0.10 });
   }, [scene, path]);
 
   useEffect(() => {
     if (baseGeometry) invalidate();
   }, [invalidate, baseGeometry]);
 
-  // Multi-part by vertex position. FASE 13 ambang di ruang centered (collar
-  // terukur 0.32, jahitan bahu 0.19): y>0.28 kerah, |x|>0.21 lengan.
+  // Multi-part by vertex position (ruang terkalibrasi: kerah y>0.12, lengan |x|>0.16)
   const coloredGeometry = useMemo(() => {
     if (!baseGeometry) return null;
     if (activeColorMode !== "multi-part") {
@@ -110,8 +118,8 @@ const GltfCrewneckNew: React.FC<{ path: string }> = ({ path }) => {
     for (let i = 0; i < pos.count; i++) {
       const x = pos.getX(i);
       const y = pos.getY(i);
-      if (y > 0.28) tmp.copy(colCollar);
-      else if (Math.abs(x) > 0.21) tmp.copy(colSleeve);
+      if (y > 0.12) tmp.copy(colCollar);
+      else if (Math.abs(x) > 0.16) tmp.copy(colSleeve);
       else tmp.copy(colBody);
       arr[i * 3] = tmp.r;
       arr[i * 3 + 1] = tmp.g;
@@ -174,11 +182,13 @@ const GltfCrewneckNew: React.FC<{ path: string }> = ({ path }) => {
   const posY = viewMode === "story" ? -0.05 : modelPosY - 0.05;
   const scale = viewMode === "story" ? 1.0 : modelScale;
 
+  const stretchFactors = getStretchFactors(testLabMode, stretchIntensity, stretchDirection);
+
   return (
     <group
       ref={meshRef}
       position={[posX, posY, 0]}
-      scale={[scale, scale, scale]}
+      scale={[scale * stretchFactors.stretchX, scale * stretchFactors.stretchY, scale * stretchFactors.stretchZ]}
       dispose={null}
     >
       <mesh

@@ -108,25 +108,39 @@ export const STUDIO_STARTER_TEMPLATES: StarterTemplate[] = [
 ];
 export type CameraViewPreset = "front" | "back" | "left" | "right" | "iso" | "collar";
 
-export type DecalTargetSide = "front" | "back" | "left_sleeve" | "right_sleeve" | "hood";
+export type DecalTargetSide =
+  | "front"
+  | "back"
+  | "left_sleeve"
+  | "right_sleeve"
+  | "side_left"
+  | "side_right"
+  | "hood";
 
 /** Label manusiawi sisi sablon (invoice, job ticket, kanban). */
 export const DECAL_SIDE_LABELS: Record<DecalTargetSide, string> = {
   front: "Dada Depan",
   back: "Punggung",
+  side_left: "Samping Kiri (Rusuk)",
+  side_right: "Samping Kanan (Rusuk)",
   left_sleeve: "Lengan Kiri",
   right_sleeve: "Lengan Kanan",
   hood: "Tudung (Hood)",
 };
 
 /** Sisi valid per apparel (hood = hoodie saja — coach jacket tak bertudung).
- * Fase 13: cap = depan saja (lidah topi). CELANA coming-soon (pola cap):
- * pants & shorts = depan saja (paha depan) — PatternStudio nonaktif eksplisit. */
+ * Mendukung sisi samping (rusuk/seam) dan lengan untuk streetwear. */
 export function validSidesFor(apparel: ApparelType): DecalTargetSide[] {
-  if (apparel === "cap") return ["front"];
-  if (apparel === "pants") return ["front"];
-  if (apparel === "shorts") return ["front"];
-  const base: DecalTargetSide[] = ["front", "back", "left_sleeve", "right_sleeve"];
+  if (apparel === "cap") return ["front", "side_left", "side_right", "back"];
+  if (apparel === "pants" || apparel === "shorts") return ["front", "back", "side_left", "side_right"];
+  const base: DecalTargetSide[] = [
+    "front",
+    "back",
+    "side_left",
+    "side_right",
+    "left_sleeve",
+    "right_sleeve",
+  ];
   return apparel === "hoodie" ? [...base, "hood"] : base;
 }
 
@@ -156,6 +170,7 @@ export interface SavedMockupDesign {
   decals: DecalLayer[];
   savedAt: string;
   calculatedPriceIdr: number;
+  previewUrl?: string;
 }
 
 export interface ApparelOption {
@@ -177,107 +192,97 @@ export interface ApparelOption {
 export const APPAREL_CATALOG: Record<ApparelType, ApparelOption> = {
   tshirt: {
     id: "tshirt",
-    name: "Heavyweight Boxy Tee (Lengan Pendek)",
-    tagline: "240 & 280 GSM Long-Staple Combed Cotton",
-    weightGsm: "240 / 280 GSM",
-    basePriceIdr: 149000,
-    formattedPrice: "IDR 149.000",
+    name: "Kaos Polos & Custom Kaos Kami",
+    tagline: "Katun Combed 24s / 30s Sejuk & Nyaman Dipakai",
+    weightGsm: "Combed 24s / 30s",
+    basePriceIdr: 79000,
+    formattedPrice: "IDR 79.000",
     sizes: ["S", "M", "L", "XL", "XXL"],
-    description: "Architectural drop-shoulder silhouette with heavy ribbed 3.2cm collar binding.",
+    description: "Kaos katun combed pilihan berkarakter sejuk dan jatuh rapi. Siap pakai polos atau dikustom sablon DTF satuan tanpa minimum order.",
     mockupEnabled: true,
     orderable: true,
   },
   longsleeve: {
     id: "longsleeve",
-    name: "Heavyweight Longsleeve Tee (Lengan Panjang)",
-    tagline: "240 & 280 GSM Combed Cotton with Ribbed Cuffs",
-    weightGsm: "240 / 280 GSM",
-    basePriceIdr: 169000,
-    formattedPrice: "IDR 169.000",
+    name: "Kaos Lengan Panjang Kaos Kami",
+    tagline: "Katun Combed Lembut dengan Manset Rib Lengan",
+    weightGsm: "Combed 24s",
+    basePriceIdr: 99000,
+    formattedPrice: "IDR 99.000",
     sizes: ["S", "M", "L", "XL", "XXL"],
-    description: "Drop-shoulder boxy longsleeve with 5cm ribbed sleeve cuffs and reinforced neckline.",
+    description: "Kaos lengan panjang berkerah rib elastis yang nyaman untuk aktivitas harian, riding, dan seragam komunitas.",
     mockupEnabled: true,
     orderable: true,
   },
   crewneck: {
     id: "crewneck",
-    name: "Crewneck Sweater",
-    tagline: "330 & 380 GSM Premium Loopback French Terry",
-    weightGsm: "330 / 380 GSM",
-    basePriceIdr: 249000,
-    formattedPrice: "IDR 249.000",
+    name: "Sweater Crewneck Kaos Kami",
+    tagline: "Bahan Fleece Lembut & Nyaman Hangat",
+    weightGsm: "Fleece 280 GSM",
+    basePriceIdr: 149000,
+    formattedPrice: "IDR 149.000",
     sizes: ["M", "L", "XL", "XXL"],
-    description: "Classic relaxed streetwear crewneck sweater without hood, featuring dense ribbed collar, cuffs, and hem.",
+    description: "Sweater crewneck berpotongan santai dengan bahan fleece lembut, pas untuk sablon kustom logo atau tulisan komunitas.",
     mockupEnabled: true,
     orderable: true,
   },
   hoodie: {
     id: "hoodie",
-    name: "Heavyweight Oversized Hoodie",
-    tagline: "380 GSM Heavy French Terry Fleece",
-    weightGsm: "380 GSM",
-    basePriceIdr: 269000,
-    formattedPrice: "IDR 269.000",
+    name: "Hoodie Jumper Kaos Kami",
+    tagline: "Cotton Fleece Tebal dengan Tudung Ganda & Saku",
+    weightGsm: "Fleece 330 GSM",
+    basePriceIdr: 179000,
+    formattedPrice: "IDR 179.000",
     sizes: ["M", "L", "XL", "XXL"],
-    description: "Dense loopback French Terry with double-layered structured hood and deep kangaroo pouch.",
+    description: "Hoodie jumper premium bertudung ganda dengan bahan tebal sejuk, ideal untuk sablon punggung besar hingga ukuran A3+.",
     mockupEnabled: true,
     orderable: true,
   },
   shirt: {
     id: "shirt",
-    name: "Streetwear Coach Jacket",
-    tagline: "Water-Repellent Windbreaker / Technical Outerwear",
-    weightGsm: "Ripstop Canvas",
-    basePriceIdr: 279000,
-    formattedPrice: "IDR 279.000",
+    name: "Coach Jacket Kaos Kami",
+    tagline: "Jaket Windbreaker Ringan Berkerah Kancing Jepret",
+    weightGsm: "Micro Ripstop",
+    basePriceIdr: 189000,
+    formattedPrice: "IDR 189.000",
     sizes: ["S", "M", "L", "XL", "XXL"],
-    description: "Technical coach jacket with snap buttons, classic fold collar, and weather-resistant canvas weave.",
+    description: "Jaket coach berkerah modern tahan angin dengan kancing jepret dan sablon DTF tajam tahan cuci.",
     mockupEnabled: true,
     orderable: true,
   },
-  // Fase 13: mockup 3D AKTIF (cap.glb), pemesanan BELUM dibuka.
-  // basePriceIdr 0 = arsip dashboard saja (bukan harga jual) — checkout
-  // menolak SEBELUM pricing (guard orderable), jadi 0 tak pernah ditagih.
   cap: {
     id: "cap",
-    name: "Snapback Baseball Cap (Mockup Saja)",
-    tagline: "Mockup 3D — pemesanan SEGERA hadir",
-    weightGsm: "—",
+    name: "Topi Baseball Kaos Kami (Mockup)",
+    tagline: "Mockup 3D — pemesanan segera hadir",
+    weightGsm: "Cotton Twill",
     basePriceIdr: 0,
     formattedPrice: "SEGERA",
     sizes: ["All Size"],
-    description: "Mockup 3D topi untuk latihan desain. Belum bisa dipesan — harga & produksi menyusul.",
+    description: "Mockup 3D topi untuk pratinjau desain. Fitur pemesanan sedang disiapkan.",
     mockupEnabled: true,
     orderable: false,
   },
-  // CELANA coming-soon (pola cap): mockup 3D AKTIF (pants.glb), pemesanan
-  // BELUM dibuka. basePriceIdr 0 = arsip dashboard saja (bukan harga jual) —
-  // checkout menolak SEBELUM pricing (guard orderable), jadi 0 tak pernah ditagih.
   pants: {
     id: "pants",
-    name: "Celana Panjang (Mockup Saja)",
-    tagline: "Mockup 3D — pemesanan SEGERA hadir",
-    weightGsm: "—",
+    name: "Celana Cargo Kaos Kami (Mockup)",
+    tagline: "Mockup 3D — pemesanan segera hadir",
+    weightGsm: "Twill Ripstop",
     basePriceIdr: 0,
     formattedPrice: "SEGERA",
     sizes: ["S", "M", "L", "XL", "XXL"],
-    description: "Mockup 3D celana untuk latihan desain. Belum bisa dipesan — harga & produksi menyusul.",
+    description: "Mockup 3D celana cargo dengan kantong samping untuk simulasi desain.",
     mockupEnabled: true,
     orderable: false,
   },
-  // CELANA PENDEK coming-soon (pola pants persis): mockup 3D AKTIF
-  // (shorts.glb), pemesanan BELUM dibuka. basePriceIdr 0 = arsip dashboard
-  // saja (bukan harga jual) — checkout menolak SEBELUM pricing (guard
-  // orderable), jadi 0 tak pernah ditagih.
   shorts: {
     id: "shorts",
-    name: "Celana Pendek (Mockup Saja)",
-    tagline: "Mockup 3D — pemesanan SEGERA hadir",
-    weightGsm: "—",
+    name: "Celana Pendek Denim Kaos Kami (Mockup)",
+    tagline: "Mockup 3D — pemesanan segera hadir",
+    weightGsm: "Denim Ringan",
     basePriceIdr: 0,
     formattedPrice: "SEGERA",
     sizes: ["S", "M", "L", "XL", "XXL"],
-    description: "Mockup 3D celana pendek untuk latihan desain. Belum bisa dipesan — harga & produksi menyusul.",
+    description: "Mockup 3D celana pendek denim untuk simulasi desain streetwear.",
     mockupEnabled: true,
     orderable: false,
   },
@@ -406,24 +411,24 @@ export function calculateCustomMockupPrice(
 
 export const TECHNICAL_SPECS = [
   {
-    label: "BERAT KAIN (GSM)",
-    value: "240 & 280 GSM",
-    detail: "Katun combed tebal berkualitas tinggi, jatuh tegap berkarakter boxy, tidak terawang dan tetap sejuk.",
+    label: "BAHAN KAOS",
+    value: "Katun Combed 24s & 30s",
+    detail: "100% serat katun alami pilihan yang halus, sejuk di kulit, menyerap keringat, dan nyaman dipakai harian.",
   },
   {
-    label: "SPESIFIKASI BENANG",
-    value: "16s Ring-Spun Combed",
-    detail: "Serat katun combed panjang dengan permukaan rapat dan halus, hasil penyerapan tinta sablon lebih tajam.",
+    label: "SABLON DIGITAL",
+    value: "DTF Premium 300 DPI",
+    detail: "Cetak sablon Direct-to-Film presisi tinggi dengan tinta lentur anti-retak, warna tajam tahan cuci, dan permukaan lembut.",
   },
   {
-    label: "KONSTRUKSI KERAH",
-    value: "Rib Tebal 3.2cm",
-    detail: "Kerah rajut ganda dengan jahitan rantai pundak ekstra kuat, anti-melar meski dicuci berkali-kali.",
+    label: "JAHITAN DISTRO",
+    value: "Jahit Rantai & Kerah Elastis",
+    detail: "Konstruksi pundak jahit rantai ganda ekstra kuat serta rib kerah elastis yang awet dan tidak mudah melar setelah dicuci.",
   },
   {
-    label: "POLA POTONGAN",
-    value: "Oversized Boxy Cut",
-    detail: "Siluet drop-shoulder modern khas streetwear dengan bukaan lengan lebar dan potongan badan proporsional.",
+    label: "SISTEM ORDER",
+    value: "Bebas Pesan Satuan",
+    detail: "Tanpa batas minimum order (bisa pesan 1 pcs untuk kado atau desain sendiri), hingga ratusan pcs untuk komunitas dan instansi.",
   },
 ];
 
@@ -431,11 +436,11 @@ export const SIZES = ["S", "M", "L", "XL", "XXL"] as const;
 export type ProductSize = (typeof SIZES)[number];
 
 export const PRODUCT_DETAILS = {
-  name: "Kaos Kami — Platform Sablon DTF & Streetwear Makassar",
-  productTitle: "HEAVYWEIGHT BOXY TEE",
-  sku: "KK-HW-240-01",
-  priceIdr: 149000,
-  formattedPrice: "Rp 149.000",
+  name: "Kaos Kami | Sablon Kaos & Streetwear Makassar",
+  productTitle: "Kaos Polos & Custom Kaos Kami",
+  sku: "KK-TEE-01",
+  priceIdr: 79000,
+  formattedPrice: "Rp 79.000",
   currency: "IDR",
   brand: "Kaos Kami",
   availability: "InStock",

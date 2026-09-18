@@ -16,12 +16,12 @@ import { collectDecalMasters } from "@/lib/imageEditPipeline";
 export type ViewMode = "story" | "studio";
 export type InteractionTool = "rotate" | "pan";
 export type DrawerPosition = "right" | "left";
-// MODE MANEKIN BERJALAN (in-place): "garment" = perilaku lama (mesh apparel
-// + decal/gizmo/guide), "mannequin" = manekin Quaternius beranimasi in-place
-// (gizmo/guide/decal disembunyikan — decal di badan butuh skinning,
-// follow-up). Default "garment" agar perilaku lama tak berubah.
-export type ModelMode = "garment" | "mannequin";
-export type MotionClip = "idle" | "walk" | "jog" | "sprint" | "dance";
+
+
+export type TestLabMode = "none" | "stretch" | "flashlight" | "windtunnel";
+export type SpecialInkEffect = "standard" | "reflective3m" | "glow" | "goldfoil" | "holographic";
+export type StretchDirection = "horizontal" | "vertical" | "biaxial";
+export type WindDirection = "front" | "side" | "up";
 
 // Ariyan preset (genP/genS) + Afilah multi-part hooks
 export const LOGO_POSITION_PRESETS = [-0.075, 0, 0.075] as const;
@@ -119,8 +119,9 @@ interface ConfiguratorState {
   setBackGraphicUrl: (url: string | null) => void;
 
   // Saved Designs Actions
-  saveCurrentDesign: (title?: string) => string;
+  saveCurrentDesign: (title?: string, previewUrl?: string) => string;
   loadSavedDesign: (id: string) => void;
+  duplicateSavedDesign: (id: string) => string;
   deleteSavedDesign: (id: string) => void;
   // Status autosave (indikator UI): idle | saving | saved | error.
   syncStatus: "idle" | "saving" | "saved" | "error";
@@ -154,14 +155,25 @@ interface ConfiguratorState {
   animationSpeed: number;
   setAnimationPreset: (p: "static" | "wind" | "walking" | "knit") => void;
   setAnimationSpeed: (s: number) => void;
-  // MODE MANEKIN BERJALAN (in-place) — terpisah dari animationPreset kain
-  // (wind/walking/knit = shader/bob garment, tak tersentuh).
-  modelMode: ModelMode;
-  motionClip: MotionClip;
-  motionSpeed: number;
-  setModelMode: (m: ModelMode) => void;
-  setMotionClip: (c: MotionClip) => void;
-  setMotionSpeed: (s: number) => void;
+
+  // 3D Test Lab Suite (Uji Tarik, Senter 3D & 3M, Terowongan Angin)
+  testLabMode: TestLabMode;
+  setTestLabMode: (mode: TestLabMode) => void;
+  specialInkEffect: SpecialInkEffect;
+  setSpecialInkEffect: (effect: SpecialInkEffect) => void;
+  windTunnelSpeed: number;
+  setWindTunnelSpeed: (speed: number) => void;
+  windDirection: WindDirection;
+  setWindDirection: (dir: WindDirection) => void;
+  stretchIntensity: number;
+  setStretchIntensity: (intensity: number) => void;
+  stretchDirection: StretchDirection;
+  setStretchDirection: (dir: StretchDirection) => void;
+  flashlightFocus: number;
+  setFlashlightFocus: (focus: number) => void;
+  showMannequin: boolean;
+  setShowMannequin: (v: boolean) => void;
+  toggleShowMannequin: () => void;
 }
 
 const LS_DESIGNS_V1 = "kaos_kami_saved_designs_v1";
@@ -265,10 +277,16 @@ export const useConfiguratorStore = create<ConfiguratorState>((set, get) => ({
   isGizmoVisible: true,
   animationPreset: "static" as const,
   animationSpeed: 1.0,
-  // Default garment: perilaku lama tak berubah (manekin opt-in via UI studio).
-  modelMode: "garment" as ModelMode,
-  motionClip: "idle" as MotionClip,
-  motionSpeed: 1.0,
+
+  testLabMode: "none" as TestLabMode,
+  specialInkEffect: "standard" as SpecialInkEffect,
+  windTunnelSpeed: 35,
+  windDirection: "front" as WindDirection,
+  stretchIntensity: 0,
+  stretchDirection: "horizontal" as StretchDirection,
+  flashlightFocus: 0.45,
+  showMannequin: false,
+
 
   frontGraphicUrl: null,
   backGraphicUrl: null,
@@ -336,7 +354,14 @@ export const useConfiguratorStore = create<ConfiguratorState>((set, get) => ({
       modelPosY: Math.max(-0.85, Math.min(0.85, state.modelPosY + deltaY)),
     })),
 
-  resetModelTransform: () => set({ modelPosX: 0, modelPosY: 0, modelScale: 1.0, modelRotY: 0 }),
+  resetModelTransform: () =>
+    set({
+      modelPosX: 0,
+      modelPosY: 0,
+      modelScale: 1.0,
+      modelRotY: 0,
+      cameraPreset: "front",
+    }),
 
   addDecal: (decalData) => {
     const id = `decal-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
@@ -422,7 +447,7 @@ export const useConfiguratorStore = create<ConfiguratorState>((set, get) => ({
     set({ backGraphicUrl: url });
   },
 
-  saveCurrentDesign: (title) => {
+  saveCurrentDesign: (title, previewUrl) => {
     const state = get();
     const id = `saved-${Date.now()}`;
     // K-E: harga tersimpan = SSOT 6-variabel (pigmen + kain + aspek + volume),
@@ -457,8 +482,10 @@ export const useConfiguratorStore = create<ConfiguratorState>((set, get) => ({
         minute: "2-digit",
       }),
       calculatedPriceIdr: pricing.totalPriceIdr,
+      previewUrl,
     };
-    const updated = [newDesign, ...state.savedDesigns];
+    // Kuota penyimpanan klien: batasi maksimal MAX_LOCAL_DESIGNS (20) desain tersimpan
+    const updated = [newDesign, ...state.savedDesigns].slice(0, MAX_LOCAL_DESIGNS);
     set({ savedDesigns: updated });
     writeStoredDesigns(updated.map((d) => ({ ...d, decals: d.decals.map((l) => (l.url.startsWith("blob:") ? { ...l, url: "" } : l)) })) as SavedMockupDesign[]);
     // Backend sync: POST /api/designs (fire-and-forget, non-blocking)
@@ -546,6 +573,28 @@ export const useConfiguratorStore = create<ConfiguratorState>((set, get) => ({
     persistTheme(found.theme);
   },
 
+  duplicateSavedDesign: (id) => {
+    const state = get();
+    const found = state.savedDesigns.find((d) => d.id === id);
+    if (!found) return "";
+    const newId = `saved-${Date.now()}`;
+    const duplicated: SavedMockupDesign = {
+      ...found,
+      id: newId,
+      title: `${found.title} (Salinan)`,
+      savedAt: new Date().toLocaleDateString("id-ID", {
+        day: "numeric",
+        month: "short",
+        hour: "2-digit",
+        minute: "2-digit",
+      }),
+    };
+    const updated = [duplicated, ...state.savedDesigns].slice(0, MAX_LOCAL_DESIGNS);
+    set({ savedDesigns: updated });
+    writeStoredDesigns(updated);
+    return newId;
+  },
+
   deleteSavedDesign: (id) => {
     const state = get();
     const target = state.savedDesigns.find((d) => d.id === id);
@@ -581,9 +630,16 @@ export const useConfiguratorStore = create<ConfiguratorState>((set, get) => ({
   toggleGizmoVisible: () => set((state) => ({ isGizmoVisible: !state.isGizmoVisible })),
   setAnimationPreset: (p) => set({ animationPreset: p }),
   setAnimationSpeed: (s) => set({ animationSpeed: s }),
-  setModelMode: (m) => set({ modelMode: m }),
-  setMotionClip: (c) => set({ motionClip: c }),
-  setMotionSpeed: (s) => set({ motionSpeed: Math.max(0.2, Math.min(2.0, s)) }),
+  setTestLabMode: (mode) => set({ testLabMode: mode }),
+  setSpecialInkEffect: (effect) => set({ specialInkEffect: effect }),
+  setWindTunnelSpeed: (speed) => set({ windTunnelSpeed: Math.max(0, Math.min(100, speed)) }),
+  setWindDirection: (dir) => set({ windDirection: dir }),
+  setStretchIntensity: (intensity) => set({ stretchIntensity: Math.max(0, Math.min(1, intensity)) }),
+  setStretchDirection: (dir) => set({ stretchDirection: dir }),
+  setFlashlightFocus: (focus) => set({ flashlightFocus: Math.max(0.15, Math.min(0.85, focus)) }),
+  setShowMannequin: (v) => set({ showMannequin: v }),
+  toggleShowMannequin: () => set((state) => ({ showMannequin: !state.showMannequin })),
+
   applyLogoPreset: () => {
     // SATU konstanta: LOGO_POSITION_PRESETS + LOGO_SCALE_PRESETS (SSOT preset
     // logo). Dulu ada scaleMap lokal [0.05,0.11,0.16] yang menyimpang dari

@@ -2,9 +2,9 @@ import type { Metadata } from "next";
 import { CatalogClient } from "./CatalogClient";
 
 export const metadata: Metadata = {
-  title: "Katalog Kaos Heavyweight 240 & 280 GSM — Siap Kirim Makassar | Kaos Kami",
+  title: "Katalog Produk & Kaos Siap Kirim",
   description:
-    "Koleksi pakaian jadi siap kirim hari ini se-Makassar: katun combed tebal 240 & 280 GSM polos dan edisi grafis terbatas. Filter ukuran S–XXL + kustom sablon DTF.",
+    "Koleksi pakaian jadi dan kaos polos siap kirim se-Makassar. Katun combed adem dan edisi sablon terbatas. Pesan online langsung kirim.",
 };
 
 export default function CatalogPage() {

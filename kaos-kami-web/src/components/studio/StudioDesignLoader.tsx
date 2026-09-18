@@ -62,9 +62,15 @@ export function StudioDesignLoader() {
         st.setSelectedSize(found.size || "L");
         // B-02: validasi sisi SSOT — "hood" HANYA hoodie. Di apparel lain
         // migrasikan ke front (jangan hilangkan karya) + hitung untuk notifikasi.
-        // Jepit posisi via clampDecalXY + skala via maxDecalScaleUnits(apparel,
-        // side) — bukan global ±0.35/0.35. Rumus cm tak diubah.
-        const VALID_SIDES: DecalTargetSide[] = ["front", "back", "left_sleeve", "right_sleeve", "hood"];
+        const VALID_SIDES: DecalTargetSide[] = [
+          "front",
+          "back",
+          "side_left",
+          "side_right",
+          "left_sleeve",
+          "right_sleeve",
+          "hood",
+        ];
         let migratedHood = 0;
         st.loadDecals(
           (Array.isArray(decalsJson) ? decalsJson : []).slice(0, 10).map((d: any, i: number) => {

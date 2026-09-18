@@ -1,9 +1,9 @@
 import React from "react";
 import Link from "next/link";
 import { db } from "@/lib/db";
-import { Order } from "@/lib/drizzle-schema";
-import { and, count, desc, ilike, or, eq } from "drizzle-orm";
-import { Package, Search, ExternalLink } from "lucide-react";
+import { Order, User, Address } from "@/lib/drizzle-schema";
+import { and, count, desc, ilike, or, eq, inArray } from "drizzle-orm";
+import { Package, Search, ExternalLink, Download } from "lucide-react";
 
 export const revalidate = 0;
 export const dynamic = "force-dynamic";
@@ -39,7 +39,44 @@ export default async function AdminOrdersListPage({
   const status = (sp.status || "").trim();
 
   const conds: any[] = [];
-  if (q) conds.push(or(ilike(Order.orderNumber, `%${q}%`)));
+  if (q) {
+    const [matchingUsers, matchingAddresses] = await Promise.all([
+      db
+        .select({ id: User.id })
+        .from(User)
+        .where(
+          or(
+            ilike(User.name, `%${q}%`),
+            ilike(User.phoneNumber, `%${q}%`),
+            ilike(User.email, `%${q}%`)
+          )
+        )
+        .limit(50),
+      db
+        .select({ id: Address.id })
+        .from(Address)
+        .where(
+          or(
+            ilike(Address.recipientName, `%${q}%`),
+            ilike(Address.phoneNumber, `%${q}%`),
+            ilike(Address.fullAddress, `%${q}%`)
+          )
+        )
+        .limit(50),
+    ]);
+
+    const userIds = matchingUsers.map((u) => u.id);
+    const addressIds = matchingAddresses.map((a) => a.id);
+
+    const orClauses: any[] = [
+      ilike(Order.orderNumber, `%${q}%`),
+      ilike(Order.trackingNumber, `%${q}%`),
+    ];
+    if (userIds.length > 0) orClauses.push(inArray(Order.userId, userIds));
+    if (addressIds.length > 0) orClauses.push(inArray(Order.shippingAddressId, addressIds));
+
+    conds.push(or(...orClauses));
+  }
   if ((STATUSES as readonly string[]).includes(status)) conds.push(eq(Order.status, status as any));
   const where = conds.length > 0 ? and(...conds) : undefined;
 
@@ -75,6 +112,17 @@ export default async function AdminOrdersListPage({
             {Number(n)} pesanan · halaman {safePage}/{totalPages}
           </p>
         </div>
+
+        <div className="flex items-center gap-3">
+          <a
+            href={`/api/admin/orders/export${status ? `?status=${encodeURIComponent(status)}` : ""}`}
+            download
+            className="py-2.5 px-4 rounded-xl bg-emerald-500/20 border border-emerald-500/40 hover:bg-emerald-500 hover:text-white text-emerald-400 font-bold transition-all flex items-center gap-1.5"
+          >
+            <Download size={14} />
+            <span>EKSPOR CSV LAPORAN</span>
+          </a>
+        </div>
       </div>
 
       {/* Search + filter (server-side, tanpa JS) */}
@@ -84,7 +132,7 @@ export default async function AdminOrdersListPage({
           <input
             name="q"
             defaultValue={q}
-            placeholder="Cari no. order (cth: KK-20260908-...)"
+            placeholder="Cari no. order / nama pemesan / no. WA / resi..."
             maxLength={40}
             className="w-full pl-9 pr-3 py-2.5 rounded-xl bg-surface border border-border-subtle text-text-primary placeholder:text-text-muted focus:outline-none focus:border-brand-accent"
           />

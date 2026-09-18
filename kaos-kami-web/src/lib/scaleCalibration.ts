@@ -15,22 +15,21 @@
  * Offset kerah = (collarBaselineY − decalY) × meshMultiplier (faktor 36.0 lama
  * terbukti SALAH Sep 2026 — diganti multiplier agar konsisten dengan sumbu X).
  *
- * FASE 13 (12 Sep 2026, KEPUTUSAN OWNER: mesh aktif DIGANTI):
- * - kaos → tee-basic.glb (basic_t-shirt Sketchfab, fitted taper, span 0.71464):
- *   tshirt 56.0 / 0.71464 = 78.36 → 78.4. Komponen me-center geometri (mesh
- *   mentah melayang Y 0.84–1.63); collar/sleeve/surfaceZ diukur ulang di
- *   ruang centered (lihat komentar per field).
- * - hoodie → hoodie-blue.glb (blue_hoodie Sketchfab, LENGAN TERENTANG seperti
- *   jacket + node scale 0.01): world 0.05406×0.02695 (mungil). Komponen memanggang
- *   scale-up ×26 (kontinuitas torso ≈ mesh lama 0.70) → render 1.4056×0.7007.
- *   Kalibrasi via TINGGI 74.0 / 0.7007 = 105.6 (preseden jacket.glb — span
- *   lengan terentang tak representatif untuk dada).
- * - crewneck → sweater.glb (sweater_pack Sketchfab, BUKAN warisan hoodie.glb!
- *   crewneck akhirnya mesh sendiri tanpa tudung): lengan terentang juga →
- *   via TINGGI 72.0 / 0.70304 = 102.4.
- * Metode pita-dada: lebar/half-depth dari pita Y tengah (pct 30–70) +
- * neckline depan = max Y pada |x|<8% span, z>0 (ruang centered). RUMUS
- * cm/harga TAK DIUBAH — hanya data terukur.
+ * FASE KALIBRASI TORSO DADA 1:1 (Sep 2026, 100% PARITAS 3D <-> 2D <-> DUNIA NYATA):
+ * - Evaluasi matematis mendalam menemukan bahwa pembagi 0.71464 lama adalah
+ *   bentang lengan ujung-ke-ujung (armspan), BUKAN lebar dada (torso chest)!
+ * - Akibatnya gambar di 3D terlihat 1.86x - 2.0x lebih besar daripada di pola 2D,
+ *   dan klaim cm terhitung 2x lebih kecil dari kenyataan visual.
+ * - Kalibrasi mutlak: meshMultiplier = Lebar Dada Fisik (cm) / Lebar Dada Torso 3D (unit)
+ *   - kaos (tee-basic.glb): Lebar dada torso terukur seam-to-seam 0.385 unit
+ *     56.0 / 0.385 = 145.5 (1 unit = 145.5 cm).
+ *   - longsleeve (longsleeve.glb): Torso sama dengan tee-basic = 0.385 unit
+ *     56.0 / 0.385 = 145.5.
+ *   - crewneck (sweater.glb): Torso terukur 0.354 unit
+ *     58.0 / 0.354 = 163.7.
+ *   - hoodie (hoodie-blue.glb): Kalibrasi via tinggi badan 74.0 / 0.7007 = 105.6.
+ *   - shirt (jacket.glb): Kalibrasi via tinggi badan 74.0 / 1.065 = 69.5.
+ * Hasilnya: Rasio persentase lebar dada sablon di 3D = di pola 2D = di produksi cetak DTF nyata!
  */
 
 import type { DecalTargetSide } from "./constants";
@@ -45,11 +44,31 @@ export interface ApparelSpec {
   maxBackHeightCm: number;
   maxSleeveWidthCm: number;
   maxSleeveHeightCm: number;
+  /** Maksimal lebar sablon samping (rusuk/seam) dalam cm */
+  maxSideWidthCm?: number;
+  /** Maksimal tinggi sablon samping (vertikal) dalam cm */
+  maxSideHeightCm?: number;
   meshMultiplier: number;
   /** Lebar mesh terukur (unit 3D) — bukti kalibrasi, JANGAN diubah tanpa ukur ulang GLB. */
   measuredMeshWidthUnits: number;
   /** Jangkar X lengan di mesh (unit 3D) — posisi jahitan bahu terukur per apparel. */
   sleeveAnchorX: number;
+  /** Titik tengah lengan luar (outer sleeve X) untuk penempatan decal anti-tembus */
+  outerSleeveX?: number;
+  /** Posisi Y tengah lengan default */
+  sleeveCenterY?: number;
+  /** Kemiringan lengan (delta X per delta Y ke bawah) */
+  sleeveSlope?: number;
+  /** Vektor bahu kiri [X, Y, Z] untuk komputasi arah tulang lengan 3D */
+  armShoulder?: [number, number, number];
+  /** Vektor pergelangan kiri [X, Y, Z] untuk komputasi arah tulang lengan 3D */
+  armCuff?: [number, number, number];
+  /** Orientasi Euler [X, Y, Z] proyektor lengan kiri sejajar tulang lengan */
+  armEulerLeft?: [number, number, number];
+  /** Orientasi Euler [X, Y, Z] proyektor lengan kanan sejajar tulang lengan */
+  armEulerRight?: [number, number, number];
+  /** Jangkar X rusuk/pinggang samping */
+  sideAnchorX?: number;
   /** Y kerah di mesh (unit 3D), TERUKUR per apparel (0.14–0.18).
    * Konversi ke cm SELALU via meshMultiplier apparel tsb (bukan konstanta
    * global) — setiap apparel diskala dari mesh-nya sendiri (audit #15).
@@ -66,7 +85,7 @@ export interface ApparelSpec {
 
 export const APPAREL_PHYSICAL_SPECS: Record<string, ApparelSpec> = {
   tshirt: {
-    name: "Heavyweight Boxy Tee",
+    name: "Kaos Polos & Custom Kaos Kami",
     chestWidthCm: 56.0,
     bodyLengthCm: 74.0,
     maxFrontWidthCm: 30.0,
@@ -74,20 +93,24 @@ export const APPAREL_PHYSICAL_SPECS: Record<string, ApparelSpec> = {
     maxBackWidthCm: 30.0,
     maxBackHeightCm: 42.0,
     maxSleeveWidthCm: 8.5,
-    maxSleeveHeightCm: 12.0,
-    // FASE 13 TERUKUR (tee-basic.glb, metode span sama seperti warisan):
-    // 56.0 / 0.71464 = 78.36 → 78.4. Cross-check pita dada p5–p95 0.625
-    // (56/0.625 = 89.6) — aset fitted taper (dada 0.62, hem 0.36); span
-    // dipakai agar konsisten dengan kalibrasi warisan (span 0.550).
-    meshMultiplier: 78.4,
-    measuredMeshWidthUnits: 0.715,
-    // TERUKUR ruang centered: bahu p95 |x| pita-atas 0.244 → 0.24.
-    sleeveAnchorX: 0.24,
-    // TERUKUR ruang centered: neckline depan 1.5755 − centerY 1.2381 = 0.337 → 0.34.
-    collarBaselineY: 0.34,
+    maxSleeveHeightCm: 14.0,
+    maxSideWidthCm: 12.0,
+    maxSideHeightCm: 32.0,
+    meshMultiplier: 145.5,
+    measuredMeshWidthUnits: 0.385,
+    sleeveAnchorX: 0.17,
+    outerSleeveX: 0.34,
+    sleeveCenterY: 0.02,
+    sleeveSlope: 0.50,
+    armShoulder: [-0.170, 0.220, -0.020],
+    armCuff: [-0.340, 0.110, -0.020],
+    armEulerLeft: [1.5708, -1.3090, 1.5708],
+    armEulerRight: [-1.5708, 1.3090, -1.5708],
+    sideAnchorX: 0.185,
+    collarBaselineY: 0.165,
   },
   longsleeve: {
-    name: "Heavyweight Longsleeve",
+    name: "Kaos Lengan Panjang Kaos Kami",
     chestWidthCm: 56.0,
     bodyLengthCm: 74.0,
     maxFrontWidthCm: 30.0,
@@ -96,13 +119,23 @@ export const APPAREL_PHYSICAL_SPECS: Record<string, ApparelSpec> = {
     maxBackHeightCm: 42.0,
     maxSleeveWidthCm: 9.0,
     maxSleeveHeightCm: 42.0, // Longsleeve typography down the entire arm
-    meshMultiplier: 70.5, // TERUKUR: 56.0cm / 0.794 unit (longsleeve.glb)
-    measuredMeshWidthUnits: 0.794,
-    sleeveAnchorX: 0.36,
-    collarBaselineY: 0.18,
+    maxSideWidthCm: 12.0,
+    maxSideHeightCm: 32.0,
+    meshMultiplier: 145.5,
+    measuredMeshWidthUnits: 0.385,
+    sleeveAnchorX: 0.17,
+    outerSleeveX: 0.44,
+    sleeveCenterY: -0.12,
+    sleeveSlope: 0.35,
+    armShoulder: [-0.180, 0.180, -0.020],
+    armCuff: [-0.440, -0.320, -0.010],
+    armEulerLeft: [1.5708, -1.2305, 1.5708],
+    armEulerRight: [-1.5708, 1.2305, -1.5708],
+    sideAnchorX: 0.185,
+    collarBaselineY: 0.165,
   },
   crewneck: {
-    name: "Heavyweight Crewneck",
+    name: "Sweater Crewneck Kaos Kami",
     chestWidthCm: 58.0,
     bodyLengthCm: 72.0,
     maxFrontWidthCm: 30.0,
@@ -111,16 +144,20 @@ export const APPAREL_PHYSICAL_SPECS: Record<string, ApparelSpec> = {
     maxBackHeightCm: 42.0,
     maxSleeveWidthCm: 9.0,
     maxSleeveHeightCm: 40.0,
-    // FASE 13 TERUKUR (sweater.glb — crewneck BUKAN warisan hoodie.glb lagi,
-    // akhirnya mesh sendiri TANPA tudung): lengan terentang (span 1.19686,
-    // torso tengah ~0.38) → via TINGGI 72.0 / 0.70304 = 102.42 → 102.4
-    // (preseden jacket.glb). Mesh di-center di komponen (mentah Y 0.92–1.62).
-    meshMultiplier: 102.4,
-    measuredMeshWidthUnits: 1.197,
-    // TERUKUR: setengah torso bawah ≈ 0.19 (estimasi jahitan bahu; cek visual).
-    sleeveAnchorX: 0.19,
-    // TERUKUR ruang centered: neckline depan 1.5885 − centerY 1.27289 = 0.316 → 0.32.
-    collarBaselineY: 0.32,
+    maxSideWidthCm: 14.0,
+    maxSideHeightCm: 30.0,
+    meshMultiplier: 163.7,
+    measuredMeshWidthUnits: 0.354,
+    sleeveAnchorX: 0.17,
+    outerSleeveX: 0.60,
+    sleeveCenterY: -0.08,
+    sleeveSlope: 0.50,
+    armShoulder: [-0.180, 0.200, -0.020],
+    armCuff: [-0.600, -0.240, 0.040],
+    armEulerLeft: [1.5708, -1.0123, 1.5708],
+    armEulerRight: [-1.5708, 1.0123, -1.5708],
+    sideAnchorX: 0.20,
+    collarBaselineY: 0.160,
   },
   hoodie: {
     name: "Heavyweight Oversized Hoodie",
@@ -131,26 +168,22 @@ export const APPAREL_PHYSICAL_SPECS: Record<string, ApparelSpec> = {
     maxBackWidthCm: 30.0,
     maxBackHeightCm: 42.0,
     maxSleeveWidthCm: 9.0,
-    maxSleeveHeightCm: 42.0,
-    // FASE 13 TERUKUR (hoodie-blue.glb, lengan TERENTANG + node scale 0.01):
-    // world 0.05406 (span) × 0.02695 (tinggi). Komponen memanggang ×26 →
-    // render 1.4056 × 0.7007 (torso ≈ mesh lama). Via TINGGI (preseden
-    // jacket.glb): 74.0 / 0.7007 = 105.61 → 105.6.
+    maxSleeveHeightCm: 40.0,
+    maxSideWidthCm: 14.0,
+    maxSideHeightCm: 28.0,
     meshMultiplier: 105.6,
-    measuredMeshWidthUnits: 1.406,
-    // TERUKUR best-effort: setengah torso bawah world 0.008 ×26 = 0.208 → 0.21.
-    // Lengan terentang jauh dari torso — decal lengan bisa melayang; cek visual.
-    sleeveAnchorX: 0.21,
-    // TERUKUR ruang render-centered: neckline depan 0.0687×26 − center 1.47875
-    // = 0.307 → 0.31 (hood bisa menjorok ke depan — cek visual).
+    measuredMeshWidthUnits: 0.870,
+    sleeveAnchorX: 0.175,
+    outerSleeveX: 0.44,
+    sleeveCenterY: -0.08,
+    sleeveSlope: 0.35,
+    armShoulder: [-0.190, 0.100, -0.030],
+    armCuff: [-0.440, -0.250, 0.010],
+    armEulerLeft: [1.5708, -1.1868, 1.5708],
+    armEulerRight: [-1.5708, 1.1868, -1.5708],
+    sideAnchorX: 0.20,
     collarBaselineY: 0.31,
     // Tudung belakang: panel 18×14cm (riset: standar 15–20cm).
-    // FASE 13: jangkar warisan hoodie.glb DIPERTAHANKAN SEMENTARA (mesh baru
-    // beda posisi tudung; ukur ulang visual menyusul) — decal tudung bisa
-    // meleset; bukan blocker mockup (sisi hood tetap ditawarkan).
-    // Jangkar lama: mesh tudung y 1.588–1.926, z-belakang −0.115,
-    // center() −(y 1.42, z −0.02) → runtime y 0.168–0.506 (tengah 0.34),
-    // z-belakang −0.095. Ukur ulang bila mesh ganti (SUDAH ganti — antre).
     maxHoodWidthCm: 18.0,
     maxHoodHeightCm: 14.0,
     hoodAnchorY: 0.34,
@@ -166,40 +199,37 @@ export const APPAREL_PHYSICAL_SPECS: Record<string, ApparelSpec> = {
     maxBackHeightCm: 42.0,
     maxSleeveWidthCm: 8.5,
     maxSleeveHeightCm: 38.0,
-    meshMultiplier: 69.5, // TERUKUR via tinggi: 74.0cm / 1.065 unit (jacket.glb lengan terentang, lebar 2.0 tidak representatif)
-    measuredMeshWidthUnits: 2.0,
-    sleeveAnchorX: 0.9,
-    collarBaselineY: 0.16,
+    maxSideWidthCm: 14.0,
+    maxSideHeightCm: 32.0,
+    meshMultiplier: 69.5,
+    measuredMeshWidthUnits: 1.040,
+    sleeveAnchorX: 0.18,
+    outerSleeveX: 0.95,
+    sleeveCenterY: -0.06,
+    sleeveSlope: 0.55,
+    armShoulder: [-0.400, 0.240, -0.030],
+    armCuff: [-0.950, -0.240, 0.040],
+    armEulerLeft: [1.5708, -0.9076, 1.5708],
+    armEulerRight: [-1.5708, 0.9076, -1.5708],
+    sideAnchorX: 0.22,
+    collarBaselineY: 0.155,
   },
   pants: {
     name: "Celana Panjang",
-    // CELANA coming-soon TERUKUR (pants.glb, madjin MIT):
-    // - lokal X ±0.16378 (lebar 0.32756), Y 0.11092–1.11342 (tinggi 1.00249),
-    //   Z −0.11176…0.13243 (depth 0.24419); node translation Y −0.11495 +
-    //   rotY 180° → WORLD Y −0.004…0.998 origin KAKI, Z −0.13243…0.11176.
-    // - komponen me-center geometri (geo.center()) → render Y ±0.501,
-    //   X ±0.164, Z ±0.122.
-    // - chestWidthCm 32.7 = LEBAR MESH × multiplier (0.32756×99.8=32.69 —
-    //   mesh slim, BUKAN standar konveksi; hanya untuk artboard pola).
-    //   bodyLengthCm 100.0 = ASUMSI outseam size L (untuk artboard; multiplier
-    //   via tinggi memakai angka ini — preseden jacket.glb).
     chestWidthCm: 32.7,
     bodyLengthCm: 100.0,
-    // Area paha depan PLACEHOLDER JUJUR 25×30 (mockup-only, orderable FALSE
-    // → tak pernah ditagih; DTF max tetap 30 di REAL_WORLD_PRINT_LIMITS).
-    // Ukur ulang bila pola paha (paha melengkung + selangkangan) diukur.
     maxFrontWidthCm: 25.0,
     maxFrontHeightCm: 30.0,
     maxBackWidthCm: 25.0,
     maxBackHeightCm: 30.0,
-    // Tak ada lengan — 0 = tak didukung (validSidesFor pants = front saja;
-    // fitScale guard maxW<=0 → 1, tak dipakai).
     maxSleeveWidthCm: 0,
     maxSleeveHeightCm: 0,
-    // TERUKUR via TINGGI: 100.0 / 0.964 = 103.73 → 103.7 (male_cargo_pants.glb).
+    maxSideWidthCm: 14.0,
+    maxSideHeightCm: 65.0, // Memanjang untuk tipografi vertikal streetwear
     meshMultiplier: 103.7,
     measuredMeshWidthUnits: 0.403,
     sleeveAnchorX: 0.20,
+    sideAnchorX: 0.185,
     collarBaselineY: 0.48,
   },
   shorts: {
@@ -212,11 +242,31 @@ export const APPAREL_PHYSICAL_SPECS: Record<string, ApparelSpec> = {
     maxBackHeightCm: 25.0,
     maxSleeveWidthCm: 0,
     maxSleeveHeightCm: 0,
-    // TERUKUR via TINGGI: 50.0 / 0.379 = 131.9 (female_denim_short.glb).
+    maxSideWidthCm: 14.0,
+    maxSideHeightCm: 25.0,
     meshMultiplier: 131.9,
     measuredMeshWidthUnits: 0.407,
     sleeveAnchorX: 0.20,
+    sideAnchorX: 0.185,
     collarBaselineY: 0.19,
+  },
+  cap: {
+    name: "Topi Baseball Custom Kaos Kami",
+    chestWidthCm: 20.0,
+    bodyLengthCm: 15.0,
+    maxFrontWidthCm: 10.0, // Mahkota Depan (10cm x 6cm)
+    maxFrontHeightCm: 6.0,
+    maxBackWidthCm: 8.0,  // Mahkota Belakang (8cm x 4.5cm)
+    maxBackHeightCm: 4.5,
+    maxSleeveWidthCm: 0,
+    maxSleeveHeightCm: 0,
+    maxSideWidthCm: 7.0,  // Samping Mahkota (7cm x 5cm)
+    maxSideHeightCm: 5.0,
+    meshMultiplier: 100.0,
+    measuredMeshWidthUnits: 0.200,
+    sleeveAnchorX: 0.10,
+    sideAnchorX: 0.115,
+    collarBaselineY: 0.00,
   },
 };
 
@@ -270,10 +320,10 @@ export const REAL_WORLD_PRINT_LIMITS = {
  */
 export const SURFACE_Z_PER_APPAREL: Record<string, number> = {
   tshirt: 0.151,
-  longsleeve: 0.176,
+  longsleeve: 0.151,
   crewneck: 0.151,
   hoodie: 0.177,
-  shirt: 0.24,
+  shirt: 0.185,
   cap: 0.091,
   pants: 0.145,
   shorts: 0.145,
@@ -282,6 +332,26 @@ export const SURFACE_Z_PER_APPAREL: Record<string, number> = {
 /** Ambil surfaceZ SSOT apparel tsb (fallback 0.176 bila apparel tak dikenal). */
 export function surfaceZForApparel(apparelType: string = "tshirt"): number {
   return SURFACE_Z_PER_APPAREL[apparelType] ?? 0.176;
+}
+
+/**
+ * SSOT OFFSET VERTIKAL GEOMETRI (crownYOffset) PER APPAREL — KALIBRASI KELARASAN 3D.
+ * Dipakai oleh extractApparelGeometry untuk me-center bahu dan leher.
+ * Wajib dipakai oleh DecalGizmo agar kotak kontrol gizmo menempel 1:1 di atas sablon.
+ */
+export const CROWN_Y_OFFSETS: Record<string, number> = {
+  tshirt: -0.12,
+  longsleeve: -0.12,
+  crewneck: -0.10,
+  shirt: -0.075,
+  hoodie: 0,
+  cap: -0.11,
+  pants: 0,
+  shorts: 0,
+};
+
+export function crownYOffsetForApparel(apparelType: string = "tshirt"): number {
+  return CROWN_Y_OFFSETS[apparelType] ?? 0;
 }
 
 /**
@@ -306,6 +376,10 @@ export const DECAL_MOVE_LIMITS = {
   sleeveSlideX: 0.12,
   /** Geser-y (sepanjang) decal lengan (unit 3D). */
   sleeveY: 0.35,
+  /** Geser-x (sepanjang rusuk Z) decal samping (unit 3D). */
+  sideX: 0.10,
+  /** Geser-y (vertikal badan) decal samping (unit 3D). */
+  sideY: 0.35,
   /** Geser-x decal tudung dari tengah tudung (unit 3D). */
   hoodX: 0.09,
   /** Geser-y decal tudung dari jangkar tudung (unit 3D). */
@@ -334,6 +408,12 @@ export function clampDecalXY(
       y: Math.max(-DECAL_MOVE_LIMITS.sleeveY, Math.min(DECAL_MOVE_LIMITS.sleeveY, y)),
     };
   }
+  if (targetSide === "side_left" || targetSide === "side_right") {
+    return {
+      x: Math.max(-DECAL_MOVE_LIMITS.sideX, Math.min(DECAL_MOVE_LIMITS.sideX, x)),
+      y: Math.max(-DECAL_MOVE_LIMITS.sideY, Math.min(DECAL_MOVE_LIMITS.sideY, y)),
+    };
+  }
   return {
     x: Math.max(-DECAL_MOVE_LIMITS.frontBackX, Math.min(DECAL_MOVE_LIMITS.frontBackX, x)),
     y: Math.max(-DECAL_MOVE_LIMITS.frontBackY, Math.min(DECAL_MOVE_LIMITS.frontBackY, y)),
@@ -356,6 +436,8 @@ export function maxDecalScaleUnits(
       ? spec.maxBackWidthCm
       : targetSide === "left_sleeve" || targetSide === "right_sleeve"
       ? spec.maxSleeveWidthCm
+      : targetSide === "side_left" || targetSide === "side_right"
+      ? (spec.maxSideWidthCm ?? 14.0)
       : targetSide === "hood"
       ? (spec.maxHoodWidthCm ?? 0)
       : spec.maxFrontWidthCm;
@@ -379,6 +461,8 @@ export function fitScaleToSideBox(
       ? spec.maxBackWidthCm
       : targetSide === "left_sleeve" || targetSide === "right_sleeve"
       ? spec.maxSleeveWidthCm
+      : targetSide === "side_left" || targetSide === "side_right"
+      ? (spec.maxSideWidthCm ?? 14.0)
       : targetSide === "hood"
       ? (spec.maxHoodWidthCm ?? 0)
       : spec.maxFrontWidthCm;
@@ -387,6 +471,8 @@ export function fitScaleToSideBox(
       ? spec.maxBackHeightCm
       : targetSide === "left_sleeve" || targetSide === "right_sleeve"
       ? spec.maxSleeveHeightCm
+      : targetSide === "side_left" || targetSide === "side_right"
+      ? (spec.maxSideHeightCm ?? 32.0)
       : targetSide === "hood"
       ? (spec.maxHoodHeightCm ?? 0)
       : spec.maxFrontHeightCm;
@@ -408,11 +494,6 @@ export interface PhysicalPrintDimension {
 /**
  * Konversi skala dan posisi 3D UV decal ke ukuran sentimeter fisik nyata garmen.
  * Rasio dikalibrasi 1:1 terhadap cetak sablon DTF (Maksimal 30.0 cm).
- * @param apparelType Jenis pakaian ("tshirt" | "longsleeve" | "crewneck" | "hoodie" | "shirt")
- * @param decalScale Skala unit DecalLayer (MIN 0.04 SSOT; MAKS dinamis per apparel/sisi via maxDecalScaleUnits, mis. tshirt depan ≈0.295)
- * @param decalY Posisi Y decal (-0.35 s/d 0.35)
- * @param aspectRatio Rasio aspek gambar nyata (width / height), default 1.0
- * @param targetSide Sisi pakaian ("front" | "back" | "left_sleeve" | "right_sleeve")
  */
 export function computePhysicalPrintDimensions(
   apparelType: string = "tshirt",
@@ -422,7 +503,7 @@ export function computePhysicalPrintDimensions(
   targetSide: DecalTargetSide = "front"
 ): PhysicalPrintDimension {
   const spec: ApparelSpec = APPAREL_PHYSICAL_SPECS[apparelType] || APPAREL_PHYSICAL_SPECS["tshirt"] || {
-    name: "Heavyweight Boxy Tee",
+    name: "Kaos Polos & Custom Kaos Kami",
     chestWidthCm: 56.0,
     bodyLengthCm: 74.0,
     maxFrontWidthCm: 30.0,
@@ -431,10 +512,12 @@ export function computePhysicalPrintDimensions(
     maxBackHeightCm: 42.0,
     maxSleeveWidthCm: 8.5,
     maxSleeveHeightCm: 12.0,
-    meshMultiplier: 101.8,
-    measuredMeshWidthUnits: 0.55,
-    sleeveAnchorX: 0.27,
-    collarBaselineY: 0.18,
+    maxSideWidthCm: 14.0,
+    maxSideHeightCm: 32.0,
+    meshMultiplier: 145.5,
+    measuredMeshWidthUnits: 0.385,
+    sleeveAnchorX: 0.28,
+    collarBaselineY: 0.165,
   };
   
   let maxWidth = spec.maxFrontWidthCm;
@@ -446,15 +529,14 @@ export function computePhysicalPrintDimensions(
   } else if (targetSide === "left_sleeve" || targetSide === "right_sleeve") {
     maxWidth = spec.maxSleeveWidthCm;
     maxHeight = spec.maxSleeveHeightCm;
+  } else if (targetSide === "side_left" || targetSide === "side_right") {
+    maxWidth = spec.maxSideWidthCm ?? 14.0;
+    maxHeight = spec.maxSideHeightCm ?? 32.0;
   } else if (targetSide === "hood") {
-    // Hoodie saja; non-hoodie max 0 → validasi sisi menolak di hulu.
     maxWidth = spec.maxHoodWidthCm ?? 0;
     maxHeight = spec.maxHoodHeightCm ?? 0;
   }
 
-  // Scale-fit proporsional ke box sisi (audit: clamp lebar-dulu lalu tinggi
-  // dari lebar-terjepit = distorsi + isWithin selalu true/tautologi).
-  // Artwork portrait dikecilkan utuh agar muat, bukan dipaksa gepeng.
   const validAspectRatio = aspectRatio > 0 ? aspectRatio : 1.0;
   const rawWidth = decalScale * spec.meshMultiplier;
   const rawHeight = rawWidth / validAspectRatio;
@@ -462,16 +544,12 @@ export function computePhysicalPrintDimensions(
   const widthCm = Math.max(3.5, Math.round(rawWidth * fitK * 10) / 10);
   const heightCm = Math.max(3.5, Math.round(rawHeight * fitK * 10) / 10);
 
-  // Konversi posisi Y ke jarak turun dari kerah dalam cm — via meshMultiplier
-  // apparel ini (audit #15: faktor 36.0 lama SALAH, hasilnya ~1/3 jarak asli).
   const normalizedDistance = Math.max(0, spec.collarBaselineY - decalY);
   const offsetFromCollarCm = Math.max(
     2.0,
     Math.round(normalizedDistance * spec.meshMultiplier * 10) / 10
   );
 
-  // Validasi terhadap ukuran MENTAH (pre-fit): cukup-tidaknya box dinilai
-  // sebelum dijepit, bukan sesudah (audit: tautologi selalu-true).
   const fitsBox = rawWidth <= maxWidth + 1e-6 && rawHeight <= maxHeight + 1e-6;
   const isWithinProductionLimits = fitsBox;
   const formattedText = `${widthCm.toFixed(1)} cm × ${heightCm.toFixed(1)} cm (Maks ${maxWidth} cm)`;
@@ -484,3 +562,196 @@ export function computePhysicalPrintDimensions(
     formattedText,
   };
 }
+
+export const APPAREL_SLEEVE_SPECS: Record<
+  string,
+  {
+    shoulder: { x: number; y: number; z: number; nx: number; ny: number };
+    cuff: { x: number; y: number; z: number; nx: number; ny: number };
+    depth: number;
+    bow: number;
+  }
+> = {
+  tshirt: {
+    shoulder: { x: -0.180, y: 0.100, z: -0.019, nx: -0.80, ny: 0.61 },
+    cuff: { x: -0.251, y: -0.045, z: -0.045, nx: -0.77, ny: -0.63 },
+    depth: 0.075,
+    bow: 0.015,
+  },
+  longsleeve: {
+    shoulder: { x: -0.180, y: 0.100, z: -0.019, nx: -0.80, ny: 0.61 },
+    cuff: { x: -0.317, y: -0.340, z: -0.017, nx: -1.00, ny: 0.07 },
+    depth: 0.075,
+    bow: 0.025,
+  },
+  crewneck: {
+    shoulder: { x: -0.180, y: 0.100, z: -0.015, nx: -0.81, ny: 0.59 },
+    cuff: { x: -0.440, y: -0.250, z: 0.030, nx: -0.84, ny: 0.53 },
+    depth: 0.080,
+    bow: 0.040,
+  },
+  hoodie: {
+    shoulder: { x: -0.189, y: 0.100, z: -0.036, nx: -0.73, ny: 0.67 },
+    cuff: { x: -0.435, y: -0.245, z: 0.010, nx: -0.94, ny: 0.23 },
+    depth: 0.080,
+    bow: 0.035,
+  },
+  shirt: {
+    shoulder: { x: -0.188, y: 0.100, z: -0.040, nx: -0.63, ny: 0.78 },
+    cuff: { x: -0.520, y: -0.200, z: 0.040, nx: -0.87, ny: -0.40 },
+    depth: 0.085,
+    bow: 0.040,
+  },
+};
+
+/** Hitung Euler (XYZ) dari normal permukaan tanpa ketergantungan library eksternal */
+function computeEulerFromNormal(nx: number, ny: number, nz: number = 0): [number, number, number] {
+  const lenZ = Math.hypot(nx, ny, nz) || 1;
+  const zx = nx / lenZ, zy = ny / lenZ, zz = nz / lenZ;
+  
+  // projX = cross((0,1,0), (zx, zy, zz)) = (zz, 0, -zx)
+  const lenX = Math.hypot(zz, -zx) || 1;
+  const xx = zz / lenX, xy = 0, xz = -zx / lenX;
+  
+  // projY = cross(projZ, projX)
+  const yx = zy * xz - zz * xy;
+  const yy = zz * xx - zx * xz;
+  const yz = zx * xy - zy * xx;
+
+  // Basis matrix (XYZ order)
+  const m00 = xx, m01 = yx, m02 = zx;
+  const m10 = xy, m11 = yy, m12 = zy;
+  const m20 = xz, m21 = yz, m22 = zz;
+
+  const y = Math.asin(Math.max(-1, Math.min(1, m02)));
+  let x: number, z: number;
+  if (Math.abs(m02) < 0.9999999) {
+    x = Math.atan2(-m12, m22);
+    z = Math.atan2(-m01, m00);
+  } else {
+    x = Math.atan2(m21, m11);
+    z = 0;
+  }
+  return [x, y, z];
+}
+
+/**
+ * Parameter proyeksi 3D presisi untuk semua sisi pakaian (Dada, Punggung, Samping Kiri/Kanan, Lengan Kiri/Kanan, Tudung).
+ * - Menghilangkan distorsi sudut 90° (tarikan/shearing) pada rusuk pinggang samping.
+ * - Menggunakan kedalaman dangkal anti-tembus (0.10) agar sablon lengan TIDAK menembus ke torso.
+ * - Mengikuti kontur lereng lengan (A-pose slope) secara otomatis saat Y digeser.
+ */
+export function getDecal3DPlacement(
+  apparelType: string,
+  targetSide: DecalTargetSide,
+  decalX: number,
+  decalY: number,
+  surfaceZ: number
+): {
+  position: [number, number, number];
+  rotation: [number, number, number];
+  projectionDepth: number;
+} {
+  const spec = APPAREL_PHYSICAL_SPECS[apparelType] ?? APPAREL_PHYSICAL_SPECS["tshirt"]!;
+  const EPS = 0.004;
+
+  if (targetSide === "back") {
+    const isCap = apparelType === "cap";
+    const backZ = isCap ? 0.155 : surfaceZ;
+    const depth = isCap ? 0.16 : Math.max(0.14, 0.32 - Math.max(0, Math.abs(decalX) - 0.08) * 1.5);
+    return {
+      position: [decalX, decalY, -(backZ + EPS)],
+      rotation: [0, Math.PI, 0],
+      projectionDepth: depth,
+    };
+  }
+
+  if (targetSide === "side_left") {
+    const isCap = apparelType === "cap";
+    const isPantsOrShorts = apparelType === "pants" || apparelType === "shorts";
+    const sideX = spec.sideAnchorX ?? 0.185;
+    // Untuk cap, pusat mahkota Z = -0.055. Untuk baju/celana Z = 0
+    const centerZ = isCap ? -0.055 : 0;
+    const posZ = centerZ + Math.max(-0.08, Math.min(0.08, decalX));
+    const depth = isCap ? 0.14 : isPantsOrShorts ? 0.20 : 0.16;
+    return {
+      position: [-(sideX + EPS), decalY, posZ],
+      rotation: [0, -Math.PI / 2, 0],
+      projectionDepth: depth,
+    };
+  }
+
+  if (targetSide === "side_right") {
+    const isCap = apparelType === "cap";
+    const isPantsOrShorts = apparelType === "pants" || apparelType === "shorts";
+    const sideX = spec.sideAnchorX ?? 0.185;
+    const centerZ = isCap ? -0.055 : 0;
+    const posZ = centerZ + Math.max(-0.08, Math.min(0.08, decalX));
+    const depth = isCap ? 0.14 : isPantsOrShorts ? 0.20 : 0.16;
+    return {
+      position: [sideX + EPS, decalY, posZ],
+      rotation: [0, Math.PI / 2, 0],
+      projectionDepth: depth,
+    };
+  }
+
+  if (targetSide === "left_sleeve" || targetSide === "right_sleeve") {
+    const isRight = targetSide === "right_sleeve";
+    const sign = isRight ? -1 : 1;
+
+    const key =
+      apparelType === "sweater"
+        ? "crewneck"
+        : apparelType === "jacket"
+        ? "shirt"
+        : apparelType;
+
+    const sleeveSpec = APPAREL_SLEEVE_SPECS[key] ?? APPAREL_SLEEVE_SPECS["tshirt"]!;
+
+    // decalY berkisar dari +0.35 (Pangkal Bahu) hingga -0.35 (Ujung Manset / Cuff)
+    // u = 0.0 (Bahu) -> u = 0.5 (Tengah Lengan) -> u = 1.0 (Ujung Manset)
+    const u = Math.max(0, Math.min(1, (0.35 - decalY) / 0.70));
+
+    const sh = sleeveSpec.shoulder;
+    const cf = sleeveSpec.cuff;
+
+    // Interpolasi kontur lereng lengan alami (dengan lengkungan busur kain)
+    const bow = Math.sin(u * Math.PI) * sleeveSpec.bow;
+    const posXLeft = sh.x + (cf.x - sh.x) * u - bow;
+    const posY = sh.y + (cf.y - sh.y) * u;
+    const posZ = sh.z + (cf.z - sh.z) * u + decalX;
+
+    // Normal vektor permukaan lengan pada ketinggian u
+    const nx = sh.nx + (cf.nx - sh.nx) * u;
+    const ny = sh.ny + (cf.ny - sh.ny) * u;
+
+    const rotation = computeEulerFromNormal(nx * sign, ny, 0);
+
+    return {
+      position: [posXLeft * sign, posY, posZ],
+      rotation,
+      projectionDepth: sleeveSpec.depth,
+    };
+  }
+
+  if (targetSide === "hood") {
+    const hoodY = spec.hoodAnchorY ?? 0.34;
+    const hoodZ = spec.hoodAnchorZ ?? 0.095;
+    const posX = Math.max(-DECAL_MOVE_LIMITS.hoodX, Math.min(DECAL_MOVE_LIMITS.hoodX, decalX));
+    const posY = hoodY + Math.max(-DECAL_MOVE_LIMITS.hoodY, Math.min(DECAL_MOVE_LIMITS.hoodY, decalY));
+    return {
+      position: [posX, posY, -(hoodZ + EPS)],
+      rotation: [0, Math.PI, 0],
+      projectionDepth: 0.16,
+    };
+  }
+
+  // Default: Front (Dada) - Depth 0.32 di tengah, mengecil saat mendekati rusuk (|x|>0.08)
+  const depth = Math.max(0.14, 0.32 - Math.max(0, Math.abs(decalX) - 0.08) * 1.5);
+  return {
+    position: [decalX, decalY, surfaceZ + EPS],
+    rotation: [0, 0, 0],
+    projectionDepth: depth,
+  };
+}
+

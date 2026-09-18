@@ -167,9 +167,9 @@ export function CanvasStageMobile({ theme = 'obsidian' }: { theme?: MobileStudio
     );
   }
 
-  // P0-3: bg default #0E0E10 (obsidian/concrete gelap); gallery → #F5F4F0
+  // P0-3: bg default #0E0E10 (obsidian/concrete gelap); gallery → #EFECE6
   // cermin web CanvasStage themeBgHex.
-  const themeBgHex = theme === 'gallery' ? '#F5F4F0' : theme === 'concrete' ? '#222326' : '#0E0E10';
+  const themeBgHex = theme === 'gallery' ? '#EFECE6' : theme === 'concrete' ? '#222326' : '#0E0E10';
 
   return (
     <div id="kk-studio" className="relative w-full h-full select-none touch-none overflow-hidden rounded-3xl bg-canvas transition-colors" style={{ backgroundColor: themeBgHex }}>

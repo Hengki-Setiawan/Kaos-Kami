@@ -13,6 +13,18 @@ const PatchSchema = z.object({
   // Tandai refund: uang dikembalikan MANUAL via dashboard Duitku (tidak ada
   // API refund publik) — tombol ini hanya mencatat status + riwayat.
   refund: z.boolean().optional(),
+  status: z
+    .enum([
+      "PAYMENT_CONFIRMED",
+      "IN_PRODUCTION_QUEUE",
+      "PRINTING",
+      "QUALITY_CHECK",
+      "READY_TO_SHIP",
+      "SHIPPED",
+      "DELIVERED",
+      "COMPLETED",
+    ])
+    .optional(),
 });
 
 async function requireWorkshop(req: NextRequest) {
@@ -44,7 +56,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   if (gate.error) return gate.error;
   const parsed = PatchSchema.safeParse(await req.json().catch(() => ({})));
   if (!parsed.success) return NextResponse.json({ error: "Input tidak valid" }, { status: 400 });
-  const { trackingNumber, cancel, refund } = parsed.data;
+  const { trackingNumber, cancel, refund, status } = parsed.data;
 
   // Otorisasi per aksi (bukan sekadar lolos gerbang workshop):
   // - cancel/refund = dampak finansial (status final CANCELLED/REFUNDED +
@@ -135,6 +147,22 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
       note: "Dana dikembalikan manual via dashboard Duitku; status dicatat admin.",
     });
     await restoreOrderCoupon();
+  }
+  if (status) {
+    await db.update(Order).set({ status }).where(eq(Order.id, order.id));
+    await db.insert(OrderStatusEvent).values({
+      id: nanoid(),
+      orderId: order.id,
+      status,
+      note: `Status diubah menjadi ${status} oleh tim workshop (${actorRole || "STAFF"}).`,
+    });
+    if (status === "COMPLETED") {
+      const { ProductionTask } = await import("@/lib/drizzle-schema");
+      await db
+        .update(ProductionTask)
+        .set({ stage: "DONE", completedAt: new Date() })
+        .where(eq(ProductionTask.orderId, order.id));
+    }
   }
   return NextResponse.json({ success: true });
 }

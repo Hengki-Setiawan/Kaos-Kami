@@ -38,9 +38,6 @@ export function StudioClient() {
     syncStatus,
     cameraPreset,
     setCameraPreset,
-    modelMode,
-    motionClip,
-    setMotionClip,
   } = useConfiguratorStore(
     useShallow((s) => ({
       setViewMode: s.setViewMode,
@@ -55,9 +52,6 @@ export function StudioClient() {
       syncStatus: s.syncStatus,
       cameraPreset: s.cameraPreset,
       setCameraPreset: s.setCameraPreset,
-      modelMode: s.modelMode,
-      motionClip: s.motionClip,
-      setMotionClip: s.setMotionClip,
     }))
   );
   const webglSupported = useWebglSupport();
@@ -238,23 +232,6 @@ export function StudioClient() {
             >
               <Move size={12} />
               <span className="text-[11px] font-bold">{isGizmoVisible ? "GIZMO NYALA" : "GIZMO MATI"}</span>
-            </button>
-          )}
-
-          {/* DANSAS — manekin-only: retarget rumba in-place (fallback idle, tak pernah blank) */}
-          {modelMode === "mannequin" && (
-            <button
-              onClick={() => setMotionClip(motionClip === "dance" ? "idle" : "dance")}
-              aria-pressed={motionClip === "dance"}
-              className={`flex items-center space-x-1.5 px-3 py-1.5 rounded-full font-mono text-xs uppercase border transition-all ${
-                motionClip === "dance"
-                  ? "bg-brand-accent text-canvas border-brand-accent font-bold shadow-[0_0_8px_rgba(230,81,0,0.4)]"
-                  : "bg-surface border-border-subtle text-text-muted hover:text-text-primary"
-              }`}
-              title="Putar dansa rumba (retarget in-place, manekin tetap di tempat)"
-            >
-              <span aria-hidden="true">💃</span>
-              <span className="text-[11px] font-bold">{motionClip === "dance" ? "BERHENTI" : "DANSAS"}</span>
             </button>
           )}
 

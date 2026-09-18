@@ -139,45 +139,10 @@ export const StudioTour: React.FC = () => {
     setPesan("Kamera didekatkan ke kerah — cek jahitannya, lalu lanjut atur sablonmu.");
   }, [setCameraPreset]);
 
-  // Stepper PERSISTEN non-blocking: kartu tutup → bilah mini 1·2·3 tetap ada.
+  // Jika ditutup, jangan render bilah mengambang di bawah agar kanvas bersih & tidak menutupi kontrol lain.
+  // Pengguna dapat membuka kembali panduan kapan saja lewat tombol PANDUAN di header menu kustomisasi.
   if (!terbuka) {
-    return (
-      <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-[60] pointer-events-auto">
-        <div
-          className="flex items-center gap-1.5 pl-3 pr-1.5 py-1.5 rounded-full bg-canvas/90 border border-border-subtle backdrop-blur-xl shadow-xl"
-          role="navigation"
-          aria-label="Langkah studio (bilah mini)"
-        >
-          <span className="text-[10px] font-mono font-black text-text-muted uppercase">LANGKAH {langkah + 1}/3</span>
-          {STEPS.map((s, i) => (
-            <button
-              key={i}
-              onClick={() => {
-                setPesan(null);
-                setLangkah(i);
-                setTerbuka(true);
-              }}
-              aria-label={`Buka ${s.judul.toLowerCase()}`}
-              className={`w-7 h-7 rounded-full text-[11px] font-mono font-black transition-all ${
-                i === langkah
-                  ? "bg-brand-accent text-canvas shadow-[0_0_10px_rgba(230,81,0,0.4)]"
-                  : i < langkah
-                    ? "bg-brand-accent/25 text-brand-accent"
-                    : "bg-surface text-text-muted hover:text-text-primary"
-              }`}
-            >
-              {i + 1}
-            </button>
-          ))}
-          <button
-            onClick={() => setTerbuka(true)}
-            className="px-3 py-1.5 rounded-full bg-brand-accent text-canvas text-[10px] font-mono font-black uppercase"
-          >
-            PANDUAN
-          </button>
-        </div>
-      </div>
-    );
+    return null;
   }
   const step = STEPS[langkah]!;
 
@@ -191,7 +156,7 @@ export const StudioTour: React.FC = () => {
         <p className="text-xs font-mono font-black text-brand-accent uppercase">{step.judul}</p>
         <button
           onClick={() => tutup(true)}
-          aria-label="Ciutkan panduan (bilah mini tetap ada di bawah)"
+          aria-label="Tutup panduan"
           className="p-1.5 rounded-lg text-text-muted hover:text-text-primary"
         >
           <X size={14} />

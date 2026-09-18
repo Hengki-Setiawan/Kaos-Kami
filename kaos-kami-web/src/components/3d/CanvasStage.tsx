@@ -1,6 +1,6 @@
 "use client";
 
-import React, { Suspense, useEffect, useState } from "react";
+import React, { Suspense, useEffect, useState, useRef } from "react";
 import dynamic from "next/dynamic";
 import { Canvas, useThree, type RootState } from "@react-three/fiber";
 import * as THREE from "three";
@@ -8,7 +8,9 @@ import { AdaptiveDpr, PerformanceMonitor, useGLTF } from "@react-three/drei";
 import { StudioLighting } from "./StudioLighting";
 import { ApparelMeshRenderer } from "./ApparelMeshRenderer";
 import { CameraRig } from "./CameraRig";
+import { TestLabOverlay3D } from "./TestLabOverlay3D";
 import { Preloader } from "@/components/ui/Preloader";
+import { disposeSceneHierarchy } from "@/lib/3d/disposeScene";
 import { useConfiguratorStore } from "@/store/useConfiguratorStore";
 import { useShallow } from "zustand/shallow";
 import {
@@ -25,7 +27,7 @@ import {
 if (typeof window !== "undefined") {
   try {
     (useGLTF as any).setDecoderPath?.("/decoders/draco/");
-  } catch {}
+  } catch { }
 }
 
 // B2: PerformanceMonitor (turun ke DPR 1 setelah 3x flip-flop, satu arah agar
@@ -50,17 +52,10 @@ const PerfAdaptive: React.FC = () => {
 // = warna cetak; SMAA tetap karena AA tak menggeser warna.
 const HighTierEffects = dynamic(
   () =>
-    import("@react-three/postprocessing").then(({ EffectComposer, Bloom, Vignette, SMAA }) => {
+    import("@react-three/postprocessing").then(({ EffectComposer, SMAA }) => {
       const HighTierEffectsInner: React.FC = () => {
-        const accurate = useConfiguratorStore((s) => s.isAccurateColor);
         return (
           <EffectComposer multisampling={0}>
-            {!accurate && (
-              <>
-                <Bloom mipmapBlur intensity={0.15} luminanceThreshold={1} luminanceSmoothing={0.25} />
-                <Vignette offset={0.25} darkness={0.28} />
-              </>
-            )}
             <SMAA />
           </EffectComposer>
         );
@@ -79,6 +74,29 @@ const HighTierEffects = dynamic(
 // - r3f-perf SENGAJA tidak ditambah ke package.json (R3F9 belum teruji, lihat
 const DevPerfInCanvas: React.FC<{ baseMaxDpr: number }> = () => null;
 const DevLevaPanel: React.FC = () => null;
+
+/** Melepas VRAM (geometri/material/tekstur) & context WebGL saat canvas unmount/remount */
+function SceneDisposer() {
+  const scene = useThree((s) => s.scene);
+  const gl = useThree((s) => s.gl);
+  useEffect(() => {
+    return () => {
+      try {
+        disposeSceneHierarchy(scene);
+      } catch { }
+      try {
+        if (typeof gl.forceContextLoss === "function") {
+          gl.forceContextLoss();
+        } else {
+          const rawGl = gl.getContext?.();
+          const loseExt = rawGl?.getExtension?.("WEBGL_lose_context");
+          loseExt?.loseContext?.();
+        }
+      } catch { }
+    };
+  }, [scene, gl]);
+  return null;
+}
 
 interface CanvasStageProps {
   camPos: THREE.Vector3;
@@ -100,7 +118,7 @@ export const CanvasStage: React.FC<CanvasStageProps> = ({ camPos, lookAtPos }) =
     partColors,
     activeColorMode,
     isWireframe,
-    modelMode,
+    testLabMode,
   } = useConfiguratorStore(
     useShallow((s) => ({
       viewMode: s.viewMode,
@@ -116,7 +134,7 @@ export const CanvasStage: React.FC<CanvasStageProps> = ({ camPos, lookAtPos }) =
       partColors: s.partColors,
       activeColorMode: s.activeColorMode,
       isWireframe: s.isWireframe,
-      modelMode: s.modelMode,
+      testLabMode: s.testLabMode,
     }))
   );
   const deviceTier = useDeviceTier();
@@ -125,6 +143,24 @@ export const CanvasStage: React.FC<CanvasStageProps> = ({ camPos, lookAtPos }) =
   // restored di kanvas R3F. Hilang → tampilkan tombol reload (remount Canvas
   // = konteks baru); pulih → tutup fallback. Tanpa ini kanvas mati diam.
   const [contextLost, setContextLost] = useState(false);
+  const [canvasKey, setCanvasKey] = useState(0);
+  const retryCountRef = useRef(0);
+
+  useEffect(() => {
+    if (!contextLost) {
+      retryCountRef.current = 0;
+      return;
+    }
+    // Auto-recovery 1x setelah 1.5 detik jika GPU hanya mengalami reset transien
+    if (retryCountRef.current < 1) {
+      retryCountRef.current += 1;
+      const timer = setTimeout(() => {
+        setCanvasKey((k) => k + 1);
+        setContextLost(false);
+      }, 1500);
+      return () => clearTimeout(timer);
+    }
+  }, [contextLost]);
 
   // B1: frameloop="demand" saat idle — tiru pola TERBUKTI mobile
   // (CanvasStageMobile.tsx:83). 'always' hanya saat animasi berjalan:
@@ -144,36 +180,14 @@ export const CanvasStage: React.FC<CanvasStageProps> = ({ camPos, lookAtPos }) =
     const t = setTimeout(() => setTransientMotion(false), 800);
     return () => clearTimeout(t);
   }, [selectedColor, materialFinish, activeApparel, partColors, activeColorMode, isWireframe]);
-  // PERF: dengar status idle manekin (>2s, dari MannequinModel) agar mode
-  // manekin ikut turun ke frameloop demand saat diam (mixer dibekukan di
-  // sana via mixer.timeScale=0 — tanpa edit biner GLB).
-  const [mannequinIdle, setMannequinIdle] = useState(false);
-  useEffect(() => {
-    if (modelMode !== "mannequin") {
-      setMannequinIdle(false);
-      return;
-    }
-    const onIdle = (e: Event) => {
-      try {
-        setMannequinIdle(!!(e as CustomEvent).detail);
-      } catch {}
-    };
-    window.addEventListener("kaos-mannequin-idle", onIdle);
-    return () => window.removeEventListener("kaos-mannequin-idle", onIdle);
-  }, [modelMode]);
-  // B-06: cameraPreset !== null WAJIB di sini — CameraRig menunda
-  // setCameraPreset(null) sampai animasi 0.6s tuntas, sehingga transisi preset
-  // selalu dapat frame (sebelumnya clear instan = animasi mati di demand).
-  // MODE MANEKIN: skeletal animation butuh frame kontinu HANYA saat gerak —
-  // saat idle >2s (mannequinIdle) frameloop demand (mixer sudah =0 di sana).
   const needsContinuous =
     viewMode === "story" ||
     isRotating ||
     animationPreset !== "static" ||
+    testLabMode !== "none" ||
     cameraPreset !== null ||
     isGizmoDragging ||
-    transientMotion ||
-    (modelMode === "mannequin" && !mannequinIdle);
+    transientMotion;
 
   // B1: preserveDrawingBuffer:false permanen (hemat VRAM, hindari slow-path
   // WebGL). Ekspor PNG tetap TIDAK blank: onCreated menambal toDataURL kanvas
@@ -199,28 +213,90 @@ export const CanvasStage: React.FC<CanvasStageProps> = ({ camPos, lookAtPos }) =
       canvas.addEventListener("webglcontextrestored", handleContextRestored, false);
       const origToDataURL = canvas.toDataURL.bind(canvas) as (...a: any[]) => string;
       (canvas as any).toDataURL = (...args: any[]) => {
-        // M2.10: DPR ekspor PNG KUNCI 2 — mockup tajam di semua HP walau
-        // tier-low jalan di DPR 1. Naikkan sementara → render sinkron → baca
-        // piksel → kembalikan DPR (jank sesaat saat ekspor = wajar/transien).
-        // CustomizerDrawer.handleExportPNG tak perlu diubah (file terlarang).
+        // DPR ekspor PNG KUNCI 3 — mockup ultra tajam di semua resolusi
         let prevDpr = 0;
         try {
           prevDpr = gl.getPixelRatio();
-          if (prevDpr !== 2) state.setDpr(2);
+          if (prevDpr !== 3) state.setDpr(3);
           gl.render(scene, camera);
           const url = origToDataURL(...args);
-          if (prevDpr !== 0 && prevDpr !== 2) {
+          if (prevDpr !== 0 && prevDpr !== 3) {
             state.setDpr(prevDpr);
             try {
               gl.render(scene, camera);
-            } catch {}
+            } catch { }
           }
           return url;
         } catch {
           return origToDataURL(...args);
         }
       };
-    } catch {}
+
+      // Engine Ekspor Resolusi Tinggi (2K/HD) & Latar Transparan (PNG Alpha)
+      (canvas as any).exportMockup = async (options?: {
+        resolution?: "standard" | "hd" | "2k";
+        transparent?: boolean;
+      }): Promise<string> => {
+        const res = options?.resolution || "2k";
+        const isTransparent = !!options?.transparent;
+        const targetDim = res === "standard" ? 1280 : res === "hd" ? 1920 : 2048;
+
+        const rect = canvas.getBoundingClientRect();
+        const aspect = rect.width && rect.height ? rect.width / rect.height : 1;
+        let w = targetDim;
+        let h = Math.round(targetDim / aspect);
+        if (aspect < 1) {
+          h = targetDim;
+          w = Math.round(targetDim * aspect);
+        }
+
+        const prevClearAlpha = gl.getClearAlpha();
+        const prevClearColor = new THREE.Color();
+        gl.getClearColor(prevClearColor);
+        const prevAspect = (camera as any).aspect;
+        const hiddenObjects: THREE.Object3D[] = [];
+
+        if (isTransparent) {
+          gl.setClearColor(0x000000, 0);
+          scene.traverse((obj) => {
+            if (
+              obj.name === "studio-floor" ||
+              (obj as any).isMesh && (obj as any).receiveShadow && !(obj as any).castShadow && obj.position.y < -1
+            ) {
+              if (obj.visible) {
+                obj.visible = false;
+                hiddenObjects.push(obj);
+              }
+            }
+          });
+        }
+
+        try {
+          gl.setSize(w, h, false);
+          if ((camera as any).aspect !== undefined) {
+            (camera as any).aspect = w / h;
+            camera.updateProjectionMatrix();
+          }
+          gl.render(scene, camera);
+          return origToDataURL("image/png");
+        } finally {
+          for (const obj of hiddenObjects) {
+            obj.visible = true;
+          }
+          if (isTransparent) {
+            gl.setClearColor(prevClearColor, prevClearAlpha);
+          }
+          gl.setSize(rect.width || 800, rect.height || 600, false);
+          if ((camera as any).aspect !== undefined && prevAspect !== undefined) {
+            (camera as any).aspect = prevAspect;
+            camera.updateProjectionMatrix();
+          }
+          try {
+            gl.render(scene, camera);
+          } catch { }
+        }
+      };
+    } catch { }
   };
 
   // PERF (ganti E1 lama): preload PRIORITAS (kandidat pertama = draco/
@@ -261,13 +337,12 @@ export const CanvasStage: React.FC<CanvasStageProps> = ({ camPos, lookAtPos }) =
     const urls = wanted
       .map((a) => priorityFor(a))
       .filter((u): u is string => !!u);
-    if (modelMode === "mannequin") urls.push("/models/mannequin.glb");
     let handle: number | null = null;
     const run = () => {
       for (const url of urls) {
         try {
           useGLTF.preload(url);
-        } catch {}
+        } catch { }
       }
     };
     try {
@@ -287,9 +362,9 @@ export const CanvasStage: React.FC<CanvasStageProps> = ({ camPos, lookAtPos }) =
         } else {
           clearTimeout(handle);
         }
-      } catch {}
+      } catch { }
     };
-  }, [deviceTier.isResolved, deviceTier.tier, activeApparel, modelMode]);
+  }, [deviceTier.isResolved, deviceTier.tier, activeApparel]);
 
   // D1: gate ganda — tier high DAN deteksi selesai (nilai awal "high" adalah
   // placeholder SSR; tanpa isResolved, HP low ikut unduh chunk effects).
@@ -301,15 +376,15 @@ export const CanvasStage: React.FC<CanvasStageProps> = ({ camPos, lookAtPos }) =
 
   const themeBgHex =
     studioTheme === "gallery"
-      ? "#F5F4F0"
+      ? "#EFECE6"
       : studioTheme === "concrete"
-      ? "#222326"
-      : "#121214";
+        ? "#222326"
+        : "#121214";
   // M2.6: gradient gelap bawah via CSS (nol biaya GPU, semua tier — ganti
   // plane gradient 3D yang butuh draw call + depth tuning). Lantai 3D
   // (lingkaran matte + reflektor high-tier) ada di StudioLighting.
   const themeGradientTo =
-    studioTheme === "gallery" ? "#DDDAD2" : studioTheme === "concrete" ? "#131415" : "#080809";
+    studioTheme === "gallery" ? "#DDD9D0" : studioTheme === "concrete" ? "#131415" : "#080809";
 
   const isInteractive = viewMode === "studio" || isHideWebsiteUI;
 
@@ -318,62 +393,75 @@ export const CanvasStage: React.FC<CanvasStageProps> = ({ camPos, lookAtPos }) =
       {process.env.NODE_ENV !== "production" ? <DevLevaPanel /> : null}
       <Preloader />
       {contextLost ? (
-        // Cermin CanvasStageMobile: klik = remount Canvas (konteks WebGL baru).
         <div className="webgl-canvas-container w-full h-full flex flex-col items-center justify-center p-6 text-center rounded-3xl border border-border-subtle transition-colors">
-          <p className="text-sm font-bold text-amber-400 mb-2">Sesi Grafis 3D Terputus</p>
-          <button
-            onClick={() => setContextLost(false)}
-            className="px-4 py-2 rounded-xl bg-brand-accent text-white text-xs font-bold transition-colors"
-          >
-            Muat Ulang Studio 3D
-          </button>
+          <p className="text-sm font-bold text-amber-400 mb-1">Akselerasi Grafis 3D Terputus</p>
+          <p className="text-xs text-text-muted max-w-sm mb-3">
+            Driver GPU browser sempat mereset WebGL (biasa terjadi saat memori GPU penuh atau banyak tab aktif di localhost).
+          </p>
+          <div className="flex flex-wrap gap-2 justify-center">
+            <button
+              onClick={() => {
+                setCanvasKey((k) => k + 1);
+                setContextLost(false);
+              }}
+              className="px-4 py-2 rounded-xl bg-brand-accent text-white text-xs font-bold transition-all shadow-md hover:brightness-110 active:scale-95"
+            >
+              Muat Ulang Studio 3D
+            </button>
+            <button
+              onClick={() => window.location.reload()}
+              className="px-3 py-2 rounded-xl bg-surface border border-border-subtle text-text-muted hover:text-text-primary text-xs font-mono transition-all active:scale-95"
+            >
+              Segarkan Halaman (F5)
+            </button>
+          </div>
         </div>
       ) : (
-      <div
-        className={`webgl-canvas-container transition-colors duration-500 ${
-          isInteractive ? "interactive cursor-grab active:cursor-grabbing" : ""
-        }`}
-        // TOUCH: pan-y agar 1-jari horizontal = rotate 3D, swipe vertikal =
-        // scroll halaman (cermin perilaku mobile TouchOrbitControls).
-        style={{ backgroundColor: themeBgHex, backgroundImage: `linear-gradient(180deg, ${themeBgHex} 0%, ${themeGradientTo} 100%)`, touchAction: "pan-y" }}
-      >
-        <Canvas
-          // PERF: key = antialias WebGL hanya berlaku saat konteks dibuat;
-          // remount sekali saat composer on/off agar nilai di bawah mengikat.
-          // TOUCH: pan-y selaras container (swipe vertikal = scroll halaman).
-          style={{ touchAction: "pan-y" }}
-          key={showEffects ? "fx" : "no-fx"}
-          shadows={deviceTier.enableShadows}
-          dpr={[1, cappedMaxDpr]}
-          frameloop={needsContinuous ? "always" : "demand"}
-          // M2.10: fov 40 TETAP (klaim skala cm/DPI tak boleh drift).
-          camera={{ position: [0, 0, 2.9], fov: 40 }}
-          gl={{
-            // PERF: antialias:false saat composer aktif — MSAA bawaan tak
-            // berlaku di buffer EffectComposer (mubazir penuh), SMAA di
-            // dalam composer yang menangani tepi. Composer mati = MSAA on.
-            antialias: !showEffects,
-            powerPreference: "high-performance",
-            toneMapping: THREE.ACESFilmicToneMapping,
-            // M2.9: exposure KUNCI 1.0 semua tema (dulu 1.05/1.15 = hitam
-            // jadi abu susu). Sinkron dengan ReactiveExposure StudioLighting.
-            toneMappingExposure: 1.0,
-            preserveDrawingBuffer: false,
-          }}
-          onCreated={handleCreated}
+        <div
+          className={`webgl-canvas-container transition-colors duration-500 ${isInteractive ? "interactive cursor-grab active:cursor-grabbing" : ""
+            }`}
+          // TOUCH: pan-y agar 1-jari horizontal = rotate 3D, swipe vertikal =
+          // scroll halaman (cermin perilaku mobile TouchOrbitControls).
+          style={{ backgroundColor: themeBgHex, backgroundImage: `linear-gradient(180deg, ${themeBgHex} 0%, ${themeGradientTo} 100%)`, touchAction: "pan-y" }}
         >
-          <PerfAdaptive />
-          {process.env.NODE_ENV !== "production" ? (
-            <DevPerfInCanvas baseMaxDpr={cappedMaxDpr} />
-          ) : null}
-          <Suspense fallback={null}>
-            <StudioLighting />
-            <ApparelMeshRenderer />
-            <CameraRig targetPosition={camPos} targetLookAt={lookAtPos} />
-          </Suspense>
-          {showEffects && <HighTierEffects />}
-        </Canvas>
-      </div>
+          <Canvas
+            // PERF: key = antialias WebGL hanya berlaku saat konteks dibuat;
+            // remount sekali saat composer on/off agar nilai di bawah mengikat.
+            // TOUCH: pan-y selaras container (swipe vertikal = scroll halaman).
+            style={{ touchAction: "pan-y" }}
+            key={`${showEffects ? "fx" : "no-fx"}-k${canvasKey}`}
+            shadows={deviceTier.enableShadows}
+            dpr={[1, cappedMaxDpr]}
+            frameloop={needsContinuous ? "always" : "demand"}
+            // M2.10: fov 40 TETAP (klaim skala cm/DPI tak boleh drift).
+            camera={{ position: [0, 0, 2.9], fov: 40 }}
+            gl={{
+              // PERF: antialias:false saat composer aktif — MSAA bawaan tak
+              // berlaku di buffer EffectComposer (mubazir penuh), SMAA di
+              // dalam composer yang menangani tepi. Composer mati = MSAA on.
+              antialias: !showEffects,
+              powerPreference: "high-performance",
+              toneMapping: THREE.ACESFilmicToneMapping,
+              // M2.9: exposure KUNCI 1.0 semua tema (dulu 1.05/1.15 = hitam
+              // jadi abu susu). Sinkron dengan ReactiveExposure StudioLighting.
+              toneMappingExposure: 1.0,
+              preserveDrawingBuffer: false,
+            }}
+            onCreated={handleCreated}
+          >
+            <PerfAdaptive />
+            {process.env.NODE_ENV !== "production" ? (
+              <DevPerfInCanvas baseMaxDpr={cappedMaxDpr} />
+            ) : null}
+            <Suspense fallback={null}>
+              <StudioLighting />
+              <ApparelMeshRenderer />
+              <TestLabOverlay3D />
+              <CameraRig targetPosition={camPos} targetLookAt={lookAtPos} />
+            </Suspense>
+            {showEffects && <HighTierEffects />}
+          </Canvas>
+        </div>
       )}
     </>
   );

@@ -9,7 +9,7 @@ export const size = {
   height: 630,
 };
 
-export const alt = "kaos kami — Heavyweight 3D Apparel Experience | Makassar DTF Sablon";
+export const alt = "Kaos Kami | Sablon DTF & Kaos Custom Makassar";
 
 export const contentType = "image/png";
 
@@ -48,7 +48,7 @@ export default function Image() {
             marginTop: 16,
           }}
         >
-          kaos kami
+          Kaos Kami
         </div>
         <div
           style={{
@@ -58,7 +58,7 @@ export default function Image() {
             marginTop: 20,
           }}
         >
-          Heavyweight streetwear, engineered not printed.
+          Sablon DTF Satuan &amp; Kaos Polos Berkualitas Makassar
         </div>
         <div
           style={{
@@ -72,7 +72,7 @@ export default function Image() {
             fontWeight: 700,
           }}
         >
-          240 &amp; 280 GSM · Studio 3D · Sablon DTF
+          Combed 24s/30s · Studio 3D · Tanpa Minimal Order
         </div>
       </div>
     ),

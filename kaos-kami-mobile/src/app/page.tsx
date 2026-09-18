@@ -486,14 +486,14 @@ export default function MobileApp() {
   //   save-to-cart & checkout menolak, server validasi ulang).
   // - pants/shorts: mockup 3D AKTIF di studio HP, order TETAP diblokir.
   const apparelOptions: { key: ApparelType; label: string; gsm: string; price: number }[] = [
-    { key: 'tshirt', label: 'T-Shirt Heavyweight', gsm: '240 / 280 GSM', price: 149000 },
-    { key: 'longsleeve', label: 'Longsleeve Shirt', gsm: '240 / 280 GSM', price: 169000 },
-    { key: 'crewneck', label: 'Crewneck Sweater', gsm: '330 / 380 GSM', price: 249000 },
-    { key: 'hoodie', label: 'Streetwear Hoodie', gsm: '380 GSM', price: 269000 },
-    { key: 'shirt', label: 'Coach Jacket', gsm: '320 GSM', price: 329000 },
-    { key: 'cap', label: 'Baseball Cap', gsm: 'Twill / Canvas', price: 99000 },
-    { key: 'pants', label: 'Cargo Pants', gsm: 'Streetwear Twill', price: 0 },
-    { key: 'shorts', label: 'Denim Shorts', gsm: 'Classic Denim', price: 0 },
+    { key: 'tshirt', label: 'Kaos Polos & Custom Kaos Kami', gsm: 'Combed 24s / 30s', price: 79000 },
+    { key: 'longsleeve', label: 'Kaos Lengan Panjang', gsm: 'Combed 24s', price: 89000 },
+    { key: 'crewneck', label: 'Crewneck Sweater', gsm: 'Baby Terry / Fleece', price: 139000 },
+    { key: 'hoodie', label: 'Hoodie Jumper Kaos Kami', gsm: 'Fleece 280 GSM', price: 159000 },
+    { key: 'shirt', label: 'Coach Jacket Kaos Kami', gsm: 'Taslan Premium', price: 189000 },
+    { key: 'cap', label: 'Topi Kaos Kami', gsm: 'Twill / Kanvas', price: 45000 },
+    { key: 'pants', label: 'Celana Panjang Cargo', gsm: 'Katun Twill', price: 0 },
+    { key: 'shorts', label: 'Celana Pendek Chino', gsm: 'Katun Twill / Denim', price: 0 },
   ];
 
   const handleSaveToCart = () => {
@@ -662,7 +662,7 @@ export default function MobileApp() {
                 Kustom Kaos 3D Impianmu
               </h2>
               <p className="text-xs text-zinc-400 mb-4 leading-relaxed">
-                Pilih kain heavyweight 240 & 280 GSM, pasang stiker logo hingga 300 DPI, dan dapatkan kalibrasi sablon fisik 1:1 cm.
+                Pilih bahan katun combed adem, pasang desain/logo DTF kualitas tajam, dan simulasikan langsung lewat mockup 3D.
               </p>
 
               {/* Color Swatch Preview */}
@@ -714,7 +714,7 @@ export default function MobileApp() {
                   <ShoppingBag className="w-5 h-5" />
                 </div>
                 <h3 className="text-sm font-bold text-white font-['Syne']">Katalog Baju</h3>
-                <p className="text-[11px] text-zinc-400 mt-0.5">Heavyweight 240 & 280 GSM</p>
+                <p className="text-[11px] text-zinc-400 mt-0.5">Katun Combed 24s / 30s</p>
               </GlassCard>
 
               <GlassCard
@@ -1227,10 +1227,10 @@ export default function MobileApp() {
           )?.name;
           return {
             orderId: activeOrderId ?? match?.id ?? '-',
-            brandName: 'Kaos Kami Streetwear',
+            brandName: 'Kaos Kami Makassar',
             designerPhone: SHOP_WHATSAPP,
             apparelTitle:
-              apparelOptions.find((a) => a.key === apparelType)?.label ?? match?.apparelTitle ?? 'T-Shirt Heavyweight',
+              apparelOptions.find((a) => a.key === apparelType)?.label ?? match?.apparelTitle ?? 'Kaos Polos & Custom Kaos Kami',
             colorName: match?.colorName || swatchName || 'Custom',
             colorHex: color,
             // Store belum punya peta Pantone → biarkan kosong (modal cetak '-').

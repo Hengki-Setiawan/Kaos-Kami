@@ -17,7 +17,10 @@ interface PrintZoneGuideProps {
  * hoodie-front 28×26, shirt-front 14×26, lengan 8.5×12, tudung 18×14).
  * Label tampilkan angka sisi aktual. surfaceZ dari SSOT (audit #6).
  */
-export const PrintZoneGuide: React.FC<PrintZoneGuideProps> = ({ surfaceZ }) => {
+export const PrintZoneGuide: React.FC<PrintZoneGuideProps> = () => {
+  return null;
+};
+const _UnusedPrintZoneGuide: React.FC<PrintZoneGuideProps> = ({ surfaceZ }) => {
   const { viewMode, isHideWebsiteUI, isGizmoVisible, decals, selectedDecalId, activeApparel } = useConfiguratorStore(
     useShallow((s) => ({
       viewMode: s.viewMode,
@@ -40,9 +43,11 @@ export const PrintZoneGuide: React.FC<PrintZoneGuideProps> = ({ surfaceZ }) => {
       ? { w: spec?.maxBackWidthCm ?? 30.0, h: spec?.maxBackHeightCm ?? 42.0 }
       : targetSide === "hood"
         ? { w: spec?.maxHoodWidthCm ?? 18.0, h: spec?.maxHoodHeightCm ?? 14.0 }
-        : targetSide === "left_sleeve" || targetSide === "right_sleeve"
-          ? { w: spec?.maxSleeveWidthCm ?? 8.5, h: spec?.maxSleeveHeightCm ?? 12.0 }
-          : { w: spec?.maxFrontWidthCm ?? 30.0, h: spec?.maxFrontHeightCm ?? 42.0 };
+        : targetSide === "side_left" || targetSide === "side_right"
+          ? { w: spec?.maxSideWidthCm ?? 14.0, h: spec?.maxSideHeightCm ?? 32.0 }
+          : targetSide === "left_sleeve" || targetSide === "right_sleeve"
+            ? { w: spec?.maxSleeveWidthCm ?? 8.5, h: spec?.maxSleeveHeightCm ?? 12.0 }
+            : { w: spec?.maxFrontWidthCm ?? 30.0, h: spec?.maxFrontHeightCm ?? 42.0 };
   // surfaceZ SSOT per apparel (audit #6 — default lama 0.155 beda dari gizmo
   // 0.18 & renderer shirt 0.24). Prop parent menang bila ada.
   const zBase = surfaceZ ?? surfaceZForApparel(activeApparel);
@@ -58,13 +63,15 @@ export const PrintZoneGuide: React.FC<PrintZoneGuideProps> = ({ surfaceZ }) => {
     return null;
   }
 
-  // activeDecal/targetSide/isBack sudah dihitung di atas (sebelum hooks).
-  // Lengan: box per-side SUDAH dari spek (lihat boxCm), tapi panduan bidang
-  // datar SENGAJA tak digambar — lengan silindris, kotak datar menyesatkan.
-  // Batas lengan dijaga clampDecalXY SSOT (±0.12) di gizmo + jangkar renderer.
-  // Box tudung diposisikan di jangkar hood (belakang atas), bukan dada.
+  // Lengan & samping: bidang melengkung silindris, batas dijaga clampDecalXY SSOT
+  // dan DecalGizmo 3D surface-bound (panduan kotak datar diabaikan agar tak melayang).
   const isHood = targetSide === "hood";
-  if (targetSide === "left_sleeve" || targetSide === "right_sleeve") {
+  if (
+    targetSide === "left_sleeve" ||
+    targetSide === "right_sleeve" ||
+    targetSide === "side_left" ||
+    targetSide === "side_right"
+  ) {
     return null;
   }
 

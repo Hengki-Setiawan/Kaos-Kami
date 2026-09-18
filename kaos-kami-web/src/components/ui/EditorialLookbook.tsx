@@ -44,7 +44,7 @@ export const EditorialLookbook: React.FC = () => {
             ARSIP VISUAL & LOOKBOOK {new Date().getFullYear()}
           </span>
           <h2 className="text-4xl sm:text-6xl font-display font-black uppercase text-text-primary">
-            KATALOG FISIK
+            LOOKBOOK FISIK
           </h2>
         </div>
         <p className="max-w-md text-xs font-mono text-text-muted leading-relaxed">

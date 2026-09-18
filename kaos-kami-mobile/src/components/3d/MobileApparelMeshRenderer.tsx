@@ -13,7 +13,7 @@ import { MobileDecalLayerRenderer } from './MobileDecalLayerRenderer';
 import { DecalGizmoMobile } from './DecalGizmoMobile';
 import { MobileSweaterModel } from './MobileSweaterModel';
 import { MobileCapModel } from './MobileCapModel';
-import { extractMobileApparelGeometry } from '@/lib/3d/extractMobileApparelGeometry';
+import { extractMobileApparelGeometry, type ExtractMobileGeometryOptions } from '@/lib/3d/extractMobileApparelGeometry';
 
 // KEPUTUSAN OWNER Sep 2026: mesh aktif DIGANTI — kaos→basic_t-shirt,
 // hoodie→blue_hoodie (file lama = fallback).
@@ -244,17 +244,32 @@ function GenericApparelMeshRenderer({
 
   const { scene } = useGLTF(modelPath);
 
-  const isPants = apparelType === 'pants';
-  const isShorts = apparelType === 'shorts';
+  // Kalibrasi geometri terstandarisasi untuk seluruh apparel mobile (selaras web & acuan emas Hoodie):
+  // 1. T-Shirt & Longsleeve: scaleMultiplier 0.72, crownYOffset -0.12 (lebar 51.5cm = Size L, dada di Y=0).
+  // 2. Hoodie: scaleMultiplier 0.74 (acuan emas).
+  // 3. Coach Jacket: scaleMultiplier 0.52, crownYOffset -0.075 (bahu +0.110, dada Y=0).
+  // 4. Shorts: scaleMultiplier 0.0125 (Maya cm -> metric 0.406m, anti meledak 32.5m).
+  // 5. Pants: scaleMultiplier 1.0 (0.328m).
+  const apparelOptions = useMemo((): ExtractMobileGeometryOptions | undefined => {
+    switch (apparelType) {
+      case 'tshirt':
+      case 'longsleeve':
+        return { scaleMultiplier: 0.72, crownYOffset: -0.12 };
+      case 'hoodie':
+        return { scaleMultiplier: 0.74 };
+      case 'shirt':
+        return { scaleMultiplier: 0.52, crownYOffset: -0.075 };
+      case 'shorts':
+        return { scaleMultiplier: 0.0125 };
+      case 'pants':
+      default:
+        return undefined;
+    }
+  }, [apparelType]);
 
-  // Ekstraksi geometri terstandarisasi untuk Pants & Shorts:
-  // 1. Mem-bake child.matrixWorld (memperbaiki rotasi -90 deg X Sketchfab).
-  // 2. Shorts: scaleMultiplier 0.0125 (Maya cm -> metric 0.406m, anti meledak 32.5m).
-  // 3. Menempatkan titik origin di center dan menghitung wind weights.
   const extractedGeometry = useMemo(() => {
-    if (!isPants && !isShorts) return null;
-    return extractMobileApparelGeometry(scene, isShorts ? { scaleMultiplier: 0.0125 } : undefined);
-  }, [scene, isPants, isShorts]);
+    return extractMobileApparelGeometry(scene, apparelOptions);
+  }, [scene, apparelOptions]);
 
   useEffect(() => {
     return () => {
@@ -264,68 +279,19 @@ function GenericApparelMeshRenderer({
     };
   }, [extractedGeometry]);
 
-  // Clone scene & apply PBR cloth materials + normalisasi mesh baru (untuk tops/outer).
-  const materialRef = useRef<THREE.Material | null>(null);
-  const clonedScene = useMemo(() => {
-    if (isPants || isShorts) return null;
-    const cloned = scene.clone();
-    // Scale-up/down node bila perlu: mesh Sketchfab baru offset + beda skala
-    const isNewTee = modelPath.includes('tee-basic.glb');
-    const isNewHoodie = modelPath.includes('hoodie-blue.glb');
-    if (isNewTee || isNewHoodie) {
-      try {
-        cloned.updateMatrixWorld(true);
-        const box = new THREE.Box3().setFromObject(cloned);
-        const size = box.getSize(new THREE.Vector3());
-        const center = box.getCenter(new THREE.Vector3());
-        const target = isNewHoodie ? MOBILE_HOODIE_TARGET_WIDTH : MOBILE_TSHIRT_TARGET_WIDTH;
-        if (Number.isFinite(size.x) && size.x > 1e-6) {
-          const k = target / size.x;
-          cloned.scale.setScalar(k);
-          cloned.position.set(-center.x * k, -center.y * k, -center.z * k);
-        } else {
-          cloned.position.set(-center.x, -center.y, -center.z);
-        }
-      } catch {}
-    }
-    const material = createClothPhysicalMaterial(color, apparelToArchetype(apparelType));
-    applyMobileWind(material, 0.25);
-    materialRef.current = material;
-
-    cloned.traverse((child) => {
-      if ((child as THREE.Mesh).isMesh) {
-        const mesh = child as THREE.Mesh;
-        if (mesh.geometry) ensureWindWeights(mesh.geometry as THREE.BufferGeometry);
-        mesh.material = material;
-        mesh.castShadow = true;
-        mesh.receiveShadow = true;
-      }
-    });
-
-    return cloned;
-  }, [scene, color, apparelType, modelPath, isPants, isShorts]);
-
-  // Material untuk extractedGeometry
-  const extractedMaterial = useMemo(() => {
-    if (!isPants && !isShorts) return null;
+  const material = useMemo(() => {
     const mat = createClothPhysicalMaterial(color, apparelToArchetype(apparelType));
     applyMobileWind(mat, 0.25);
     return mat;
-  }, [color, apparelType, isPants, isShorts]);
+  }, [color, apparelType]);
 
-  const activeMaterial = extractedMaterial ?? materialRef.current;
-
-  // VRAM: material lama dibuang tiap ganti warna/apparel + saat unmount.
   useEffect(() => {
-    const stale = materialRef.current;
-    const staleExt = extractedMaterial;
     return () => {
       try {
-        stale?.dispose();
-        staleExt?.dispose();
+        material?.dispose();
       } catch {}
     };
-  }, [clonedScene, extractedMaterial]);
+  }, [material]);
 
   // Inertial physics simulation step per frame
   useFrame((state, delta) => {
@@ -355,7 +321,7 @@ function GenericApparelMeshRenderer({
 
       // Umpan sway ke shader: kain bergelombang proporsional goyangan,
       // kembali tenang (0.2) saat idle.
-      const sh = (activeMaterial as any)?.userData?.shader?.uniforms;
+      const sh = (material as any)?.userData?.shader?.uniforms;
       if (sh?.uWindStrength) {
         sh.uWindStrength.value = 0.2 + Math.min(1, Math.abs(swayAngle) * 6) * 0.9;
       }
@@ -365,15 +331,10 @@ function GenericApparelMeshRenderer({
 
   return (
     <group ref={groupRef} scale={[1.4, 1.4, 1.4]} position={[0, -0.15, 0]}>
-      {extractedGeometry && extractedMaterial ? (
-        <mesh castShadow receiveShadow geometry={extractedGeometry} material={extractedMaterial}>
+      {extractedGeometry && material ? (
+        <mesh castShadow receiveShadow geometry={extractedGeometry} material={material}>
           <MobileDecalLayerRenderer />
         </mesh>
-      ) : clonedScene ? (
-        <>
-          <primitive object={clonedScene} />
-          <MobileDecalLayerRenderer />
-        </>
       ) : null}
       <DecalGizmoMobile />
     </group>

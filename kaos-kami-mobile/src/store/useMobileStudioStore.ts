@@ -109,12 +109,12 @@ export function isApparelMockupEnabled(apparel: string): boolean {
  * shorts 131.9 = cermin web APPAREL_PHYSICAL_SPECS.shorts.meshMultiplier (denim shorts)
  */
 export const MOBILE_UNITS_TO_CM: Record<ApparelType, number> = {
-  tshirt: 101.8,
-  hoodie: 95.1,
+  tshirt: 145.5,
+  hoodie: 105.6,
   shirt: 69.5,
-  longsleeve: 70.5,
-  crewneck: 102.4,
-  sweater: 102.4,
+  longsleeve: 145.5,
+  crewneck: 163.7,
+  sweater: 163.7,
   cap: 50.0,
   pants: 103.7,
   shorts: 131.9,

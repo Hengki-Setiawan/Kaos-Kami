@@ -18,30 +18,36 @@
 
 [data-theme="gallery"] {
   color-scheme: light;
-  --color-canvas: #F5F4F0;
-  --color-surface: rgba(255, 255, 255, 0.92);
-  --color-surface-elevated: #FFFFFF;
+  --color-canvas: #EFECE6;
+  --color-surface: rgba(255, 255, 255, 0.88);
+  --color-surface-elevated: #FDFCFA;
   --color-text-primary: #121214;
   --color-text-muted: #52525B;
   --color-brand-accent: #E65100;
   --color-success: #25D366;
-  --color-border-subtle: rgba(0, 0, 0, 0.12);
-  --color-border-strong: rgba(0, 0, 0, 0.24);
+  --color-border-subtle: rgba(0, 0, 0, 0.09);
+  --color-border-strong: rgba(0, 0, 0, 0.18);
 }
 
 /* Automatic logo switching based on active theme */
+.logo-dark-mode {
+  display: block;
+}
+.logo-light-mode {
+  display: none;
+}
+
 [data-theme="gallery"] .logo-dark-mode {
   display: none !important;
 }
 [data-theme="gallery"] .logo-light-mode {
   display: block !important;
 }
-:root .logo-dark-mode,
+
 [data-theme="obsidian"] .logo-dark-mode,
 [data-theme="concrete"] .logo-dark-mode {
   display: block !important;
 }
-:root .logo-light-mode,
 [data-theme="obsidian"] .logo-light-mode,
 [data-theme="concrete"] .logo-light-mode {
   display: none !important;

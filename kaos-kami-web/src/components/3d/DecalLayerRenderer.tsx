@@ -2,12 +2,22 @@
 
 import React, { useEffect, useMemo } from "react";
 import * as THREE from "three";
-import { Decal, useTexture } from "@react-three/drei";
+import { useTexture } from "@react-three/drei";
+import { CleanDecal } from "@/components/3d/CleanDecal";
+import { useFrame } from "@react-three/fiber";
 import { useConfiguratorStore } from "@/store/useConfiguratorStore";
 import { useShallow } from "zustand/shallow";
-import { APPAREL_PHYSICAL_SPECS, maxDecalScaleUnits, fitScaleToSideBox, REAL_WORLD_PRINT_LIMITS, surfaceZForApparel } from "@/lib/scaleCalibration";
+import {
+  APPAREL_PHYSICAL_SPECS,
+  maxDecalScaleUnits,
+  fitScaleToSideBox,
+  REAL_WORLD_PRINT_LIMITS,
+  surfaceZForApparel,
+  getDecal3DPlacement,
+} from "@/lib/scaleCalibration";
 import { isSafeImageUrl } from "@/lib/safeUrl";
 import { getFabricNormalMapForArchetype } from "@/lib/proceduralTextures";
+import { getStretchFactors } from "@/lib/3d/stretchPhysics";
 import type { DecalLayer } from "@/lib/constants";
 
 const SingleDecalItem: React.FC<{
@@ -15,58 +25,42 @@ const SingleDecalItem: React.FC<{
   surfaceZ: number;
   order: number;
 }> = ({ decal, surfaceZ, order }) => {
-  // URL DB tak tepercaya (audit B7) — tolak scheme aneh sebelum TextureLoader.
-  const safeUrl = isSafeImageUrl(decal.url) ? decal.url : "";
-  const uploaded = useTexture(safeUrl || "data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7");
+  const uploaded = useTexture(isSafeImageUrl(decal.url) ? decal.url : "/textures/fallback-transparent.png");
 
   // JANGAN dispose: drei useTexture cache per-URL dipakai bersama —
   // dispose di sini = flicker/use-after-dispose di decal lain (audit #5c).
   // Cache drei + unmount GC sudah cukup untuk sesi studio.
 
-  const isBack = decal.targetSide === "back";
-  const isLeftSleeve = decal.targetSide === "left_sleeve";
-  const isRightSleeve = decal.targetSide === "right_sleeve";
-  const isHood = decal.targetSide === "hood";
-
-  // Jangkar lengan per-apparel dari hasil ukur mesh (bukan ±0.27 global)
   const apparel = useConfiguratorStore.getState().activeApparel;
-  const spec = APPAREL_PHYSICAL_SPECS[apparel];
-  const sleeveX = spec?.sleeveAnchorX ?? 0.27;
+  const { animationPreset, animationSpeed, specialInkEffect, testLabMode, stretchIntensity, stretchDirection } =
+    useConfiguratorStore(
+      useShallow((s) => ({
+        animationPreset: s.animationPreset,
+        animationSpeed: s.animationSpeed,
+        specialInkEffect: s.specialInkEffect,
+        testLabMode: s.testLabMode,
+        stretchIntensity: s.stretchIntensity,
+        stretchDirection: s.stretchDirection,
+      }))
+    );
 
-  let posX = decal.x;
-  let posY = decal.y;
-  let posZ = isBack ? -surfaceZ : surfaceZ;
-  let rotY = isBack ? Math.PI : 0;
-  const rotZ = (decal.rotation * Math.PI) / 180;
-  // Epsilon sepanjang normal agar tak z-fight (riset three.js resmi).
-  const EPS = 0.004;
+  // Parameter penempatan 3D terkalibrasi presisi (anti-tembus torso, anti-shearing samping)
+  const placement = getDecal3DPlacement(apparel, decal.targetSide, decal.x, decal.y, surfaceZ);
+  const posX = placement.position[0];
+  const posY = placement.position[1];
+  const posZ = placement.position[2];
+  // Depth terkalibrasi: CleanDecal secara geometris memfilter segitiga yang tidak menghadap proyektor
+  const depthZ = placement.projectionDepth;
 
-  // Lengan: geser melingkar dibatasi ±0.12 (audit #5d — ±0.35 penuh bikin
-  // bidang datar melayang dari lengkung lengan) + epsilon keluar permukaan.
-  const sleeveSlide = Math.max(-0.12, Math.min(0.12, decal.x));
-  if (isLeftSleeve) {
-    // Proyeksi ke lengan kiri (X negatif)
-    posX = -sleeveX - EPS;
-    posZ = sleeveSlide;
-    rotY = -Math.PI / 2;
-  } else if (isRightSleeve) {
-    // Proyeksi ke lengan kanan (X positif)
-    posX = sleeveX + EPS;
-    posZ = sleeveSlide;
-    rotY = Math.PI / 2;
-  } else if (isHood) {
-    // Tudung belakang (hoodie saja): bidang menghadap -Z di tengah tudung.
-    // Geser dibatasi area tudung (x ±0.09 ≈ ±8.5cm, y ±0.06) agar tak lepas
-    // dari kain (jangkar terukur Fase 25).
-    const hoodY = spec?.hoodAnchorY ?? 0.34;
-    const hoodZ = spec?.hoodAnchorZ ?? 0.095;
-    posX = Math.max(-0.09, Math.min(0.09, decal.x));
-    posY = hoodY + Math.max(-0.06, Math.min(0.06, decal.y));
-    posZ = -(hoodZ + EPS);
-    rotY = Math.PI;
-  } else {
-    posZ = (isBack ? -surfaceZ : surfaceZ) + (isBack ? -EPS : EPS);
-  }
+  // Komputasi rotasi terpadu: basis orientasi permukaan 3D (kemiringan lengan/rusuk) dikombinasikan dengan rotasi pengguna
+  const finalRotation = useMemo(() => {
+    const baseEuler = new THREE.Euler(placement.rotation[0], placement.rotation[1], placement.rotation[2], "XYZ");
+    const qBase = new THREE.Quaternion().setFromEuler(baseEuler);
+    const qUser = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 0, 1), (-decal.rotation * Math.PI) / 180);
+    const qFinal = qBase.multiply(qUser);
+    const e = new THREE.Euler().setFromQuaternion(qFinal, "XYZ");
+    return [e.x, e.y, e.z] as [number, number, number];
+  }, [placement.rotation, decal.rotation]);
 
   // PERF #6: Starklord anisotropy 16→8 + depth tuning. 8× cukup untuk decal
   // tegak di dada (grazing ekstrem dipegang weave kain, bukan decal); 16× =
@@ -122,6 +116,14 @@ const SingleDecalItem: React.FC<{
     scaleX = normalizedScale * aspect;
   }
 
+  // 🧲 FISIKA ELASTISITAS DTF (Pull & Stretch Test):
+  // Deformasi sablon mengikuti arah regangan kain (horizontal, vertical, biaxial)
+  if (testLabMode === "stretch" && stretchIntensity > 0) {
+    const factors = getStretchFactors(testLabMode, stretchIntensity, stretchDirection);
+    scaleX *= factors.stretchX;
+    scaleY *= factors.stretchY;
+  }
+
   // PERF #6: downscale artwork >1024 ke sisi-panjang 1024 untuk PREVIEW 3D
   // saja (master cetak 300 DPI tak tersentuh — tersimpan terpisah untuk
   // produksi). 2048²→1024² = −75% VRAM (16MB→4MB RGBA), upload GPU + filter
@@ -163,48 +165,63 @@ const SingleDecalItem: React.FC<{
     };
   }, [displayMap, uploaded]);
 
-  // M2.3: sablon MENYATU kain — MeshPhysicalMaterial mewarisi karakter kain:
-  // roughness matte 0.92 (rentang 0.9–0.95), sheen lembut, weave normal 60%
-  // (0.15 vs kain 0.3–0.45 — ikut serat tanpa menenggelamkan artwork),
-  // envMapIntensity rendah 0.3 agar sablon tak mengkilap sendiri.
-  // useMemo = onBeforeCompile dipasang SEKALI (tanpa ini compile ulang tiap
-  // render = stutter, pola yang sama dengan guard anisotropy di atas).
-  // PERF #7: weave decal = profil apparel AKTIF (bukan tshirt tetap) agar
-  // share SATU slot normal dengan garment (tanpa ini slot tunggal thrash
-  // dispose/re-upload tiap frame saat hoodie+decal beda profil).
+  // 🔦 & 🖨️ TINTA SPESIAL DTF & MATERIAL ANTI-CLIPPING:
+  // - 3M Reflective: metalness tinggi, clearcoat glossy tajam, specular perak memantul saat kena senter
+  // - Glow-in-the-Dark: fosfor neon hijau/cyan berpendar mandiri di ruang gelap
+  // - Gold Foil: kilau logam emas metalik mewah
+  // - Holographic: pelangi tipis thin-film iridescence
+  // - Standard DTF: matte halus bersatu dengan serat kain
+  const is3M = specialInkEffect === "reflective3m";
+  const isGlow = specialInkEffect === "glow";
+  const isGold = specialInkEffect === "goldfoil";
+  const isHolo = specialInkEffect === "holographic";
+
   const decalMaterial = useMemo(() => {
     const m = new THREE.MeshPhysicalMaterial({
       map: displayMap,
       transparent: true,
       opacity: decal.opacity,
-      roughness: 0.92,
-      metalness: 0,
-      sheen: 0.5,
-      sheenRoughness: 0.7,
-      sheenColor: new THREE.Color("#ffffff"),
+      roughness: is3M ? 0.15 : isGold ? 0.22 : isHolo ? 0.12 : 0.92,
+      metalness: is3M ? 0.88 : isGold ? 0.95 : isHolo ? 0.82 : 0,
+      sheen: is3M ? 1.0 : isHolo ? 1.0 : 0.5,
+      sheenRoughness: is3M ? 0.1 : isHolo ? 0.2 : 0.7,
+      sheenColor: is3M
+        ? new THREE.Color("#ffffff")
+        : isGold
+        ? new THREE.Color("#ffe099")
+        : isHolo
+        ? new THREE.Color("#93c5fd")
+        : new THREE.Color("#ffffff"),
+      clearcoat: is3M ? 1.0 : isGold ? 0.85 : isHolo ? 1.0 : 0.0,
+      clearcoatRoughness: 0.1,
+      iridescence: isHolo ? 1.0 : 0.0,
+      iridescenceIOR: isHolo ? 1.35 : 1.0,
+      iridescenceThicknessRange: isHolo ? [120, 420] : [100, 400],
+      emissive: isGlow ? new THREE.Color("#10e870") : new THREE.Color(0x000000),
+      emissiveIntensity: isGlow ? 1.0 : 0.0,
       normalMap: typeof window !== "undefined" ? getFabricNormalMapForArchetype(apparel) : null,
       normalScale: new THREE.Vector2(0.15, 0.15),
       depthTest: true,
       depthWrite: false,
       polygonOffset: true,
-      // M2.3: basis -2; minus order agar decal bertumpuk konsisten.
-      polygonOffsetFactor: -2 - order,
-      polygonOffsetUnits: -2,
+      polygonOffsetFactor: -6 - order,
+      polygonOffsetUnits: -6,
       alphaTest: 0.01,
     });
-    m.envMapIntensity = 0.3;
+    m.envMapIntensity = is3M ? 2.5 : isGold ? 2.2 : isHolo ? 2.8 : 0.3;
+
     // M2.3: alpha-feather tepi ±1–2px via shader — menghaluskan tangga piksel
-    // cutout tanpa menulis ulang master (master tetap murni untuk cetak).
     m.onBeforeCompile = (shader) => {
       shader.fragmentShader = shader.fragmentShader.replace(
         "#include <map_fragment>",
         "#include <map_fragment>\n\tdiffuseColor.a = smoothstep(0.0, 0.08, diffuseColor.a);"
       );
     };
-    m.customProgramCacheKey = () => "kaos-kami-decal-feather";
+    m.customProgramCacheKey = () =>
+      `kaos-kami-decal-v2-${specialInkEffect}-${order}`;
     return m;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [displayMap, order, decal.opacity, apparel]);
+  }, [displayMap, order, decal.opacity, apparel, specialInkEffect]);
 
   // Material milik sendiri → buang saat ganti (tekstur uploaded + weave milik
   // cache bersama — material.dispose() tak menyentuh tekstur, aman).
@@ -216,14 +233,30 @@ const SingleDecalItem: React.FC<{
     };
   }, [decalMaterial]);
 
+
+
+  const setSelectedDecalId = useConfiguratorStore((s) => s.setSelectedDecalId);
+
   return (
-    <Decal
+    <CleanDecal
+      targetSide={decal.targetSide}
       position={[posX, posY, posZ]}
-      rotation={[0, rotY, rotZ]}
-      scale={[scaleX, scaleY, 0.35]}
+      rotation={finalRotation}
+      scale={[scaleX, scaleY, depthZ]}
+      onPointerDown={(e) => {
+        e.stopPropagation();
+        setSelectedDecalId(decal.id);
+      }}
+      onPointerOver={(e) => {
+        e.stopPropagation();
+        document.body.style.cursor = "pointer";
+      }}
+      onPointerOut={() => {
+        document.body.style.cursor = "auto";
+      }}
     >
       <primitive object={decalMaterial} attach="material" />
-    </Decal>
+    </CleanDecal>
   );
 };
 
@@ -254,7 +287,7 @@ export const DecalLayerRenderer: React.FC<{
           key={decal.id}
           decal={decal}
           order={i}
-          surfaceZ={decal.targetSide === "front" ? zFront : zBack}
+          surfaceZ={decal.targetSide === "back" ? zBack : zFront}
         />
       ))}
     </>

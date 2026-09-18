@@ -1,0 +1,544 @@
+"use client";
+
+import React, { useState } from "react";
+import Link from "next/link";
+import {
+  Package,
+  Layers,
+  MapPin,
+  Sparkles,
+  ExternalLink,
+  ChevronRight,
+  Clock,
+  CheckCircle2,
+  AlertCircle,
+  Truck,
+  Copy,
+  Check,
+  RotateCcw,
+  Palette,
+  ShieldCheck,
+} from "lucide-react";
+import { ReorderButton } from "@/components/commerce/ReorderButton";
+import { DesignCardActions } from "@/components/commerce/DesignCardActions";
+import { AddressBook } from "@/components/commerce/AddressBook";
+
+interface OrderItemData {
+  id: string;
+  productVariantId: string | null;
+  designId: string | null;
+  quantity: number;
+  unitPriceIdr: number;
+  lineTotalIdr: number;
+  snapshotName: string;
+  snapshotImageUrl?: string | null;
+  snapshotSize: string;
+  snapshotColorName: string;
+}
+
+interface OrderData {
+  id: string;
+  userId: string;
+  orderNumber: string;
+  status: string;
+  deliveryMethod: string;
+  subtotalIdr: number;
+  shippingCostIdr: number;
+  discountIdr: number;
+  totalIdr: number;
+  trackingNumber: string | null;
+  courierNotes: string | null;
+  notes: string | null;
+  createdAt: string | Date;
+  items: OrderItemData[];
+  shippingAddress?: {
+    recipientName?: string;
+    fullAddress?: string;
+    city?: string;
+  } | null;
+  payment?: {
+    method?: string | null;
+    status?: string;
+  } | null;
+}
+
+interface DesignData {
+  id: string;
+  title: string;
+  colorHex: string;
+  colorName: string;
+  size: string;
+  calculatedPriceIdr: number;
+  previewImageFrontUrl?: string | null;
+  previewImageBackUrl?: string | null;
+  createdAt: string | Date;
+  category?: {
+    name?: string;
+    slug?: string;
+  } | null;
+}
+
+interface CustomerDashboardViewProps {
+  orders: OrderData[];
+  designs: DesignData[];
+  addresses: any[];
+  user: {
+    id: string;
+    name?: string | null;
+    email?: string | null;
+    phoneNumber?: string | null;
+    role?: string;
+  } | null;
+}
+
+// Tahapan pesanan untuk visual stepper
+const ORDER_STEPS = [
+  { key: "PENDING_PAYMENT", label: "Dipesan", desc: "Menunggu pembayaran" },
+  { key: "PAYMENT_CONFIRMED", label: "Lunas", desc: "Pembayaran terverifikasi" },
+  { key: "PRINTING", label: "Cetak DTF", desc: "Proses film & oven sablon" },
+  { key: "QUALITY_CHECK", label: "Quality Check", desc: "Inspeksi press & finis" },
+  { key: "READY_TO_SHIP", label: "Siap / Dikirim", desc: "Siap ambil / bersama kurir" },
+  { key: "COMPLETED", label: "Selesai", desc: "Pesanan telah diterima" },
+];
+
+function getStepIndex(status: string): number {
+  switch (status) {
+    case "PENDING_PAYMENT":
+      return 0;
+    case "PAYMENT_CONFIRMED":
+    case "IN_PRODUCTION_QUEUE":
+      return 1;
+    case "PRINTING":
+    case "PRESSING":
+      return 2;
+    case "QUALITY_CHECK":
+    case "PACKAGING":
+      return 3;
+    case "READY_TO_SHIP":
+    case "SHIPPED":
+    case "DELIVERED":
+      return 4;
+    case "COMPLETED":
+      return 5;
+    default:
+      return 1;
+  }
+}
+
+function formatRupiah(n: number) {
+  return "Rp " + n.toLocaleString("id-ID");
+}
+
+export function CustomerDashboardView({
+  orders,
+  designs,
+  addresses,
+  user,
+}: CustomerDashboardViewProps) {
+  const [activeTab, setActiveTab] = useState<"orders" | "designs" | "addresses">("orders");
+  const [copiedResi, setCopiedResi] = useState<string | null>(null);
+
+  const copyResi = (resi: string) => {
+    navigator.clipboard.writeText(resi);
+    setCopiedResi(resi);
+    setTimeout(() => setCopiedResi(null), 2500);
+  };
+
+  return (
+    <div className="space-y-8 font-mono">
+      {/* Header Info Akun Pelanggan */}
+      <div className="p-6 rounded-2xl bg-surface border border-border-subtle shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-6">
+        <div className="flex items-center space-x-4">
+          <div className="w-14 h-14 rounded-2xl bg-brand-accent/20 border border-brand-accent/40 text-brand-accent flex items-center justify-center font-display font-black text-2xl shadow-inner">
+            {(user?.name || "K")[0]?.toUpperCase()}
+          </div>
+          <div>
+            <div className="flex items-center space-x-2">
+              <h1 className="font-display text-xl sm:text-2xl font-black uppercase tracking-tight text-text-primary">
+                {user?.name || "Pelanggan Kaos Kami"}
+              </h1>
+              <span className="px-2 py-0.5 rounded-full text-[10px] font-bold uppercase bg-brand-accent/15 text-brand-accent border border-brand-accent/30">
+                {user?.role || "CUSTOMER"}
+              </span>
+            </div>
+            <p className="text-xs text-text-muted mt-1">
+              {user?.email || "—"} · {user?.phoneNumber || "No. WA Belum Terdaftar"}
+            </p>
+          </div>
+        </div>
+
+        <div className="flex flex-wrap items-center gap-3">
+          <Link
+            href="/studio"
+            className="py-2.5 px-4 rounded-xl bg-brand-accent text-canvas font-bold text-xs uppercase tracking-wider hover:brightness-110 active:scale-95 transition-all shadow-[0_0_16px_rgba(230,81,0,0.3)] flex items-center gap-2"
+          >
+            <Sparkles size={15} />
+            <span>BUAT KUSTOM BARU</span>
+          </Link>
+        </div>
+      </div>
+
+      {/* Segmented Navigation Tabs */}
+      <div className="flex border-b border-border-subtle gap-2 text-xs">
+        <button
+          onClick={() => setActiveTab("orders")}
+          className={`pb-3 px-4 flex items-center gap-2 font-bold uppercase tracking-wider transition-all border-b-2 -mb-[1px] ${
+            activeTab === "orders"
+              ? "border-brand-accent text-brand-accent"
+              : "border-transparent text-text-muted hover:text-text-primary"
+          }`}
+        >
+          <Package size={15} />
+          <span>Pesanan Saya ({orders.length})</span>
+        </button>
+
+        <button
+          onClick={() => setActiveTab("designs")}
+          className={`pb-3 px-4 flex items-center gap-2 font-bold uppercase tracking-wider transition-all border-b-2 -mb-[1px] ${
+            activeTab === "designs"
+              ? "border-brand-accent text-brand-accent"
+              : "border-transparent text-text-muted hover:text-text-primary"
+          }`}
+        >
+          <Layers size={15} />
+          <span>Koleksi Desain 3D ({designs.length}/5)</span>
+        </button>
+
+        <button
+          onClick={() => setActiveTab("addresses")}
+          className={`pb-3 px-4 flex items-center gap-2 font-bold uppercase tracking-wider transition-all border-b-2 -mb-[1px] ${
+            activeTab === "addresses"
+              ? "border-brand-accent text-brand-accent"
+              : "border-transparent text-text-muted hover:text-text-primary"
+          }`}
+        >
+          <MapPin size={15} />
+          <span>Buku Alamat ({addresses.length})</span>
+        </button>
+      </div>
+
+      {/* TAB 1: DAFTAR PESANAN + VISUAL STEPPER */}
+      {activeTab === "orders" && (
+        <div className="space-y-6">
+          {orders.length === 0 ? (
+            <div className="p-12 text-center rounded-2xl bg-surface border border-border-subtle text-text-muted space-y-4">
+              <Package size={36} className="mx-auto text-text-muted/60" />
+              <p className="text-sm font-bold text-text-primary">Belum Ada Pesanan Aktif</p>
+              <p className="text-xs max-w-sm mx-auto">
+                Anda belum melakukan pemesanan sablon DTF kustom. Buka 3D Studio untuk mulai mendesain kaos impian Anda!
+              </p>
+              <Link
+                href="/studio"
+                className="inline-block px-4 py-2 rounded-xl bg-brand-accent text-canvas text-xs font-bold uppercase hover:brightness-110 transition-all"
+              >
+                Mulai Desain Sekarang
+              </Link>
+            </div>
+          ) : (
+            orders.map((order) => {
+              const currentStepIdx = getStepIndex(order.status);
+              const isCancelled = order.status === "CANCELLED" || order.status === "REFUNDED";
+
+              return (
+                <div
+                  key={order.id}
+                  className="rounded-2xl bg-surface border border-border-subtle p-5 sm:p-6 space-y-5 shadow-sm hover:border-border-strong transition-all"
+                >
+                  {/* Order Top Summary */}
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-border-subtle">
+                    <div className="space-y-1">
+                      <div className="flex items-center space-x-2.5">
+                        <span className="font-bold text-text-primary text-sm sm:text-base">
+                          {order.orderNumber}
+                        </span>
+                        <span
+                          className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase border ${
+                            isCancelled
+                              ? "bg-rose-500/10 text-rose-500 border-rose-500/30"
+                              : order.status === "COMPLETED"
+                              ? "bg-emerald-500/10 text-emerald-500 border-emerald-500/30"
+                              : "bg-brand-accent/15 text-brand-accent border-brand-accent/30"
+                          }`}
+                        >
+                          {order.status.replace(/_/g, " ")}
+                        </span>
+                        {order.courierNotes?.includes("EXPRESS") && (
+                          <span className="px-2 py-0.5 rounded-full text-[9px] font-bold bg-amber-500/20 text-amber-500 border border-amber-500/30">
+                            ⚡ EXPRESS 24H
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-text-muted text-[11px]">
+                        Dipesan:{" "}
+                        {new Date(order.createdAt).toLocaleDateString("id-ID", {
+                          day: "numeric",
+                          month: "long",
+                          year: "numeric",
+                          hour: "2-digit",
+                          minute: "2-digit",
+                        })}{" "}
+                        · Pengiriman: <strong>{order.deliveryMethod}</strong>
+                      </p>
+                    </div>
+
+                    <div className="text-left sm:text-right">
+                      <span className="text-[10px] text-text-muted block">Total Pesanan:</span>
+                      <span className="font-bold text-brand-accent text-base sm:text-lg">
+                        {formatRupiah(order.totalIdr)}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Visual Stepper Tracker (Hanya tampil jika tidak dibatalkan) */}
+                  {!isCancelled ? (
+                    <div className="py-2">
+                      <div className="grid grid-cols-3 sm:grid-cols-6 gap-2">
+                        {ORDER_STEPS.map((step, idx) => {
+                          const isDone = currentStepIdx > idx;
+                          const isCurrent = currentStepIdx === idx;
+
+                          return (
+                            <div key={step.key} className="space-y-1.5 text-center">
+                              <div className="flex items-center justify-center">
+                                <div
+                                  className={`w-7 h-7 rounded-full flex items-center justify-center text-[11px] font-bold transition-all ${
+                                    isDone
+                                      ? "bg-emerald-500 text-white shadow-[0_0_10px_rgba(16,185,129,0.3)]"
+                                      : isCurrent
+                                      ? "bg-brand-accent text-canvas ring-4 ring-brand-accent/20 animate-pulse font-black"
+                                      : "bg-black/10 dark:bg-white/10 text-text-muted"
+                                  }`}
+                                >
+                                  {isDone ? <Check size={14} /> : idx + 1}
+                                </div>
+                              </div>
+                              <span
+                                className={`block text-[11px] font-bold ${
+                                  isCurrent
+                                    ? "text-brand-accent"
+                                    : isDone
+                                    ? "text-text-primary"
+                                    : "text-text-muted"
+                                }`}
+                              >
+                                {step.label}
+                              </span>
+                              <span className="hidden sm:block text-[9px] text-text-muted/70 leading-tight">
+                                {step.desc}
+                              </span>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="p-3 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-400 text-xs flex items-center gap-2">
+                      <AlertCircle size={15} />
+                      <span>Pesanan ini telah dibatalkan / direfund. Silakan hubungi CS jika ada kendala.</span>
+                    </div>
+                  )}
+
+                  {/* Resi Box jika ada */}
+                  {order.trackingNumber && (
+                    <div className="p-3.5 rounded-xl bg-emerald-500/10 border border-emerald-500/30 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
+                      <div className="flex items-center space-x-2.5">
+                        <Truck size={16} className="text-emerald-500 shrink-0" />
+                        <div>
+                          <span className="text-text-muted block text-[10px]">NOMOR RESI PENGIRIMAN:</span>
+                          <span className="font-bold text-emerald-400 text-sm tracking-wider">
+                            {order.trackingNumber}
+                          </span>
+                        </div>
+                      </div>
+                      <button
+                        onClick={() => copyResi(order.trackingNumber!)}
+                        className="py-1.5 px-3 rounded-lg bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-400 font-bold text-[11px] flex items-center gap-1.5 w-fit transition-all"
+                      >
+                        {copiedResi === order.trackingNumber ? <Check size={13} /> : <Copy size={13} />}
+                        <span>{copiedResi === order.trackingNumber ? "Tersalin!" : "Salin Resi"}</span>
+                      </button>
+                    </div>
+                  )}
+
+                  {/* Items List */}
+                  <div className="divide-y divide-border-subtle bg-black/5 dark:bg-white/5 rounded-xl p-3 text-xs space-y-2">
+                    {order.items.map((item, idx) => (
+                      <div key={item.id} className="pt-2 first:pt-0 flex justify-between items-center">
+                        <div className="space-y-0.5">
+                          <span className="font-bold text-text-primary block">
+                            #{idx + 1}. {item.snapshotName}
+                          </span>
+                          <span className="text-[11px] text-text-muted">
+                            Ukuran: <strong className="text-text-primary">{item.snapshotSize}</strong> · Warna:{" "}
+                            <strong className="text-text-primary">{item.snapshotColorName}</strong> · Qty:{" "}
+                            <strong className="text-brand-accent">{item.quantity} pcs</strong>
+                          </span>
+                        </div>
+                        <span className="font-bold text-text-primary">
+                          {formatRupiah(item.lineTotalIdr)}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* Bottom Actions */}
+                  <div className="flex flex-wrap items-center justify-between gap-3 pt-2">
+                    <span className="text-[11px] text-text-muted">
+                      {order.items.length} jenis item sablon
+                    </span>
+
+                    <div className="flex flex-wrap items-center gap-2">
+                      <ReorderButton
+                        userId={order.userId || user?.id || ""}
+                        items={order.items.map((it) => ({
+                          productVariantId: it.productVariantId,
+                          designId: it.designId,
+                          quantity: it.quantity,
+                          unitPriceIdr: it.unitPriceIdr,
+                        }))}
+                      />
+
+                      <Link
+                        href={`/orders/${order.id}`}
+                        className="px-3.5 py-1.5 rounded-xl bg-surface border border-border-subtle hover:border-brand-accent text-text-primary font-bold hover:text-brand-accent transition-all flex items-center gap-1.5 text-xs"
+                      >
+                        <span>LIHAT INVOICE</span>
+                        <ExternalLink size={12} />
+                      </Link>
+                    </div>
+                  </div>
+                </div>
+              );
+            })
+          )}
+        </div>
+      )}
+
+      {/* TAB 2: KOLEKSI DESAIN 3D TERSIMPAN */}
+      {activeTab === "designs" && (
+        <div className="space-y-6">
+          {/* Quota Indicator */}
+          <div className="p-4 rounded-xl bg-surface border border-border-subtle flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
+            <div>
+              <span className="font-bold text-text-primary block">
+                Kapasitas Cloud Storage Akun: {designs.length} / 5 Slot Terpakai
+              </span>
+              <p className="text-text-muted text-[11px] mt-0.5">
+                Setiap akun pelanggan dialokasikan 5 slot penyimpanan desain cloud untuk menjaga kecepatan load 3D.
+              </p>
+            </div>
+            <span
+              className={`px-3 py-1 rounded-full text-[10px] font-bold border ${
+                designs.length >= 5
+                  ? "bg-amber-500/15 text-amber-400 border-amber-500/30"
+                  : "bg-emerald-500/15 text-emerald-400 border-emerald-500/30"
+              }`}
+            >
+              {designs.length >= 5 ? "KUOTA PENUH (5/5)" : `TERSEDIA ${5 - designs.length} SLOT`}
+            </span>
+          </div>
+
+          {designs.length === 0 ? (
+            <div className="p-12 text-center rounded-2xl bg-surface border border-border-subtle text-text-muted space-y-4">
+              <Layers size={36} className="mx-auto text-text-muted/60" />
+              <p className="text-sm font-bold text-text-primary">Belum Ada Desain Tersimpan</p>
+              <p className="text-xs max-w-sm mx-auto">
+                Buka 3D Studio, buat grafis sablon kustom Anda, lalu klik tombol Simpan & Ekspor di panel studio!
+              </p>
+              <Link
+                href="/studio"
+                className="inline-block px-4 py-2 rounded-xl bg-brand-accent text-canvas text-xs font-bold uppercase hover:brightness-110 transition-all"
+              >
+                Mulai Desain 3D
+              </Link>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+              {designs.map((design) => (
+                <div
+                  key={design.id}
+                  className="rounded-2xl bg-surface border border-border-subtle overflow-hidden space-y-3 p-4 hover:border-border-strong transition-all shadow-sm flex flex-col justify-between"
+                >
+                  <div className="space-y-3">
+                    {/* Visual 3D Preview Image Thumbnail */}
+                    <div className="w-full h-48 rounded-xl bg-black/20 border border-border-subtle overflow-hidden flex items-center justify-center relative group">
+                      {design.previewImageFrontUrl ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img
+                          src={design.previewImageFrontUrl}
+                          alt={design.title}
+                          className="w-full h-full object-contain p-2 group-hover:scale-105 transition-transform duration-300"
+                        />
+                      ) : (
+                        <div className="text-center space-y-2 p-4">
+                          <div
+                            className="w-10 h-10 rounded-full mx-auto border border-border-strong shadow-md"
+                            style={{ backgroundColor: design.colorHex }}
+                          />
+                          <span className="text-[10px] text-text-muted block">
+                            Warna: {design.colorName} ({design.colorHex})
+                          </span>
+                        </div>
+                      )}
+                      <span className="absolute top-2 right-2 px-2 py-0.5 rounded-md bg-black/70 text-[9px] text-white font-bold uppercase">
+                        {design.category?.slug || "apparel"}
+                      </span>
+                    </div>
+
+                    {/* Card Title & Specs */}
+                    <div>
+                      <h3 className="font-bold text-text-primary text-sm truncate" title={design.title}>
+                        {design.title}
+                      </h3>
+                      <p className="text-[11px] text-text-muted mt-0.5">
+                        Ukuran: {design.size} · Warna: {design.colorName}
+                      </p>
+                    </div>
+
+                    {/* Estimated Price */}
+                    <div className="p-2.5 rounded-xl bg-black/5 dark:bg-white/5 border border-border-subtle flex items-center justify-between text-xs">
+                      <span className="text-text-muted text-[11px]">Estimasi Sablon:</span>
+                      <span className="font-bold text-brand-accent">
+                        {formatRupiah(design.calculatedPriceIdr)}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Actions */}
+                  <div className="space-y-2 pt-2 border-t border-border-subtle">
+                    <Link
+                      href={`/studio?designId=${design.id}`}
+                      className="w-full py-2 rounded-xl bg-brand-accent text-canvas font-bold text-center block transition-all hover:brightness-110 text-xs uppercase"
+                    >
+                      Buka di 3D Studio
+                    </Link>
+
+                    <DesignCardActions id={design.id} title={design.title} />
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* TAB 3: BUKU ALAMAT */}
+      {activeTab === "addresses" && (
+        <div className="space-y-4">
+          <div className="p-4 rounded-xl bg-surface border border-border-subtle flex items-center justify-between text-xs">
+            <div>
+              <span className="font-bold text-text-primary block">
+                Buku Alamat Pengiriman ({addresses.length})
+              </span>
+              <p className="text-text-muted text-[11px] mt-0.5">
+                Kelola alamat pengiriman untuk kemudahan checkout otomatis tanpa mengetik ulang.
+              </p>
+            </div>
+          </div>
+
+          <AddressBook initial={addresses} />
+        </div>
+      )}
+    </div>
+  );
+}

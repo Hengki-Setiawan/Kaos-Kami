@@ -32,34 +32,34 @@ const cfAnalyticsToken = process.env.NEXT_PUBLIC_CF_WEB_ANALYTICS_TOKEN;
 
 export const metadata: Metadata = {
   metadataBase: new URL(siteUrl),
-  title: "kaos kami — Heavyweight 3D Apparel Experience | Makassar DTF Sablon",
+  title: {
+    default: "Kaos Kami | Sablon Kaos & Streetwear Makassar",
+    template: "%s | Kaos Kami",
+  },
   description:
-    "Engineered oversized streetwear. 240 & 280 GSM combed cotton knitwear, inspected and customized in real-time 3D.",
+    "Jasa sablon DTF dan belanja kaos streetwear berkualitas di Kota Makassar. Pesan satuan tanpa minimal order atau beli kaos polos combed 24s/30s siap kirim.",
   keywords: [
     "kaos kami",
-    "streetwear",
-    "heavyweight cotton",
-    "240 GSM",
-    "280 GSM",
-    "3D apparel",
-    "oversized t-shirt",
-    "Makassar streetwear",
-    "sablon DTF Makassar",
-    "3D configurator",
+    "streetwear makassar",
+    "kaos polos combed",
+    "sablon dtf makassar",
+    "custom kaos satuan",
+    "bikin kaos makassar",
+    "mockup 3d kaos",
   ],
   authors: [{ name: "Kaos Kami Studio" }],
   openGraph: {
-    title: "kaos kami — Heavyweight 3D Apparel Experience | Makassar DTF Sablon",
-    description: "Heavyweight Indonesian streetwear, engineered not printed.",
+    title: "Kaos Kami | Sablon Kaos & Streetwear Makassar",
+    description: "Jasa sablon DTF satuan tanpa minimal order & kaos polos berkualitas di Kota Makassar.",
     url: siteUrl,
-    siteName: "kaos kami",
+    siteName: "Kaos Kami",
     locale: "id_ID",
     type: "website",
   },
   twitter: {
     card: "summary_large_image",
-    title: "kaos kami — Heavyweight 3D Apparel Experience | Makassar DTF Sablon",
-    description: "Heavyweight Indonesian streetwear, engineered not printed.",
+    title: "Kaos Kami | Sablon Kaos & Streetwear Makassar",
+    description: "Jasa sablon DTF satuan tanpa minimal order & kaos polos berkualitas di Kota Makassar.",
   },
   icons: {
     icon: [
@@ -89,11 +89,16 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       suppressHydrationWarning
       className={`${syne.variable} ${jakarta.variable}`}
     >
-      {/* P0 fondasi tema: blocking pre-paint — set data-theme + theme-color
-          dari localStorage (default gallery) agar tak flash obsidian. */}
-      <Script id="theme-init" strategy="beforeInteractive">
-        {`(function(){try{var t=localStorage.getItem("kaos-studio-theme");if(t!=="gallery"&&t!=="obsidian"&&t!=="concrete")t="gallery";var d=document.documentElement;d.setAttribute("data-theme",t);d.style.colorScheme=t==="gallery"?"light":"dark";var c=t==="gallery"?"#F5F4F0":"#121214";var m=document.querySelector('meta[name="theme-color"]');if(m){m.setAttribute("content",c);}else{var n=document.createElement("meta");n.name="theme-color";n.content=c;document.head.appendChild(n);}}catch(e){document.documentElement.setAttribute("data-theme","gallery");}})();`}
-      </Script>
+      <head>
+        {/* P0 fondasi tema: blocking pre-paint — set data-theme + theme-color
+            dari localStorage (default gallery) agar tak flash obsidian. */}
+        <script
+          id="theme-init"
+          dangerouslySetInnerHTML={{
+            __html: `(function(){try{var t=localStorage.getItem("kaos-studio-theme");if(t!=="gallery"&&t!=="obsidian"&&t!=="concrete")t="gallery";var d=document.documentElement;d.setAttribute("data-theme",t);d.style.colorScheme=t==="gallery"?"light":"dark";var c=t==="gallery"?"#EFECE6":"#121214";var m=document.querySelector('meta[name="theme-color"]');if(m){m.setAttribute("content",c);}else{var n=document.createElement("meta");n.name="theme-color";n.content=c;document.head.appendChild(n);}}catch(e){document.documentElement.setAttribute("data-theme","gallery");}})();`,
+          }}
+        />
+      </head>
       <body className="bg-canvas text-text-primary selection:bg-brand-accent selection:text-canvas min-h-screen">
         <Script
           src={
@@ -146,7 +151,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         )}
 
         {/* Global ChunkLoadError Auto-Recovery */}
-        <Script id="chunk-error-recovery" strategy="beforeInteractive">
+        <Script id="chunk-error-recovery" strategy="afterInteractive">
           {`
             window.addEventListener('error', function(e) {
               if (e && e.message && (e.message.indexOf('Loading chunk') !== -1 || e.message.indexOf('ChunkLoadError') !== -1)) {

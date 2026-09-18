@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { nanoid } from "nanoid";
 import { z } from "zod";
-import { eq } from "drizzle-orm";
+import { eq, count } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { Design } from "@/lib/drizzle-schema";
 import { SaveDesignSchema } from "@/lib/schemas/design";
@@ -67,6 +67,32 @@ export async function POST(req: NextRequest) {
     const viewer = await getAuthenticatedUser().catch(() => null);
     if (needsUpload && !viewer) {
       return NextResponse.json({ error: "Login diperlukan untuk upload gambar. Silakan login dulu." }, { status: 401 });
+    }
+
+    // Pembatasan Kuota 5 Desain per Akun User (Kebijakan Storage UMKM Sep 2026):
+    // Melindungi kuota R2 dari penumpukan draft & menjaga dashboard user tetap rapi.
+    if (viewer) {
+      const isStaffOrAdmin = ["ADMIN", "SUPER_ADMIN", "PRODUCTION_STAFF"].includes(viewer.role);
+      if (!isStaffOrAdmin) {
+        const existingCount = (
+          await db
+            .select({ n: count() })
+            .from(Design)
+            .where(eq(Design.userId, viewer.id))
+        )[0]?.n ?? 0;
+
+        if (existingCount >= 5) {
+          return NextResponse.json(
+            {
+              error: "Batas kuota tercapai: Akun Anda telah menyimpan maksimal 5 desain. Silakan hapus desain lama di dashboard untuk menyimpan desain baru.",
+              quotaExceeded: true,
+              maxQuota: 5,
+              currentDesigns: existingCount,
+            },
+            { status: 400 }
+          );
+        }
+      }
     }
 
     // Find category

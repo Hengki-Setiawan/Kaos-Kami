@@ -172,28 +172,25 @@ export function createClothPhysicalMaterial(options: ClothMaterialOptions): THRE
   switch (archetype) {
     case "tshirt":
     case "longsleeve":
-      // Heavyweight 240 / 280 GSM Long-Staple Combed Cotton — jersey tipis
-      // drape lemas: lipatan halus rapat datang dari peta profil "tshirt".
-      roughness = isDarkColor ? 0.93 : 0.90;
-      sheen = isDarkColor ? 0.20 : 0.85;
-      sheenRoughness = isDarkColor ? 0.85 : 0.65;
-      sheenColor = isDarkColor ? baseColor.clone().multiplyScalar(0.35) : new THREE.Color(0xffe8dc);
-      normalScaleValue = isDarkColor ? 0.38 : 0.46; // 0.32/0.38→0.38/0.46: anyaman 140 loop butuh scale ini agar terbaca (revert −0.05)
-      bumpScaleValue = 0.0022; // baseline butir katun (revert 0.002)
-      envMapIntensityValue = isDarkColor ? 0.25 : 0.45;
+      // Katun Combed 24s / 30s — katun lembut, matte natural tanpa pendaran berlebih.
+      roughness = isDarkColor ? 0.93 : 0.92;
+      sheen = isDarkColor ? 0.15 : 0.20; // Alami mikro-fuzz katun, TIDAK bercahaya / glowing
+      sheenRoughness = 0.85;
+      sheenColor = isDarkColor ? baseColor.clone().multiplyScalar(0.3) : new THREE.Color(0xdad5cc);
+      normalScaleValue = isDarkColor ? 0.38 : 0.44;
+      bumpScaleValue = 0.0020;
+      envMapIntensityValue = isDarkColor ? 0.22 : 0.28;
       break;
 
     case "hoodie":
-      // Heavy French Terry & Fleece 380 GSM — tebal berbulu: relief + sheen
-      // paling kuat dari semua arketipe (maksimal yang masih fisik: sheen≤1).
-      roughness = isDarkColor ? 0.95 : 0.94; // Sangat difus, menyerap cahaya
-      // A2: sheen sumber di-clamp ≤1 (dulu 1.15 — di luar rentang fisik sheen).
-      sheen = isDarkColor ? 0.25 : 1.0;
-      sheenRoughness = 0.85; // 0.80→0.85: bulu fleece menyebar pantulan grazing lebih lebar (revert 0.80)
-      sheenColor = isDarkColor ? baseColor.clone().multiplyScalar(0.4) : new THREE.Color(0xf5ebe6);
-      normalScaleValue = isDarkColor ? 0.40 : 0.52; // 0.34/0.42→0.40/0.52: lipatan besar amp-18 butuh penguat ini (revert −0.05)
-      bumpScaleValue = 0.0032; // 1.5× kaos: butir roughness SAMA terbaca kasar seperti bulu fleece (revert 0.002)
-      envMapIntensityValue = isDarkColor ? 0.30 : 0.50;
+      // Fleece / Baby Terry — tebal berbulu lembut, menyerap cahaya (matte).
+      roughness = isDarkColor ? 0.95 : 0.94;
+      sheen = isDarkColor ? 0.20 : 0.25;
+      sheenRoughness = 0.85;
+      sheenColor = isDarkColor ? baseColor.clone().multiplyScalar(0.35) : new THREE.Color(0xdad5cc);
+      normalScaleValue = isDarkColor ? 0.40 : 0.48;
+      bumpScaleValue = 0.0028;
+      envMapIntensityValue = isDarkColor ? 0.25 : 0.32;
       break;
 
     case "jacket":
@@ -208,8 +205,29 @@ export function createClothPhysicalMaterial(options: ClothMaterialOptions): THRE
       clearcoatRoughness = 0.35;
       normalScaleValue = isDarkColor ? 0.34 : 0.38; // 0.30/0.32→0.34/0.38: SENGAJA paling kecil — tekukan sharpen amp-20 sudah kuat, scale besar jadi kartun (revert −0.05)
       bumpScaleValue = 0.0015; // tenun rapat kalis: relief mikro minimal (revert 0.002)
-      envMapIntensityValue = isDarkColor ? 0.60 : 0.70;
-      break;
+  }
+
+  // Overrides berdasarkan Tekstur Bahan yang dipilih pengguna (Cotton 24s, Heavy Fleece, Poplin):
+  if (materialFinish === "french-terry") {
+    // Heavy Fleece 380 GSM — tekstur rajutan tebal berbulu, matte hangat
+    roughness = Math.max(roughness, 0.95);
+    sheen = 0.35;
+    sheenRoughness = 0.90;
+    bumpScaleValue = Math.max(bumpScaleValue, 0.0035);
+    normalScaleValue = Math.min(0.55, normalScaleValue * 1.15);
+  } else if (materialFinish === "poplin") {
+    // Poplin Katun Halus — tenun polos rapat, sentuhan sedikit licin kalis
+    roughness = Math.min(roughness, 0.72);
+    clearcoat = 0.06;
+    clearcoatRoughness = 0.40;
+    bumpScaleValue = 0.0014;
+    normalScaleValue = Math.max(0.30, normalScaleValue * 0.85);
+    envMapIntensityValue = Math.max(envMapIntensityValue, 0.45);
+  } else {
+    // Default combed-cotton: Katun Combed 24s alami, lembut & breathable
+    roughness = isDarkColor ? 0.93 : 0.91;
+    sheen = isDarkColor ? 0.16 : 0.22;
+    sheenRoughness = 0.85;
   }
 
   const normalMap = getNormalMap();

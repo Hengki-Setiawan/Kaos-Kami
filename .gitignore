@@ -85,6 +85,10 @@ backups/
 
 cap-upgrade.log
 
+backups/
+
+cap-upgrade.log
+
 dev-*.log
 
 # raw asset archive (152MB+, local only — curated GLB live in */public/models/)
@@ -92,3 +96,5 @@ Asset 3D/
 *.blend
 
 *.tmp.mjs
+__pycache__/
+*.pyc

@@ -10,9 +10,9 @@ import type { Metadata } from "next";
 import { KalkulatorSablonClient } from "./KalkulatorSablonClient";
 
 export const metadata: Metadata = {
-  title: "Kalkulator Sablon DTF — Ukuran Print, GSM & Placement | Kaos Kami Makassar",
+  title: "Kalkulator Biaya Sablon DTF",
   description:
-    "Hitung tier sablon DTF dari ukuran cm, bandingkan kain GSM, dan lihat tabel placement baku (dada, punggung, lengan) untuk kaos, hoodie, crewneck & coach jacket. Workshop Makassar.",
+    "Hitung estimasi biaya sablon DTF berdasarkan ukuran cetak cm, jenis pakaian, dan area sablon (dada, punggung, lengan). Workshop resmi Kota Makassar.",
 };
 
 export default function KalkulatorSablonPage() {

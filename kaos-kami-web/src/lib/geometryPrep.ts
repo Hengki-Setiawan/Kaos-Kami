@@ -61,9 +61,12 @@ export function ensureWindWeights(
   const weights = new Float32Array(pos.count);
   for (let i = 0; i < pos.count; i++) {
     const y = pos.getY(i);
-    // smoothstep: 0 di atas garis pin (bahu/kerah), 1 di hem
+    // smoothstep: 0 di atas garis pin (bahu/kerah/dada), 1 di hem bawah
+    // Zona dada print sablon (y > 38% tinggi, |x| < 60% lebar) dikunci 0 agar sablon tidak pernah tembus
+    const isChestPrintZone = Math.abs(pos.getX(i)) < halfWidth * 0.65 && y > (bb.min.y + (bb.max.y - bb.min.y) * 0.38);
+    const chestDamp = isChestPrintZone ? 0.0 : 1.0;
     const t = Math.max(0, Math.min(1, (top - y) / span));
-    weights[i] = t * t * (3 - 2 * t);
+    weights[i] = t * t * (3 - 2 * t) * chestDamp;
     // Lipatan gravitasi: dua sinus diagonal (panjang gelombang 2π/28 ≈ 0.22
     // unit ≈ 22cm + 2π/17 ≈ 37cm — skala kerut torso nyata 15–35cm, BUKAN
     // kerut mikro yang sudah dipegang normal-map). Masker: sisi badan/ketiak

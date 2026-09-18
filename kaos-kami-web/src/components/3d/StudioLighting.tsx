@@ -45,7 +45,7 @@ const StudioFloor: React.FC<{ color: string; reflective: boolean }> = ({ color, 
     [color]
   );
   return (
-    <mesh rotation-x={-Math.PI / 2} position={[0, -1.28, 0]} receiveShadow>
+    <mesh name="studio-floor" rotation-x={-Math.PI / 2} position={[0, -1.28, 0]} receiveShadow>
       <circleGeometry args={[2.4, 64]} />
       {reflective ? (
         <MeshReflectorMaterial {...reflectorArgs} />
@@ -58,11 +58,12 @@ const StudioFloor: React.FC<{ color: string; reflective: boolean }> = ({ color, 
 };
 
 export const StudioLighting: React.FC = () => {
-  const { studioTheme, lightingPreset, selectedColor } = useConfiguratorStore(
+  const { studioTheme, lightingPreset, selectedColor, testLabMode } = useConfiguratorStore(
     useShallow((s) => ({
       studioTheme: s.studioTheme,
       lightingPreset: s.lightingPreset,
       selectedColor: s.selectedColor,
+      testLabMode: s.testLabMode,
     }))
   );
   // Tiering HP: tier-low = rig ramping (hemi+key+fill+rear), TANPA spot /
@@ -89,15 +90,42 @@ export const StudioLighting: React.FC = () => {
   const darkFactor = Math.min(1, Math.max(0.55, 0.55 + lum * 1.6));
   const k = (v: number) => v * (isLightMode ? 1 : darkFactor);
 
-  // M2.4: rasio key:fill:rim ≈ 2.2 : 0.6 : 0.8 (rim = rear 0.8).
-  // M2.1: ambient lama 1.05 → hemisphere 0.35–0.5; rear lama 1.3 → 0.8.
-  // PERF: pasangan rim bahu 0.4+0.4 & point bawah DIHAPUS di semua tier
-  // (2 draw-light + 1 point-light = −3 evaluasi cahaya per fragmen; siluet
-  // dipegang rear 0.8 + spot kerah). Shadow-map DIKUNCI 1024 semua tier
-  // (2048→1024 = −75% memori depth: 16MB→4MB).
-  const hemiSky = lightingPreset === "cyber" ? "#1e293b" : isLightMode ? "#ffffff" : "#f1f3f9";
-  const hemiGround = isLightMode ? "#d8d5cf" : "#2a2b30";
-  const hemiIntensity = isLightMode ? 0.5 : 0.4;
+  // Redupkan pencahayaan ruangan saat mode Senter 3D aktif agar sorotan senter & pantulan 3M dramatis
+  const isFlashlight = testLabMode === "flashlight";
+  const testLabDim = isFlashlight ? 0.05 : 1.0;
+
+  // Kalibrasi suhu warna lampu berdasarkan SUASANA CAHAYA (Golden, Sunset, Galeri)
+  const isGolden = lightingPreset === "golden";
+  const isSunset = lightingPreset === "sunset";
+
+  const keyColor = isGolden ? "#fff4e5" : isSunset ? "#ffab7c" : "#ffffff";
+  const fillColor = isGolden ? "#ffe8cc" : isSunset ? "#ffccbc" : lightingPreset === "cyber" ? "#38bdf8" : "#e2e8f0";
+  const rimColor = isGolden ? "#ffd54f" : isSunset ? "#ff7043" : lightingPreset === "cyber" ? "#ff6a00" : "#f8fafc";
+
+  const hemiSky = isGolden
+    ? "#fff8f0"
+    : isSunset
+    ? "#ffedd5"
+    : lightingPreset === "cyber"
+    ? "#1e293b"
+    : isLightMode
+    ? "#eae7e1"
+    : "#f1f3f9";
+
+  const hemiGround = isGolden
+    ? "#3a2b1c"
+    : isSunset
+    ? "#3a1d12"
+    : isLightMode
+    ? "#d4d0c7"
+    : "#2a2b30";
+
+  const hemiIntensity = (isLightMode ? 0.32 : 0.4) * testLabDim;
+
+  const keyIntensity = (lightingPreset === "cyber" ? k(2.2) : isLightMode ? (lum > 0.6 ? 1.25 : 1.55) : k(2.2)) * testLabDim;
+  const fillIntensity = (isLightMode ? (lum > 0.6 ? 0.35 : 0.45) : k(0.6)) * testLabDim;
+  const spotIntensity = (isLightMode ? (lum > 0.6 ? 0.32 : 0.45) : k(0.6)) * testLabDim;
+  const rimIntensity = (lightingPreset === "cyber" ? k(0.8) : isLightMode ? (lum > 0.6 ? 0.35 : 0.55) : k(0.8)) * testLabDim;
 
   return (
     <>
@@ -114,10 +142,11 @@ export const StudioLighting: React.FC = () => {
           terbaca, bukan flat seperti ambientLight tunggal). */}
       <hemisphereLight args={[hemiSky, hemiGround, hemiIntensity]} />
 
-      {/* 2. Key depan-kanan — inti rasio (2.2). Shadow 1024 semua tier. */}
+      {/* 2. Key depan-kanan — terkalibrasi agar kain putih tidak terbakar di mode terang */}
       <directionalLight
         position={[3.5, 6, 4.5]}
-        intensity={lightingPreset === "cyber" ? k(2.2) : isLightMode ? 2.2 : k(2.2)}
+        intensity={keyIntensity}
+        color={keyColor}
         castShadow={!isLow}
         shadow-mapSize={[1024, 1024]}
         shadow-bias={-0.0001}
@@ -130,27 +159,23 @@ export const StudioLighting: React.FC = () => {
         shadow-camera-bottom={-1.5}
       />
 
-      {/* 3. Fill depan-kiri (0.6). */}
+      {/* 3. Fill depan-kiri */}
       <directionalLight
         position={[-3.5, 3, 3]}
-        intensity={k(0.6)}
-        color={lightingPreset === "cyber" ? "#38bdf8" : "#e2e8f0"}
+        intensity={fillIntensity}
+        color={fillColor}
       />
 
-      {/* 4. Rim belakang (0.8) — punggung tetap terbaca tanpa mencuci hitam. */}
+      {/* 4. Rim belakang (lembut di mode terang agar kain putih tidak berhalo) */}
       <directionalLight
         position={[0, 4, -5]}
-        intensity={k(0.8)}
-        color={lightingPreset === "cyber" ? "#ff6a00" : "#f8fafc"}
+        intensity={rimIntensity}
+        color={rimColor}
       />
 
-      {/* 6. Cahaya pemahat kerah/lipatan dari atas (dirampingkan 1.25→0.6). */}
-
-      {/* PERF #5: pasangan rim bahu (dulu 0.4+0.4) SUDAH tak ada di pohon
-          semua tier; spot kerah 0.6 DIPERTAHANKAN (pemahat lipatan). Blok
-          lantai di bawah TAK tersentuh (kunci owner). */}
+      {/* 6. Cahaya pemahat kerah/lipatan dari atas */}
       {!isLow && (
-        <spotLight position={[0, 6, 1]} intensity={k(0.6)} angle={0.6} penumbra={0.8} color="#ffffff" />
+        <spotLight position={[0, 6, 1]} intensity={spotIntensity} angle={0.6} penumbra={0.8} color="#ffffff" />
       )}
 
       {/* 7. PERF #5: point bawah 0.25 HANYA mid — high DIHAPUS (−1 evaluasi
@@ -168,16 +193,18 @@ export const StudioLighting: React.FC = () => {
           scale dirampingkan 6.5→4.5 agar kaki tak mengambang). frames={1} =
           dipanggang sekali (bukan tiap frame). */}
       <StudioFloor color={floorColor} reflective={isHigh} />
-      <ContactShadows
-        position={[0, -1.25, 0]}
-        opacity={0.35}
-        scale={4.5}
-        blur={3.2}
-        far={3.5}
-        frames={1}
-        resolution={isLow ? 256 : 512}
-        color={shadowColor}
-      />
+      <group name="studio-floor">
+        <ContactShadows
+          position={[0, -1.25, 0]}
+          opacity={0.35}
+          scale={4.5}
+          blur={3.2}
+          far={3.5}
+          frames={1}
+          resolution={isLow ? 256 : 512}
+          color={shadowColor}
+        />
+      </group>
     </>
   );
 };

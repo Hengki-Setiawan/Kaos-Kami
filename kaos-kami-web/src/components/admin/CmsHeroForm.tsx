@@ -61,7 +61,7 @@ export function CmsHeroForm() {
             onChange={(e) => setTitle(e.target.value)}
             rows={2}
             maxLength={80}
-            placeholder={"HEAVYWEIGHT\nBOXY TEE"}
+            placeholder={"BIKIN KAOS IMPIANMU\nDENGAN MOCKUP 3D"}
             className="mt-1 w-full px-3 py-2 rounded-xl bg-surface border border-white/10 text-white"
           />
         </label>
@@ -72,7 +72,7 @@ export function CmsHeroForm() {
             onChange={(e) => setSubtitle(e.target.value)}
             rows={2}
             maxLength={200}
-            placeholder="Engineered oversized streetwear…"
+            placeholder="Platform sablon DTF kustom satuan & kaos polos katun combed berkualitas di Makassar…"
             className="mt-1 w-full px-3 py-2 rounded-xl bg-surface border border-white/10 text-white"
           />
         </label>

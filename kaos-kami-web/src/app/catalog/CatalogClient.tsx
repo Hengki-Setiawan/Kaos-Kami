@@ -144,7 +144,7 @@ export function CatalogClient() {
               KOLEKSI PAKAIAN JADI
             </h1>
             <p className="font-mono text-xs text-text-muted mt-2 max-w-xl leading-relaxed">
-              Pilihan pakaian siap kirim hari ini se-Makassar. Katun combed tebal 240 & 280 GSM polos berkualitas tinggi atau edisi grafis terbatas.
+              Pilihan pakaian siap kirim hari ini di Makassar. Kaos polos combed 24s & 30s berkualitas tinggi serta pakaian edisi sablon DTF.
             </p>
           </div>
 
@@ -163,8 +163,8 @@ export function CatalogClient() {
             <span className="text-text-muted font-bold mr-1">KATEGORI:</span>
             {[
               { id: "ALL", label: "SEMUA PRODUK" },
-              { id: "READY_MADE", label: "KAOS POLOS (BLANK)" },
-              { id: "LIMITED_DROP", label: "EDISI GRAFIS DROP" },
+              { id: "READY_MADE", label: "KAOS POLOS" },
+              { id: "LIMITED_DROP", label: "EDISI SABLON" },
             ].map((f) => (
               <button
                 key={f.id}
@@ -273,7 +273,7 @@ export function CatalogClient() {
                   {/* Top Badges (Clean, No Emoji Slop) */}
                   <div className="absolute top-3 left-3 right-3 flex justify-between items-center">
                     <span className="px-2.5 py-1 rounded-full bg-canvas/60 backdrop-blur-md border border-border-subtle font-mono text-[10px] text-text-primary font-bold uppercase">
-                      {p.isPreDesigned ? "EDISI GRAFIS DROP" : "KATUN POLOS HEAVYWEIGHT"}
+                      {p.isPreDesigned ? "EDISI SABLON" : "KAOS POLOS COMBED"}
                     </span>
                     <span className="w-5 h-5 rounded-full border border-border-strong dark:shadow-md" style={{ backgroundColor: p.colorHex }} title={p.colorName} />
                   </div>

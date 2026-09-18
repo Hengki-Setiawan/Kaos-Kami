@@ -19,27 +19,27 @@ export const TechSpecsOverlay: React.FC = () => {
           : "opacity-0 translate-y-12 pointer-events-none"
       }`}
     >
-      <div className="max-w-xl space-y-6">
+      <div className="max-w-md lg:max-w-lg space-y-5 z-20">
         <div>
-          <span className="font-mono text-xs text-brand-accent tracking-widest uppercase">
-            FAKTOR KUALITAS & MATERIAL
+          <span className="font-mono text-[11px] sm:text-xs text-brand-accent tracking-widest uppercase font-bold">
+            KUALITAS BAHAN & SABLON
           </span>
-          <h2 className="text-3xl sm:text-5xl md:text-6xl font-display font-black uppercase tracking-tight text-text-primary mt-2">
-            KATUN COMBED<br />HEAVYWEIGHT 16S
+          <h2 className="text-2xl sm:text-3xl md:text-[34px] lg:text-[40px] font-display font-black uppercase leading-[1.08] tracking-tight text-text-primary mt-2">
+            KAOS COMBED ADEM<br />& SABLON DTF AWET
           </h2>
-          <p className="text-sm font-mono text-text-muted mt-3 leading-relaxed">
-            Serat benang katun combed pilihan dengan gramasi tebal 240 & 280 GSM. Siluet jatuh tegap, jahitan ganda rapi, dan tahan cuci tanpa melar.
+          <p className="text-xs sm:text-sm font-mono text-text-muted mt-2.5 leading-relaxed">
+            Karakter katun combed sejuk yang nyaman untuk iklim tropis, dipadukan teknologi sablon digital DTF presisi. Warna cerah, lentur, dan tahan cuci berkali-kali.
           </p>
         </div>
 
         {/* Technical Specification Grid */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 pt-1">
           {TECHNICAL_SPECS.map((spec) => (
             <div
               key={spec.label}
-              className="p-4 rounded-xl glass-panel border border-border-subtle hover:border-brand-accent/40 transition-colors"
+              className="p-3.5 rounded-xl glass-panel border border-border-subtle hover:border-brand-accent/40 transition-colors"
             >
-              <div className="flex items-baseline justify-between mb-1.5">
+              <div className="flex items-baseline justify-between mb-1">
                 <span className="text-[10px] font-mono tracking-widest text-text-muted uppercase">
                   {spec.label}
                 </span>
@@ -47,7 +47,7 @@ export const TechSpecsOverlay: React.FC = () => {
                   {spec.value}
                 </span>
               </div>
-              <p className="text-xs font-mono text-text-muted leading-relaxed">
+              <p className="text-[11px] sm:text-xs font-mono text-text-muted leading-relaxed">
                 {spec.detail}
               </p>
             </div>

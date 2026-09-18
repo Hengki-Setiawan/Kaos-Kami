@@ -39,14 +39,14 @@ import {
   PRODUCT_COLORS,
   APPAREL_CATALOG,
   STUDIO_MOODS,
-  STUDIO_STARTER_TEMPLATES,
   validSidesFor,
   type ApparelType,
   type StudioTheme,
   type MaterialFinish,
   type LightingPreset,
-  type StarterTemplateId,
+  type DecalTargetSide,
 } from "@/lib/constants";
+import { TestLabControls } from "./TestLabControls";
 import { calculate6VariablePrice, materialFinishToPricing } from "@/lib/pricingEngine";
 import { useConfiguratorStore } from "@/store/useConfiguratorStore";
 import { useShallow } from "zustand/shallow";
@@ -67,83 +67,12 @@ import {
   setOriginalMasterDataUrl,
   uploadMasterDataUrlToR2,
 } from "@/lib/imageEditPipeline";
-import { Ruler, Wand2, Loader2, AlertTriangle, ShieldCheck, ShoppingCart, Type, Shirt, Scissors, Lock, CheckCircle2, Pin, Crosshair, ArrowLeft as ArrowLeftIcon, ArrowRight as ArrowRightIcon } from "lucide-react";
+import { Ruler, Wand2, Loader2, AlertTriangle, ShieldCheck, ShoppingCart, Type, Shirt, Scissors, Lock, CheckCircle2, Pin, Crosshair, ArrowLeft as ArrowLeftIcon, ArrowRight as ArrowRightIcon, CircleHelp, User, UserCheck } from "lucide-react";
 
-/** Sleek modern vector icon for apparel types */
-function ApparelVectorIcon({ type, className = "w-5 h-5" }: { type: ApparelType; className?: string }) {
-  switch (type) {
-    case "tshirt":
-      return (
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className={className}>
-          <path d="M6 3.5L2 8l4 2 2-3h8l2 3 4-2-4-4.5L15 2h-6L6 3.5z" />
-          <path d="M8 5a4 4 0 0 0 8 0" />
-          <path d="M6 10v11a1 1 0 0 0 1 1h10a1 1 0 0 0 1-1V10" />
-        </svg>
-      );
-    case "longsleeve":
-      return (
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className={className}>
-          <path d="M6 3.5L1 11l3 1.5 2-5.5h12l2 5.5 3-1.5-5-7.5L15 2h-6L6 3.5z" />
-          <path d="M8 5a4 4 0 0 0 8 0" />
-          <path d="M6 10v11a1 1 0 0 0 1 1h10a1 1 0 0 0 1-1V10" />
-        </svg>
-      );
-    case "crewneck":
-      return (
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className={className}>
-          <path d="M6 4L1 11.5l3.5 1.5 2-6h11l2 6 3.5-1.5L18 4l-3-2H9L6 4z" />
-          <path d="M8.5 4.5a3.5 3.5 0 0 0 7 0" />
-          <path d="M6 11v9.5a1.5 1.5 0 0 0 1.5 1.5h9a1.5 1.5 0 0 0 1.5-1.5V11" />
-          <line x1="6" y1="20" x2="18" y2="20" strokeWidth="2.2" />
-        </svg>
-      );
-    case "hoodie":
-      return (
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className={className}>
-          <path d="M9 2a3 3 0 0 0-3 3v2l-4 3.5 3 2 2-2.5V20a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2V10l2 2.5 3-2-4-3.5V5a3 3 0 0 0-3-3H9z" />
-          <path d="M9 2v4a3 3 0 0 0 6 0V2" />
-          <path d="M8 15h8v4a1 1 0 0 1-1 1H9a1 1 0 0 1-1-1v-4z" strokeDasharray="1 1" />
-        </svg>
-      );
-    case "shirt": // Coach Jacket / Windbreaker
-      return (
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className={className}>
-          <path d="M6 4L2 9l3.5 2 1.5-4h10l1.5 4 3.5-2-4-5L15 2h-6L6 4z" />
-          <path d="M7 7v14a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1V7" />
-          <line x1="12" y1="6" x2="12" y2="22" strokeDasharray="2 2" />
-          <path d="M9 3l3 4 3-4" />
-        </svg>
-      );
-    case "cap":
-      return (
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className={className}>
-          <path d="M4 14a8 8 0 0 1 16 0v2H4v-2z" />
-          <path d="M4 16c-1.5 0-3 1-3 2.5S2.5 21 4 21h12c2 0 3-1.5 3-3v-2" />
-          <circle cx="12" cy="6" r="1" />
-        </svg>
-      );
-    case "pants":
-      return (
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className={className}>
-          <path d="M5 2h14v3l-2 16a1 1 0 0 1-1 1h-3a1 1 0 0 1-1-1l-1-10-1 10a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1L3 5V2h2z" />
-          <line x1="5" y1="5" x2="19" y2="5" />
-          <line x1="12" y1="5" x2="12" y2="11" />
-        </svg>
-      );
-    case "shorts":
-      return (
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className={className}>
-          <path d="M5 4h14v2l-1 9a1 1 0 0 1-1 1h-3.5a1 1 0 0 1-1-1l-.5-4-.5 4a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1L5 6V4z" />
-          <line x1="5" y1="7" x2="19" y2="7" />
-        </svg>
-      );
-    default:
-      return <Box className={className} />;
-  }
-}
 import { CheckoutModal } from "@/components/ui/CheckoutModal";
 import { BottomSheet } from "@/components/ui/BottomSheet";
 import { AuthModal } from "@/components/ui/AuthModal";
+import { openStudioTour } from "@/components/studio/StudioTour";
 import { useSession } from "@/lib/auth-client";
 import dynamic from "next/dynamic";
 import { generateTextDecalDataUrl, FONT_PRESETS, type TextDecalOptions } from "@/lib/typography/textDecalGenerator";
@@ -182,15 +111,6 @@ const ImageEditorModalLazy = dynamic(
   }
 );
 
-// M4.1 — Panel jersey regu / teamwear (lazy client-only; generateTextDecalDataUrl
-// + raster kanvas hanya diunduh saat tab TIM dibuka).
-const TeamwearPanelLazy = dynamic(
-  () => import("@/components/studio/TeamwearPanel").then((m) => m.TeamwearPanel),
-  {
-    ssr: false,
-    loading: () => <p className="text-xs font-mono text-text-muted p-2">Memuat panel jersey regu…</p>,
-  }
-);
 
 /** Format ekspor 360° (D2 — muxer benar, bukan MediaRecorder mentah). */
 export type Export360Format = "mp4" | "webm" | "gif";
@@ -238,6 +158,99 @@ function downloadExportBlob(blob: Blob, filename: string) {
   } finally {
     setTimeout(() => URL.revokeObjectURL(url), 8000);
   }
+}
+
+function getHexLuminance(hex: string): number {
+  const clean = hex.replace("#", "");
+  if (clean.length !== 6) return 0.5;
+  const r = parseInt(clean.slice(0, 2), 16) / 255;
+  const g = parseInt(clean.slice(2, 4), 16) / 255;
+  const b = parseInt(clean.slice(4, 6), 16) / 255;
+  return 0.299 * r + 0.587 * g + 0.114 * b;
+}
+
+/**
+ * W3C standard native MediaRecorder fallback untuk video 360 kanvas.
+ * Kompatibel 100% di semua browser (Chrome, Edge, Firefox, Safari) tanpa syarat hardware AVC.
+ */
+async function export360VideoNative(
+  stream: MediaStream,
+  totalMs: number,
+  format: "mp4" | "webm",
+  onTick: (elapsedMs: number) => void
+): Promise<void> {
+  let mimeType = "";
+  const candidates =
+    format === "mp4"
+      ? [
+          "video/mp4;codecs=avc1.42E01E,mp4a.40.2",
+          "video/mp4;codecs=avc1",
+          "video/mp4;codecs=h264",
+          "video/mp4",
+          "video/webm;codecs=vp9",
+          "video/webm;codecs=vp8",
+          "video/webm",
+        ]
+      : [
+          "video/webm;codecs=vp9",
+          "video/webm;codecs=vp8",
+          "video/webm",
+          "video/mp4",
+        ];
+
+  if (typeof MediaRecorder !== "undefined") {
+    for (const type of candidates) {
+      if (MediaRecorder.isTypeSupported(type)) {
+        mimeType = type;
+        break;
+      }
+    }
+  }
+
+  if (!mimeType) {
+    throw new Error("Perekaman video kanvas tidak didukung di browser ini.");
+  }
+
+  const chunks: Blob[] = [];
+  const recorder = new MediaRecorder(stream, {
+    mimeType,
+    videoBitsPerSecond: 6_000_000,
+  });
+
+  recorder.ondataavailable = (e) => {
+    if (e.data && e.data.size > 0) {
+      chunks.push(e.data);
+    }
+  };
+
+  const startedAt = performance.now();
+  recorder.start(200);
+
+  await new Promise<void>((resolve, reject) => {
+    const timer = setInterval(() => {
+      const elapsed = performance.now() - startedAt;
+      onTick(elapsed);
+      if (elapsed >= totalMs) {
+        clearInterval(timer);
+        try {
+          recorder.onstop = () => resolve();
+          recorder.onerror = (err) => reject(err);
+          recorder.stop();
+        } catch (err) {
+          reject(err);
+        }
+      }
+    }, 200);
+  });
+
+  if (chunks.length === 0) {
+    throw new Error("Perekaman video menghasilkan buffer kosong.");
+  }
+
+  const isMp4 = mimeType.includes("mp4");
+  const actualExt = isMp4 ? "mp4" : "webm";
+  const blob = new Blob(chunks, { type: mimeType });
+  downloadExportBlob(blob, `kaos-kami-360-turntable.${actualExt}`);
 }
 
 /**
@@ -393,7 +406,7 @@ async function export360Gif(
   downloadExportBlob(new Blob([bytes as BlobPart], { type: "image/gif" }), "kaos-kami-360-turntable.gif");
 }
 
-  type StudioTab = "apparel" | "decals" | "pattern" | "sandbox" | "saved" | "team" | "export";
+  type StudioTab = "apparel" | "decals" | "options" | "pattern" | "test3d" | "sandbox" | "saved" | "team" | "export";
 
 export const CustomizerDrawer: React.FC = () => {
   const {
@@ -429,6 +442,7 @@ export const CustomizerDrawer: React.FC = () => {
     savedDesigns,
     saveCurrentDesign,
     loadSavedDesign,
+    duplicateSavedDesign,
     deleteSavedDesign,
     studioTheme,
     setStudioTheme,
@@ -443,6 +457,7 @@ export const CustomizerDrawer: React.FC = () => {
     setCameraPreset,
     isHideWebsiteUI,
     toggleHideWebsiteUI,
+    setIsDrawerCollapsed,
     isDrawerCollapsed,
     toggleDrawerCollapsed,
     drawerPosition,
@@ -456,12 +471,6 @@ export const CustomizerDrawer: React.FC = () => {
     setAnimationPreset,
     animationSpeed,
     setAnimationSpeed,
-    modelMode,
-    setModelMode,
-    motionClip,
-    setMotionClip,
-    motionSpeed,
-    setMotionSpeed,
     isGizmoVisible,
     toggleGizmoVisible,
   } = useConfiguratorStore(
@@ -498,6 +507,7 @@ export const CustomizerDrawer: React.FC = () => {
       savedDesigns: s.savedDesigns,
       saveCurrentDesign: s.saveCurrentDesign,
       loadSavedDesign: s.loadSavedDesign,
+      duplicateSavedDesign: s.duplicateSavedDesign,
       deleteSavedDesign: s.deleteSavedDesign,
       studioTheme: s.studioTheme,
       setStudioTheme: s.setStudioTheme,
@@ -512,6 +522,7 @@ export const CustomizerDrawer: React.FC = () => {
       setCameraPreset: s.setCameraPreset,
       isHideWebsiteUI: s.isHideWebsiteUI,
       toggleHideWebsiteUI: s.toggleHideWebsiteUI,
+      setIsDrawerCollapsed: s.setIsDrawerCollapsed,
       isDrawerCollapsed: s.isDrawerCollapsed,
       toggleDrawerCollapsed: s.toggleDrawerCollapsed,
       drawerPosition: s.drawerPosition,
@@ -525,18 +536,35 @@ export const CustomizerDrawer: React.FC = () => {
       setAnimationPreset: s.setAnimationPreset,
       animationSpeed: s.animationSpeed,
       setAnimationSpeed: s.setAnimationSpeed,
-      modelMode: s.modelMode,
-      setModelMode: s.setModelMode,
-      motionClip: s.motionClip,
-      setMotionClip: s.setMotionClip,
-      motionSpeed: s.motionSpeed,
-      setMotionSpeed: s.setMotionSpeed,
       isGizmoVisible: s.isGizmoVisible,
       toggleGizmoVisible: s.toggleGizmoVisible,
     }))
   );
 
   const [activeTab, setActiveTab] = useState<StudioTab>("apparel");
+  const [decalSubMode, setDecalSubMode] = useState<"standard" | "pattern" | "test3d" | "team">("standard");
+  const [optionSubMode, setOptionSubMode] = useState<"saved" | "export">("saved");
+
+  const handleTabChange = (tab: StudioTab) => {
+    if (tab === "pattern") {
+      setActiveTab("decals");
+      setDecalSubMode("pattern");
+    } else if (tab === "test3d" || tab === "sandbox") {
+      setActiveTab("decals");
+      setDecalSubMode("test3d");
+    } else if (tab === "team") {
+      setActiveTab("decals");
+      setDecalSubMode("team");
+    } else if (tab === "saved") {
+      setActiveTab("options");
+      setOptionSubMode("saved");
+    } else if (tab === "export") {
+      setActiveTab("options");
+      setOptionSubMode("export");
+    } else {
+      setActiveTab(tab);
+    }
+  };
   const [designTitleInput, setDesignTitleInput] = useState("");
   const [copiedLink, setCopiedLink] = useState(false);
   const [showPriceBreakdown, setShowPriceBreakdown] = useState(false);
@@ -554,6 +582,13 @@ export const CustomizerDrawer: React.FC = () => {
   const [customTextString, setCustomTextString] = useState("");
   const [customTextFont, setCustomTextFont] = useState<TextDecalOptions["fontFamily"]>("streetwear-bold");
   const [customTextColor, setCustomTextColor] = useState("#FFFFFF");
+  const [hasManuallyPickedTextColor, setHasManuallyPickedTextColor] = useState(false);
+  useEffect(() => {
+    if (!hasManuallyPickedTextColor) {
+      const isGarmentLight = getHexLuminance(selectedColor) > 0.55;
+      setCustomTextColor(isGarmentLight ? "#000000" : "#FFFFFF");
+    }
+  }, [selectedColor, hasManuallyPickedTextColor]);
   // M3.4 — Shadow teks opsional, default MATI (jujur DTF, tanpa halo cetak).
   const [customTextShadow, setCustomTextShadow] = useState(false);
   const [activePartId, setActivePartId] = useState<string>("body");
@@ -563,6 +598,7 @@ export const CustomizerDrawer: React.FC = () => {
   // M3.4 — BG remover: tolerance slider + target putih/hitam (foto malam).
   const [bgTolerance, setBgTolerance] = useState(35);
   const [bgTarget, setBgTarget] = useState<"white" | "black">("white");
+  const [showBgRemover, setShowBgRemover] = useState(false);
   // M3.6 — Peringatan master belum tersimpan sebelum checkout (sekali per buka).
   const [masterWarnDismissed, setMasterWarnDismissed] = useState(false);
 
@@ -595,6 +631,7 @@ export const CustomizerDrawer: React.FC = () => {
     setCustomTextString("");
     setShowTextInput(false);
     setActiveTab("decals");
+    setDecalSubMode("standard");
     // printPx dari raster AKTUAL (getImageSize): kanvas teks auto-fit
     // (aspek ~4:1 untuk quotes panjang). Tanpa ini printPx undefined →
     // pricing/aspek jatuh ke 1.0 dan cm + tier salah untuk teks lebar.
@@ -609,50 +646,6 @@ export const CustomizerDrawer: React.FC = () => {
       .catch(() => {});
   };
 
-  // Pola eksklusif Sep 2026: starter 1-klik — 1 decal contoh dari template
-  // (Logo Dada / Quotes / Full-Back). Mesin teks sama seperti tulisan custom
-  // (generateTextDecalDataUrl) + master tersimpan, skala dijepit batas cetak.
-  const handleApplyStarterTemplate = async (tplId: StarterTemplateId) => {
-    const tpl = STUDIO_STARTER_TEMPLATES.find((t) => t.id === tplId);
-    if (!tpl) return;
-    try {
-      setIsEnhancingImage(true);
-      const dataUrl = await generateTextDecalDataUrl({
-        text: tpl.sampleText,
-        fontFamily: "streetwear-bold",
-        textColor: "#FFFFFF",
-        enableShadow: false,
-      });
-      if (!dataUrl) return;
-      const maks = maxDecalScaleUnits(activeApparel, tpl.targetSide);
-      const id = addDecal({
-        name: `Contoh: ${tpl.label}`,
-        url: dataUrl,
-        targetSide: tpl.targetSide,
-        x: tpl.x,
-        y: tpl.y,
-        scale: Math.max(0.04, Math.min(maks, tpl.scale)),
-        rotation: 0,
-        opacity: 1,
-      });
-      try { setMasterDataUrl(id, dataUrl); } catch {}
-      try { setOriginalMasterDataUrl(id, dataUrl); } catch {}
-      setSelectedDecalId(id);
-      setActiveTab("decals");
-      void getImageSize(dataUrl)
-        .then((sz) => {
-          try { updateDecal(id, { printPx: { w: sz.w, h: sz.h } }); } catch {}
-        })
-        .catch(() => {});
-      setEnhancementMessage(`✅ Contoh "${tpl.label}" terpasang — silakan geser & ubah ukurannya.`);
-      setTimeout(() => setEnhancementMessage(null), 4000);
-    } catch {
-      setEnhancementMessage("Contoh gagal dipasang. Coba lagi ya.");
-      setTimeout(() => setEnhancementMessage(null), 3000);
-    } finally {
-      setIsEnhancingImage(false);
-    }
-  };
 
   const isVisible = viewMode === "studio";
   const currentApparelInfo = APPAREL_CATALOG[activeApparel];
@@ -831,9 +824,13 @@ export const CustomizerDrawer: React.FC = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [masterStatusList.map((m) => `${m.id}:${m.https}`).join(",")]);
   const openCheckoutWithMasterGate = () => {
+    if (!session?.user) {
+      setIsAuthOpen(true);
+      return;
+    }
     if (unsavedMasters.length > 0 && !masterWarnDismissed) {
       setEnhancementMessage(
-        `⚠️ Master belum tersimpan (${unsavedMasters.length} decal masih base64 lokal): ${unsavedMasters.slice(0, 3).map((m) => m.name).join(", ")}${unsavedMasters.length > 3 ? "…" : ""}. Login untuk upload R2, atau lanjut — guest akan di-hosting-kan server saat Save/Checkout (kualitas tetap master penuh). Klik PESAN sekali lagi untuk lanjut.`
+        `⚠️ Master belum tersimpan (${unsavedMasters.length} decal masih base64 lokal): ${unsavedMasters.slice(0, 3).map((m) => m.name).join(", ")}${unsavedMasters.length > 3 ? "…" : ""}. Kualitas tetap master penuh saat checkout. Klik PESAN sekali lagi untuk lanjut.`
       );
       setMasterWarnDismissed(true);
       setTimeout(() => setEnhancementMessage(null), 8000);
@@ -933,6 +930,7 @@ export const CustomizerDrawer: React.FC = () => {
         .catch(() => {});
       setSelectedDecalId(id);
       setActiveTab("decals");
+      setDecalSubMode("standard");
 
       if (typeof masterDpi === "number" && Number.isFinite(masterDpi)) {
         if (masterDpi < 150) {
@@ -964,14 +962,21 @@ export const CustomizerDrawer: React.FC = () => {
   const [isImageEditorOpen, setIsImageEditorOpen] = useState(false);
   const [export360Format, setExport360Format] = useState<Export360Format>("mp4");
 
-  // D2 — Ekspor 360° rapi: MP4/WebM via mediabunny, GIF via gifenc.
-  // Keduanya await import() dinamis client-only; cleanup stream/track di SEMUA
-  // jalur keluar agar tidak leak. Tombol & pesan Bahasa Indonesia.
+  // Opsi Ekspor Gambar HD & Transparan
+  const [exportBgMode, setExportBgMode] = useState<"studio" | "transparent">("studio");
+  const [exportResolution, setExportResolution] = useState<"standard" | "2k">("2k");
+  const [isExportingImage, setIsExportingImage] = useState(false);
+
+  // Ekspor 360° tangguh: mediabunny dengan auto-fallback ke native MediaRecorder
   const handleExport360Video = async () => {
+    if (!session) {
+      setIsAuthOpen(true);
+      return;
+    }
     if (isRecording360) return;
     const format = export360Format;
 
-    // Scope ke kanvas WebGL (audit #39 — querySelector mentah bisa dapat Fabric).
+    // Scope ke kanvas WebGL
     const webglCanvas = document.querySelector(".webgl-canvas-container canvas") as HTMLCanvasElement | null;
     if (!webglCanvas) {
       setEnhancementMessage("Kanvas 3D tidak ditemukan. Buka studio lalu coba lagi.");
@@ -989,7 +994,7 @@ export const CustomizerDrawer: React.FC = () => {
           try {
             t.stop();
           } catch {
-            // abaikan per-track
+            // abaikan
           }
         });
       } catch {
@@ -1011,7 +1016,6 @@ export const CustomizerDrawer: React.FC = () => {
       setIsRecording360(true);
       setRecordingProgress(0);
       if (!wasRotating) toggleRotating();
-      // Beri rotasi waktu jalan agar frame pertama ikut berputar.
       await new Promise((r) => setTimeout(r, 350));
 
       const capture = (
@@ -1040,9 +1044,26 @@ export const CustomizerDrawer: React.FC = () => {
         await export360Gif(stream, totalMs, onTick);
         setEnhancementMessage("✅ GIF 360° tersimpan — siap dibagikan ke medsos.");
       } else {
-        await export360VideoMediabunny(videoTrack, totalMs, format, onTick);
+        // Coba mediabunny terlebih dahulu bila browser mendukung; jika gagal/tak didukung, fallback ke native MediaRecorder
+        let success = false;
+        try {
+          const { canEncodeVideo } = await import("mediabunny");
+          const codec = format === "mp4" ? "avc" : "vp9";
+          const canDo = await canEncodeVideo(codec);
+          if (canDo) {
+            await export360VideoMediabunny(videoTrack, totalMs, format, onTick);
+            success = true;
+          }
+        } catch (e) {
+          console.warn("Mediabunny encoder tidak tersedia, beralih ke native MediaRecorder:", e);
+        }
+
+        if (!success) {
+          await export360VideoNative(stream, totalMs, format, onTick);
+        }
+
         setEnhancementMessage(
-          `✅ Video 360° ${format.toUpperCase()} tersimpan — siap upload TikTok/IG.`
+          `✅ Video 360° ${format.toUpperCase()} tersimpan — siap dibagikan.`
         );
       }
       setTimeout(() => setEnhancementMessage(null), 5000);
@@ -1050,32 +1071,54 @@ export const CustomizerDrawer: React.FC = () => {
     } catch (err) {
       console.error("Gagal mengekspor video 360:", err);
       setEnhancementMessage(
-        `Gagal mengekspor 360° (${err instanceof Error ? err.message : "kesalahan tak dikenal"}). Coba format lain atau pakai PNG.`
+        `Gagal mengekspor 360° (${err instanceof Error ? err.message : "kesalahan tak dikenal"}). Coba format lain atau pakai gambar PNG.`
       );
       setTimeout(() => setEnhancementMessage(null), 5000);
       cleanup();
     }
   };
 
-  const handleExportPNG = (viewName: string = "mockup") => {
-    // Scope ke kanvas WebGL (audit #39 — querySelector mentah bisa dapat Fabric).
+  const doExportMockupImage = async (viewName: string = "mockup") => {
+    if (!session) {
+      setIsAuthOpen(true);
+      return;
+    }
     const canvas = document.querySelector(".webgl-canvas-container canvas") as HTMLCanvasElement | null;
-    if (!canvas) return;
-    const dataUrl = canvas.toDataURL("image/png");
-    const link = document.createElement("a");
-    link.download = `kaos-kami-${activeApparel}-${viewName}.png`;
-    link.href = dataUrl;
-    link.click();
+    if (!canvas) {
+      setEnhancementMessage("Kanvas 3D tidak ditemukan.");
+      return;
+    }
+    setIsExportingImage(true);
+    try {
+      let dataUrl = "";
+      if (typeof (canvas as any).exportMockup === "function") {
+        dataUrl = await (canvas as any).exportMockup({
+          resolution: exportResolution,
+          transparent: exportBgMode === "transparent",
+        });
+      } else {
+        dataUrl = canvas.toDataURL("image/png");
+      }
+      const link = document.createElement("a");
+      const suffix = exportBgMode === "transparent" ? "-transparent" : "";
+      link.download = `kaos-kami-${activeApparel}-${viewName}-${exportResolution}${suffix}.png`;
+      link.href = dataUrl;
+      link.click();
+      setEnhancementMessage(`✅ Gambar mockup HD (${viewName}) berhasil diunduh.`);
+      setTimeout(() => setEnhancementMessage(null), 3000);
+    } catch (err) {
+      console.error("Gagal ekspor gambar:", err);
+      setEnhancementMessage("Gagal mengekspor gambar mockup.");
+      setTimeout(() => setEnhancementMessage(null), 3000);
+    } finally {
+      setIsExportingImage(false);
+    }
   };
 
-  // Ekspor tampak belakang: tunggu animasi preset kamera TUNTAS
-  // (cameraPreset===null, poll 50ms + timeout 2 dtk) + 2 frame segar sebelum
-  // toDataURL — JANGAN setTimeout 300ms fix (animasi 0.6s → tangkapan miring
-  // di tengah jalan). invalidate(): R3F invalidate() hanya callable di dalam
-  // <Canvas>; dari drawer ini frame segar dijamin ganda — (1) preset null
-  // berarti CameraRig sudah render frame final dalam mode frameloop always,
-  // (2) 2× requestAnimationFrame, (3) toDataURL ter-patch CanvasStage me-render
-  // sinkron gl.render(scene,camera) sebelum baca piksel.
+  const handleExportPNG = (viewName: string = "mockup") => {
+    void doExportMockupImage(viewName);
+  };
+
   const waitForCameraPresetSettled = async (timeoutMs = 2000): Promise<void> => {
     const start = Date.now();
     while (Date.now() - start < timeoutMs) {
@@ -1087,11 +1130,35 @@ export const CustomizerDrawer: React.FC = () => {
       await new Promise((r) => setTimeout(r, 50));
     }
   };
+
+  const handleExportFrontPNG = async (viewName: string = "front-view") => {
+    if (!session) {
+      setIsAuthOpen(true);
+      return;
+    }
+    setCameraPreset("front");
+    await waitForCameraPresetSettled(2000);
+    await new Promise<void>((r) => requestAnimationFrame(() => requestAnimationFrame(() => r())));
+    await doExportMockupImage(viewName);
+  };
+
   const handleExportBackPNG = async (viewName: string = "back-view") => {
+    if (!session) {
+      setIsAuthOpen(true);
+      return;
+    }
     setCameraPreset("back");
     await waitForCameraPresetSettled(2000);
     await new Promise<void>((r) => requestAnimationFrame(() => requestAnimationFrame(() => r())));
-    handleExportPNG(viewName);
+    await doExportMockupImage(viewName);
+  };
+
+  const handleExportCurrentPNG = async (viewName: string = "current-view") => {
+    if (!session) {
+      setIsAuthOpen(true);
+      return;
+    }
+    await doExportMockupImage(viewName);
   };
 
   // M4.5 + pola eksklusif Sep 2026 — kartu bagikan branded 1080×1350 (4:5,
@@ -1168,6 +1235,10 @@ export const CustomizerDrawer: React.FC = () => {
     });
   };
   const handleShareMockup = async () => {
+    if (!session) {
+      setIsAuthOpen(true);
+      return;
+    }
     const canvas = document.querySelector(".webgl-canvas-container canvas") as HTMLCanvasElement | null;
     if (!canvas) {
       setEnhancementMessage("Kanvas 3D tidak ditemukan. Buka studio lalu coba lagi.");
@@ -1247,38 +1318,23 @@ export const CustomizerDrawer: React.FC = () => {
   };
 
   const handleSaveDesign = () => {
-    // Blokir lembut guest ber-gambar: POST /api/designs menolak 401 bila
-    // decals/master base64 tanpa login (anti penimbunan bucket). Cegah 401
-    // misterius — arahkan login/upload dulu dengan pesan jelas; desain tetap
-    // aman di HP ini (localStorage) hingga user login lalu SIMPAN lagi.
-    // Berlaku desktop + BottomSheet mobile (SATU fungsi ini dipakai keduanya).
     if (!session) {
-      try {
-        const hasBase64Image = decals.some((d) => {
-          const u = typeof d?.url === "string" ? d.url : "";
-          if (u.startsWith("data:image") || u.startsWith("blob:")) return true;
-          try {
-            const m = getMasterDataUrl(d.id, d.url);
-            return typeof m === "string" && m.startsWith("data:image");
-          } catch {
-            return false;
-          }
-        });
-        if (hasBase64Image) {
-          setEnhancementMessage(
-            "🔒 Login dulu untuk simpan desain ber-gambar — akun tamu tak bisa upload (server tolak 401). Klik LOGIN / DAFTAR di bawah, lalu tekan SIMPAN lagi. Desain tetap aman di HP ini."
-          );
-          setTimeout(() => setEnhancementMessage(null), 9000);
-          setIsAuthOpen(true);
-          return;
-        }
-      } catch {
-        // Pemeriksaan best-effort — lanjut simpan bila tak terbaca.
-      }
+      setIsAuthOpen(true);
+      return;
     }
-    saveCurrentDesign(designTitleInput.trim() ? designTitleInput.trim() : undefined);
+    let previewUrl: string | undefined;
+    try {
+      const canvas = document.querySelector(".webgl-canvas-container canvas") as HTMLCanvasElement | null;
+      if (canvas) {
+        previewUrl = canvas.toDataURL("image/webp", 0.7);
+      }
+    } catch {}
+    saveCurrentDesign(designTitleInput.trim() ? designTitleInput.trim() : undefined, previewUrl);
     setDesignTitleInput("");
-    setActiveTab("saved");
+    setActiveTab("options");
+    setOptionSubMode("saved");
+    setEnhancementMessage("✅ Desain berhasil disimpan ke koleksi Anda.");
+    setTimeout(() => setEnhancementMessage(null), 3000);
   };
 
   // Hapus decal + master + original produksinya (anti yatim di registry).
@@ -1335,25 +1391,40 @@ export const CustomizerDrawer: React.FC = () => {
         </button>
       </div>
 
-      {/* Collapsed Pill Button (When minimized) */}
+      {/* Collapsed Floating Recovery Pill - Always accessible when drawer is closed */}
       {isDrawerCollapsed && (
         <div
-          className={`fixed bottom-6 z-40 pointer-events-auto transition-all ${
-            drawerPosition === "left" ? "left-6" : "right-6"
+          className={`fixed bottom-6 z-50 pointer-events-auto transition-all left-4 right-4 sm:left-auto ${
+            drawerPosition === "left" ? "sm:left-6 sm:right-auto" : "sm:right-6"
           }`}
         >
           <button
-            onClick={toggleDrawerCollapsed}
-            className="flex items-center space-x-3 px-5 py-3.5 rounded-2xl glass-panel-elevated shadow-2xl border border-brand-accent/50 text-text-primary hover:border-brand-accent transition-all group"
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              setIsDrawerCollapsed(false);
+            }}
+            className="w-full sm:w-auto flex items-center justify-between sm:justify-start space-x-3 px-4 py-3 rounded-2xl glass-panel-elevated shadow-2xl border-2 border-brand-accent text-text-primary hover:bg-brand-accent/10 active:scale-95 transition-all group ring-4 ring-brand-accent/20 cursor-pointer"
+            title="Klik untuk membuka kembali menu kustomisasi"
+            aria-label="Buka Menu Kustomisasi"
           >
-            <div
-              className="w-4 h-4 rounded-full border border-border-strong"
-              style={{ backgroundColor: selectedColor }}
-            />
-            <span className="font-display font-black text-xs uppercase tracking-wider">
-              {currentApparelInfo.name} · {pricing.formattedTotal}
-            </span>
-            <ChevronUp size={16} className="text-brand-accent group-hover:-translate-y-0.5 transition-transform" />
+            <div className="flex items-center space-x-2.5">
+              <div
+                className="w-4 h-4 rounded-full border border-white/40 shadow-sm shrink-0"
+                style={{ backgroundColor: selectedColor }}
+              />
+              <span className="font-display font-bold text-xs uppercase tracking-wider text-text-primary">
+                ✏️ BUKA MENU · {currentApparelInfo.name}
+              </span>
+            </div>
+            <div className="flex items-center space-x-2">
+              <span className="font-mono font-bold text-xs text-brand-accent">
+                {pricing.formattedTotal}
+              </span>
+              <div className="w-6 h-6 rounded-lg bg-brand-accent/20 flex items-center justify-center text-brand-accent group-hover:-translate-y-0.5 transition-transform">
+                <ChevronUp size={14} />
+              </div>
+            </div>
           </button>
         </div>
       )}
@@ -1366,104 +1437,77 @@ export const CustomizerDrawer: React.FC = () => {
           drawerPosition === "left" ? "left-0" : "right-0"
         } ${
           isDrawerCollapsed
-            ? "opacity-0 translate-y-32 pointer-events-none"
-            : "opacity-100 translate-y-0"
+            ? "opacity-0 translate-y-full pointer-events-none invisible select-none"
+            : "opacity-100 translate-y-0 pointer-events-none visible"
         }`}
       >
-        <div className="w-full rounded-2xl glass-panel-elevated shadow-2xl pointer-events-auto border border-border-subtle overflow-hidden max-h-[85vh] flex flex-col backdrop-blur-2xl">
-          {/* Top Header Bar */}
-          <div className="p-4 sm:p-5 border-b border-border-subtle flex items-center justify-between bg-surface/80">
-            <div>
-              <div className="flex items-center space-x-2">
-                <span className="w-2 h-2 rounded-full bg-brand-accent animate-pulse" />
-                <span className="text-[10px] font-mono text-brand-accent tracking-widest uppercase">
-                  {"// STUDIO MOCKUP 3D"}
-                </span>
-              </div>
-              <h3 className="text-lg sm:text-xl font-display font-black uppercase text-text-primary mt-0.5">
+        <div className={`w-full rounded-2xl glass-panel-elevated shadow-2xl border border-border-subtle overflow-hidden max-h-[85vh] flex flex-col backdrop-blur-2xl ${
+          isDrawerCollapsed ? "pointer-events-none" : "pointer-events-auto"
+        }`}>
+          {/* Top Header Bar - Ultra Clean & Minimal */}
+          <div className="px-4 py-3 sm:px-5 sm:py-3.5 border-b border-border-subtle flex items-center justify-between bg-surface/90 backdrop-blur-md">
+            <div className="flex items-center space-x-2.5 min-w-0">
+              <span className="w-2.5 h-2.5 rounded-full bg-brand-accent shrink-0 shadow-[0_0_8px_rgba(230,81,0,0.6)] animate-pulse" />
+              <h3 className="text-sm sm:text-base font-display font-bold uppercase text-text-primary truncate tracking-tight">
                 {currentApparelInfo.name}
               </h3>
             </div>
 
-            <div className="flex items-center space-x-1.5">
-              {/* Dock Left / Right Toggle */}
-              <button
-                onClick={toggleDrawerPosition}
-                className="p-2 rounded-xl bg-surface border border-border-subtle text-text-muted hover:text-text-primary transition-all"
-                title={drawerPosition === "right" ? "Pindah ke kiri" : "Pindah ke kanan"}
-              >
-                {drawerPosition === "right" ? <PanelLeftClose size={14} /> : <PanelRightClose size={14} />}
-              </button>
-
-              {/* Minimize Drawer Button */}
-              <button
-                onClick={toggleDrawerCollapsed}
-                className="p-2 rounded-xl bg-surface border border-border-subtle text-text-muted hover:text-text-primary transition-all"
-                title="Kecilkan panel"
-              >
-                <ChevronDown size={14} />
-              </button>
-
-              {/* Clean Mockup View Toggle */}
-              <button
-                onClick={toggleHideWebsiteUI}
-                className={`p-2 rounded-xl border transition-all ${
-                  isHideWebsiteUI
-                    ? "bg-brand-accent text-canvas border-brand-accent shadow-md"
-                    : "bg-surface text-text-muted border-border-subtle hover:text-text-primary"
-                }`}
-                title={isHideWebsiteUI ? "Tampilkan UI web" : "Tampilan bersih layar penuh"}
-              >
-                {isHideWebsiteUI ? <Minimize2 size={14} /> : <Maximize2 size={14} />}
-              </button>
-
+            <div className="flex items-center space-x-1.5 shrink-0">
               {/* Auto Spin Toggle */}
               <button
                 onClick={toggleRotating}
                 className={`p-2 rounded-xl border transition-all ${
                   isRotating
-                    ? "bg-brand-accent text-canvas border-brand-accent shadow-[0_0_12px_rgba(230,81,0,0.5)]"
-                    : "bg-surface text-text-muted border-border-subtle hover:text-text-primary"
+                    ? "bg-brand-accent text-canvas border-brand-accent shadow-[0_0_10px_rgba(230,81,0,0.5)]"
+                    : "bg-surface text-text-muted border-border-subtle hover:text-text-primary hover:bg-surface-elevated"
                 }`}
-                title="Putar otomatis 360°"
+                title={isRotating ? "Hentikan putaran" : "Putar otomatis 360°"}
+                aria-label="Putar otomatis 360°"
               >
                 <RotateCcw size={14} className={isRotating ? "animate-spin" : ""} />
               </button>
 
-              {/* Close Studio / Return to Story */}
+              {/* Dock Left / Right Toggle */}
               <button
-                onClick={handleReturnToStory}
-                className="p-2 rounded-xl bg-brand-accent/20 border border-brand-accent/40 text-brand-accent hover:bg-brand-accent hover:text-canvas transition-all flex items-center space-x-1 font-mono text-[11px] font-bold"
-                title="Keluar studio & kembali ke cerita"
+                onClick={toggleDrawerPosition}
+                className="p-2 rounded-xl bg-surface border border-border-subtle text-text-muted hover:text-text-primary hover:bg-surface-elevated transition-all"
+                title={drawerPosition === "right" ? "Pindahkan panel ke kiri" : "Pindahkan panel ke kanan"}
+                aria-label="Pindahkan posisi panel"
+              >
+                {drawerPosition === "right" ? <PanelLeftClose size={14} /> : <PanelRightClose size={14} />}
+              </button>
+
+              {/* Tutup Menu */}
+              <button
+                onClick={toggleDrawerCollapsed}
+                className="p-2 rounded-xl bg-surface border border-border-subtle text-text-muted hover:text-text-primary hover:border-brand-accent/40 transition-all flex items-center justify-center"
+                title="Tutup menu"
+                aria-label="Tutup menu"
               >
                 <X size={14} />
-                <span className="hidden sm:inline">CLOSE</span>
               </button>
             </div>
           </div>
 
-          {/* Clean Robust Tab Navigation */}
-          <div className="flex overflow-x-auto border-b border-border-subtle bg-canvas/80 text-xs font-mono">
+          {/* 3 Primary Tabs Navigation - No text clipping, spacious & balanced */}
+          <div className="grid grid-cols-3 border-b border-border-subtle bg-canvas/80 text-xs font-mono">
             {[
-              { id: "apparel", label: "APPAREL", icon: Layers },
+              { id: "apparel", label: "PRODUK", icon: Shirt },
               { id: "decals", label: `SABLON (${decals.length})`, icon: Sliders },
-              { id: "pattern", label: "POLA 2D", icon: PenTool },
-              { id: "team", label: "TIM", icon: Users },
-              { id: "sandbox", label: "SANDBOX", icon: Sparkles },
-              { id: "saved", label: `SAVED (${savedDesigns.length})`, icon: Bookmark },
-              { id: "export", label: "EXPORT", icon: Camera },
+              { id: "options", label: "SIMPAN & EKSPOR", icon: Sparkles },
             ].map(({ id, label, icon: Icon }) => (
               <button
                 key={id}
-                onClick={() => setActiveTab(id as StudioTab)}
-                className={`shrink-0 min-w-[96px] md:min-w-0 md:flex-1 py-3 px-1.5 flex items-center justify-center space-x-1 border-b-2 whitespace-nowrap transition-all ${
+                onClick={() => handleTabChange(id as StudioTab)}
+                className={`py-3 px-2 flex items-center justify-center space-x-1.5 border-b-2 whitespace-nowrap transition-all ${
                   activeTab === id
                     ? "border-brand-accent text-brand-accent font-bold bg-surface/60 shadow-inner"
                     : "border-transparent text-text-muted hover:text-text-primary hover:bg-surface/30"
                 }`}
               >
-                <Icon size={12} />
-                <span className="text-[10px] sm:text-xs font-bold uppercase truncate">{label}</span>
+                <Icon size={13} />
+                <span className="text-[11px] sm:text-xs font-bold uppercase truncate">{label}</span>
               </button>
             ))}
           </div>
@@ -1475,14 +1519,32 @@ export const CustomizerDrawer: React.FC = () => {
               <>
                 {/* 3D Mockup Apparel Switcher */}
                 <div>
-                  <span className="block text-xs font-mono text-text-muted mb-2 font-bold uppercase">
-                    PILIH JENIS PAKAIAN:
+                  <span className="block text-xs font-mono text-text-muted mb-2 font-bold uppercase tracking-wider">
+                    JENIS PAKAIAN:
                   </span>
-                  <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                     {(Object.keys(APPAREL_CATALOG) as ApparelType[]).map((type) => {
                       const info = APPAREL_CATALOG[type];
                       const locked = !info.mockupEnabled;
                       const comingSoon = !info.orderable;
+                      const isActive = activeApparel === type;
+                      const label =
+                        type === "tshirt"
+                          ? "T-Shirt"
+                          : type === "longsleeve"
+                          ? "Longsleeve"
+                          : type === "crewneck"
+                          ? "Sweater"
+                          : type === "hoodie"
+                          ? "Hoodie"
+                          : type === "shirt"
+                          ? "Jacket"
+                          : type === "cap"
+                          ? "Topi"
+                          : type === "shorts"
+                          ? "Shorts"
+                          : "Celana";
+
                       return (
                         <button
                           key={type}
@@ -1492,61 +1554,46 @@ export const CustomizerDrawer: React.FC = () => {
                           disabled={locked}
                           title={
                             locked
-                              ? `${info.name} — mockup 3D SEGERA hadir`
+                              ? `${info.name} — Segera hadir`
                               : comingSoon
-                                ? `${info.name} — mockup bisa dicoba, pemesanan SEGERA dibuka`
+                                ? `${info.name} — Mockup aktif, pemesanan segera dibuka`
                                 : info.name
                           }
                           aria-disabled={locked}
-                          className={`relative py-3 px-1.5 rounded-xl font-mono text-xs font-bold border transition-all uppercase truncate flex flex-col items-center justify-center space-y-1 ${
-                            activeApparel === type
-                              ? "bg-brand-accent text-canvas border-brand-accent shadow-[0_0_14px_rgba(230,81,0,0.5)] scale-[1.02]"
+                          className={`relative py-3 px-2.5 rounded-xl font-mono text-xs font-bold border transition-all text-center flex flex-col items-center justify-center min-h-[46px] ${
+                            isActive
+                              ? "bg-brand-accent text-canvas border-brand-accent shadow-[0_0_12px_rgba(230,81,0,0.45)] scale-[1.02]"
                               : locked
-                                ? "bg-surface border-border-subtle text-text-muted opacity-40 cursor-not-allowed"
-                                : "bg-surface border-border-subtle text-text-muted hover:text-text-primary hover:border-text-muted"
+                                ? "bg-surface/50 border-border-subtle text-text-muted/40 cursor-not-allowed"
+                                : "bg-surface border-border-subtle text-text-secondary hover:text-text-primary hover:border-brand-accent/50 hover:bg-surface-elevated"
                           }`}
                         >
+                          <span className="text-[11px] font-bold uppercase tracking-wider">{label}</span>
                           {comingSoon && (
-                            <span className="absolute top-1 right-1 px-1.5 py-px rounded-full bg-amber-500/20 border border-amber-500/40 text-amber-300 text-[8px] font-black tracking-wider">
-                              {locked ? "SEGERA" : "SEGERA"}
+                            <span className="mt-1 px-1.5 py-px rounded-full bg-amber-500/15 border border-amber-500/30 text-amber-300 text-[8px] font-bold tracking-wider">
+                              SEGERA
                             </span>
                           )}
-                          <ApparelVectorIcon type={type} className="w-5 h-5" />
-                          <span className="text-[9px] sm:text-[10px] tracking-wider font-bold">
-                            {type === "tshirt"
-                              ? "T-SHIRT"
-                              : type === "longsleeve"
-                              ? "LONGSLEEVE"
-                              : type === "crewneck"
-                              ? "CREWNECK"
-                              : type === "hoodie"
-                              ? "HOODIE"
-                              : type === "shirt"
-                              ? "JACKET"
-                              : type === "cap"
-                              ? "TOPI"
-                              : type === "shorts"
-                              ? "SHORTS"
-                              : "CELANA"}
-                          </span>
                         </button>
                       );
                     })}
                   </div>
                 </div>
 
-                {/* Colorway Picker — sablon focus: single solid (multi-part hidden, tailor bukan fokus UMKM) */}
+                {/* Colorway Picker */}
                 <div>
                   <div className="flex justify-between items-center text-xs font-mono mb-2">
-                    <span className="text-text-muted font-bold uppercase">WARNA BAHAN (FOKUS SABLON):</span>
-                    <span className="text-brand-accent font-bold text-[10px] uppercase">SOLID</span>
+                    <span className="text-text-muted font-bold uppercase tracking-wider">WARNA PAKAIAN:</span>
+                    <span className="text-text-primary font-bold">
+                      {activeColorName} {pricing.colorTreatmentSurchargeIdr > 0 && `(+IDR ${pricing.colorTreatmentSurchargeIdr.toLocaleString("id-ID")})`}
+                    </span>
                   </div>
 
                   {/* Multi-Part Target Selector (Afilah) */}
                   {activeColorMode === "multi-part" && (
                     <div className="p-3 rounded-xl bg-surface/80 border border-brand-accent/30 mb-3 space-y-2 font-mono text-xs animate-fadeIn">
                       <span className="block text-[10px] text-text-muted font-bold uppercase">
-                        PILIH BAGIAN YANG DIWARNAI:
+                        BAGIAN PAKAIAN:
                       </span>
                       <div className="grid grid-cols-3 gap-1.5">
                         {[
@@ -1575,20 +1622,11 @@ export const CustomizerDrawer: React.FC = () => {
                           );
                         })}
                       </div>
-                      <p className="text-[9px] text-text-muted leading-tight">
-                        *Pilih bagian di atas, lalu klik warna palet di bawah untuk mengubahnya. {activePartId.toUpperCase()} aktif.
-                      </p>
                     </div>
                   )}
 
                   {/* Colorway Palette */}
-                  <div className="flex justify-between items-center text-xs font-mono mb-2">
-                    <span className="text-text-muted font-bold uppercase">PALET WARNA:</span>
-                    <span className="text-text-primary font-bold">
-                      {activeColorName} {pricing.colorTreatmentSurchargeIdr > 0 && `(+IDR ${pricing.colorTreatmentSurchargeIdr.toLocaleString("id-ID")})`}
-                    </span>
-                  </div>
-                  <div className="flex flex-wrap gap-2 mb-3">
+                  <div className="flex flex-wrap gap-2 mb-1">
                     {PRODUCT_COLORS.map((c) => (
                       <button
                         key={c.id}
@@ -1616,13 +1654,6 @@ export const CustomizerDrawer: React.FC = () => {
                       </button>
                     ))}
                   </div>
-
-                  {/* M4.4 — palet kurasi workshop (tanpa color-wheel bebas):
-                      warna di luar palet membuat klaim sablon tak akurat
-                      (pigmen custom = hasil cetak tak terjamin). */}
-                  <p className="text-[10px] font-mono text-text-muted uppercase">
-                    Palet kurasi workshop — {PRODUCT_COLORS.length} warna teruji sablon DTF
-                  </p>
                 </div>
 
                 {/* Sizing Matrix */}
@@ -1652,33 +1683,59 @@ export const CustomizerDrawer: React.FC = () => {
               </>
             )}
 
-            {/* TAB 2: DECALS & SABLON STUDIO */}
-            {activeTab === "decals" && (
+            {/* TAB 2: SABLON (DTF + POLA 2D + 3D TEST) */}
+            {(activeTab === "decals" || activeTab === "pattern" || activeTab === "test3d" || activeTab === "sandbox") && (
               <>
-                {/* Starter 1-klik — contoh siap pakai biar kanvas tak kosong */}
-                <div className="p-3 rounded-xl bg-brand-accent/10 border border-brand-accent/30 space-y-2">
-                  <span className="block text-[10px] font-mono text-brand-accent font-bold uppercase">
-                    MULAI DARI CONTOH:
-                  </span>
-                  <div className="grid grid-cols-3 gap-1.5">
-                    {STUDIO_STARTER_TEMPLATES.map((t) => (
-                      <button
-                        key={t.id}
-                        type="button"
-                        onClick={() => void handleApplyStarterTemplate(t.id)}
-                        disabled={isEnhancingImage}
-                        title={`${t.label} — ${t.desc}`}
-                        className="py-2 px-1 rounded-xl bg-surface border border-border-subtle hover:border-brand-accent text-center transition-all disabled:opacity-50"
-                      >
-                        <span className="block text-[11px] font-mono font-bold text-text-primary">{t.label}</span>
-                        <span className="block mt-0.5 text-[9px] font-mono text-text-muted leading-tight">{t.desc}</span>
-                      </button>
-                    ))}
-                  </div>
-                  <p className="text-[10px] font-mono text-text-muted leading-snug">
-                    Contoh menempel sebagai 1 decal teks — bebas digeser, diperkecil, atau dihapus.
-                  </p>
+                {/* Sub-mode Segmented Pill Switcher */}
+                <div className="flex p-1 bg-surface/80 rounded-xl border border-border-subtle gap-1 mb-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setActiveTab("decals");
+                      setDecalSubMode("standard");
+                    }}
+                    className={`flex-1 py-1.5 px-2 rounded-lg text-[11px] font-bold font-mono transition-all text-center ${
+                      decalSubMode === "standard" && activeTab !== "pattern" && activeTab !== "test3d" && activeTab !== "sandbox"
+                        ? "bg-brand-accent text-canvas shadow-sm"
+                        : "text-text-muted hover:text-text-primary hover:bg-surface"
+                    }`}
+                  >
+                    SABLON DTF ({decals.length})
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setActiveTab("decals");
+                      setDecalSubMode("pattern");
+                    }}
+                    className={`flex-1 py-1.5 px-2 rounded-lg text-[11px] font-bold font-mono transition-all text-center ${
+                      decalSubMode === "pattern" || activeTab === "pattern"
+                        ? "bg-brand-accent text-canvas shadow-sm"
+                        : "text-text-muted hover:text-text-primary hover:bg-surface"
+                    }`}
+                  >
+                    POLA 2D
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setActiveTab("decals");
+                      setDecalSubMode("test3d");
+                    }}
+                    className={`flex-1 py-1.5 px-2 rounded-lg text-[11px] font-bold font-mono transition-all text-center flex items-center justify-center space-x-1 ${
+                      decalSubMode === "test3d" || activeTab === "test3d" || activeTab === "sandbox"
+                        ? "bg-brand-accent text-canvas shadow-sm"
+                        : "text-text-muted hover:text-text-primary hover:bg-surface"
+                    }`}
+                  >
+                    <Box size={12} className={decalSubMode === "test3d" || activeTab === "test3d" || activeTab === "sandbox" ? "text-canvas" : "text-brand-accent"} />
+                    <span>3D TEST</span>
+                  </button>
                 </div>
+
+                {/* Sub-mode 1: SABLON DTF Standard */}
+                {((decalSubMode === "standard" && activeTab !== "pattern" && activeTab !== "test3d" && activeTab !== "sandbox") || activeTab === "decals") && decalSubMode !== "pattern" && decalSubMode !== "test3d" && (
+                  <>
                 {/* Add Decal & Text Creation Suite */}
                 <div className="space-y-2">
                   <input
@@ -1801,7 +1858,10 @@ export const CustomizerDrawer: React.FC = () => {
                               <button
                                 key={c}
                                 type="button"
-                                onClick={() => setCustomTextColor(c)}
+                                onClick={() => {
+                                  setCustomTextColor(c);
+                                  setHasManuallyPickedTextColor(true);
+                                }}
                                 className={`w-5 h-5 rounded-full border ${
                                   customTextColor === c ? "border-brand-accent ring-2 ring-brand-accent/40" : "border-border-strong"
                                 }`}
@@ -1820,7 +1880,7 @@ export const CustomizerDrawer: React.FC = () => {
                           onChange={(e) => setCustomTextShadow(e.target.checked)}
                           className="accent-brand-accent w-4 h-4"
                         />
-                        <span>Bayangan teks (shadow) — <b>default MATI</b> agar cetak DTF tajam</span>
+                        <span>Bayangan Teks (Shadow)</span>
                       </label>
 
                       <button
@@ -1835,87 +1895,98 @@ export const CustomizerDrawer: React.FC = () => {
                   )}
                 </div>
 
-                {/* Decal Layer List + M3.6 status master per-decal */}
+                {/* Decal Layer List */}
                 {decals.length > 0 ? (
                   <div className="space-y-3">
-                    <span className="block text-xs font-mono text-text-muted font-bold">LAPISAN SABLON AKTIF:</span>
-                    {/* M3.6: hijau = master https tersimpan; kuning = base64 lokal
-                        (guest via server-hosting saat Save/Checkout — tetap master penuh). */}
-                    <div className="p-2.5 rounded-xl bg-surface border border-border-subtle space-y-1.5 font-mono text-[10px]">
-                      <span className="block font-bold text-text-muted uppercase">STATUS FILE CETAK:</span>
-                      {masterStatusList.map((m) => (
-                        <div key={m.id} className="flex items-center justify-between gap-2">
-                          <span className="text-text-primary truncate">{m.name}</span>
-                          {m.https ? (
-                            <span className="shrink-0 text-emerald-300 font-bold">✅ File cetak tersimpan</span>
-                          ) : (
-                            <span className="shrink-0 text-amber-300 font-bold">⚠️ File cetak masih di HP ini</span>
-                          )}
-                        </div>
-                      ))}
-                      {unsavedMasters.length > 0 && (
-                        <p className="text-amber-300/90 leading-snug">
-                          Guest tetap bisa checkout — master base64 di-hosting-kan server via Save/Checkout (kualitas master penuh, bukan preview).
-                        </p>
-                      )}
-                    </div>
+                    <span className="block text-[11px] font-mono text-text-muted font-bold uppercase tracking-wider">
+                      LAPISAN SABLON AKTIF ({decals.length}):
+                    </span>
                     <div className="flex gap-2 overflow-x-auto pb-1">
                       {decals.map((d, index) => {
                         const sablonInfo = pricing.decalLayers.find((s) => s.id === d.id);
-                        const saved = masterStatusList.find((m) => m.id === d.id)?.https;
+                        const isSelected = (selectedDecalId ?? decals[0]?.id) === d.id;
                         return (
                           <button
                             key={d.id}
+                            type="button"
                             onClick={() => setSelectedDecalId(d.id)}
-                            className={`flex items-center space-x-1.5 px-3 py-2 rounded-xl text-xs font-mono border transition-all shrink-0 ${
-                              (selectedDecalId ?? decals[0]?.id) === d.id
+                            className={`flex items-center space-x-1.5 px-3 py-1.5 rounded-xl text-xs font-mono border transition-all shrink-0 ${
+                              isSelected
                                 ? "bg-brand-accent/20 border-brand-accent text-brand-accent font-bold"
                                 : "bg-surface border-border-subtle text-text-muted hover:text-text-primary"
                             }`}
                           >
                             <span>#{index + 1} {d.targetSide.toUpperCase()}</span>
-                            <span className="text-[10px] opacity-75">({sablonInfo?.tier})</span>
-                            <span title={saved ? "Master https tersimpan" : "Master base64 lokal — belum tersimpan"} className="flex items-center">
-                              <span className={`w-2 h-2 rounded-full inline-block ${saved ? "bg-emerald-500 shadow-[0_0_6px_rgba(16,185,129,0.7)]" : "bg-amber-500 shadow-[0_0_6px_rgba(245,158,11,0.7)]"}`} />
-                            </span>
+                            {sablonInfo?.tier && (
+                              <span className="text-[10px] opacity-75 font-normal">({sablonInfo.tier})</span>
+                            )}
                           </button>
                         );
                       })}
                     </div>
 
-                    {/* Active Decal Transformation Sliders */}
+                    {/* Active Decal Transformation & Inspector Card */}
                     {activeDecal && (
-                      <div className="p-4 rounded-xl glass-panel border border-border-subtle space-y-4">
+                      <div className="p-3.5 rounded-2xl glass-panel border border-border-subtle space-y-3.5">
+                        {/* Header: Decal Name + Gizmo Toggle + Delete */}
                         <div className="flex justify-between items-center pb-2 border-b border-border-subtle">
-                          <span className="font-mono text-xs font-bold text-text-primary">
-                            ATUR: {activeDecal.name}
+                          <span className="font-mono text-xs font-bold text-text-primary truncate max-w-[170px]" title={activeDecal.name}>
+                            {activeDecal.name}
                           </span>
-                          <div className="flex items-center space-x-2">
+                          <div className="flex items-center space-x-1.5">
                             <button
+                              type="button"
+                              onClick={toggleGizmoVisible}
+                              className={`px-2 py-1 rounded-lg border text-[10px] font-mono font-bold transition-all flex items-center gap-1 ${
+                                isGizmoVisible
+                                  ? "bg-brand-accent/15 border-brand-accent/40 text-brand-accent"
+                                  : "bg-surface border-border-subtle text-text-muted hover:text-text-primary"
+                              }`}
+                              title={isGizmoVisible ? "Sembunyikan kotak kontrol gizmo" : "Tampilkan kotak kontrol gizmo"}
+                            >
+                              <Move size={11} />
+                              <span>{isGizmoVisible ? "GIZMO ON" : "GIZMO OFF"}</span>
+                            </button>
+                            <button
+                              type="button"
                               onClick={() => handleRemoveDecal(activeDecal.id)}
-                              className="p-1.5 rounded-lg bg-surface border border-border-subtle text-text-muted hover:text-red-400 hover:border-red-400/40 transition-all"
-                              title="Hapus sablon"
+                              className="p-1.5 rounded-lg bg-surface border border-border-subtle text-text-muted hover:text-rose-400 hover:border-rose-400/40 transition-all"
+                              title="Hapus sablon ini"
                             >
                               <Trash2 size={13} />
                             </button>
                           </div>
                         </div>
 
-                        {/* Placement Selector — SSOT validSidesFor (hood = hoodie
-                            saja; cap/pants/shorts = depan saja). */}
-                        <div className="space-y-1">
-                          <span className="block text-[10px] font-mono text-text-muted font-bold uppercase">
-                            POSISI PENEMPATAN SABLON:
-                          </span>
-                          <div className="grid grid-cols-5 gap-1 font-mono text-[10px]">
+                        {/* Placement Selector & Real Dimensions — SSOT validSidesFor (Depan, Belakang, Samping Kiri/Kanan, Lengan, Tudung) */}
+                        <div className="p-2.5 rounded-xl bg-surface/70 border border-border-subtle space-y-2">
+                          <div className="flex items-center justify-between">
+                            <span className="block text-[10px] font-mono text-text-muted font-bold uppercase tracking-wider">
+                              POSISI SABLON:
+                            </span>
+                            {physicalDimensions && (
+                              <span className="text-[11px] font-mono font-bold text-brand-accent">
+                                {physicalDimensions.widthCm} × {physicalDimensions.heightCm} cm
+                              </span>
+                            )}
+                          </div>
+                          <div className="grid grid-cols-3 sm:grid-cols-4 gap-1 font-mono text-[10px]">
                             {(
                               [
-                                { id: "front", label: activeApparel === "cap" ? "DEPAN TOPI" : activeApparel === "pants" || activeApparel === "shorts" ? "PAHA DEPAN" : "DADA" },
-                                { id: "back", label: "PUNGGUNG" },
-                                { id: "left_sleeve", label: "LGN KIRI" },
-                                { id: "right_sleeve", label: "LGN KANAN" },
-                                { id: "hood", label: "TUDUNG" },
-                              ] as Array<{ id: string; label: string }>
+                                {
+                                  id: "front" as DecalTargetSide,
+                                  label: activeApparel === "cap" ? "MAHKOTA DPN" : activeApparel === "pants" || activeApparel === "shorts" ? "PAHA DPN" : "DADA",
+                                },
+                                {
+                                  id: "back" as DecalTargetSide,
+                                  label: activeApparel === "cap" ? "MAHKOTA BLK" : activeApparel === "pants" || activeApparel === "shorts" ? "PAHA BLK" : "PUNGGUNG",
+                                },
+                                { id: "side_left" as DecalTargetSide, label: activeApparel === "pants" || activeApparel === "shorts" ? "STRIP KIRI" : "SMPG KIRI" },
+                                { id: "side_right" as DecalTargetSide, label: activeApparel === "pants" || activeApparel === "shorts" ? "STRIP KANAN" : "SMPG KANAN" },
+                                { id: "left_sleeve" as DecalTargetSide, label: "LGN KIRI" },
+                                { id: "right_sleeve" as DecalTargetSide, label: "LGN KANAN" },
+                                { id: "hood" as DecalTargetSide, label: "TUDUNG" },
+                              ]
                             )
                               .filter((side) =>
                                 (validSidesFor(activeApparel) as string[]).includes(side.id)
@@ -1924,7 +1995,43 @@ export const CustomizerDrawer: React.FC = () => {
                                 <button
                                   key={side.id}
                                   type="button"
-                                  onClick={() => updateDecal(activeDecal.id, { targetSide: side.id as any })}
+                                  onClick={() => {
+                                    // Auto-frame kamera ke sisi yang dipilih agar pengguna langsung melihat hasilnya
+                                    if (side.id === "left_sleeve" || side.id === "side_left") {
+                                      setCameraPreset("left");
+                                    } else if (side.id === "right_sleeve" || side.id === "side_right") {
+                                      setCameraPreset("right");
+                                    } else if (side.id === "back" || side.id === "hood") {
+                                      setCameraPreset("back");
+                                    } else if (side.id === "front") {
+                                      setCameraPreset("front");
+                                    }
+
+                                    // Koordinat awal cerdas: pusatkan decal di area sablon sisi yang dipilih
+                                    let newX = 0;
+                                    let newY = 0;
+                                    if (side.id === "side_left" || side.id === "side_right") {
+                                      newY = activeApparel === "pants" ? 0.0 : -0.05;
+                                    } else if (side.id === "left_sleeve" || side.id === "right_sleeve") {
+                                      newY = 0.02;
+                                    } else if (side.id === "front" || side.id === "back") {
+                                      if (activeApparel === "pants" || activeApparel === "shorts") {
+                                        newX = -0.11; // Presisi paha kiri (menghindari celah selangkangan)
+                                        newY = activeApparel === "pants" ? 0.05 : 0.0;
+                                      } else if (activeApparel === "cap") {
+                                        newX = 0;
+                                        newY = side.id === "front" ? -0.01 : 0.0;
+                                      } else {
+                                        newY = -0.05;
+                                      }
+                                    }
+
+                                    updateDecal(activeDecal.id, {
+                                      targetSide: side.id,
+                                      x: newX,
+                                      y: newY,
+                                    });
+                                  }}
                                   className={`py-1.5 px-1 rounded-lg border font-bold text-center transition-all ${
                                     activeDecal.targetSide === side.id
                                       ? "bg-brand-accent text-canvas border-brand-accent shadow-sm"
@@ -1935,37 +2042,29 @@ export const CustomizerDrawer: React.FC = () => {
                                 </button>
                               ))}
                           </div>
+
+                          {/* Detail dimensi fisik terpadu di dalam kartu posisi sablon */}
+                          {physicalDimensions && (
+                            <div className="flex items-center justify-between pt-1.5 border-t border-border-subtle/50 text-[10.5px] font-mono text-text-muted">
+                              <span className="flex items-center gap-1">
+                                <Ruler size={12} className="text-brand-accent" />
+                                Jarak dari kerah:
+                              </span>
+                              <span className="font-bold text-text-primary">
+                                ↓ {physicalDimensions.offsetFromCollarCm} cm
+                              </span>
+                            </div>
+                          )}
+
+                          {qualityReport && (
+                            <div className="flex items-center justify-between pt-1 border-t border-border-subtle/50 text-[11px] font-mono">
+                              <span className="text-text-muted">Kualitas Cetak:</span>
+                              <span className={`text-[10px] font-mono font-bold px-2 py-0.5 rounded border ${qualityReport.badgeColor}`}>
+                                {qualityReport.badgeLabel}
+                              </span>
+                            </div>
+                          )}
                         </div>
-
-                        {/* Live Physical 1:1 CM Scale & Real-Time DPI Quality Badges */}
-                        {physicalDimensions && (
-                          <div className="p-3 rounded-xl bg-surface/70 border border-border-subtle space-y-2">
-                            <div className="flex items-center justify-between">
-                              <span className="flex items-center gap-1 text-[11px] font-mono text-text-muted">
-                                <Ruler size={13} className="text-brand-accent" />
-                                <span>UKURAN CETAK ASLI:</span>
-                              </span>
-                              <span className="font-mono text-xs font-bold text-brand-accent bg-brand-accent/10 px-2 py-0.5 rounded border border-brand-accent/30 flex items-center gap-1">
-                                <Ruler size={11} />
-                                <span>{physicalDimensions.formattedText}</span>
-                              </span>
-                            </div>
-
-                            {qualityReport && (
-                              <div className="flex items-center justify-between pt-1 border-t border-border-subtle">
-                                <span className="text-[11px] font-mono text-text-muted">KETAJAMAN SABLON:</span>
-                                <span className={`text-[11px] font-mono font-bold px-2 py-0.5 rounded border ${qualityReport.badgeColor}`}>
-                                  {qualityReport.badgeLabel}
-                                </span>
-                              </div>
-                            )}
-
-                            <div className="flex items-center justify-between text-[10px] font-mono text-text-muted">
-                              <span>JARAK DARI KERAH:</span>
-                              <span className="text-text-primary font-bold">~{physicalDimensions.offsetFromCollarCm} cm</span>
-                            </div>
-                          </div>
-                        )}
 
                         {/* Enhancement Message Notification */}
                         {enhancementMessage && (
@@ -1975,150 +2074,113 @@ export const CustomizerDrawer: React.FC = () => {
                           </div>
                         )}
 
-                        {/* M3.4 — BG remover: tolerance slider + checker preview + putih/hitam */}
-                        <div className="p-3 rounded-xl bg-surface border border-border-subtle space-y-2.5">
-                          <span className="block text-[10px] font-mono text-text-muted font-bold uppercase">
-                            HAPUS LATAR FOTO (TEPI RAPI 1PX)
-                          </span>
-                          {/* Preview checkerboard jujur: transparan terlihat kotak-kotak */}
-                          <div
-                            className="rounded-xl overflow-hidden border border-border-subtle flex items-center justify-center min-h-[96px] max-h-[160px] p-2"
-                            style={{
-                              backgroundImage: isLight
-                                ? "linear-gradient(45deg, #D8D5CE 25%, transparent 25%, transparent 75%, #D8D5CE 75%), linear-gradient(45deg, #D8D5CE 25%, transparent 25%, transparent 75%, #D8D5CE 75%)"
-                                : "linear-gradient(45deg, #3a3a3e 25%, transparent 25%, transparent 75%, #3a3a3e 75%), linear-gradient(45deg, #3a3a3e 25%, transparent 25%, transparent 75%, #3a3a3e 75%)",
-                              backgroundColor: isLight ? "#F5F4F0" : "#1c1c1f",
-                              backgroundSize: "16px 16px",
-                              backgroundPosition: "0 0, 8px 8px",
-                            }}
-                          >
-                            {/* eslint-disable-next-line @next/next/no-img-element */}
-                            <img
-                              src={activeDecal.url}
-                              alt={`Pratinjau transparansi ${activeDecal.name}`}
-                              className="max-h-[140px] w-auto object-contain"
-                            />
-                          </div>
-                          <div className="grid grid-cols-2 gap-2">
-                            <button
-                              type="button"
-                              onClick={() => setBgTarget("white")}
-                              aria-pressed={bgTarget === "white"}
-                              className={`py-2 rounded-xl border text-[11px] font-mono font-bold transition-all ${
-                                bgTarget === "white"
-                                  ? "bg-brand-accent/20 border-brand-accent text-brand-accent"
-                                  : "bg-surface border-border-subtle text-text-muted hover:text-text-primary"
-                              }`}
-                            >
-                              ⬜ BG PUTIH
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => setBgTarget("black")}
-                              aria-pressed={bgTarget === "black"}
-                              title="Untuk foto malam / background gelap"
-                              className={`py-2 rounded-xl border text-[11px] font-mono font-bold transition-all ${
-                                bgTarget === "black"
-                                  ? "bg-brand-accent/20 border-brand-accent text-brand-accent"
-                                  : "bg-surface border-border-subtle text-text-muted hover:text-text-primary"
-                              }`}
-                            >
-                              ⬛ BG HITAM (FOTO MALAM)
-                            </button>
-                          </div>
-                          <div>
-                            <div className="flex justify-between text-[11px] font-mono text-text-muted mb-1">
-                              <span className="font-bold uppercase">Toleransi</span>
-                              <span className="text-text-primary font-bold">{bgTolerance}</span>
-                            </div>
-                            <input
-                              type="range"
-                              min={5}
-                              max={80}
-                              step={1}
-                              value={bgTolerance}
-                              onChange={(e) => setBgTolerance(parseInt(e.target.value, 10))}
-                              className="w-full accent-brand-accent cursor-pointer"
-                              aria-label="Toleransi hapus background"
-                            />
-                            <p className="text-[10px] font-mono text-text-muted mt-1">
-                              Kecil = hanya {bgTarget === "white" ? "putih bersih" : "hitam pekat"} yang hilang; besar = {bgTarget === "white" ? "abu terang" : "abu gelap"} ikut hilang (risiko melubangi motif).
-                            </p>
-                          </div>
-                          <div className="grid grid-cols-2 gap-2 pt-1">
-                            {/* FASE F — editor gambar in-mockup per decal aktif */}
-                            <button
-                              type="button"
-                              onClick={() => setIsImageEditorOpen(true)}
-                              className="flex items-center justify-center gap-1.5 py-2 px-2.5 rounded-xl bg-brand-accent/15 border border-brand-accent/40 hover:bg-brand-accent/25 text-[11px] font-mono font-bold text-brand-accent transition-all col-span-2"
-                              title="Sesuaikan warna, potong & putar, efek sablon, atau hapus background dengan AI"
-                            >
-                              <span>EDIT GAMBAR</span>
-                            </button>
-                            <button
-                              type="button"
-                              disabled={isEnhancingImage}
-                              onClick={handleRemoveWhiteBg}
-                              className="flex items-center justify-center gap-1.5 py-2 px-2.5 rounded-xl bg-surface border border-border-subtle hover:border-brand-accent text-[11px] font-mono font-bold text-text-primary hover:text-brand-accent transition-all disabled:opacity-50 col-span-2"
-                              title={`Hapus background ${bgTarget === "white" ? "putih" : "hitam"} dari MASTER penuh (tolerance ${bgTolerance})`}
-                            >
-                              {isEnhancingImage ? <Loader2 size={13} className="animate-spin" /> : <Wand2 size={13} className="text-brand-accent" />}
-                              <span>HAPUS BG {bgTarget === "white" ? "PUTIH" : "HITAM"} (TOL {bgTolerance})</span>
-                            </button>
-                            {/* M3.3 — Kembalikan asli (tampil bila original ada) */}
-                            {(() => {
-                              try {
-                                if (!hasOriginalMaster(activeDecal.id)) return null;
-                              } catch { return null; }
-                              return (
-                                <button
-                                  type="button"
-                                  onClick={() => void handleRestoreOriginal()}
-                                  className="col-span-2 py-2 px-2.5 rounded-xl bg-surface border border-emerald-500/40 text-emerald-300 text-[11px] font-mono font-bold hover:bg-emerald-500/10 transition-all"
-                                  title="Pulihkan file upload awal"
-                                >
-                                  ↩ KEMBALIKAN ASLI
-                                </button>
-                              );
-                            })()}
-                            {/* Tombol PERTAJAM DTF disembunyikan Sep 2026: endpoint
-                                /api/enhance-image (sharp native) tidak bisa jalan
-                                di Workers (500). Handler handleSharpEnhance
-                                dipertahankan untuk dihidupkan ulang versi
-                                client-side. */}
-                          </div>
-                        </div>
-
-                        {/* Interactive Direct-Manipulation Gizmo Toggle Banner */}
-                        <div className="p-3 rounded-xl bg-surface border border-border-subtle hover:border-brand-accent/40 flex items-center justify-between gap-2.5 text-xs font-mono transition-all">
-                          <div className="flex items-center gap-2.5">
-                            <div className={`w-8 h-8 rounded-lg ${isGizmoVisible ? "bg-brand-accent text-canvas" : "bg-black/5 dark:bg-neutral-800 text-text-muted"} flex items-center justify-center shrink-0 shadow-md transition-all`}>
-                              <Move size={16} className={isGizmoVisible ? "animate-pulse" : ""} />
-                            </div>
-                            <div>
-                              <span className="font-bold text-text-primary block">GIZMO KONTROL 3D</span>
-                              <span className="text-[10px] text-text-muted">
-                                {isGizmoVisible ? "Aktif di atas baju 3D" : "Disembunyikan (Mode Preview Bersih)"}
-                              </span>
-                            </div>
-                          </div>
+                        {/* Quick Edit Actions: Studio Image Editor & Clean Background Remover */}
+                        <div className="grid grid-cols-2 gap-2">
                           <button
                             type="button"
-                            onClick={toggleGizmoVisible}
-                            className={`py-1.5 px-3 rounded-lg font-mono text-[11px] font-bold transition-all ${
-                              isGizmoVisible
-                                ? "bg-brand-accent text-canvas shadow-[0_0_10px_rgba(230,81,0,0.3)] hover:brightness-110"
-                                : "bg-surface text-text-muted border border-border-subtle hover:text-text-primary"
-                            }`}
+                            onClick={() => setIsImageEditorOpen(true)}
+                            className="flex items-center justify-center gap-1.5 py-2 px-2.5 rounded-xl bg-brand-accent/10 border border-brand-accent/30 hover:bg-brand-accent/20 text-[11px] font-mono font-bold text-brand-accent transition-all shadow-sm"
+                            title="Buka studio edit gambar lengkap (crop, filter, AI background, warna)"
                           >
-                            {isGizmoVisible ? "SEMBUNYIKAN" : "TAMPILKAN"}
+                            <Sparkles size={13} />
+                            <span>EDIT GAMBAR</span>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setShowBgRemover((v) => !v)}
+                            className={`flex items-center justify-center gap-1.5 py-2 px-2.5 rounded-xl border text-[11px] font-mono font-bold transition-all shadow-sm ${
+                              showBgRemover
+                                ? "bg-surface border-brand-accent text-brand-accent"
+                                : "bg-surface border-border-subtle text-text-muted hover:text-text-primary hover:border-brand-accent"
+                            }`}
+                            title="Hapus background putih atau hitam secara instan"
+                          >
+                            <Wand2 size={13} />
+                            <span>HAPUS LATAR</span>
                           </button>
                         </div>
 
-                        {/* 3-Position Anatomical Logo Presets (Ariyan T-Designer) */}
+                        {/* Collapsible Background Remover Panel */}
+                        {showBgRemover && (
+                          <div className="p-3 rounded-xl bg-surface border border-brand-accent/30 space-y-2.5 animate-fadeIn">
+                            <span className="block text-[10px] font-mono text-text-muted font-bold uppercase">
+                              PILIHAN HAPUS WARNA LATAR:
+                            </span>
+                            <div className="grid grid-cols-2 gap-2">
+                              <button
+                                type="button"
+                                onClick={() => setBgTarget("white")}
+                                aria-pressed={bgTarget === "white"}
+                                className={`py-1.5 rounded-lg border text-[10px] font-mono font-bold transition-all ${
+                                  bgTarget === "white"
+                                    ? "bg-brand-accent/20 border-brand-accent text-brand-accent"
+                                    : "bg-surface border-border-subtle text-text-muted hover:text-text-primary"
+                                }`}
+                              >
+                                ⬜ LATAR PUTIH
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => setBgTarget("black")}
+                                aria-pressed={bgTarget === "black"}
+                                className={`py-1.5 rounded-lg border text-[10px] font-mono font-bold transition-all ${
+                                  bgTarget === "black"
+                                    ? "bg-brand-accent/20 border-brand-accent text-brand-accent"
+                                    : "bg-surface border-border-subtle text-text-muted hover:text-text-primary"
+                                }`}
+                              >
+                                ⬛ LATAR HITAM
+                              </button>
+                            </div>
+                            <div>
+                              <div className="flex justify-between text-[10px] font-mono text-text-muted mb-1">
+                                <span className="font-bold">Toleransi Pembersihan</span>
+                                <span className="text-text-primary font-bold">{bgTolerance}</span>
+                              </div>
+                              <input
+                                type="range"
+                                min={5}
+                                max={80}
+                                step={1}
+                                value={bgTolerance}
+                                onChange={(e) => setBgTolerance(parseInt(e.target.value, 10))}
+                                className="w-full accent-brand-accent cursor-pointer"
+                                aria-label="Toleransi hapus background"
+                              />
+                            </div>
+                            <div className="flex gap-2 pt-1">
+                              <button
+                                type="button"
+                                disabled={isEnhancingImage}
+                                onClick={handleRemoveWhiteBg}
+                                className="flex-1 flex items-center justify-center gap-1.5 py-1.5 px-2 rounded-lg bg-brand-accent text-canvas text-[10px] font-mono font-bold hover:brightness-110 transition-all disabled:opacity-50"
+                              >
+                                {isEnhancingImage ? <Loader2 size={12} className="animate-spin" /> : <Wand2 size={12} />}
+                                <span>TERAPKAN</span>
+                              </button>
+                              {(() => {
+                                try {
+                                  if (!hasOriginalMaster(activeDecal.id)) return null;
+                                } catch { return null; }
+                                return (
+                                  <button
+                                    type="button"
+                                    onClick={() => void handleRestoreOriginal()}
+                                    className="py-1.5 px-2 rounded-lg bg-surface border border-emerald-500/40 text-emerald-300 text-[10px] font-mono font-bold hover:bg-emerald-500/10 transition-all"
+                                    title="Pulihkan file upload awal"
+                                  >
+                                    ↩ ASLI
+                                  </button>
+                                );
+                              })()}
+                            </div>
+                          </div>
+                        )}
+
+                        {/* 3-Position Fast Alignment */}
                         <div className="space-y-1.5 pt-1">
                           <span className="block text-[10px] font-mono text-text-muted font-bold uppercase">
-                            POSISI LOGO CEPAT:
+                            POSISI CEPAT:
                           </span>
                           <div className="grid grid-cols-3 gap-1.5 font-mono text-[10px]">
                             <button
@@ -2127,7 +2189,7 @@ export const CustomizerDrawer: React.FC = () => {
                                 setLogoPresetPos(0);
                                 applyLogoPreset();
                               }}
-                              className="py-2 px-1 rounded-xl bg-surface border border-border-subtle hover:border-brand-accent hover:text-brand-accent text-text-primary font-bold transition-all text-center"
+                              className="py-1.5 px-1 rounded-xl bg-surface border border-border-subtle hover:border-brand-accent hover:text-brand-accent text-text-primary font-bold transition-all text-center"
                               title="Posisikan logo di saku dada kiri"
                             >
                               SAKU KIRI
@@ -2138,7 +2200,7 @@ export const CustomizerDrawer: React.FC = () => {
                                 setLogoPresetPos(1);
                                 applyLogoPreset();
                               }}
-                              className="py-2 px-1 rounded-xl bg-surface border border-border-subtle hover:border-brand-accent hover:text-brand-accent text-text-primary font-bold transition-all text-center"
+                              className="py-1.5 px-1 rounded-xl bg-surface border border-border-subtle hover:border-brand-accent hover:text-brand-accent text-text-primary font-bold transition-all text-center"
                               title="Posisikan logo di tengah dada"
                             >
                               TENGAH
@@ -2149,7 +2211,7 @@ export const CustomizerDrawer: React.FC = () => {
                                 setLogoPresetPos(2);
                                 applyLogoPreset();
                               }}
-                              className="py-2 px-1 rounded-xl bg-surface border border-border-subtle hover:border-brand-accent hover:text-brand-accent text-text-primary font-bold transition-all text-center"
+                              className="py-1.5 px-1 rounded-xl bg-surface border border-border-subtle hover:border-brand-accent hover:text-brand-accent text-text-primary font-bold transition-all text-center"
                               title="Posisikan logo di saku dada kanan"
                             >
                               SAKU KANAN
@@ -2157,774 +2219,810 @@ export const CustomizerDrawer: React.FC = () => {
                           </div>
                         </div>
 
-                        <div>
-                          <div className="flex justify-between text-[11px] font-mono text-text-muted mb-1">
-                            <span className="flex items-center space-x-1"><Move size={11} /> <span>GESER KIRI-KANAN</span></span>
-                            <span>{activeDecal.x.toFixed(2)}</span>
-                          </div>
-                          {(() => {
-                            // Batas geser SSOT per sisi (DECAL_MOVE_LIMITS):
-                            // lengan ±0.12 (melingkar), tudung ±0.09 —
-                            // slider global ±0.35 melepas decal dari kain.
-                            const limX =
-                              activeDecal.targetSide === "hood"
-                                ? DECAL_MOVE_LIMITS.hoodX
-                                : activeDecal.targetSide === "left_sleeve" || activeDecal.targetSide === "right_sleeve"
-                                ? DECAL_MOVE_LIMITS.sleeveSlideX
-                                : DECAL_MOVE_LIMITS.frontBackX;
-                            return (
-                              <input
-                                type="range"
-                                min={-limX}
-                                max={limX}
-                                step="0.01"
-                                value={activeDecal.x}
-                                onChange={(e) => {
-                                  const jepit = clampDecalXY(activeDecal.targetSide, parseFloat(e.target.value), activeDecal.y);
-                                  updateDecal(activeDecal.id, { x: jepit.x, y: jepit.y });
-                                }}
-                                className="w-full accent-brand-accent cursor-pointer"
-                              />
-                            );
-                          })()}
-                        </div>
-
-                        {/* Position Y */}
-                        <div>
-                          <div className="flex justify-between text-[11px] font-mono text-text-muted mb-1">
-                            <span className="flex items-center space-x-1"><Move size={11} /> <span>GESER ATAS-BAWAH</span></span>
-                            <span>{activeDecal.y.toFixed(2)}</span>
-                          </div>
-                          {(() => {
-                            const limY =
-                              activeDecal.targetSide === "hood"
-                                ? DECAL_MOVE_LIMITS.hoodY
-                                : activeDecal.targetSide === "left_sleeve" || activeDecal.targetSide === "right_sleeve"
-                                ? DECAL_MOVE_LIMITS.sleeveY
-                                : DECAL_MOVE_LIMITS.frontBackY;
-                            return (
-                              <input
-                                type="range"
-                                min={-limY}
-                                max={limY}
-                                step="0.01"
-                                value={activeDecal.y}
-                                onChange={(e) => {
-                                  const jepit = clampDecalXY(activeDecal.targetSide, activeDecal.x, parseFloat(e.target.value));
-                                  updateDecal(activeDecal.id, { x: jepit.x, y: jepit.y });
-                                }}
-                                className="w-full accent-brand-accent cursor-pointer"
-                              />
-                            );
-                          })()}
-                        </div>
-
-                        {/* Scale / Size (Directly affects DTF print cost) */}
-                        <div>
-                          <div className="flex justify-between text-[11px] font-mono text-text-muted mb-1">
-                            <span>UKURAN CETAK (DTF):</span>
-                            <span className="text-brand-accent font-bold">
-                              {(() => {
-                                if (!activeDecal || !physicalDimensions) return "—";
-                                // Pricing pakai Math.max(w,h) (pricingEngine) —
-                                // label slider WAJIB sama agar portrait tak tampil
-                                // tier lebih murah dari yang ditagih.
-                                const tier = classifyPrintTierByCm(
-                                  Math.max(physicalDimensions.widthCm, physicalDimensions.heightCm)
-                                );
-                                return `${PRINT_TIER_LABEL[tier]} (+${printTierCost(tier) / 1000}k) • ${physicalDimensions.widthCm.toFixed(1)}cm`;
-                              })()}
+                        {/* Collapsible Manual Sliders */}
+                        <details className="group border border-border-subtle rounded-xl p-3 bg-surface/45 transition-all">
+                          <summary className="cursor-pointer flex items-center justify-between text-[11px] font-mono font-bold text-text-muted hover:text-text-primary list-none select-none">
+                            <span className="flex items-center gap-1.5">
+                              <Sliders size={12} className="text-brand-accent" />
+                              <span>PENGATURAN DETAIL (SLIDER)</span>
                             </span>
-                          </div>
-                          <input
-                            type="range"
-                            min="0.04"
-                            max={activeDecal ? maxDecalScaleUnits(activeApparel, activeDecal.targetSide) : 0.3}
-                            step="0.002"
-                            value={activeDecal.scale}
-                            onChange={(e) => updateDecal(activeDecal.id, { scale: parseFloat(e.target.value) })}
-                            className="w-full accent-brand-accent cursor-pointer"
-                          />
-                          {/* DTF Standard Size Presets — cm akurat per apparel, bukan skala mentah */}
-                          <div className="grid grid-cols-4 gap-1 pt-1 font-mono text-[9px]">
-                            {(() => {
-                              const mm = APPAREL_PHYSICAL_SPECS[activeApparel]?.meshMultiplier ?? 101.8;
-                              const presets = [
-                                { label: "A6 (9cm)", cm: 9 },
-                                { label: "A5 (15cm)", cm: 15 },
-                                { label: "A4 (21cm)", cm: 21 },
-                                { label: "A3 (29cm)", cm: 29 },
-                              ].map((p) => ({ ...p, scale: p.cm / mm }));
-                              return presets.map((preset) => (
-                                <button
-                                  key={preset.label}
-                                  type="button"
-                                  onClick={() => updateDecal(activeDecal.id, { scale: preset.scale })}
-                                  className={`py-1 rounded bg-surface border text-center transition-all ${
-                                    Math.abs(activeDecal.scale - preset.scale) < preset.scale * 0.15
-                                      ? "border-brand-accent text-brand-accent font-bold"
-                                      : "border-border-subtle text-text-muted hover:text-text-primary"
-                                  }`}
-                                >
-                                  {preset.label}
-                                </button>
-                              ));
-                            })()}
-                          </div>
-                        </div>
+                            <ChevronDown size={13} className="transition-transform group-open:rotate-180 text-text-muted" />
+                          </summary>
+                          <div className="space-y-3 pt-3 mt-2 border-t border-border-subtle/50">
+                            <div>
+                              <div className="flex justify-between text-[11px] font-mono text-text-muted mb-1">
+                                <span className="flex items-center space-x-1"><Move size={11} /> <span>GESER KIRI-KANAN</span></span>
+                                <span>{activeDecal.x.toFixed(2)}</span>
+                              </div>
+                              {(() => {
+                                const limX =
+                                  activeDecal.targetSide === "hood"
+                                    ? DECAL_MOVE_LIMITS.hoodX
+                                    : activeDecal.targetSide === "left_sleeve" || activeDecal.targetSide === "right_sleeve"
+                                    ? DECAL_MOVE_LIMITS.sleeveSlideX
+                                    : DECAL_MOVE_LIMITS.frontBackX;
+                                return (
+                                  <input
+                                    type="range"
+                                    min={-limX}
+                                    max={limX}
+                                    step="0.01"
+                                    value={activeDecal.x}
+                                    onChange={(e) => {
+                                      const jepit = clampDecalXY(activeDecal.targetSide, parseFloat(e.target.value), activeDecal.y);
+                                      updateDecal(activeDecal.id, { x: jepit.x, y: jepit.y });
+                                    }}
+                                    className="w-full accent-brand-accent cursor-pointer"
+                                  />
+                                );
+                              })()}
+                            </div>
 
-                        {/* Rotation */}
-                        <div>
-                          <div className="flex justify-between text-[11px] font-mono text-text-muted mb-1">
-                            <span className="flex items-center space-x-1"><RotateCw size={11} /> <span>PUTAR</span></span>
-                            <span>{activeDecal.rotation}°</span>
-                          </div>
-                          <input
-                            type="range"
-                            min="-180"
-                            max="180"
-                            step="5"
-                            value={activeDecal.rotation}
-                            onChange={(e) => updateDecal(activeDecal.id, { rotation: parseInt(e.target.value, 10) })}
-                            className="w-full accent-brand-accent cursor-pointer"
-                          />
-                        </div>
+                            <div>
+                              <div className="flex justify-between text-[11px] font-mono text-text-muted mb-1">
+                                <span className="flex items-center space-x-1"><Move size={11} /> <span>GESER ATAS-BAWAH</span></span>
+                                <span>{activeDecal.y.toFixed(2)}</span>
+                              </div>
+                              {(() => {
+                                const limY =
+                                  activeDecal.targetSide === "hood"
+                                    ? DECAL_MOVE_LIMITS.hoodY
+                                    : activeDecal.targetSide === "left_sleeve" || activeDecal.targetSide === "right_sleeve"
+                                    ? DECAL_MOVE_LIMITS.sleeveY
+                                    : DECAL_MOVE_LIMITS.frontBackY;
+                                return (
+                                  <input
+                                    type="range"
+                                    min={-limY}
+                                    max={limY}
+                                    step="0.01"
+                                    value={activeDecal.y}
+                                    onChange={(e) => {
+                                      const jepit = clampDecalXY(activeDecal.targetSide, activeDecal.x, parseFloat(e.target.value));
+                                      updateDecal(activeDecal.id, { x: jepit.x, y: jepit.y });
+                                    }}
+                                    className="w-full accent-brand-accent cursor-pointer"
+                                  />
+                                );
+                              })()}
+                            </div>
 
-                        {/* Opacity */}
-                        <div>
-                          <div className="flex justify-between text-[11px] font-mono text-text-muted mb-1">
-                            <span>TRANSPARANSI</span>
-                            <span>{Math.round(activeDecal.opacity * 100)}%</span>
+                            {/* Scale / Size (Directly affects DTF print cost) */}
+                            <div>
+                              <div className="flex justify-between text-[11px] font-mono text-text-muted mb-1">
+                                <span>UKURAN CETAK (DTF):</span>
+                                <span className="text-brand-accent font-bold">
+                                  {(() => {
+                                    if (!activeDecal || !physicalDimensions) return "—";
+                                    const tier = classifyPrintTierByCm(
+                                      Math.max(physicalDimensions.widthCm, physicalDimensions.heightCm)
+                                    );
+                                    return `${PRINT_TIER_LABEL[tier]} (+${printTierCost(tier) / 1000}k) • ${physicalDimensions.widthCm.toFixed(1)}cm`;
+                                  })()}
+                                </span>
+                              </div>
+                              <input
+                                type="range"
+                                min="0.04"
+                                max={activeDecal ? maxDecalScaleUnits(activeApparel, activeDecal.targetSide) : 0.3}
+                                step="0.002"
+                                value={activeDecal.scale}
+                                onChange={(e) => updateDecal(activeDecal.id, { scale: parseFloat(e.target.value) })}
+                                className="w-full accent-brand-accent cursor-pointer"
+                              />
+                              {/* DTF Standard Size Presets */}
+                              <div className="grid grid-cols-4 gap-1 pt-1 font-mono text-[9px]">
+                                {(() => {
+                                  const mm = APPAREL_PHYSICAL_SPECS[activeApparel]?.meshMultiplier ?? 101.8;
+                                  const presets = [
+                                    { label: "A6 (9cm)", cm: 9 },
+                                    { label: "A5 (15cm)", cm: 15 },
+                                    { label: "A4 (21cm)", cm: 21 },
+                                    { label: "A3 (29cm)", cm: 29 },
+                                  ].map((p) => ({ ...p, scale: p.cm / mm }));
+                                  return presets.map((preset) => (
+                                    <button
+                                      key={preset.label}
+                                      type="button"
+                                      onClick={() => updateDecal(activeDecal.id, { scale: preset.scale })}
+                                      className={`py-1 rounded bg-surface border text-center transition-all ${
+                                        Math.abs(activeDecal.scale - preset.scale) < preset.scale * 0.15
+                                          ? "border-brand-accent text-brand-accent font-bold"
+                                          : "border-border-subtle text-text-muted hover:text-text-primary"
+                                      }`}
+                                    >
+                                      {preset.label}
+                                    </button>
+                                  ));
+                                })()}
+                              </div>
+                            </div>
+
+                            {/* Rotation */}
+                            <div>
+                              <div className="flex justify-between text-[11px] font-mono text-text-muted mb-1">
+                                <span className="flex items-center space-x-1"><RotateCw size={11} /> <span>PUTAR</span></span>
+                                <span>{activeDecal.rotation}°</span>
+                              </div>
+                              <input
+                                type="range"
+                                min="-180"
+                                max="180"
+                                step="5"
+                                value={activeDecal.rotation}
+                                onChange={(e) => updateDecal(activeDecal.id, { rotation: parseInt(e.target.value, 10) })}
+                                className="w-full accent-brand-accent cursor-pointer"
+                              />
+                            </div>
+
+                            {/* Opacity */}
+                            <div>
+                              <div className="flex justify-between text-[11px] font-mono text-text-muted mb-1">
+                                <span>TRANSPARANSI</span>
+                                <span>{Math.round(activeDecal.opacity * 100)}%</span>
+                              </div>
+                              <input
+                                type="range"
+                                min="0.1"
+                                max="1"
+                                step="0.05"
+                                value={activeDecal.opacity}
+                                onChange={(e) => updateDecal(activeDecal.id, { opacity: parseFloat(e.target.value) })}
+                                className="w-full accent-brand-accent cursor-pointer"
+                              />
+                            </div>
                           </div>
-                          <input
-                            type="range"
-                            min="0.1"
-                            max="1"
-                            step="0.05"
-                            value={activeDecal.opacity}
-                            onChange={(e) => updateDecal(activeDecal.id, { opacity: parseFloat(e.target.value) })}
-                            className="w-full accent-brand-accent cursor-pointer"
-                          />
-                        </div>
+                        </details>
                       </div>
                     )}
                   </div>
                 ) : (
-                  <div className="p-6 text-center rounded-xl border border-dashed border-border-subtle text-text-muted font-mono text-xs space-y-2">
-                    <p className="font-bold text-text-primary">Belum ada sablon — mulai dari contoh 1 klik di atas 👆</p>
-                    <p className="text-[10px]">Atau unggah gambarmu / tulis teks sendiri. Semua bebas digeser di kaos 3D.</p>
+                  <div className="p-6 text-center rounded-2xl border border-dashed border-border-subtle text-text-muted font-mono text-xs space-y-1 bg-surface/30">
+                    <p className="font-bold text-text-primary">Belum ada sablon</p>
+                    <p className="text-[10px]">Unggah gambar atau tambahkan teks di atas.</p>
                   </div>
                 )}
-              </>
-            )}
+                  </>
+                )}
 
-            {/* TAB 2B: POLA 2D (skala cm, sinkron live ke 3D) */}
-            {activeTab === "pattern" && <PatternStudioLazy />}
+                {/* Sub-mode 2: POLA 2D */}
+                {(decalSubMode === "pattern" || activeTab === "pattern") && <PatternStudioLazy />}
 
-            {/* TAB 3: SANDBOX ENVIRONMENT, 3D ROTATION & TRANSFORMS */}
-            {activeTab === "sandbox" && (
-              <>
-                {/* MODE MANEKIN BERJALAN (in-place) — default BAJU = perilaku
-                    lama (mesh apparel + decal/gizmo/guide). MANEKIN = manekin
-                    Quaternius beranimasi; gizmo/guide/decal disembunyikan
-                    (decal di badan butuh skinning = follow-up). */}
-                <div className="p-4 rounded-xl glass-panel border border-border-subtle space-y-3">
-                  <div className="flex justify-between items-center pb-2 border-b border-border-subtle">
-                    <span className="text-xs font-mono font-bold text-text-primary">
-                      MODE MODEL 3D
-                    </span>
-                    <span className="text-[10px] font-mono text-text-muted">IN-PLACE · TANPA ROOT-MOTION</span>
-                  </div>
-                  <div className="grid grid-cols-2 gap-2" role="group" aria-label="Mode model 3D">
-                    {(
-                      [
-                        { id: "garment", label: "BAJU" },
-                        { id: "mannequin", label: "MANEKIN" },
-                      ] as const
-                    ).map(({ id, label }) => (
+                {/* Sub-mode 3: 3D TEST (Uji Baju, Sudut, Manekin, Simulasi & Pencahayaan) */}
+                {(decalSubMode === "test3d" || activeTab === "test3d" || activeTab === "sandbox") && (
+                  <div className="space-y-4">
+                    {/* Header Info Status Sablon & Baju */}
+                    <div className="p-3.5 rounded-2xl bg-gradient-to-r from-surface/80 via-surface/60 to-surface/40 border border-border-subtle flex items-center justify-between shadow-sm">
+                      <div className="flex items-center space-x-3 min-w-0">
+                        <div className="w-9 h-9 rounded-xl bg-brand-accent/15 border border-brand-accent/30 flex items-center justify-center shrink-0">
+                          <Box size={18} className="text-brand-accent" />
+                        </div>
+                        <div className="min-w-0">
+                          <div className="flex items-center space-x-2">
+                            <span className="text-xs font-mono font-bold text-text-primary truncate">
+                              {APPAREL_CATALOG[activeApparel]?.name ?? "Baju 3D"}
+                            </span>
+                            <span className="px-1.5 py-0.5 rounded text-[9px] font-mono font-bold bg-surface border border-border-subtle text-text-muted">
+                              {activeColorName}
+                            </span>
+                          </div>
+                          <p className="text-[10px] font-mono text-text-muted flex items-center space-x-1.5 mt-0.5">
+                            <span className={`inline-block w-2 h-2 rounded-full ${decals.length > 0 ? "bg-emerald-400 animate-pulse" : "bg-text-muted/40"}`} />
+                            <span className={decals.length > 0 ? "text-emerald-400 font-bold" : ""}>
+                              {decals.length > 0 ? `${decals.length} Sablon Aktif Terpasang` : "Belum ada sablon"}
+                            </span>
+                          </p>
+                        </div>
+                      </div>
                       <button
-                        key={id}
-                        onClick={() => setModelMode(id)}
-                        className={`py-2 px-2 rounded-xl font-mono text-xs font-bold border transition-all ${
-                          modelMode === id
-                            ? "bg-brand-accent text-canvas border-brand-accent shadow-md"
-                            : "bg-surface border-border-subtle text-text-muted hover:text-text-primary"
-                        }`}
+                        type="button"
+                        onClick={() => openStudioTour()}
+                        className="px-2.5 py-1.5 rounded-xl bg-brand-accent/10 hover:bg-brand-accent/20 border border-brand-accent/30 text-brand-accent text-[10px] font-mono font-bold uppercase transition-all shrink-0 ml-2 flex items-center space-x-1"
+                        title="Pelajari langkah kustomisasi produk"
                       >
-                        {label}
+                        <CircleHelp size={12} />
+                        <span>PANDUAN</span>
                       </button>
-                    ))}
-                  </div>
-                  {modelMode === "mannequin" && (
-                    <>
-                      <div className="grid grid-cols-4 gap-1.5" role="group" aria-label="Klip gerak manekin">
-                        {(
-                          [
-                            { id: "idle", label: "DIAM" },
-                            { id: "walk", label: "JALAN" },
-                            { id: "jog", label: "LARI" },
-                            { id: "sprint", label: "SPRINT" },
-                          ] as const
-                        ).map(({ id, label }) => (
+                    </div>
+
+                    {/* GRUP 1: SUDUT PANDANG & KAMERA 3D */}
+                    <div className="p-4 rounded-2xl glass-panel border border-border-subtle space-y-3.5 shadow-sm">
+                      <div className="flex justify-between items-center pb-2 border-b border-border-subtle/60">
+                        <span className="text-xs font-mono font-bold text-text-primary flex items-center space-x-1.5">
+                          <AngleIcon size={14} className="text-brand-accent" />
+                          <span>UJI SUDUT PANDANG (360°)</span>
+                        </span>
+                        <div className="flex items-center space-x-2">
                           <button
-                            key={id}
-                            onClick={() => setMotionClip(id)}
-                            className={`py-2 px-1 rounded-lg font-mono text-[10px] font-bold border transition-all ${
-                              motionClip === id
-                                ? "bg-brand-accent text-canvas border-brand-accent shadow-md"
+                            type="button"
+                            onClick={toggleRotating}
+                            className={`p-1 px-2 rounded-lg text-[10px] font-mono font-bold border transition-all flex items-center space-x-1 ${
+                              isRotating
+                                ? "bg-brand-accent text-canvas border-brand-accent shadow-sm"
                                 : "bg-surface border-border-subtle text-text-muted hover:text-text-primary"
+                            }`}
+                            title={isRotating ? "Hentikan putaran" : "Putar otomatis 360°"}
+                          >
+                            <RotateCcw size={11} className={isRotating ? "animate-spin" : ""} />
+                            <span>{isRotating ? "BERPUTAR" : "PUTAR OTOMATIS"}</span>
+                          </button>
+                          <span className="text-xs font-mono font-bold text-brand-accent bg-brand-accent/10 px-2 py-0.5 rounded-md border border-brand-accent/20">
+                            {modelRotY}°
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* 4 Quick Angle Presets */}
+                      <div className="grid grid-cols-4 gap-1.5">
+                        {[
+                          { label: "DEPAN", deg: 0 },
+                          { label: "SERONG", deg: 45 },
+                          { label: "SAMPING", deg: 90 },
+                          { label: "BELAKANG", deg: 180 },
+                        ].map(({ label, deg }) => (
+                          <button
+                            key={label}
+                            type="button"
+                            onClick={() => setModelRotY(deg)}
+                            className={`py-2 px-1 rounded-xl font-mono text-[10px] font-bold border transition-all truncate text-center ${
+                              modelRotY === deg
+                                ? "bg-brand-accent text-canvas border-brand-accent shadow-sm scale-[1.02]"
+                                : "bg-surface/70 border-border-subtle text-text-muted hover:text-text-primary hover:bg-surface"
                             }`}
                           >
                             {label}
                           </button>
                         ))}
                       </div>
-                      <div className="flex items-center gap-2">
-                        <span className="text-[10px] font-mono text-text-muted">KECEPATAN</span>
-                        <input
-                          type="range"
-                          min="0.2"
-                          max="2"
-                          step="0.05"
-                          value={motionSpeed}
-                          onChange={(e) => setMotionSpeed(parseFloat(e.target.value))}
-                          className="flex-1 accent-brand-accent"
-                          aria-label="Kecepatan gerak manekin"
-                        />
-                        <span className="text-[10px] font-mono text-brand-accent font-bold">{motionSpeed.toFixed(2)}x</span>
+
+                      {/* Continuous Rotation Slider */}
+                      <input
+                        type="range"
+                        min="0"
+                        max="360"
+                        step="5"
+                        value={modelRotY}
+                        onChange={(e) => setModelRotY(parseInt(e.target.value, 10))}
+                        className="w-full accent-brand-accent cursor-pointer"
+                        aria-label="Rotasi model 3D"
+                      />
+
+                      {/* Posisi Baju & Zoom */}
+                      <div className="pt-2 border-t border-border-subtle/50 space-y-2.5">
+                        <div className="flex justify-between items-center">
+                          <span className="text-[10px] font-mono text-text-muted font-bold uppercase tracking-wider">POSISI CEPAT MODEL:</span>
+                          <button
+                            type="button"
+                            onClick={resetModelTransform}
+                            className="text-[10px] font-mono text-brand-accent hover:underline font-bold uppercase"
+                          >
+                            RESET POSISI
+                          </button>
+                        </div>
+                        <div className="grid grid-cols-3 gap-1.5">
+                          <button
+                            type="button"
+                            onClick={() => alignModel("left")}
+                            className={`py-2 px-2 rounded-xl border text-[10px] font-mono font-bold transition-all text-center ${
+                              modelPosX < -0.2
+                                ? "bg-brand-accent text-canvas border-brand-accent shadow-sm"
+                                : "bg-surface border-border-subtle text-text-muted hover:text-text-primary"
+                            }`}
+                          >
+                            ⬅ KIRI
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => alignModel("center")}
+                            className={`py-2 px-2 rounded-xl border text-[10px] font-mono font-bold transition-all text-center ${
+                              Math.abs(modelPosX) <= 0.2
+                                ? "bg-brand-accent text-canvas border-brand-accent shadow-sm"
+                                : "bg-surface border-border-subtle text-text-muted hover:text-text-primary"
+                            }`}
+                          >
+                            ⏺ TENGAH
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => alignModel("right")}
+                            className={`py-2 px-2 rounded-xl border text-[10px] font-mono font-bold transition-all text-center ${
+                              modelPosX > 0.2
+                                ? "bg-brand-accent text-canvas border-brand-accent shadow-sm"
+                                : "bg-surface border-border-subtle text-text-muted hover:text-text-primary"
+                            }`}
+                          >
+                            KANAN ➡
+                          </button>
+                        </div>
+
+                        {/* Zoom Model Slider */}
+                        <div className="pt-1">
+                          <div className="flex justify-between text-[10px] font-mono text-text-muted mb-1">
+                            <span className="flex items-center space-x-1">
+                              <ZoomIn size={11} /> <span>SKALA ZOOM MOCKUP</span>
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => setModelScale(1.0)}
+                              title="Klik untuk reset zoom ke 100%"
+                              className="font-bold text-text-primary hover:text-brand-accent transition-colors cursor-pointer"
+                            >
+                              {Math.round(modelScale * 100)}%
+                            </button>
+                          </div>
+                          <input
+                            type="range"
+                            min="0.6"
+                            max="1.8"
+                            step="0.02"
+                            value={modelScale}
+                            onChange={(e) => setModelScale(parseFloat(e.target.value))}
+                            className="w-full accent-brand-accent cursor-pointer"
+                            aria-label="Zoom model 3D"
+                          />
+                        </div>
                       </div>
-                      <p className="text-[10px] font-mono text-text-muted">
-                        Warna manekin ikut warna kaos (tab APPAREL). Sablon & guide disembunyikan di mode ini.
-                      </p>
-                    </>
-                  )}
-                </div>
-
-                {/* 3D Model Manual Rotation (0° - 360°) */}
-                <div className="p-4 rounded-xl glass-panel border border-border-subtle space-y-3.5">
-                  <div className="flex justify-between items-center pb-2 border-b border-border-subtle">
-                    <span className="text-xs font-mono font-bold text-text-primary flex items-center space-x-1.5">
-                      <AngleIcon size={13} className="text-brand-accent" />
-                      <span>PUTAR MODEL 3D (SAMPING)</span>
-                    </span>
-                    <span className="text-xs font-mono font-bold text-brand-accent">{modelRotY}°</span>
-                  </div>
-
-                  {/* Quick Angle Presets */}
-                  <div className="grid grid-cols-4 gap-1.5">
-                    {[
-                      { label: "FRONT", deg: 0 },
-                      { label: "3/4 ANGLE", deg: 45 },
-                      { label: "PROFILE", deg: 90 },
-                      { label: "BACK", deg: 180 },
-                    ].map(({ label, deg }) => (
-                      <button
-                        key={label}
-                        onClick={() => setModelRotY(deg)}
-                        className={`py-1.5 px-1 rounded-lg font-mono text-[10px] font-bold border transition-all truncate ${
-                          modelRotY === deg
-                            ? "bg-brand-accent text-canvas border-brand-accent shadow-sm"
-                            : "bg-surface border-border-subtle text-text-muted hover:text-text-primary"
-                        }`}
-                      >
-                        {label}
-                      </button>
-                    ))}
-                  </div>
-
-                  {/* Continuous Rotation Slider */}
-                  <input
-                    type="range"
-                    min="0"
-                    max="360"
-                    step="5"
-                    value={modelRotY}
-                    onChange={(e) => setModelRotY(parseInt(e.target.value, 10))}
-                    className="w-full accent-brand-accent cursor-pointer"
-                  />
-                </div>
-
-                {/* Full Position & Scale Sliders */}
-                <div className="p-4 rounded-xl glass-panel border border-border-subtle space-y-4">
-                  <div className="flex justify-between items-center pb-2 border-b border-border-subtle">
-                    <span className="text-xs font-mono font-bold text-text-primary">
-                      POSISI & UKURAN MODEL
-                    </span>
-                    <button
-                      onClick={resetModelTransform}
-                      className="text-[10px] font-mono text-brand-accent hover:underline uppercase font-bold"
-                    >
-                      TENGAHKAN LAGI
-                    </button>
-                  </div>
-
-                  {/* 1-Click Quick Alignments */}
-                  <div>
-                    <span className="block text-[10px] font-mono text-text-muted uppercase mb-1.5 font-bold">
-                      POSISI CEPAT:
-                    </span>
-                    <div className="grid grid-cols-3 gap-2">
-                      <button
-                        onClick={() => alignModel("left")}
-                        className={`py-2 px-2 rounded-xl border text-xs font-mono font-bold transition-all flex items-center justify-center space-x-1 ${
-                          modelPosX < -0.2
-                            ? "bg-brand-accent text-canvas border-brand-accent shadow-sm"
-                            : "bg-surface border-border-subtle text-text-muted hover:text-text-primary"
-                        }`}
-                      >
-                        <span>⬅ LEFT</span>
-                      </button>
-
-                      <button
-                        onClick={() => alignModel("center")}
-                        className={`py-2 px-2 rounded-xl border text-xs font-mono font-bold transition-all flex items-center justify-center space-x-1 ${
-                          Math.abs(modelPosX) <= 0.2
-                            ? "bg-brand-accent text-canvas border-brand-accent shadow-sm"
-                            : "bg-surface border-border-subtle text-text-muted hover:text-text-primary"
-                        }`}
-                      >
-                        <span>⏺ CENTER</span>
-                      </button>
-
-                      <button
-                        onClick={() => alignModel("right")}
-                        className={`py-2 px-2 rounded-xl border text-xs font-mono font-bold transition-all flex items-center justify-center space-x-1 ${
-                          modelPosX > 0.2
-                            ? "bg-brand-accent text-canvas border-brand-accent shadow-sm"
-                            : "bg-surface border-border-subtle text-text-muted hover:text-text-primary"
-                        }`}
-                      >
-                        <span>RIGHT ➡</span>
-                      </button>
                     </div>
-                  </div>
 
-                  {/* Continuous Smooth Slider: MOVE UP / DOWN (Y) */}
-                  <div>
-                    <div className="flex justify-between text-[11px] font-mono text-text-muted mb-1">
-                      <span className="flex items-center space-x-1"><Move size={11} /> <span>GESER ATAS / BAWAH</span></span>
-                      <span>{modelPosY.toFixed(2)}</span>
-                    </div>
-                    <input
-                      type="range"
-                      min="-0.75"
-                      max="0.75"
-                      step="0.01"
-                      value={modelPosY}
-                      onChange={(e) => setModelPosY(parseFloat(e.target.value))}
-                      className="w-full accent-brand-accent cursor-pointer"
-                    />
-                  </div>
+                    {/* GRUP 3: 3D TEST LAB & SIMULASI FISIKA */}
+                    <TestLabControls />
 
-                  {/* Continuous Smooth Slider: MOVE LEFT / RIGHT (X) */}
-                  <div>
-                    <div className="flex justify-between text-[11px] font-mono text-text-muted mb-1">
-                      <span className="flex items-center space-x-1"><Move size={11} /> <span>GESER KIRI / KANAN</span></span>
-                      <span>{modelPosX.toFixed(2)}</span>
-                    </div>
-                    <input
-                      type="range"
-                      min="-0.75"
-                      max="0.75"
-                      step="0.01"
-                      value={modelPosX}
-                      onChange={(e) => setModelPosX(parseFloat(e.target.value))}
-                      className="w-full accent-brand-accent cursor-pointer"
-                    />
-                  </div>
+                    {/* GRUP 4: PENCAHAYAAN & TEKSTUR BAHAN */}
+                    <div className="p-4 rounded-2xl glass-panel border border-border-subtle space-y-3.5 shadow-sm">
+                      <div className="flex justify-between items-center pb-2 border-b border-border-subtle/60">
+                        <span className="text-xs font-mono font-bold text-text-primary flex items-center space-x-1.5">
+                          <Sun size={14} className="text-brand-accent" />
+                          <span>PENCAHAYAAN & BAHAN KAIN</span>
+                        </span>
+                      </div>
 
-                  {/* Continuous Smooth Slider: MODEL ZOOM / SCALE */}
-                  <div>
-                    <div className="flex justify-between text-[11px] font-mono text-text-muted mb-1">
-                      <span className="flex items-center space-x-1"><ZoomIn size={11} /> <span>ZOOM MODEL</span></span>
-                      <span>{Math.round(modelScale * 100)}%</span>
-                    </div>
-                    <input
-                      type="range"
-                      min="0.6"
-                      max="1.8"
-                      step="0.02"
-                      value={modelScale}
-                      onChange={(e) => setModelScale(parseFloat(e.target.value))}
-                      className="w-full accent-brand-accent cursor-pointer"
-                    />
-                  </div>
-                </div>
+                      {/* Bahan Kain */}
+                      <div>
+                        <span className="block text-[10px] font-mono text-text-muted mb-1.5 font-bold uppercase">TEKSTUR BAHAN:</span>
+                        <div className="grid grid-cols-3 gap-1.5">
+                          {[
+                            { id: "combed-cotton", label: "COTTON 24S", sub: "190 GSM" },
+                            { id: "french-terry", label: "HEAVY FLEECE", sub: "380 GSM" },
+                            { id: "poplin", label: "POPLIN", sub: "130 GSM" },
+                          ].map(({ id, label, sub }) => (
+                            <button
+                              key={id}
+                              type="button"
+                              onClick={() => setMaterialFinish(id as MaterialFinish)}
+                              className={`py-2 px-1 rounded-xl font-mono text-[10px] font-bold border transition-all text-center flex flex-col items-center justify-center ${
+                                materialFinish === id
+                                  ? "bg-brand-accent text-canvas border-brand-accent shadow-sm scale-[1.02]"
+                                  : "bg-surface border-border-subtle text-text-muted hover:text-text-primary"
+                              }`}
+                            >
+                              <span>{label}</span>
+                              <span className="text-[8.5px] opacity-75 font-normal">{sub}</span>
+                            </button>
+                          ))}
+                        </div>
+                      </div>
 
-                {/* Theme Switcher */}
-                <div>
-                  <span className="block text-xs font-mono text-text-muted mb-2 font-bold uppercase">TEMA LATAR STUDIO:</span>
-                  <div className="grid grid-cols-3 gap-2">
-                    {[
-                      { id: "obsidian", label: "OBSIDIAN DARK", icon: Moon },
-                      { id: "gallery", label: "GALLERY LIGHT", icon: Sun },
-                      { id: "concrete", label: "CONCRETE", icon: Box },
-                    ].map(({ id, label, icon: Icon }) => (
-                      <button
-                        key={id}
-                        onClick={() => setStudioTheme(id as StudioTheme)}
-                        className={`py-2.5 px-2 rounded-xl font-mono text-xs font-bold border transition-all flex flex-col items-center space-y-1 ${
-                          studioTheme === id
-                            ? "bg-brand-accent text-canvas border-brand-accent shadow-md"
-                            : "bg-surface border-border-subtle text-text-muted hover:text-text-primary"
-                        }`}
-                      >
-                        <Icon size={14} />
-                        <span className="text-[9px] sm:text-[10px]">{label}</span>
-                      </button>
-                    ))}
-                  </div>
-                </div>
+                      {/* Suasana Pencahayaan */}
+                      <div className="pt-2 border-t border-border-subtle/50">
+                        <span className="block text-[10px] font-mono text-text-muted mb-1.5 font-bold uppercase">SUASANA CAHAYA:</span>
+                        <div className="grid grid-cols-3 gap-1.5">
+                          {STUDIO_MOODS.map((m) => (
+                            <button
+                              key={m.id}
+                              type="button"
+                              onClick={() => setLightingPreset(m.id)}
+                              title={m.desc}
+                              aria-pressed={lightingPreset === m.id}
+                              className={`py-2 px-1 rounded-xl border text-center transition-all ${
+                                lightingPreset === m.id
+                                  ? "bg-brand-accent/20 border-brand-accent text-brand-accent font-bold shadow-[0_0_10px_rgba(230,81,0,0.3)]"
+                                  : "bg-surface border-border-subtle text-text-muted hover:text-text-primary"
+                              }`}
+                            >
+                              <span className="block text-sm leading-none">{m.icon}</span>
+                              <span className="block mt-1 text-[9px] font-mono font-bold uppercase truncate">{m.label}</span>
+                            </button>
+                          ))}
+                        </div>
+                      </div>
 
-                {/* Cahaya studio — Bahasa manusia, logika sama */}
-                <div>
-                  <span className="block text-xs font-mono text-text-muted mb-2 font-bold uppercase">CAHAYA STUDIO:</span>
-                  <div className="grid grid-cols-3 gap-2">
-                    {[
-                      { id: "editorial", label: "TEGAS" },
-                      { id: "cyber", label: "HANGAT" },
-                      { id: "soft-daylight", label: "SIANG LEMBUT" },
-                    ].map(({ id, label }) => (
-                      <button
-                        key={id}
-                        onClick={() => setLightingPreset(id as LightingPreset)}
-                        className={`py-2 px-2 rounded-lg font-mono text-[10px] font-bold border transition-all ${
-                          lightingPreset === id
-                            ? "bg-text-primary text-canvas border-text-primary shadow-sm"
-                            : "bg-surface border-border-subtle text-text-muted hover:text-text-primary"
-                        }`}
-                      >
-                          {label}
-                        </button>
-                      ))}
-                    </div>
-                    {/* Pola eksklusif Sep 2026: 3 suasana tanpa HDR — hanya tint
-                        IBL prosedural (StudioEnvironment). Tanpa unduhan. */}
-                    <span className="block text-[10px] font-mono text-text-muted mt-3 mb-1.5 font-bold uppercase">
-                      SUASANA (GANTI NUANSA, TANPA UNDUHAN):
-                    </span>
-                    <div className="grid grid-cols-3 gap-2" role="group" aria-label="Suasana cahaya studio">
-                      {STUDIO_MOODS.map((m) => (
+                      {/* Tema Latar Studio */}
+                      <div className="pt-2 border-t border-border-subtle/50">
+                        <span className="block text-[10px] font-mono text-text-muted mb-1.5 font-bold uppercase">TEMA STUDIO:</span>
+                        <div className="grid grid-cols-3 gap-1.5">
+                          {[
+                            { id: "obsidian", label: "DARK", icon: Moon },
+                            { id: "gallery", label: "LIGHT", icon: Sun },
+                            { id: "concrete", label: "GREY", icon: Box },
+                          ].map(({ id, label, icon: Icon }) => (
+                            <button
+                              key={id}
+                              type="button"
+                              onClick={() => setStudioTheme(id as StudioTheme)}
+                              className={`py-2 px-1 rounded-xl font-mono text-[10px] font-bold border transition-all flex items-center justify-center space-x-1 ${
+                                studioTheme === id
+                                  ? "bg-brand-accent text-canvas border-brand-accent shadow-sm scale-[1.02]"
+                                  : "bg-surface border-border-subtle text-text-muted hover:text-text-primary"
+                              }`}
+                            >
+                              <Icon size={12} />
+                              <span>{label}</span>
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+
+                      {/* Mode Kerangka (Wireframe) */}
+                      <div className="pt-2 border-t border-border-subtle/50 flex justify-between items-center">
+                        <span className="text-[10px] font-mono text-text-muted font-bold uppercase">MODE KERANGKA (WIREFRAME):</span>
                         <button
-                          key={m.id}
                           type="button"
-                          onClick={() => setLightingPreset(m.id)}
-                          title={m.desc}
-                          aria-pressed={lightingPreset === m.id}
-                          className={`py-2 px-1.5 rounded-xl border text-center transition-all ${
-                            lightingPreset === m.id
-                              ? "bg-brand-accent/20 border-brand-accent text-brand-accent font-bold shadow-[0_0_10px_rgba(230,81,0,0.3)]"
-                              : "bg-surface border-border-subtle text-text-muted hover:text-text-primary"
+                          onClick={toggleWireframe}
+                          className={`px-3 py-1.5 rounded-xl font-mono text-[10px] font-bold transition-all ${
+                            isWireframe
+                              ? "bg-brand-accent text-canvas shadow-sm"
+                              : "bg-surface text-text-muted border border-border-subtle hover:text-text-primary"
                           }`}
                         >
-                          <span className="block text-base leading-none">{m.icon}</span>
-                          <span className="block mt-1 text-[10px] font-mono font-bold uppercase">{m.label}</span>
+                          {isWireframe ? "ON" : "OFF"}
                         </button>
-                      ))}
+                      </div>
                     </div>
-                    <p className="mt-1.5 text-[10px] font-mono text-text-muted leading-snug">
-                      Golden hangat · Sunset senja · Galeri putih jujur — lampu tak berubah, hanya nuansa.
-                    </p>
-                </div>
 
-                {/* Material Finish */}
-                <div>
-                  <span className="block text-xs font-mono text-text-muted mb-2 font-bold uppercase">BAHAN KAIN:</span>
-                  <div className="grid grid-cols-3 gap-2">
-                    {[
-                      { id: "combed-cotton", label: "COMBED COTTON" },
-                      { id: "french-terry", label: "HEAVY FLEECE" },
-                      { id: "poplin", label: "COTTON POPLIN" },
-                    ].map(({ id, label }) => (
-                      <button
-                        key={id}
-                        onClick={() => setMaterialFinish(id as MaterialFinish)}
-                        className={`py-2 px-2 rounded-lg font-mono text-[10px] font-bold border transition-all ${
-                          materialFinish === id
-                            ? "bg-brand-accent text-canvas border-brand-accent shadow-md"
-                            : "bg-surface border-border-subtle text-text-muted hover:text-text-primary"
-                        }`}
-                      >
-                        {label}
-                      </button>
-                    ))}
+                    {/* Lab Kain verlet */}
+                    <ClothLabLazy />
                   </div>
-                </div>
-
-                {/* Animation Presets (BLUEPRINT-02 §4 VirtualThreads benchmark) */}
-                <div>
-                  <span className="block text-xs font-mono text-text-muted mb-2 font-bold uppercase">GERAKAN KAIN:</span>
-                  <div className="grid grid-cols-4 gap-1.5">
-                    {[
-                      { id: "static", label: "STATIC" },
-                      { id: "wind", label: "WIND" },
-                      { id: "walking", label: "WALK" },
-                      { id: "knit", label: "KNIT" },
-                    ].map(({ id, label }) => (
-                      <button
-                        key={id}
-                        onClick={() => setAnimationPreset(id as any)}
-                        className={`py-2 px-1 rounded-lg font-mono text-[10px] font-bold border transition-all ${
-                          animationPreset === id
-                            ? "bg-brand-accent text-canvas border-brand-accent shadow-md"
-                            : "bg-surface border-border-subtle text-text-muted hover:text-text-primary"
-                        }`}
-                      >
-                        {label}
-                      </button>
-                    ))}
-                  </div>
-                  <div className="flex items-center gap-2 mt-2">
-                    <span className="text-[10px] font-mono text-text-muted">SPEED</span>
-                    <input
-                      type="range"
-                      min="0.5"
-                      max="2"
-                      step="0.1"
-                      value={animationSpeed}
-                      onChange={(e) => setAnimationSpeed(parseFloat(e.target.value))}
-                      className="flex-1 accent-brand-accent"
-                    />
-                    <span className="text-[10px] font-mono text-brand-accent font-bold">{animationSpeed.toFixed(1)}x</span>
-                  </div>
-                </div>
-
-                {/* Technical Wireframe Mode */}                <div className="flex justify-between items-center p-3 rounded-xl bg-surface border border-border-subtle">
-                  <span className="text-xs font-mono text-text-primary font-bold">MODE KERANGKA</span>
-                  <button
-                    onClick={toggleWireframe}
-                    className={`px-3 py-1.5 rounded-lg font-mono text-xs font-bold transition-all ${
-                      isWireframe
-                        ? "bg-brand-accent text-canvas"
-                        : "bg-canvas text-text-muted border border-border-subtle"
-                    }`}
-                  >
-                    {isWireframe ? "ON" : "OFF"}
-                  </button>
-                </div>
-                {/* Lab Kain verlet — cubit & tarik, rasa GSM + angin */}
-                <ClothLabLazy />
+                )}
               </>
             )}
 
-            {/* TAB 4: SAVED DESIGNS (Preset Manager) — login gate: tamu localStorage, login → DB + Dashboard */}
-            {activeTab === "saved" && (
-              <div className="space-y-4">
-                {!session && (
-                  <div className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-400 text-xs font-mono flex flex-col gap-2">
-                    <span className="font-bold">🔒 Login untuk simpan permanen di Dashboard</span>
-                    <span>Sekarang desain cuma di HP ini (localStorage). Login pakai Google/Email biar tersimpan di akun & bisa dipesan nanti.</span>
-                    <button onClick={() => setIsAuthOpen(true)} className="px-3 py-1.5 rounded-xl bg-brand-accent text-canvas font-bold text-xs">
-                      LOGIN / DAFTAR SEKARANG
-                    </button>
-                  </div>
-                )}
-                {/* Save Current Design Box */}
-                <div className="p-4 rounded-xl glass-panel border border-border-subtle space-y-3">
-                  <span className="text-xs font-mono font-bold text-text-primary block">
-                    SIMPAN DESAIN INI:
-                  </span>
-                  <div className="flex gap-2">
-                    <input
-                      type="text"
-                      value={designTitleInput}
-                      onChange={(e) => setDesignTitleInput(e.target.value)}
-                      placeholder="mis. Kaos Komunitas 01"
-                      className="flex-1 px-3 py-2 rounded-xl bg-surface border border-border-subtle text-xs font-mono text-text-primary focus:outline-none focus:border-brand-accent"
-                    />
-                    <button
-                      onClick={handleSaveDesign}
-                      className="px-4 py-2 rounded-xl bg-brand-accent text-canvas font-mono font-bold text-xs uppercase hover:brightness-110 transition-all flex items-center space-x-1.5 shadow-md"
-                    >
-                      <Bookmark size={13} />
-                      <span>SAVE</span>
-                    </button>
-                  </div>
-                  {/* Blokir lembut guest ber-gambar: pesan + tombol login (desktop). */}
-                  {enhancementMessage && (
-                    <div role="status" className="p-2.5 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-300 text-[11px] font-mono flex flex-col gap-2">
-                      <span>{enhancementMessage}</span>
-                      {!session && (
-                        <button onClick={() => setIsAuthOpen(true)} className="px-3 py-1.5 rounded-xl bg-brand-accent text-canvas font-bold text-xs">
-                          LOGIN / DAFTAR SEKARANG
-                        </button>
-                      )}
-                    </div>
-                  )}
+            {/* TAB 3: SIMPAN & EKSPOR (TERSIMPAN + EKSPOR MOCKUP) */}
+            {(activeTab === "options" || activeTab === "saved" || activeTab === "export") && (
+              <>
+                {/* Sub-mode Segmented Pill Switcher */}
+                <div className="flex p-1 bg-surface/80 rounded-xl border border-border-subtle gap-1 mb-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setActiveTab("options");
+                      setOptionSubMode("saved");
+                    }}
+                    className={`flex-1 py-1.5 px-2 rounded-lg text-[11px] font-bold font-mono transition-all text-center ${
+                      (optionSubMode === "saved" && activeTab !== "export") || activeTab === "saved"
+                        ? "bg-brand-accent text-canvas shadow-sm"
+                        : "text-text-muted hover:text-text-primary hover:bg-surface"
+                    }`}
+                  >
+                    DESAIN SAYA ({savedDesigns.length})
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setActiveTab("options");
+                      setOptionSubMode("export");
+                    }}
+                    className={`flex-1 py-1.5 px-2 rounded-lg text-[11px] font-bold font-mono transition-all text-center ${
+                      optionSubMode === "export" || activeTab === "export"
+                        ? "bg-brand-accent text-canvas shadow-sm"
+                        : "text-text-muted hover:text-text-primary hover:bg-surface"
+                    }`}
+                  >
+                    EKSPOR MOCKUP
+                  </button>
                 </div>
 
-                {/* Saved Designs List */}
-                <div className="space-y-2">
-                  <span className="text-xs font-mono text-text-muted block font-bold">
-                    DESAIN TERSIMPAN ({savedDesigns.length}):
-                  </span>
-                  {savedDesigns.length > 0 ? (
-                    savedDesigns.map((d) => (
-                      <div
-                        key={d.id}
-                        className="p-3.5 rounded-xl bg-surface border border-border-subtle flex items-center justify-between gap-3 hover:border-border-strong transition-all"
-                      >
-                        <div className="flex items-center space-x-3 overflow-hidden">
-                          <div
-                            className="w-5 h-5 rounded-full border border-border-strong shrink-0"
-                            style={{ backgroundColor: d.colorHex }}
-                          />
-                          <div className="overflow-hidden">
-                            <span className="block text-xs font-mono font-bold text-text-primary truncate">
-                              {d.title}
+                {!session ? (
+                  <div className="p-6 rounded-2xl bg-surface/80 border border-brand-accent/30 shadow-xl text-center space-y-4 my-2">
+                    <div className="w-14 h-14 mx-auto rounded-full bg-brand-accent/10 border border-brand-accent/30 flex items-center justify-center text-brand-accent shadow-[0_0_20px_rgba(230,81,0,0.2)]">
+                      <Lock size={26} />
+                    </div>
+                    <div className="space-y-1.5">
+                      <h4 className="text-sm font-bold text-text-primary font-mono tracking-wider">
+                        LOGIN DIPERLUKAN
+                      </h4>
+                      <p className="text-xs text-text-muted leading-relaxed max-w-xs mx-auto">
+                        Masuk ke akun Anda untuk menyimpan mockup ke koleksi dan mengunduh render HD & video 360°.
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setIsAuthOpen(true)}
+                      className="w-full py-3 px-4 rounded-xl bg-brand-accent hover:brightness-110 text-canvas font-mono font-bold text-xs uppercase tracking-wider transition-all shadow-[0_0_20px_rgba(230,81,0,0.35)] active:scale-98 flex items-center justify-center space-x-2"
+                    >
+                      <span>MASUK / DAFTAR SEKARANG</span>
+                    </button>
+                  </div>
+                ) : (
+                  <>
+                    {/* Sub-mode: TERSIMPAN (DESAIN SAYA) */}
+                    {((optionSubMode === "saved" && activeTab !== "export") || activeTab === "saved") && (
+                      <div className="space-y-4">
+                        {/* Save Current Design Box */}
+                        <div className="p-4 rounded-xl glass-panel border border-border-subtle space-y-3">
+                          <div className="flex items-center justify-between">
+                            <span className="text-xs font-mono font-bold text-text-primary">
+                              SIMPAN DESAIN SAAT INI:
                             </span>
-                            <span className="block text-[10px] font-mono text-text-muted">
-                              {d.apparel.toUpperCase()} · {d.size} · {d.decals.length} Decal(s) · {d.savedAt}
+                            <span className="text-[10px] font-mono text-text-muted">
+                              {savedDesigns.length}/20 tersimpan
                             </span>
+                          </div>
+                          <div className="flex gap-2">
+                            <input
+                              type="text"
+                              value={designTitleInput}
+                              onChange={(e) => setDesignTitleInput(e.target.value)}
+                              placeholder="mis. Kaos Komunitas Makassar 01"
+                              maxLength={60}
+                              className="flex-1 px-3 py-2 rounded-xl bg-surface border border-border-subtle text-xs font-mono text-text-primary focus:outline-none focus:border-brand-accent"
+                            />
+                            <button
+                              onClick={handleSaveDesign}
+                              className="px-4 py-2 rounded-xl bg-brand-accent text-canvas font-mono font-bold text-xs uppercase hover:brightness-110 transition-all flex items-center space-x-1.5 shadow-md active:scale-95"
+                            >
+                              <Bookmark size={13} />
+                              <span>SIMPAN</span>
+                            </button>
+                          </div>
+                          {enhancementMessage && (
+                            <div role="status" className="p-2.5 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-300 text-[11px] font-mono">
+                              {enhancementMessage}
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Saved Designs List */}
+                        <div className="space-y-2">
+                          <span className="text-xs font-mono text-text-muted block font-bold">
+                            DESAIN TERSIMPAN ({savedDesigns.length}):
+                          </span>
+                          {savedDesigns.length > 0 ? (
+                            savedDesigns.map((d) => (
+                              <div
+                                key={d.id}
+                                className="p-3 rounded-xl bg-surface border border-border-subtle flex items-center justify-between gap-3 hover:border-brand-accent/40 transition-all group"
+                              >
+                                <div className="flex items-center space-x-3 overflow-hidden min-w-0">
+                                  {d.previewUrl ? (
+                                    <img
+                                      src={d.previewUrl}
+                                      alt={d.title}
+                                      className="w-12 h-12 rounded-lg object-contain bg-canvas/80 border border-border-subtle shrink-0"
+                                    />
+                                  ) : (
+                                    <div
+                                      className="w-12 h-12 rounded-lg border border-border-subtle flex items-center justify-center shrink-0"
+                                      style={{ backgroundColor: d.colorHex }}
+                                    >
+                                      <Shirt size={20} className="text-white/80" />
+                                    </div>
+                                  )}
+                                  <div className="overflow-hidden min-w-0">
+                                    <span className="block text-xs font-mono font-bold text-text-primary truncate">
+                                      {d.title}
+                                    </span>
+                                    <span className="block text-[10px] font-mono text-text-muted truncate">
+                                      {d.apparel.toUpperCase()} · {d.size} · {d.decals.length} Sablon
+                                    </span>
+                                    <span className="block text-[10px] font-mono text-brand-accent">
+                                      {d.savedAt}
+                                    </span>
+                                  </div>
+                                </div>
+
+                                <div className="flex items-center space-x-1 shrink-0">
+                                  <button
+                                    onClick={() => loadSavedDesign(d.id)}
+                                    className="px-2.5 py-1.5 rounded-lg bg-surface border border-border-subtle text-[11px] font-mono font-bold text-brand-accent hover:bg-brand-accent hover:text-canvas transition-colors"
+                                    title="Muat ke Studio 3D"
+                                  >
+                                    MUAT
+                                  </button>
+                                  <button
+                                    onClick={() => duplicateSavedDesign(d.id)}
+                                    className="p-1.5 rounded-lg text-text-muted hover:text-text-primary hover:bg-surface border border-transparent hover:border-border-subtle transition-all"
+                                    title="Duplikat Desain"
+                                  >
+                                    <Copy size={13} />
+                                  </button>
+                                  <button
+                                    onClick={() => deleteSavedDesign(d.id)}
+                                    className="p-1.5 rounded-lg text-text-muted hover:text-red-400 hover:bg-red-500/10 transition-colors"
+                                    title="Hapus Desain"
+                                  >
+                                    <Trash2 size={13} />
+                                  </button>
+                                </div>
+                              </div>
+                            ))
+                          ) : (
+                            <div className="p-6 text-center rounded-xl border border-dashed border-border-subtle text-text-muted font-mono text-xs">
+                              Belum ada desain tersimpan. Kustomisasi mockup Anda lalu tekan SIMPAN di atas!
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Sub-mode: EKSPOR MOCKUP */}
+                    {(optionSubMode === "export" || activeTab === "export") && (
+                      <div className="space-y-4 py-1">
+                        {/* Opsi Format & Kualitas */}
+                        <div className="p-3.5 rounded-xl bg-surface/70 border border-border-subtle space-y-2.5">
+                          <span className="text-[10px] font-mono font-bold text-text-muted uppercase tracking-wider block">
+                            PENGATURAN EKSPOR GAMBAR:
+                          </span>
+                          <div className="grid grid-cols-2 gap-1.5">
+                            <button
+                              type="button"
+                              onClick={() => setExportBgMode("studio")}
+                              className={`py-1.5 px-2 rounded-lg text-[11px] font-mono font-bold transition-all border text-center ${
+                                exportBgMode === "studio"
+                                  ? "bg-brand-accent/15 border-brand-accent text-brand-accent"
+                                  : "bg-surface border-border-subtle text-text-muted hover:text-text-primary"
+                              }`}
+                            >
+                              🏢 Latar Studio
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setExportBgMode("transparent")}
+                              className={`py-1.5 px-2 rounded-lg text-[11px] font-mono font-bold transition-all border text-center ${
+                                exportBgMode === "transparent"
+                                  ? "bg-brand-accent/15 border-brand-accent text-brand-accent"
+                                  : "bg-surface border-border-subtle text-text-muted hover:text-text-primary"
+                              }`}
+                            >
+                              ✂️ Transparan (PNG)
+                            </button>
+                          </div>
+                          <div className="grid grid-cols-2 gap-1.5">
+                            <button
+                              type="button"
+                              onClick={() => setExportResolution("standard")}
+                              className={`py-1.5 px-2 rounded-lg text-[10px] font-mono font-bold transition-all border text-center ${
+                                exportResolution === "standard"
+                                  ? "bg-brand-accent/15 border-brand-accent text-brand-accent"
+                                  : "bg-surface border-border-subtle text-text-muted hover:text-text-primary"
+                              }`}
+                            >
+                              Standar (1K)
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setExportResolution("2k")}
+                              className={`py-1.5 px-2 rounded-lg text-[10px] font-mono font-bold transition-all border text-center ${
+                                exportResolution === "2k"
+                                  ? "bg-brand-accent/15 border-brand-accent text-brand-accent"
+                                  : "bg-surface border-border-subtle text-text-muted hover:text-text-primary"
+                              }`}
+                            >
+                              ✨ Ultra HD (2K)
+                            </button>
                           </div>
                         </div>
 
-                        <div className="flex items-center space-x-1.5 shrink-0">
+                        {/* Unduh Gambar Mockup */}
+                        <div className="p-4 rounded-xl glass-panel border border-border-subtle space-y-3">
+                          <span className="text-xs font-mono font-bold text-text-primary block">
+                            UNDUH GAMBAR MOCKUP HD:
+                          </span>
+                          <div className="grid grid-cols-2 gap-2">
+                            <button
+                              onClick={() => void handleExportFrontPNG("front-view")}
+                              disabled={isExportingImage}
+                              className="py-3 px-2 rounded-xl bg-surface border border-border-subtle hover:border-brand-accent text-xs font-mono text-text-primary transition-all flex flex-col items-center space-y-1 disabled:opacity-50"
+                            >
+                              <Camera size={16} className="text-brand-accent" />
+                              <span>TAMPAK DEPAN</span>
+                            </button>
+
+                            <button
+                              onClick={() => void handleExportBackPNG("back-view")}
+                              disabled={isExportingImage}
+                              className="py-3 px-2 rounded-xl bg-surface border border-border-subtle hover:border-brand-accent text-xs font-mono text-text-primary transition-all flex flex-col items-center space-y-1 disabled:opacity-50"
+                            >
+                              <Camera size={16} className="text-brand-accent" />
+                              <span>TAMPAK BELAKANG</span>
+                            </button>
+                          </div>
+
                           <button
-                            onClick={() => loadSavedDesign(d.id)}
-                            className="px-3 py-1.5 rounded-lg bg-surface border border-border-subtle text-xs font-mono font-bold text-brand-accent hover:bg-brand-accent hover:text-canvas transition-colors"
+                            onClick={() => void handleExportCurrentPNG("current-view")}
+                            disabled={isExportingImage}
+                            className="w-full py-3.5 rounded-xl bg-brand-accent text-canvas font-display font-black text-xs uppercase tracking-wider hover:brightness-110 transition-all shadow-[0_0_20px_rgba(230,81,0,0.35)] disabled:opacity-50"
                           >
-                            LOAD
+                            {isExportingImage ? "MERENDER 2K HD..." : "UNDUH TAMPILAN INI (2K HD)"}
                           </button>
+
                           <button
-                            onClick={() => deleteSavedDesign(d.id)}
-                            className="p-1.5 rounded-lg text-text-muted hover:text-red-400"
-                            title="Delete Preset"
+                            onClick={() => void handleShareMockup()}
+                            disabled={isSharing}
+                            className="w-full py-3.5 rounded-xl bg-surface border border-brand-accent/50 hover:bg-brand-accent/10 text-brand-accent font-display font-black text-xs uppercase tracking-wider transition-all flex items-center justify-center space-x-2 disabled:opacity-50"
                           >
-                            <Trash2 size={13} />
+                            <Share2 size={15} />
+                            <span>{isSharing ? "MENYIAPKAN KARTU…" : "BAGIKAN KARTU MOCKUP"}</span>
+                          </button>
+
+                          {/* 360° Turntable Video Exporter */}
+                          <div className="space-y-2 pt-1 border-t border-border-subtle/50">
+                            <span className="block text-[10px] font-mono text-text-muted font-bold uppercase">
+                              FORMAT VIDEO 360°:
+                            </span>
+                            <div className="grid grid-cols-3 gap-1.5" role="radiogroup" aria-label="Format video 360">
+                              {(
+                                [
+                                  { id: "mp4", label: "MP4", hint: "TikTok/IG" },
+                                  { id: "webm", label: "WebM", hint: "Web" },
+                                  { id: "gif", label: "GIF", hint: "Chat/Stiker" },
+                                ] as Array<{ id: Export360Format; label: string; hint: string }>
+                              ).map((f) => (
+                                <button
+                                  key={f.id}
+                                  role="radio"
+                                  aria-checked={export360Format === f.id}
+                                  onClick={() => setExport360Format(f.id)}
+                                  disabled={isRecording360}
+                                  className={`py-2 px-1 rounded-xl border text-center transition-all disabled:opacity-50 ${
+                                    export360Format === f.id
+                                      ? "bg-brand-accent/20 border-brand-accent text-brand-accent font-bold"
+                                      : "bg-surface border-border-subtle text-text-muted hover:text-text-primary"
+                                  }`}
+                                >
+                                  <span className="block text-[11px] font-mono font-bold">{f.label}</span>
+                                  <span className="block text-[9px] font-mono opacity-75">{f.hint}</span>
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+
+                          <button
+                            onClick={handleExport360Video}
+                            disabled={isRecording360}
+                            className="w-full py-3.5 px-4 rounded-xl bg-surface border border-brand-accent/50 hover:bg-brand-accent/10 text-brand-accent font-display font-black text-xs uppercase tracking-wider transition-all flex items-center justify-center space-x-2 disabled:opacity-50"
+                          >
+                            <Video size={16} className={isRecording360 ? "animate-pulse text-red-500" : ""} />
+                            <span>
+                              {isRecording360
+                                ? `MEREKAM 360° ${export360Format.toUpperCase()} (${recordingProgress}%)...`
+                                : `EKSPOR 360° ${export360Format.toUpperCase()} (±5 DETIK)`}
+                            </span>
                           </button>
                         </div>
+
+                        {/* 2. Share & Order Inquiry Suite */}
+                        <div className="p-4 rounded-xl glass-panel border border-border-subtle space-y-3">
+                          <span className="text-xs font-mono font-bold text-text-primary block">
+                            BAGIKAN DESAIN:
+                          </span>
+                          <div className="grid grid-cols-2 gap-2">
+                            <button
+                              onClick={handleCopyShareLink}
+                              className="py-2.5 px-2 rounded-xl bg-surface border border-border-subtle hover:border-brand-accent text-xs font-mono text-text-primary transition-all flex items-center justify-center space-x-1.5"
+                            >
+                              {copiedLink ? <Check size={14} className="text-green-400" /> : <Copy size={14} />}
+                              <span>{copiedLink ? "LINK TERSALIN!" : "SALIN LINK"}</span>
+                            </button>
+
+                            <button
+                              onClick={handleSendToWhatsApp}
+                              className="py-2.5 px-2 rounded-xl bg-[#25D366]/20 border border-[#25D366]/50 hover:bg-[#25D366] text-text-primary hover:text-white text-xs font-mono font-bold transition-all flex items-center justify-center space-x-1.5"
+                            >
+                              <MessageCircle size={14} className="text-[#25D366] group-hover:text-white" />
+                              <span>PESAN VIA WA</span>
+                            </button>
+                          </div>
+                        </div>
                       </div>
-                    ))
-                  ) : (
-                    <div className="p-6 text-center rounded-xl border border-dashed border-border-subtle text-text-muted font-mono text-xs">
-                      Belum ada desain tersimpan. Atur mockup lalu tekan SIMPAN di atas!
-                    </div>
-                  )}
-                </div>
-              </div>
-            )}
-
-            {/* TAB TIM: JERSEY REGU (M4.1) — 1 desain → roster → keranjang massal */}
-            {activeTab === "team" && <TeamwearPanelLazy />}
-
-            {/* TAB 5: EXPORT & SHARE */}
-            {activeTab === "export" && (
-              <div className="space-y-4 py-2">
-                {/* 1. Download Views Suite */}
-                <div className="p-4 rounded-xl glass-panel border border-border-subtle space-y-3">
-                  <span className="text-xs font-mono font-bold text-text-primary block">
-                    UNDUH GAMBAR MOCKUP:
-                  </span>
-                  <div className="grid grid-cols-2 gap-2">
-                    <button
-                      onClick={() => handleExportPNG("front-view")}
-                      className="py-3 px-2 rounded-xl bg-surface border border-border-subtle hover:border-brand-accent text-xs font-mono text-text-primary transition-all flex flex-col items-center space-y-1"
-                    >
-                      <Camera size={16} className="text-brand-accent" />
-                      <span>TAMPAK DEPAN (PNG)</span>
-                    </button>
-
-                    <button
-                      onClick={() => void handleExportBackPNG("back-view")}
-                      className="py-3 px-2 rounded-xl bg-surface border border-border-subtle hover:border-brand-accent text-xs font-mono text-text-primary transition-all flex flex-col items-center space-y-1"
-                    >
-                      <Camera size={16} className="text-brand-accent" />
-                      <span>TAMPAK BELAKANG (PNG)</span>
-                    </button>
-                  </div>
-
-                  <button
-                    onClick={() => handleExportPNG("current-view")}
-                    className="w-full py-3.5 rounded-xl bg-brand-accent text-canvas font-display font-black text-xs uppercase tracking-wider hover:brightness-110 transition-all shadow-[0_0_20px_rgba(230,81,0,0.35)]"
-                  >
-                    UNDUH TAMPILAN INI (PNG)
-                  </button>
-
-                  {/* M4.5 — Bagikan mockup: Web Share API + fallback unduh. */}
-                  <button
-                    onClick={() => void handleShareMockup()}
-                    disabled={isSharing}
-                    className="w-full py-3.5 rounded-xl bg-surface border border-brand-accent/50 hover:bg-brand-accent/10 text-brand-accent font-display font-black text-xs uppercase tracking-wider transition-all flex items-center justify-center space-x-2 disabled:opacity-50"
-                  >
-                    <Share2 size={15} />
-                    <span>{isSharing ? "MENYIAPKAN KARTU…" : "BAGIKAN KARTU MOCKUP"}</span>
-                  </button>
-
-                  {/* 360° Turntable Video Exporter (D2: mediabunny MP4/WebM + gifenc GIF) */}
-                  <div className="space-y-2">
-                    <span className="block text-[10px] font-mono text-text-muted font-bold uppercase">
-                      FORMAT VIDEO 360°:
-                    </span>
-                    <div className="grid grid-cols-3 gap-1.5" role="radiogroup" aria-label="Format video 360">
-                      {(
-                        [
-                          { id: "mp4", label: "MP4", hint: "TikTok/IG" },
-                          { id: "webm", label: "WebM", hint: "Web" },
-                          { id: "gif", label: "GIF", hint: "Chat/Stiker" },
-                        ] as Array<{ id: Export360Format; label: string; hint: string }>
-                      ).map((f) => (
-                        <button
-                          key={f.id}
-                          role="radio"
-                          aria-checked={export360Format === f.id}
-                          onClick={() => setExport360Format(f.id)}
-                          disabled={isRecording360}
-                          className={`py-2 px-1 rounded-xl border text-center transition-all disabled:opacity-50 ${
-                            export360Format === f.id
-                              ? "bg-brand-accent/20 border-brand-accent text-brand-accent font-bold"
-                              : "bg-surface border-border-subtle text-text-muted hover:text-text-primary"
-                          }`}
-                        >
-                          <span className="block text-[11px] font-mono font-bold">{f.label}</span>
-                          <span className="block text-[9px] font-mono opacity-75">{f.hint}</span>
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                  <button
-                    onClick={handleExport360Video}
-                    disabled={isRecording360}
-                    className="w-full py-3.5 px-4 rounded-xl bg-surface border border-brand-accent/50 hover:bg-brand-accent/10 text-brand-accent font-display font-black text-xs uppercase tracking-wider transition-all flex items-center justify-center space-x-2 disabled:opacity-50"
-                  >
-                    <Video size={16} className={isRecording360 ? "animate-pulse text-red-500" : ""} />
-                    <span>
-                      {isRecording360
-                        ? `MEREKAM 360° ${export360Format.toUpperCase()} (${recordingProgress}%)...`
-                        : `EKSPOR 360° ${export360Format.toUpperCase()} (±5 DETIK)`}
-                    </span>
-                  </button>
-                </div>
-
-                {/* 2. Share & Order Inquiry Suite */}
-                <div className="p-4 rounded-xl glass-panel border border-border-subtle space-y-3">
-                  <span className="text-xs font-mono font-bold text-text-primary block">
-                    BAGIKAN & PESAN PRODUKSI:
-                  </span>
-                  <div className="grid grid-cols-2 gap-2">
-                    <button
-                      onClick={handleCopyShareLink}
-                      className="py-2.5 px-2 rounded-xl bg-surface border border-border-subtle hover:border-brand-accent text-xs font-mono text-text-primary transition-all flex items-center justify-center space-x-1.5"
-                    >
-                      {copiedLink ? <Check size={14} className="text-green-400" /> : <Copy size={14} />}
-                      <span>{copiedLink ? "LINK TERSALIN!" : "SALIN LINK"}</span>
-                    </button>
-
-                    <button
-                      onClick={handleSendToWhatsApp}
-                      className="py-2.5 px-2 rounded-xl bg-[#25D366]/20 border border-[#25D366]/50 hover:bg-[#25D366] text-text-primary hover:text-white text-xs font-mono font-bold transition-all flex items-center justify-center space-x-1.5"
-                    >
-                      <MessageCircle size={14} className="text-[#25D366] group-hover:text-white" />
-                      <span>PESAN VIA WA</span>
-                    </button>
-                  </div>
-                </div>
-              </div>
+                    )}
+                  </>
+                )}
+              </>
             )}
           </div>
 
-          {/* Dynamic Itemized Mathematical Price Calculation Footer */}
-          <div className="p-4 border-t border-border-subtle bg-surface/95 flex flex-col space-y-2">
+          {/* Itemized Mathematical Price Calculation Footer - Clean & Compact */}
+          <div className="px-4 py-3 sm:px-5 sm:py-3 border-t border-border-subtle bg-surface/95 backdrop-blur-md flex flex-col space-y-2">
             {/* Price Breakdown Tooltip / Accordion */}
             {showPriceBreakdown && (
               <div className="p-3 rounded-xl bg-canvas border border-border-subtle text-xs font-mono space-y-1.5 mb-1 animate-in fade-in">
@@ -2965,47 +3063,39 @@ export const CustomizerDrawer: React.FC = () => {
               </div>
             )}
 
-            <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 pt-1">
-              <div>
+            <div className="flex items-center justify-between gap-4">
+              <div className="min-w-0">
                 <div className="flex items-center space-x-1.5">
-                  <span className="block text-[10px] font-mono text-text-muted uppercase">ESTIMASI HARGA MAKASSAR</span>
+                  <span className="block text-[10px] font-mono text-text-muted tracking-wider uppercase">ESTIMASI TOTAL</span>
                   <button
                     onClick={() => setShowPriceBreakdown(!showPriceBreakdown)}
                     className="text-text-muted hover:text-brand-accent transition-colors"
-                    title="Lihat rincian harga"
+                    title="Lihat rincian kalkulasi harga"
+                    aria-label="Rincian harga"
                   >
-                    <Info size={12} />
+                    <Info size={11} />
                   </button>
                 </div>
-                <span className="font-display font-black text-base sm:text-lg text-brand-accent">
-                  {pricing.formattedTotal}
-                </span>
+                <div className="flex items-baseline space-x-1.5">
+                  <span className="font-mono font-bold text-base sm:text-lg text-brand-accent tracking-tight">
+                    {pricing.formattedTotal}
+                  </span>
+                </div>
                 {pricing.fabricThicknessSurchargeIdr > 0 && (
-                  <span className="block text-[10px] font-mono text-text-muted">
-                    Termasuk kain {pricing.fabricThicknessSlug} (+IDR{" "}
-                    {pricing.fabricThicknessSurchargeIdr.toLocaleString("id-ID")})
+                  <span className="block text-[9px] font-mono text-text-muted truncate">
+                    +Kain {pricing.fabricThicknessSlug} (IDR {pricing.fabricThicknessSurchargeIdr.toLocaleString("id-ID")})
                   </span>
                 )}
               </div>
 
-              <div className="flex gap-2">
+              <div className="shrink-0">
                 <button
                   type="button"
                   onClick={openCheckoutWithMasterGate}
-                  className="flex-1 py-3 px-4 rounded-xl bg-brand-accent text-canvas font-display font-black text-xs uppercase tracking-wider hover:brightness-110 active:scale-95 transition-all shadow-[0_0_16px_rgba(230,81,0,0.4)] text-center flex items-center justify-center space-x-2"
+                  className="py-2.5 px-5 rounded-xl bg-brand-accent text-canvas font-mono font-bold text-xs uppercase tracking-wider hover:brightness-110 active:scale-95 transition-all shadow-[0_0_12px_rgba(230,81,0,0.35)] flex items-center justify-center space-x-2 whitespace-nowrap"
                 >
                   <ShoppingCart size={14} />
-                  <span>PESAN (DUITKU)</span>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={handleSendToWhatsApp}
-                  className="py-3 px-3 rounded-xl bg-[#25D366]/20 border border-[#25D366]/40 text-text-primary hover:bg-[#25D366] hover:text-white font-mono font-bold text-xs uppercase transition-all flex items-center justify-center space-x-1.5"
-                  title="Konsultasi & Pesan Manual via WhatsApp"
-                >
-                  <MessageCircle size={14} className="text-[#25D366]" />
-                  <span className="hidden sm:inline">WA</span>
+                  <span>PESAN SEKARANG</span>
                 </button>
               </div>
             </div>
@@ -3016,26 +3106,45 @@ export const CustomizerDrawer: React.FC = () => {
       {/* Mobile BottomSheet (vaul pattern) — SATU sumber: matchMedia 767px
           (useIsMobileCss), selaras `hidden md:block` drawer + `md:hidden` sheet. */}
       {isMobileCss && !isDrawerCollapsed && (
-        <BottomSheet>
+        <BottomSheet onClose={toggleDrawerCollapsed}>
           <div className="space-y-3 font-mono text-xs">
-            <div className="flex gap-1.5 overflow-x-auto pb-1" role="tablist" aria-label="Tab studio">
+            {/* Header Mobile Sheet: Nama Produk + Tutup */}
+            <div className="flex items-center justify-between pb-1.5 border-b border-border-subtle">
+              <div className="flex items-center space-x-2 min-w-0">
+                <span className="w-2 h-2 rounded-full bg-brand-accent shrink-0 animate-pulse" />
+                <span className="font-display font-bold text-xs uppercase text-text-primary truncate">
+                  {currentApparelInfo.name}
+                </span>
+              </div>
+              <div className="flex items-center space-x-1.5 shrink-0">
+                <button
+                  type="button"
+                  onClick={toggleDrawerCollapsed}
+                  className="p-1.5 rounded-lg bg-surface border border-border-subtle text-text-muted hover:text-text-primary text-[10px] font-bold flex items-center justify-center shrink-0"
+                  title="Tutup sheet"
+                  aria-label="Tutup panel"
+                >
+                  <X size={14} />
+                </button>
+              </div>
+            </div>
+
+            {/* 3 Primary Tabs for Mobile */}
+            <div className="grid grid-cols-3 gap-1 p-1 bg-surface/80 rounded-xl border border-border-subtle" role="tablist" aria-label="Tab studio mobile">
               {[
-                { id: "apparel", label: "APPAREL" },
+                { id: "apparel", label: "PRODUK" },
                 { id: "decals", label: `SABLON (${decals.length})` },
-                { id: "pattern", label: "POLA 2D" },
-                { id: "sandbox", label: "SANDBOX" },
-                { id: "saved", label: `SAVED (${savedDesigns.length})` },
-                { id: "export", label: "EXPORT" },
+                { id: "options", label: "SIMPAN & EKSPOR" },
               ].map((t) => (
                 <button
                   key={t.id}
                   role="tab"
                   aria-selected={activeTab === t.id}
-                  onClick={() => setActiveTab(t.id as any)}
-                  className={`min-h-[44px] px-3 py-1.5 rounded-full border text-[10px] font-bold whitespace-nowrap ${
+                  onClick={() => handleTabChange(t.id as any)}
+                  className={`min-h-[38px] px-1 py-1.5 rounded-lg border text-[11px] font-bold transition-all text-center ${
                     activeTab === t.id
-                      ? "bg-brand-accent text-canvas border-brand-accent"
-                      : "bg-surface border-border-subtle text-text-muted"
+                      ? "bg-brand-accent text-canvas border-brand-accent shadow-sm"
+                      : "bg-surface border-transparent text-text-muted hover:text-text-primary"
                   }`}
                 >
                   {t.label}
@@ -3050,6 +3159,22 @@ export const CustomizerDrawer: React.FC = () => {
                   const info = APPAREL_CATALOG[type];
                   const locked = !info.mockupEnabled;
                   const comingSoon = !info.orderable;
+                  const label =
+                    type === "tshirt"
+                      ? "T-Shirt"
+                      : type === "longsleeve"
+                      ? "Longsleeve"
+                      : type === "crewneck"
+                      ? "Sweater"
+                      : type === "hoodie"
+                      ? "Hoodie"
+                      : type === "shirt"
+                      ? "Jacket"
+                      : type === "cap"
+                      ? "Topi"
+                      : type === "shorts"
+                      ? "Shorts"
+                      : "Celana";
                   return (
                     <button
                       key={type}
@@ -3066,7 +3191,7 @@ export const CustomizerDrawer: React.FC = () => {
                             : "bg-surface border-border-subtle text-text-primary"
                       }`}
                     >
-                      {String(type)}
+                      {label}
                       {comingSoon && (
                         <span className="ml-1.5 px-1.5 py-px rounded-full bg-amber-500/20 border border-amber-500/40 text-amber-300 text-[9px] font-black">
                           {locked ? "🔒 SEGERA" : "SEGERA"}
@@ -3078,264 +3203,598 @@ export const CustomizerDrawer: React.FC = () => {
               </div>
             )}
 
-            {activeTab === "decals" && (
+            {(activeTab === "decals" || activeTab === "pattern" || activeTab === "test3d" || activeTab === "sandbox") && (
               <div className="space-y-2">
-                <div className="flex gap-2">
+                {/* Sub-mode Segmented Switcher on Mobile */}
+                <div className="flex p-1 bg-surface/80 rounded-xl border border-border-subtle gap-1">
                   <button
-                    onClick={() => fileInputRef.current?.click()}
-                    className="flex-1 min-h-[44px] px-3 py-2 rounded-xl bg-brand-accent text-canvas font-bold text-[11px] uppercase"
+                    type="button"
+                    onClick={() => {
+                      setActiveTab("decals");
+                      setDecalSubMode("standard");
+                    }}
+                    className={`flex-1 py-1.5 px-1 rounded-lg text-[10px] font-bold font-mono transition-all text-center ${
+                      decalSubMode === "standard" && activeTab !== "pattern" && activeTab !== "test3d" && activeTab !== "sandbox"
+                        ? "bg-brand-accent text-canvas shadow-sm"
+                        : "text-text-muted hover:text-text-primary"
+                    }`}
                   >
-                    + UPLOAD LOGO
+                    SABLON DTF ({decals.length})
                   </button>
                   <button
-                    onClick={() => setShowTextInput((v) => !v)}
-                    className="flex-1 min-h-[44px] px-3 py-2 rounded-xl bg-surface border border-border-subtle text-text-primary font-bold text-[11px] uppercase"
+                    type="button"
+                    onClick={() => {
+                      setActiveTab("decals");
+                      setDecalSubMode("pattern");
+                    }}
+                    className={`flex-1 py-1.5 px-1 rounded-lg text-[10px] font-bold font-mono transition-all text-center ${
+                      decalSubMode === "pattern" || activeTab === "pattern"
+                        ? "bg-brand-accent text-canvas shadow-sm"
+                        : "text-text-muted hover:text-text-primary"
+                    }`}
                   >
-                    + TEKS
+                    POLA 2D
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setActiveTab("decals");
+                      setDecalSubMode("test3d");
+                    }}
+                    className={`flex-1 py-1.5 px-1 rounded-lg text-[10px] font-bold font-mono transition-all text-center flex items-center justify-center space-x-1 ${
+                      decalSubMode === "test3d" || activeTab === "test3d" || activeTab === "sandbox"
+                        ? "bg-brand-accent text-canvas shadow-sm"
+                        : "text-text-muted hover:text-text-primary"
+                    }`}
+                  >
+                    <Box size={11} className={decalSubMode === "test3d" || activeTab === "test3d" || activeTab === "sandbox" ? "text-canvas" : "text-brand-accent"} />
+                    <span>3D TEST</span>
                   </button>
                 </div>
-                {showTextInput && (
-                  <div className="flex gap-2">
-                    <input
-                      value={customTextString}
-                      onChange={(e) => setCustomTextString(e.target.value)}
-                      placeholder="Tulis teks sablon…"
-                      maxLength={24}
-                      className="flex-1 min-h-[44px] px-3 rounded-xl bg-surface border border-border-subtle text-text-primary text-base"
-                    />
-                    <button
-                      onClick={handleAddTextDecal}
-                      className="min-h-[44px] px-4 rounded-xl bg-brand-accent text-canvas font-bold text-[11px]"
-                    >
-                      OK
-                    </button>
-                  </div>
-                )}
-                {decals.length === 0 ? (
-                  <p className="text-[11px] text-text-muted">Belum ada sablon. Upload logo atau tambah teks.</p>
-                ) : (
-                  decals.map((d) => (
-                    <div
-                      key={d.id}
-                      className={`flex items-center justify-between p-2 rounded-xl border ${
-                        selectedDecalId === d.id ? "border-brand-accent bg-brand-accent/10" : "border-border-subtle bg-surface"
-                      }`}
-                    >
-                      <button onClick={() => setSelectedDecalId(d.id)} className="flex-1 text-left text-[11px] text-text-primary truncate min-h-[44px] flex items-center">
-                        {d.name}
+
+                {/* Sub-mode 1: SABLON DTF Standard */}
+                {((decalSubMode === "standard" && activeTab !== "pattern" && activeTab !== "test3d" && activeTab !== "sandbox") || activeTab === "decals") && decalSubMode !== "pattern" && decalSubMode !== "test3d" && (
+                  <>
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => fileInputRef.current?.click()}
+                        className="flex-1 min-h-[44px] px-3 py-2 rounded-xl bg-brand-accent text-canvas font-bold text-[11px] uppercase"
+                      >
+                        + UPLOAD LOGO
                       </button>
                       <button
-                        onClick={() => {
-                          setSelectedDecalId(d.id);
-                          setIsImageEditorOpen(true);
-                        }}
-                        aria-label={`Edit gambar ${d.name}`}
-                        title="Edit gambar (sesuaikan, potong, efek, hapus BG)"
-                        className="min-w-[44px] min-h-[44px] px-2 text-brand-accent font-bold flex items-center justify-center hover:scale-110 transition-transform"
+                        onClick={() => setShowTextInput((v) => !v)}
+                        className="flex-1 min-h-[44px] px-3 py-2 rounded-xl bg-surface border border-border-subtle text-text-primary font-bold text-[11px] uppercase"
                       >
-                        <PenTool size={14} />
-                      </button>
-                      <button
-                        onClick={() => handleRemoveDecal(d.id)}
-                        aria-label={`Hapus ${d.name}`}
-                        className="min-w-[44px] min-h-[44px] px-2 text-rose-400 hover:text-rose-500 font-bold flex items-center justify-center hover:scale-110 transition-transform"
-                      >
-                        <Trash2 size={14} />
+                        + TEKS
                       </button>
                     </div>
-                  ))
+                    {showTextInput && (
+                      <div className="flex gap-2">
+                        <input
+                          value={customTextString}
+                          onChange={(e) => setCustomTextString(e.target.value)}
+                          placeholder="Tulis teks sablon…"
+                          maxLength={24}
+                          className="flex-1 min-h-[44px] px-3 rounded-xl bg-surface border border-border-subtle text-text-primary text-base"
+                        />
+                        <button
+                          onClick={handleAddTextDecal}
+                          className="min-h-[44px] px-4 rounded-xl bg-brand-accent text-canvas font-bold text-[11px]"
+                        >
+                          OK
+                        </button>
+                      </div>
+                    )}
+                    {decals.length === 0 ? (
+                      <p className="text-[11px] text-text-muted">Belum ada sablon. Upload logo atau tambah teks.</p>
+                    ) : (
+                      decals.map((d) => (
+                        <div
+                          key={d.id}
+                          className={`flex items-center justify-between p-2 rounded-xl border ${
+                            selectedDecalId === d.id ? "border-brand-accent bg-brand-accent/10" : "border-border-subtle bg-surface"
+                          }`}
+                        >
+                          <button onClick={() => setSelectedDecalId(d.id)} className="flex-1 text-left text-[11px] text-text-primary truncate min-h-[44px] flex items-center">
+                            {d.name}
+                          </button>
+                          <button
+                            onClick={() => {
+                              setSelectedDecalId(d.id);
+                              setIsImageEditorOpen(true);
+                            }}
+                            aria-label={`Edit gambar ${d.name}`}
+                            title="Edit gambar (sesuaikan, potong, efek, hapus BG)"
+                            className="min-w-[44px] min-h-[44px] px-2 text-brand-accent font-bold flex items-center justify-center hover:scale-110 transition-transform"
+                          >
+                            <PenTool size={14} />
+                          </button>
+                          <button
+                            onClick={() => handleRemoveDecal(d.id)}
+                            aria-label={`Hapus ${d.name}`}
+                            className="min-w-[44px] min-h-[44px] px-2 text-rose-400 hover:text-rose-500 font-bold flex items-center justify-center hover:scale-110 transition-transform"
+                          >
+                            <Trash2 size={14} />
+                          </button>
+                        </div>
+                      ))
+                    )}
+                  </>
+                )}
+
+                {/* Sub-mode 2: POLA 2D */}
+                {(decalSubMode === "pattern" || activeTab === "pattern") && <PatternStudioLazy />}
+
+                {/* Sub-mode 3: 3D TEST (Uji Baju, Sudut 360°, Manekin, Simulasi & Cahaya di HP) */}
+                {(decalSubMode === "test3d" || activeTab === "test3d" || activeTab === "sandbox") && (
+                  <div className="space-y-3 font-mono">
+                    {/* Header Info Status Sablon & Baju */}
+                    <div className="p-3 rounded-xl bg-surface/80 border border-border-subtle flex items-center justify-between shadow-sm">
+                      <div className="flex items-center space-x-2.5 min-w-0">
+                        <div className="w-8 h-8 rounded-lg bg-brand-accent/15 border border-brand-accent/30 flex items-center justify-center shrink-0">
+                          <Box size={16} className="text-brand-accent" />
+                        </div>
+                        <div className="min-w-0">
+                          <div className="flex items-center space-x-1.5">
+                            <span className="text-[11px] font-bold text-text-primary truncate">
+                              {APPAREL_CATALOG[activeApparel]?.name ?? "Baju 3D"}
+                            </span>
+                            <span className="px-1.5 py-0.5 rounded text-[8.5px] font-bold bg-surface border border-border-subtle text-text-muted">
+                              {activeColorName}
+                            </span>
+                          </div>
+                          <p className="text-[9.5px] text-text-muted flex items-center space-x-1 mt-0.5">
+                            <span className={`inline-block w-1.5 h-1.5 rounded-full ${decals.length > 0 ? "bg-emerald-400 animate-pulse" : "bg-text-muted/40"}`} />
+                            <span className={decals.length > 0 ? "text-emerald-400 font-bold" : ""}>
+                              {decals.length > 0 ? `${decals.length} Sablon Aktif` : "Belum ada sablon"}
+                            </span>
+                          </p>
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => openStudioTour()}
+                        className="px-2 py-1.5 rounded-lg bg-brand-accent/10 hover:bg-brand-accent/20 border border-brand-accent/30 text-brand-accent text-[9.5px] font-bold uppercase transition-all shrink-0 flex items-center space-x-1"
+                        title="Pelajari langkah kustomisasi produk"
+                      >
+                        <CircleHelp size={12} />
+                        <span>PANDUAN</span>
+                      </button>
+                    </div>
+
+                    {/* KARTU 1: SUDUT PANDANG 360° */}
+                    <div className="p-3 rounded-xl bg-surface/50 border border-border-subtle space-y-2.5">
+                      <div className="flex justify-between items-center pb-1.5 border-b border-border-subtle/60">
+                        <span className="text-[11px] font-bold text-text-primary flex items-center space-x-1">
+                          <AngleIcon size={12} className="text-brand-accent" />
+                          <span>UJI SUDUT PANDANG (360°)</span>
+                        </span>
+                        <div className="flex items-center space-x-1.5">
+                          <button
+                            type="button"
+                            onClick={toggleRotating}
+                            className={`min-h-[32px] px-2 rounded-lg text-[9.5px] font-bold border transition-all flex items-center space-x-1 ${
+                              isRotating
+                                ? "bg-brand-accent text-canvas border-brand-accent shadow-sm"
+                                : "bg-surface border-border-subtle text-text-muted"
+                            }`}
+                          >
+                            <RotateCcw size={10} className={isRotating ? "animate-spin" : ""} />
+                            <span>{isRotating ? "PUTAR ON" : "PUTAR OTOMATIS"}</span>
+                          </button>
+                          <span className="text-[10px] font-bold text-brand-accent bg-brand-accent/10 px-1.5 py-0.5 rounded border border-brand-accent/20">
+                            {modelRotY}°
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* 4 Presets Sudut */}
+                      <div className="grid grid-cols-4 gap-1">
+                        {[
+                          { label: "DEPAN", deg: 0 },
+                          { label: "SERONG", deg: 45 },
+                          { label: "SAMPING", deg: 90 },
+                          { label: "BELAKANG", deg: 180 },
+                        ].map(({ label, deg }) => (
+                          <button
+                            key={label}
+                            type="button"
+                            onClick={() => setModelRotY(deg)}
+                            className={`min-h-[38px] py-1.5 px-1 rounded-lg text-[9.5px] font-bold border transition-all text-center ${
+                              modelRotY === deg
+                                ? "bg-brand-accent text-canvas border-brand-accent shadow-sm"
+                                : "bg-surface border-border-subtle text-text-muted hover:text-text-primary"
+                            }`}
+                          >
+                            {label}
+                          </button>
+                        ))}
+                      </div>
+
+                      {/* Rotasi Slider */}
+                      <div className="pt-1">
+                        <input
+                          type="range"
+                          min="0"
+                          max="360"
+                          step="5"
+                          value={modelRotY}
+                          onChange={(e) => setModelRotY(parseInt(e.target.value, 10))}
+                          className="w-full accent-brand-accent"
+                          aria-label="Rotasi model 3D"
+                        />
+                      </div>
+
+                      {/* Posisi & Zoom */}
+                      <div className="grid grid-cols-2 gap-2 pt-1 border-t border-border-subtle/50">
+                        <div>
+                          <span className="block text-[9px] text-text-muted mb-1 font-bold">POSISI KAMERA:</span>
+                          <div className="grid grid-cols-3 gap-1">
+                            {[
+                              { label: "KIRI", x: -0.3 },
+                              { label: "TENGAH", x: 0 },
+                              { label: "KANAN", x: 0.3 },
+                            ].map(({ label, x }) => (
+                              <button
+                                key={label}
+                                type="button"
+                                onClick={() => setModelPosX(x)}
+                                className={`min-h-[32px] py-1 px-1 rounded-lg text-[8.5px] font-bold border transition-all text-center ${
+                                  Math.abs(modelPosX - x) < 0.05
+                                    ? "bg-brand-accent text-canvas border-brand-accent"
+                                    : "bg-surface border-border-subtle text-text-muted"
+                                }`}
+                              >
+                                {label}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                        <div>
+                          <div className="flex justify-between text-[9px] text-text-muted mb-1 font-bold">
+                            <span>ZOOM:</span>
+                            <span className="text-text-primary">{Math.round(modelScale * 100)}%</span>
+                          </div>
+                          <input
+                            type="range"
+                            min="0.6"
+                            max="1.8"
+                            step="0.02"
+                            value={modelScale}
+                            onChange={(e) => setModelScale(parseFloat(e.target.value))}
+                            className="w-full accent-brand-accent"
+                            aria-label="Zoom model 3D"
+                          />
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* KARTU 3: 3D TEST LAB & SIMULASI FISIKA */}
+                    <TestLabControls />
+
+                    {/* KARTU 4: PENCAHAYAAN & BAHAN KAIN */}
+                    <div className="p-3 rounded-xl bg-surface/50 border border-border-subtle space-y-2.5">
+                      <div className="flex justify-between items-center pb-1.5 border-b border-border-subtle/60">
+                        <span className="text-[11px] font-bold text-text-primary flex items-center space-x-1">
+                          <Sun size={12} className="text-brand-accent" />
+                          <span>BAHAN & PENCAHAYAAN</span>
+                        </span>
+                      </div>
+                      {/* Bahan Kain */}
+                      <div>
+                        <span className="block text-[9px] text-text-muted mb-1 font-bold uppercase">TEKSTUR BAHAN:</span>
+                        <div className="grid grid-cols-3 gap-1">
+                          {[
+                            { id: "combed-cotton", label: "COTTON 24S", sub: "190 GSM" },
+                            { id: "french-terry", label: "HEAVY FLEECE", sub: "380 GSM" },
+                            { id: "poplin", label: "POPLIN", sub: "130 GSM" },
+                          ].map(({ id, label, sub }) => (
+                            <button
+                              key={id}
+                              type="button"
+                              onClick={() => setMaterialFinish(id as MaterialFinish)}
+                              className={`min-h-[38px] py-1 px-1 rounded-lg text-[9px] font-bold border transition-all text-center flex flex-col items-center justify-center ${
+                                materialFinish === id
+                                  ? "bg-brand-accent text-canvas border-brand-accent shadow-sm"
+                                  : "bg-surface border-border-subtle text-text-muted"
+                              }`}
+                            >
+                              <span>{label}</span>
+                              <span className="text-[7.5px] opacity-75 font-normal">{sub}</span>
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+
+                      {/* Suasana Cahaya */}
+                      <div className="pt-1.5 border-t border-border-subtle/50">
+                        <span className="block text-[9px] text-text-muted mb-1 font-bold uppercase">SUASANA CAHAYA:</span>
+                        <div className="grid grid-cols-3 gap-1">
+                          {STUDIO_MOODS.map((m) => (
+                            <button
+                              key={m.id}
+                              type="button"
+                              onClick={() => setLightingPreset(m.id)}
+                              className={`min-h-[36px] py-1 px-1 rounded-lg border text-center transition-all ${
+                                lightingPreset === m.id
+                                  ? "bg-brand-accent/20 border-brand-accent text-brand-accent font-bold"
+                                  : "bg-surface border-border-subtle text-text-muted"
+                              }`}
+                            >
+                              <span className="block text-xs leading-none">{m.icon}</span>
+                              <span className="block mt-0.5 text-[8.5px] font-bold uppercase truncate">{m.label}</span>
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+
+                      {/* Mode Kerangka (Wireframe) */}
+                      <div className="pt-1.5 border-t border-border-subtle/50 flex justify-between items-center">
+                        <span className="text-[9.5px] text-text-muted font-bold uppercase">WIREFRAME 3D:</span>
+                        <button
+                          type="button"
+                          onClick={toggleWireframe}
+                          className={`min-h-[32px] px-3 py-1 rounded-lg text-[9.5px] font-bold transition-all ${
+                            isWireframe
+                              ? "bg-brand-accent text-canvas shadow-sm"
+                              : "bg-surface text-text-muted border border-border-subtle"
+                          }`}
+                        >
+                          {isWireframe ? "ON" : "OFF"}
+                        </button>
+                      </div>
+                    </div>
+                  </div>
                 )}
               </div>
             )}
 
-            {activeTab === "pattern" && <PatternStudioLazy />}
-
-            {activeTab === "sandbox" && (
+            {(activeTab === "options" || activeTab === "saved" || activeTab === "export") && (
               <div className="space-y-2">
-                {/* MODE MANEKIN BERJALAN (mobile) — sama seperti desktop. */}
-                <div className="grid grid-cols-2 gap-2" role="group" aria-label="Mode model 3D">
-                  {(
-                    [
-                      { id: "garment", label: "BAJU" },
-                      { id: "mannequin", label: "MANEKIN" },
-                    ] as const
-                  ).map(({ id, label }) => (
-                    <button
-                      key={id}
-                      onClick={() => setModelMode(id)}
-                      className={`min-h-[44px] px-3 py-2 rounded-xl border text-[11px] font-bold uppercase ${
-                        modelMode === id
-                          ? "bg-brand-accent/15 border-brand-accent text-brand-accent"
-                          : "bg-surface border-border-subtle text-text-primary"
-                      }`}
-                    >
-                      {label}
-                    </button>
-                  ))}
+                {/* Sub-mode Segmented Switcher on Mobile */}
+                <div className="flex p-1 bg-surface/80 rounded-xl border border-border-subtle gap-1">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setActiveTab("options");
+                      setOptionSubMode("saved");
+                    }}
+                    className={`flex-1 py-1.5 px-1 rounded-lg text-[10px] font-bold font-mono transition-all text-center ${
+                      (optionSubMode === "saved" && activeTab !== "export") || activeTab === "saved"
+                        ? "bg-brand-accent text-canvas shadow-sm"
+                        : "text-text-muted hover:text-text-primary"
+                    }`}
+                  >
+                    DESAIN SAYA ({savedDesigns.length})
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setActiveTab("options");
+                      setOptionSubMode("export");
+                    }}
+                    className={`flex-1 py-1.5 px-1 rounded-lg text-[10px] font-bold font-mono transition-all text-center ${
+                      optionSubMode === "export" || activeTab === "export"
+                        ? "bg-brand-accent text-canvas shadow-sm"
+                        : "text-text-muted hover:text-text-primary"
+                    }`}
+                  >
+                    EKSPOR MOCKUP
+                  </button>
                 </div>
-                {modelMode === "mannequin" && (
-                  <>
-                    <div className="grid grid-cols-4 gap-2" role="group" aria-label="Klip gerak manekin">
-                      {(
-                        [
-                          { id: "idle", label: "DIAM" },
-                          { id: "walk", label: "JALAN" },
-                          { id: "jog", label: "LARI" },
-                          { id: "sprint", label: "SPRINT" },
-                        ] as const
-                      ).map(({ id, label }) => (
+
+            {!session ? (
+              <div className="p-5 rounded-2xl bg-surface/80 border border-brand-accent/30 shadow-lg text-center space-y-3 my-2">
+                <div className="w-12 h-12 mx-auto rounded-full bg-brand-accent/10 border border-brand-accent/30 flex items-center justify-center text-brand-accent shadow-[0_0_15px_rgba(230,81,0,0.2)]">
+                  <Lock size={22} />
+                </div>
+                <div className="space-y-1">
+                  <h4 className="text-sm font-bold text-text-primary font-mono tracking-wider">
+                    LOGIN DIPERLUKAN
+                  </h4>
+                  <p className="text-xs text-text-muted leading-relaxed max-w-xs mx-auto">
+                    Masuk ke akun Anda untuk menyimpan desain & mengunduh render HD atau video 360°.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setIsAuthOpen(true)}
+                  className="w-full py-3 px-4 rounded-xl bg-brand-accent hover:brightness-110 text-canvas font-mono font-bold text-xs uppercase tracking-wider transition-all shadow-md active:scale-98"
+                >
+                  MASUK / DAFTAR SEKARANG
+                </button>
+              </div>
+            ) : (
+              <>
+                {/* Sub-mode: TERSIMPAN */}
+                {((optionSubMode === "saved" && activeTab !== "export") || activeTab === "saved") && (
+                  <div className="space-y-2">
+                    <div className="flex gap-2">
+                      <input
+                        value={designTitleInput}
+                        onChange={(e) => setDesignTitleInput(e.target.value.slice(0, 60))}
+                        placeholder="Nama desain…"
+                        maxLength={60}
+                        className="flex-1 min-h-[44px] px-3 rounded-xl bg-surface border border-border-subtle text-text-primary text-base"
+                      />
+                      <button
+                        onClick={handleSaveDesign}
+                        className="min-h-[44px] px-4 rounded-xl bg-brand-accent text-canvas font-bold text-[11px]"
+                      >
+                        SIMPAN
+                      </button>
+                    </div>
+                    {enhancementMessage && (
+                      <div role="status" className="p-2.5 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-300 text-[11px] font-mono">
+                        {enhancementMessage}
+                      </div>
+                    )}
+                    {savedDesigns.length === 0 ? (
+                      <p className="text-[11px] text-text-muted text-center py-4">Belum ada desain tersimpan.</p>
+                    ) : (
+                      savedDesigns.map((d) => (
+                        <div
+                          key={d.id}
+                          className="w-full p-2.5 rounded-xl border border-border-subtle bg-surface flex items-center justify-between gap-2"
+                        >
+                          <div className="flex items-center gap-2 overflow-hidden min-w-0">
+                            {d.previewUrl ? (
+                              <img
+                                src={d.previewUrl}
+                                alt={d.title}
+                                className="w-9 h-9 rounded-lg object-contain bg-canvas/80 border border-border-subtle shrink-0"
+                              />
+                            ) : (
+                              <div
+                                className="w-9 h-9 rounded-lg border border-border-subtle flex items-center justify-center shrink-0"
+                                style={{ backgroundColor: d.colorHex }}
+                              >
+                                <Shirt size={16} className="text-white/80" />
+                              </div>
+                            )}
+                            <div className="overflow-hidden min-w-0">
+                              <span className="block text-[11px] font-bold text-text-primary truncate">
+                                {d.title}
+                              </span>
+                              <span className="block text-[9px] text-text-muted truncate">
+                                {d.apparel.toUpperCase()} · {d.size}
+                              </span>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-1 shrink-0">
+                            <button
+                              onClick={() => loadSavedDesign(d.id)}
+                              className="px-2 py-1 rounded bg-brand-accent/15 text-brand-accent font-bold text-[10px]"
+                            >
+                              MUAT
+                            </button>
+                            <button
+                              onClick={() => duplicateSavedDesign(d.id)}
+                              className="p-1 rounded text-text-muted hover:text-text-primary"
+                              title="Duplikat"
+                            >
+                              <Copy size={12} />
+                            </button>
+                            <button
+                              onClick={() => deleteSavedDesign(d.id)}
+                              className="p-1 rounded text-text-muted hover:text-red-400"
+                              title="Hapus"
+                            >
+                              <Trash2 size={12} />
+                            </button>
+                          </div>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                )}
+
+                {/* Sub-mode: EKSPOR */}
+                {(optionSubMode === "export" || activeTab === "export") && (
+                  <div className="space-y-2">
+                    <div className="grid grid-cols-2 gap-1.5 p-1 bg-surface/60 rounded-xl border border-border-subtle text-[10px]">
+                      <button
+                        type="button"
+                        onClick={() => setExportBgMode("studio")}
+                        className={`py-1 rounded-lg border text-center font-bold ${
+                          exportBgMode === "studio"
+                            ? "bg-brand-accent/20 border-brand-accent text-brand-accent"
+                            : "bg-surface border-border-subtle text-text-muted"
+                        }`}
+                      >
+                        Latar Studio
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setExportBgMode("transparent")}
+                        className={`py-1 rounded-lg border text-center font-bold ${
+                          exportBgMode === "transparent"
+                            ? "bg-brand-accent/20 border-brand-accent text-brand-accent"
+                            : "bg-surface border-border-subtle text-text-muted"
+                        }`}
+                      >
+                        Transparan (PNG)
+                      </button>
+                    </div>
+                    <div className="grid grid-cols-2 gap-2">
+                      <button
+                        onClick={() => void handleExportFrontPNG("front-view")}
+                        disabled={isExportingImage}
+                        className="min-h-[44px] px-3 py-2 rounded-xl bg-surface border border-border-subtle text-text-primary font-bold text-[11px] uppercase disabled:opacity-50"
+                      >
+                        PNG DEPAN
+                      </button>
+                      <button
+                        onClick={() => void handleExportBackPNG("back-view")}
+                        disabled={isExportingImage}
+                        className="min-h-[44px] px-3 py-2 rounded-xl bg-surface border border-border-subtle text-text-primary font-bold text-[11px] uppercase disabled:opacity-50"
+                      >
+                        PNG BELAKANG
+                      </button>
+                    </div>
+                    <button
+                      onClick={() => void handleExportCurrentPNG("current-view")}
+                      disabled={isExportingImage}
+                      className="w-full min-h-[44px] px-3 py-2 rounded-xl bg-brand-accent text-canvas font-bold text-[11px] uppercase disabled:opacity-50"
+                    >
+                      {isExportingImage ? "MERENDER 2K HD..." : "UNDUH SAAT INI (2K HD)"}
+                    </button>
+                    <button
+                      onClick={() => void handleShareMockup()}
+                      disabled={isSharing}
+                      className="w-full min-h-[44px] px-3 py-2 rounded-xl bg-surface border border-brand-accent/50 text-brand-accent font-bold text-[11px] uppercase disabled:opacity-50 flex items-center justify-center gap-1.5"
+                    >
+                      <Share2 size={13} />
+                      <span>{isSharing ? "MENYIAPKAN KARTU…" : "BAGIKAN KARTU MOCKUP"}</span>
+                    </button>
+                    <div className="grid grid-cols-3 gap-1.5" role="radiogroup" aria-label="Format video 360">
+                      {(["mp4", "webm", "gif"] as const).map((f) => (
                         <button
-                          key={id}
-                          onClick={() => setMotionClip(id)}
-                          className={`min-h-[44px] px-1 py-2 rounded-xl border text-[11px] font-bold uppercase ${
-                            motionClip === id
+                          key={f}
+                          role="radio"
+                          aria-checked={export360Format === f}
+                          onClick={() => setExport360Format(f)}
+                          disabled={isRecording360}
+                          className={`min-h-[38px] px-2 py-1.5 rounded-xl border text-[11px] font-bold uppercase disabled:opacity-50 ${
+                            export360Format === f
                               ? "bg-brand-accent/15 border-brand-accent text-brand-accent"
                               : "bg-surface border-border-subtle text-text-primary"
                           }`}
                         >
-                          {label}
+                          {f}
                         </button>
                       ))}
                     </div>
-                    <div className="flex items-center gap-2 px-1">
-                      <span className="text-[11px] text-text-muted">KECEPATAN</span>
-                      <input
-                        type="range"
-                        min="0.2"
-                        max="2"
-                        step="0.05"
-                        value={motionSpeed}
-                        onChange={(e) => setMotionSpeed(parseFloat(e.target.value))}
-                        className="flex-1 accent-brand-accent min-h-[44px]"
-                        aria-label="Kecepatan gerak manekin"
-                      />
-                      <span className="text-[11px] font-bold text-brand-accent">{motionSpeed.toFixed(2)}x</span>
-                    </div>
-                  </>
-                )}
-              <div className="flex gap-2">
-                {(["static", "wind", "walking"] as const).map((p) => (
-                  <button
-                    key={p}
-                    onClick={() => setAnimationPreset(p as any)}
-                    className={`flex-1 min-h-[44px] px-3 py-2 rounded-xl border text-[11px] font-bold uppercase ${
-                      animationPreset === p
-                        ? "bg-brand-accent/15 border-brand-accent text-brand-accent"
-                        : "bg-surface border-border-subtle text-text-primary"
-                    }`}
-                  >
-                    {p}
-                  </button>
-                ))}
-              </div>
-              </div>
-            )}
-
-            {activeTab === "saved" && (
-              <div className="space-y-2">
-                <div className="flex gap-2">
-                  <input
-                    value={designTitleInput}
-                    onChange={(e) => setDesignTitleInput(e.target.value.slice(0, 60))}
-                    placeholder="Nama desain…"
-                    maxLength={60}
-                    className="flex-1 min-h-[44px] px-3 rounded-xl bg-surface border border-border-subtle text-text-primary text-base"
-                  />
-                  <button
-                    onClick={handleSaveDesign}
-                    className="min-h-[44px] px-4 rounded-xl bg-brand-accent text-canvas font-bold text-[11px]"
-                  >
-                    SIMPAN
-                  </button>
-                </div>
-                {/* Blokir lembut guest ber-gambar (mobile): pesan jelas + login. */}
-                {enhancementMessage && (
-                  <div role="status" className="p-2.5 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-300 text-[11px] font-mono">
-                    {enhancementMessage}
+                    <button
+                      onClick={() => void handleExport360Video()}
+                      disabled={isRecording360}
+                      className="w-full min-h-[44px] px-3 py-2 rounded-xl bg-surface border border-brand-accent/50 text-brand-accent font-bold text-[11px] uppercase disabled:opacity-50 flex items-center justify-center gap-1.5"
+                    >
+                      <Video size={13} />
+                      <span>
+                        {isRecording360
+                          ? `MEREKAM 360° ${export360Format.toUpperCase()} (${recordingProgress}%)…`
+                          : `EKSPOR 360° ${export360Format.toUpperCase()}`}
+                      </span>
+                    </button>
                   </div>
                 )}
-                {savedDesigns.length === 0 ? (
-                  <p className="text-[11px] text-text-muted">Belum ada desain tersimpan.</p>
-                ) : (
-                  savedDesigns.slice(0, 6).map((d) => (
-                    <button
-                      key={d.id}
-                      onClick={() => loadSavedDesign(d.id)}
-                      className="w-full min-h-[44px] p-2 rounded-xl border border-border-subtle bg-surface text-left text-[11px] text-text-primary truncate"
-                    >
-                      {d.title}
-                    </button>
-                  ))
-                )}
+              </>
+            )}
               </div>
             )}
 
-            {activeTab === "export" && (
-              <div className="space-y-2">
-                <div className="grid grid-cols-2 gap-2">
-                  <button
-                    onClick={() => handleExportPNG("front-view")}
-                    className="min-h-[44px] px-3 py-2 rounded-xl bg-surface border border-border-subtle text-text-primary font-bold text-[11px] uppercase"
-                  >
-                    PNG DEPAN
-                  </button>
-                  <button
-                    onClick={() => void handleExportBackPNG("back-view")}
-                    className="min-h-[44px] px-3 py-2 rounded-xl bg-surface border border-border-subtle text-text-primary font-bold text-[11px] uppercase"
-                  >
-                    PNG BELAKANG
-                  </button>
-                </div>
-                <button
-                  onClick={() => void handleShareMockup()}
-                  disabled={isSharing}
-                  className="w-full min-h-[48px] px-3 py-2 rounded-xl bg-surface border border-brand-accent/50 text-brand-accent font-bold text-[11px] uppercase disabled:opacity-50 flex items-center justify-center gap-1.5"
-                >
-                  <Share2 size={13} />
-                  <span>{isSharing ? "MENYIAPKAN KARTU…" : "BAGIKAN KARTU MOCKUP"}</span>
-                </button>
-                <div className="grid grid-cols-3 gap-2" role="radiogroup" aria-label="Format video 360">
-                  {(["mp4", "webm", "gif"] as const).map((f) => (
-                    <button
-                      key={f}
-                      role="radio"
-                      aria-checked={export360Format === f}
-                      onClick={() => setExport360Format(f)}
-                      disabled={isRecording360}
-                      className={`min-h-[44px] px-2 py-2 rounded-xl border text-[11px] font-bold uppercase disabled:opacity-50 ${
-                        export360Format === f
-                          ? "bg-brand-accent/15 border-brand-accent text-brand-accent"
-                          : "bg-surface border-border-subtle text-text-primary"
-                      }`}
-                    >
-                      {f}
-                    </button>
-                  ))}
-                </div>
-                <button
-                  onClick={() => void handleExport360Video()}
-                  disabled={isRecording360}
-                  className="w-full min-h-[48px] px-3 py-2 rounded-xl bg-surface border border-brand-accent/50 text-brand-accent font-bold text-[11px] uppercase disabled:opacity-50 flex items-center justify-center gap-1.5"
-                >
-                  <Video size={13} />
-                  <span>
-                    {isRecording360
-                      ? `MEREKAM 360° ${export360Format.toUpperCase()} (${recordingProgress}%)…`
-                      : `EKSPOR 360° ${export360Format.toUpperCase()}`}
-                  </span>
-                </button>
-              </div>
-            )}
-
-            <div className="p-3 rounded-xl bg-surface/60 border border-border-subtle flex justify-between items-center">
-              <span className="text-[11px] text-text-muted">ESTIMASI</span>
-              <span className="font-bold text-brand-accent">{pricing.formattedTotal}</span>
+            <div className="p-2.5 rounded-xl bg-surface/60 border border-border-subtle flex justify-between items-center">
+              <span className="text-[10px] font-mono text-text-muted uppercase">ESTIMASI TOTAL</span>
+              <span className="font-mono font-bold text-sm text-brand-accent">{pricing.formattedTotal}</span>
             </div>
             <button
               onClick={openCheckoutWithMasterGate}
-              className="w-full min-h-[48px] py-3 rounded-xl bg-brand-accent text-canvas font-bold text-xs uppercase"
+              className="w-full min-h-[44px] py-2.5 rounded-xl bg-brand-accent text-canvas font-mono font-bold text-xs uppercase tracking-wider shadow-md active:scale-98 transition-all flex items-center justify-center space-x-2"
             >
-              PESAN (DUITKU) — {pricing.formattedTotal}
+              <ShoppingCart size={14} />
+              <span>PESAN SEKARANG</span>
             </button>
             <p className="text-[10px] text-text-muted text-center">Geser handle di atas untuk peek / half / full — vaul pattern aktif di mobile</p>
           </div>

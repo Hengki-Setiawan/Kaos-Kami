@@ -11,8 +11,14 @@ import { CartDrawer } from "@/components/ui/CartDrawer";
 import { useSession } from "@/lib/auth-client";
 
 export const Navbar: React.FC = () => {
+  const [mounted, setMounted] = React.useState(false);
   const [isAuthOpen, setIsAuthOpen] = React.useState(false);
   const [isMenuOpen, setIsMenuOpen] = React.useState(false);
+
+  React.useEffect(() => {
+    setMounted(true);
+  }, []);
+
   const { data: session } = useSession();
   // Badge reaktif: subscribe `items` langsung (hitung qty via reduce) agar
   // badge update tiap add/remove/updateQuantity. JANGAN subscribe getTotalCount
@@ -56,11 +62,17 @@ export const Navbar: React.FC = () => {
             href="/"
             className="hover:opacity-85 transition-opacity flex items-center shrink-0"
           >
-            {/* eslint-disable-next-line @next/next/no-img-element -- logo mungil lokal; images.unoptimized=true sehingga next/image tak menambah nilai */}
+            {/* eslint-disable-next-line @next/next/no-img-element -- logo adaptif tema via CSS; kedua img ada di SSR sehingga 0 hydration mismatch */}
             <img
-              src={isLight ? "/brand/logo-black-clean.png" : "/brand/logo-white-clean.png"}
+              src="/brand/logo-white-clean.png"
               alt="Kaos Kami"
-              className="h-8 sm:h-9 w-auto object-contain"
+              className="h-8 sm:h-9 w-auto object-contain logo-dark-mode"
+            />
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src="/brand/logo-black-clean.png"
+              alt="Kaos Kami"
+              className="h-8 sm:h-9 w-auto object-contain logo-light-mode"
             />
           </Link>
         </div>
@@ -109,10 +121,15 @@ export const Navbar: React.FC = () => {
         <button
           onClick={() => setStudioTheme(isLight ? "obsidian" : "gallery")}
           className="max-[379px]:hidden p-2.5 rounded-full bg-surface border border-border-subtle text-text-muted hover:text-text-primary transition-all"
-          title={isLight ? "Mode Gelap (Obsidian)" : "Mode Terang (Gallery)"}
+          title={mounted ? (isLight ? "Mode Gelap (Obsidian)" : "Mode Terang (Gallery)") : "Ganti Tema"}
           aria-label="Toggle Light/Dark Mode"
+          suppressHydrationWarning
         >
-          {isLight ? <Moon size={15} className="text-neutral-800" /> : <Sun size={15} className="text-brand-accent" />}
+          {mounted ? (
+            isLight ? <Moon size={15} className="text-neutral-800" /> : <Sun size={15} className="text-brand-accent" />
+          ) : (
+            <Sun size={15} className="text-brand-accent" />
+          )}
         </button>
 
         {/* User Account / Login Button */}

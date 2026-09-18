@@ -17,10 +17,27 @@
 // aspek sumber diketahui, sumbu acuan dipilih dari SISI PANJANG SUMBER
 // (bukan max() buta atas bbox) — lihat fabricToDecal.
 import type { ApparelType, DecalLayer } from "./constants";
-import { cmToUnits, EDITOR_PX_PER_CM, unitsToCm } from "./patternGeometry";
+import {
+  cmToUnits,
+  EDITOR_PX_PER_CM,
+  unitsToCm,
+  getPanelOrigin,
+  getPrintBounds,
+  type PanelOrigin,
+  type PrintBounds,
+  type PatternPanel,
+} from "./patternGeometry";
+
+export {
+  getPanelOrigin,
+  getPrintBounds,
+  type PanelOrigin,
+  type PrintBounds,
+  type PatternPanel,
+};
 
 export interface FabricPlacement {
-  /** px dari tengah kanvas (x kanan+, y bawah+) */
+  /** px offset dari origin panel getPanelOrigin(apparel, panel) (x kanan+, y bawah+) */
   cxPx: number;
   cyPx: number;
   /** lebar px artwork */

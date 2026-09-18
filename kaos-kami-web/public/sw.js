@@ -1,9 +1,18 @@
-const CACHE_NAME = "kaos-kami-cache-v6";
+const CACHE_NAME = "kaos-kami-cache-v10";
 
 // Precache ONLY immutable 3D models and runtime assets (NEVER HTML pages!)
 const STATIC_ASSETS = [
   "/manifest.json",
   "/favicon.ico",
+  "/models/mannequin.glb",
+  "/models/mannequin-tee.glb",
+  "/models/mannequin-hoodie.glb",
+  "/models/mannequin-longsleeve.glb",
+  "/models/mannequin-sweater.glb",
+  "/models/mannequin-pants.glb",
+  "/models/mannequin-shorts.glb",
+  "/models/mannequin-cap.glb",
+  "/models/mannequin-jacket.glb",
   "/models/tee-basic.glb",
   "/models/tshirt-heavyweight.glb",
   "/models/longsleeve.glb",
@@ -40,11 +49,17 @@ self.addEventListener("activate", (event) => {
 });
 
 // Fetch event:
-// 1. Navigation (HTML) -> ALWAYS Network First (never serve stale index.html chunks!)
-// 2. Next.js chunks (/_next/) -> ALWAYS Network directly
-// 3. 3D GLB & textures -> Cache First
+// 1. Cross-origin requests -> DO NOT intercept (let browser load scripts naturally without CSP connect-src triggers)
+// 2. Navigation (HTML) -> ALWAYS Network First (never serve stale index.html chunks!)
+// 3. Next.js chunks (/_next/) -> ALWAYS Network directly
+// 4. 3D GLB & textures -> Cache First
 self.addEventListener("fetch", (event) => {
   const url = new URL(event.request.url);
+
+  // Cross-origin requests (e.g. Duitku, Google Analytics, Cloudflare): let browser handle directly
+  if (url.origin !== self.location.origin) {
+    return;
+  }
 
   // Navigation requests (HTML pages) and Next.js internal chunks: ALWAYS fresh network
   if (

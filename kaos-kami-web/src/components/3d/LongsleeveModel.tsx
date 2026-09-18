@@ -8,43 +8,24 @@ import { easing } from "maath";
 import { useConfiguratorStore } from "@/store/useConfiguratorStore";
 import { useShallow } from "zustand/shallow";
 import { DecalLayerRenderer } from "./DecalLayerRenderer";
-import { ensureWindWeights } from "@/lib/geometryPrep";
 import { createClothPhysicalMaterial } from "@/lib/materials/clothPhysicalMaterial";
 import { useDeviceTier } from "@/hooks/useDeviceTier";
 import { useResourceTracker, useTrackedResource } from "@/lib/threeResourceTracker";
 import { surfaceZForApparel } from "@/lib/scaleCalibration";
 import { extractApparelGeometry } from "@/lib/extractApparelGeometry";
+import { getStretchFactors } from "@/lib/3d/stretchPhysics";
 
-const MODEL_PATH = "/models/longsleeve.glb?v=7";
+const MODEL_PATH = "/models/longsleeve.glb?v=15";
 
 // PERF 14 Sep 2026: top-level useGLTF.preload DIHAPUS — preload terpusat
 // HANYA via idle-preload di CanvasStage (aktif + tetangga katalog) agar tak
 // berebut bandwidth first paint.
 
-/** Ambil geometri mesh (bisa T_Shirt_male atau mesh pertama di scene). */
-function firstMeshGeometry(nodes: any, scene?: THREE.Group): THREE.BufferGeometry | undefined {
-  if (nodes?.T_Shirt_male?.geometry) return nodes.T_Shirt_male.geometry as THREE.BufferGeometry;
-  const found = Object.values(nodes ?? {}).find(
-    (n: any) => n && (n as any).isMesh && (n as any).geometry
-  ) as any;
-  if (found?.geometry) return found.geometry as THREE.BufferGeometry;
-  if (scene) {
-    let geom: THREE.BufferGeometry | undefined;
-    scene.traverse((child: any) => {
-      if (!geom && child.isMesh && child.geometry) {
-        geom = child.geometry;
-      }
-    });
-    return geom;
-  }
-  return undefined;
-}
-
 const GltfLongsleeve: React.FC<{ path: string }> = ({ path }) => {
   const meshRef = useRef<THREE.Group>(null);
   const { tier } = useDeviceTier();
   const invalidate = useThree((s) => s.invalidate);
-  const { nodes, scene } = useGLTF(path) as any;
+  const { scene } = useGLTF(path) as any;
   const {
     selectedColor,
     isRotating,
@@ -58,6 +39,9 @@ const GltfLongsleeve: React.FC<{ path: string }> = ({ path }) => {
     activeColorMode,
     animationPreset,
     animationSpeed,
+    testLabMode,
+    stretchIntensity,
+    stretchDirection,
   } = useConfiguratorStore(
     useShallow((s) => ({
       selectedColor: s.selectedColor,
@@ -72,6 +56,9 @@ const GltfLongsleeve: React.FC<{ path: string }> = ({ path }) => {
       activeColorMode: s.activeColorMode,
       animationPreset: s.animationPreset,
       animationSpeed: s.animationSpeed,
+      testLabMode: s.testLabMode,
+      stretchIntensity: s.stretchIntensity,
+      stretchDirection: s.stretchDirection,
     }))
   );
 
@@ -84,17 +71,17 @@ const GltfLongsleeve: React.FC<{ path: string }> = ({ path }) => {
       ? 0.2
       : 0;
 
+  // Bangun geometri longsleeve seamless terkalibrasi proporsional (selaras Hoodie acuan emas):
+  // scaleMultiplier 0.72 (lebar 51.5cm = Size L) & crownYOffset -0.12 (kerah turun ke pangkal leher, dada di Y=0).
   const baseGeometry = useMemo(() => {
-    return extractApparelGeometry(scene);
+    return extractApparelGeometry(scene, { scaleMultiplier: 0.72, crownYOffset: -0.12 });
   }, [scene, path]);
 
   useEffect(() => {
     if (baseGeometry) invalidate();
   }, [invalidate, baseGeometry]);
 
-  // Multi-part coloring for longsleeve (collar, sleeves including cuffs, body).
-  // Atribut warna ditulis in-place di clone milik sendiri (+needsUpdate, tanpa
-  // alokasi/merge ulang). Ambang (y>0.16 kerah, |x|>0.14 lengan) TAK DIUBAH.
+  // Pewarnaan badan & lengan untuk multi-part (ruang terkalibrasi: kerah y>0.12, lengan |x|>0.18)
   const coloredGeometry = useMemo(() => {
     if (!baseGeometry) return null;
     if (activeColorMode !== "multi-part") {
@@ -119,8 +106,8 @@ const GltfLongsleeve: React.FC<{ path: string }> = ({ path }) => {
     for (let i = 0; i < pos.count; i++) {
       const x = pos.getX(i);
       const y = pos.getY(i);
-      if (y > 0.16) tmp.copy(colCollar);
-      else if (Math.abs(x) > 0.14) tmp.copy(colSleeve);
+      if (y > 0.12) tmp.copy(colCollar);
+      else if (Math.abs(x) > 0.18) tmp.copy(colSleeve);
       else tmp.copy(colBody);
       arr[i * 3] = tmp.r;
       arr[i * 3 + 1] = tmp.g;
@@ -130,7 +117,7 @@ const GltfLongsleeve: React.FC<{ path: string }> = ({ path }) => {
     return baseGeometry;
   }, [baseGeometry, activeColorMode, partColors, selectedColor]);
 
-  // Use realistic cloth physical material with sheen & peach fuzz
+  // Material kain fisik realistis
   const material = useMemo(() => {
     return createClothPhysicalMaterial({
       archetype: "longsleeve",
@@ -143,11 +130,6 @@ const GltfLongsleeve: React.FC<{ path: string }> = ({ path }) => {
     });
   }, [selectedColor, isWireframe, activeColorMode, materialFinish, windStrength, tier]);
 
-  // Dispose via ResourceTracker (audit #6–#9): SEMUA generasi coloredGeometry
-  // adalah clone milik sendiri (cache GLB tak pernah disentuh — lihat atas).
-  // Tracker TERPISAH per jenis agar ganti material tak ikut membuang
-  // geometri yang masih hidup. (Di bawah material — hook tak boleh pakai
-  // variabel sebelum deklarasi.)
   const geoTracker = useResourceTracker();
   const matTracker = useResourceTracker();
   useTrackedResource(geoTracker, coloredGeometry);
@@ -158,8 +140,6 @@ const GltfLongsleeve: React.FC<{ path: string }> = ({ path }) => {
       const firstPartColor = Object.values(partColors)[0];
       if (firstPartColor) material.color.set(firstPartColor);
     }
-    // Dispose material ditangani ResourceTracker (lihat atas) — bukan di
-    // sini, agar ganti partColors tak membuang material yang masih dipakai.
   }, [material, activeColorMode, partColors]);
 
   useFrame((state, delta) => {
@@ -191,17 +171,21 @@ const GltfLongsleeve: React.FC<{ path: string }> = ({ path }) => {
   const posY = viewMode === "story" ? -0.05 : modelPosY - 0.05;
   const scale = viewMode === "story" ? 1.0 : modelScale;
 
+  if (!baseGeometry) return null;
+
+  const stretchFactors = getStretchFactors(testLabMode, stretchIntensity, stretchDirection);
+
   return (
     <group
       ref={meshRef}
       position={[posX, posY, 0]}
-      scale={[scale, scale, scale]}
+      scale={[scale * stretchFactors.stretchX, scale * stretchFactors.stretchY, scale * stretchFactors.stretchZ]}
       dispose={null}
     >
       <mesh
         castShadow
         receiveShadow
-        geometry={(coloredGeometry as any) || baseGeometry}
+        geometry={coloredGeometry || baseGeometry}
         material={material}
       >
         <DecalLayerRenderer surfaceZFront={surfaceZForApparel("longsleeve")} surfaceZBack={surfaceZForApparel("longsleeve")} />

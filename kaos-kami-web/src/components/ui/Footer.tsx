@@ -18,8 +18,8 @@ export const Footer: React.FC = () => {
             alt="Kaos Kami"
             className="h-9 w-auto object-contain mb-2 logo-light-mode"
           />
-          <p className="text-xs font-mono text-text-muted max-w-sm leading-relaxed">
-            Platform Sablon DTF 3D & Heavyweight Streetwear Apparel. {SHOP_WORKSHOP_ADDRESS}.
+          <p suppressHydrationWarning className="text-xs font-mono text-text-muted max-w-sm leading-relaxed">
+            Platform Sablon DTF 3D & Kaos Polos Berkualitas Makassar. {SHOP_WORKSHOP_ADDRESS}.
           </p>
           <a
             href={shopWaLink("Halo Kaos Kami, saya mau tanya-tanya dulu.")}
@@ -54,8 +54,8 @@ export const Footer: React.FC = () => {
           </div>
         </nav>
       </div>
-      <p className="mt-8 text-[11px] font-mono text-text-muted">
-        © {new Date().getFullYear()} KAOS KAMI MAKASSAR — Sablon DTF & Heavyweight Streetwear.
+      <p suppressHydrationWarning className="mt-8 text-[11px] font-mono text-text-muted">
+        © {new Date().getFullYear()} KAOS KAMI MAKASSAR — Sablon DTF & Kaos Polos Komunitas.
       </p>
     </footer>
   );

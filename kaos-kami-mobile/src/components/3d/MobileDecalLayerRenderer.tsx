@@ -106,9 +106,10 @@ function DecalItem({
   const apparel = useMobileStudioStore((s) => s.apparelType);
   const maxScale = mobileMaxScaleUnits(apparel);
   const maxDimension = Math.min(maxScale, Math.max(0.02, scale[0]));
+  const depth = Math.min(0.12, maxDimension);
   const finalScale: [number, number, number] = aspect >= 1
-    ? [maxDimension, maxDimension / aspect, maxDimension]
-    : [maxDimension * aspect, maxDimension, maxDimension];
+    ? [maxDimension, maxDimension / aspect, depth]
+    : [maxDimension * aspect, maxDimension, depth];
 
   return (
     <Decal

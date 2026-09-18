@@ -38,10 +38,10 @@ export function evaluatePrintQuality(
     return {
       dpi: 0,
       tier: "POOR",
-      badgeLabel: "🔴 0 DPI (Peringatan: Gambar Blur/Pecah)",
+      badgeLabel: "🔴 Kualitas Rendah (Kurang Tajam)",
       badgeColor: "text-rose-400 bg-rose-950/40 border-rose-500/30",
-      warningMessage: "Dimensi piksel gambar tidak terbaca. Coba unggah ulang file.",
-      recommendation: "Gunakan file beresolusi lebih tinggi atau perkecil skala sablon.",
+      warningMessage: "Dimensi gambar tidak terbaca. Coba unggah ulang file.",
+      recommendation: "Gunakan file beresolusi lebih tinggi atau perkecil ukuran sablon.",
     };
   }
   const wIn = Math.max(0.5, safeWCm / 2.54);
@@ -55,27 +55,27 @@ export function evaluatePrintQuality(
     return {
       dpi,
       tier: "EXCELLENT",
-      badgeLabel: `🟢 ${dpi} DPI (HD Tajam & Siap Cetak)`,
+      badgeLabel: "🟢 Sangat Tajam & Siap Cetak",
       badgeColor: "text-emerald-400 bg-emerald-950/40 border-emerald-500/30",
-      recommendation: "Resolusi grafis sangat prima. Cetakan sablon DTF akan memiliki detail mikroskopis yang jernih.",
+      recommendation: "Kualitas gambar sangat prima. Hasil cetak sablon DTF akan memiliki detail yang jernih dan tajam.",
     };
   } else if (dpi >= 150) {
     return {
       dpi,
       tier: "GOOD",
-      badgeLabel: `🟡 ${dpi} DPI (Kualitas Cukup Jelas)`,
+      badgeLabel: "🟡 Kualitas Cukup Jelas",
       badgeColor: "text-amber-400 bg-amber-950/40 border-amber-500/30",
       warningMessage: "Hasil cetak cukup baik, namun garis sangat halus mungkin terlihat sedikit lembut.",
-      recommendation: "Untuk hasil maksimal standar distro, gunakan resolusi minimal 2000px atau perkecil sedikit skala sablon.",
+      recommendation: "Untuk hasil maksimal standar distro, gunakan resolusi lebih tinggi atau perkecil sedikit ukuran sablon.",
     };
   } else {
     return {
       dpi,
       tier: "POOR",
-      badgeLabel: `🔴 ${dpi} DPI (Peringatan: Gambar Blur/Pecah)`,
+      badgeLabel: "🔴 Kualitas Rendah (Gambar Pecah)",
       badgeColor: "text-rose-400 bg-rose-950/40 border-rose-500/30",
-      warningMessage: "Resolusi file terlalu kecil untuk ukuran cetak ini. Gambar berpotensi pecah/pixelated di atas kain.",
-      recommendation: "Perkecil skala gambar atau gunakan tombol [Pertajam Resolusi] / ganti dengan file berresolusi lebih tinggi.",
+      warningMessage: "Ukuran file terlalu kecil untuk ukuran cetak ini. Gambar berpotensi pecah atau blur saat dicetak.",
+      recommendation: "Perkecil ukuran sablon atau gunakan tombol Edit Gambar / ganti dengan file yang lebih besar.",
     };
   }
 }

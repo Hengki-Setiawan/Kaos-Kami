@@ -48,7 +48,7 @@ export const LookbookImage: React.FC<LookbookImageProps> = ({
       priority={priority}
       loading={priority ? undefined : "lazy"}
       fetchPriority={priority ? "high" : undefined}
-      unoptimized={rawSrc}
+      unoptimized={true}
     />
   );
 };

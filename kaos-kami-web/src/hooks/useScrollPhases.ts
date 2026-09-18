@@ -47,11 +47,11 @@ export const useScrollPhases = () => {
           scrub,
           onUpdate: (self) => {
             const progress = self.progress;
-            if (progress < 0.28) {
+            if (progress < 0.32) {
               setActivePhase(1);
-            } else if (progress < 0.62) {
+            } else if (progress < 0.68) {
               setActivePhase(2);
-            } else if (progress < 0.88) {
+            } else if (progress < 0.96) {
               setActivePhase(3);
             } else {
               setActivePhase(4);
@@ -62,31 +62,31 @@ export const useScrollPhases = () => {
 
       const ease = prefersReducedMotion ? "none" : "power2.inOut";
 
-      // Phase 1 -> Phase 2 (Macro Inspection Zoom into Left Screen)
+      // Phase 1 -> Phase 2: Kaos berada di kanan (+0.78), kamera tetap seimbang luas agar kaos tidak tertarik ke tengah
       masterTimeline.to(
         camPosRef.current,
-        { x: -0.15, y: 0.12, z: 1.5, ease },
+        { x: 0.05, y: 0.04, z: 2.2, ease },
         0.32
       );
       masterTimeline.to(
         lookAtRef.current,
-        { x: -0.35, y: 0.08, z: 0, ease },
+        { x: 0.15, y: 0.02, z: 0, ease },
         0.32
       );
 
-      // Phase 2 -> Phase 3 (Back to Full Framing for 180° Rear Reveal on Right Screen)
+      // Phase 2 -> Phase 3: Kaos berada di kiri (-0.82), kamera tetap proporsional memberi ruang luas teks A3+ di kanan
       masterTimeline.to(
         camPosRef.current,
-        { x: 0, y: 0, z: 2.7, ease },
+        { x: -0.06, y: 0.02, z: 2.25, ease },
         0.68
       );
       masterTimeline.to(
         lookAtRef.current,
-        { x: 0, y: 0, z: 0, ease },
+        { x: -0.10, y: 0.02, z: 0, ease },
         0.68
       );
 
-      // Phase 3 -> Phase 4 (Centered Stage for Lookbook & Studio Portal)
+      // Phase 3 -> Phase 4: Kamera kembali ke tengah untuk transisi Katalog & Studio
       masterTimeline.to(
         camPosRef.current,
         { x: 0, y: 0, z: 2.8, ease },

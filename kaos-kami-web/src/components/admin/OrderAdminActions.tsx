@@ -7,14 +7,23 @@ import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 // Resi Indonesia: alfanumerik + beberapa tanda, 5–64 karakter.
 const RESI_RE = /^[A-Za-z0-9][A-Za-z0-9 .\-/]{3,62}[A-Za-z0-9]$/;
 
-/** Aksi workshop di halaman detail order: isi resi + batalkan (dengan konfirmasi). */
-export function OrderAdminActions({ orderId, currentTracking }: { orderId: string; currentTracking?: string | null }) {
+/** Aksi workshop di halaman detail order: isi resi + batalkan + selesaikan order. */
+export function OrderAdminActions({
+  orderId,
+  currentTracking,
+  orderStatus,
+  deliveryMethod,
+}: {
+  orderId: string;
+  currentTracking?: string | null;
+  orderStatus?: string;
+  deliveryMethod?: string;
+}) {
   const router = useRouter();
   const [tracking, setTracking] = useState(currentTracking || "");
-  // busy per aksi (audit #29 — sebelumnya satu busy mengunci 3 tombol).
-  const [busyAction, setBusyAction] = useState<"resi" | "batal" | "refund" | null>(null);
+  const [busyAction, setBusyAction] = useState<"resi" | "batal" | "refund" | "completed" | "ready" | null>(null);
   const [msg, setMsg] = useState<string | null>(null);
-  const [asking, setAsking] = useState<"batal" | "refund" | null>(null);
+  const [asking, setAsking] = useState<"batal" | "refund" | "completed" | null>(null);
 
   const callApi = async (body: object) => {
     const ctrl = new AbortController();
@@ -52,6 +61,21 @@ export function OrderAdminActions({ orderId, currentTracking }: { orderId: strin
     }
   };
 
+  const doSetStatus = async (status: string) => {
+    setAsking(null);
+    setBusyAction(status === "COMPLETED" ? "completed" : "ready");
+    setMsg(null);
+    try {
+      await callApi({ status });
+      setMsg(`✅ Status pesanan diubah ke ${status}.`);
+      router.refresh();
+    } catch (e: any) {
+      setMsg(`❌ ${e?.message || "Gagal update status"}`);
+    } finally {
+      setBusyAction(null);
+    }
+  };
+
   const doAsk = async (kind: "batal" | "refund") => {
     setAsking(null);
     setBusyAction(kind);
@@ -74,6 +98,30 @@ export function OrderAdminActions({ orderId, currentTracking }: { orderId: strin
 
   return (
     <div className="p-4 rounded-xl bg-surface/60 border border-white/5 space-y-3 font-mono text-xs">
+      {/* Quick Status Advance Buttons */}
+      <div className="flex flex-wrap gap-2 pb-2 border-b border-white/5">
+        {orderStatus !== "COMPLETED" && orderStatus !== "CANCELLED" && orderStatus !== "REFUNDED" && (
+          <button
+            onClick={() => setAsking("completed")}
+            disabled={busyAction !== null}
+            className="px-3.5 py-2 rounded-xl bg-emerald-500/20 border border-emerald-500/40 hover:bg-emerald-500 hover:text-canvas text-emerald-300 font-bold uppercase tracking-wider text-[11px] disabled:opacity-50 transition-all flex items-center gap-1.5"
+          >
+            <span>{busyAction === "completed" ? "…" : "✔ Tandai Selesai / Diambil (COMPLETED)"}</span>
+          </button>
+        )}
+
+        {(orderStatus === "PRINTING" || orderStatus === "QUALITY_CHECK") && (
+          <button
+            onClick={() => void doSetStatus("READY_TO_SHIP")}
+            disabled={busyAction !== null}
+            className="px-3.5 py-2 rounded-xl bg-blue-500/20 border border-blue-500/40 hover:bg-blue-500 hover:text-white text-blue-300 font-bold uppercase tracking-wider text-[11px] disabled:opacity-50 transition-all"
+          >
+            <span>{busyAction === "ready" ? "…" : "📦 Tandai Siap Kirim / Ambil"}</span>
+          </button>
+        )}
+      </div>
+
+      {/* Input Resi */}
       <div className="flex flex-col sm:flex-row gap-2">
         <input
           value={tracking}
@@ -91,6 +139,8 @@ export function OrderAdminActions({ orderId, currentTracking }: { orderId: strin
           {busyAction === "resi" ? "…" : "Simpan resi"}
         </button>
       </div>
+
+      {/* Batal / Refund */}
       <div className="flex flex-wrap gap-2">
         <button
           onClick={() => setAsking("batal")}
@@ -109,6 +159,15 @@ export function OrderAdminActions({ orderId, currentTracking }: { orderId: strin
       </div>
       {msg && <p className="text-[11px] text-text-muted">{msg}</p>}
 
+      <ConfirmDialog
+        open={asking === "completed"}
+        title="Tandai pesanan selesai?"
+        message="Pesanan akan ditandai COMPLETED (sudah diambil pembeli di workshop atau paket terkirim). Semua task produksi terkait akan diselesaikan."
+        confirmLabel="YA, SELESAIKAN"
+        busy={busyAction === "completed"}
+        onConfirm={() => void doSetStatus("COMPLETED")}
+        onCancel={() => setAsking(null)}
+      />
       <ConfirmDialog
         open={asking === "batal"}
         title="Batalkan order?"

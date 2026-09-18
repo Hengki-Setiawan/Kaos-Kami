@@ -123,8 +123,8 @@ export const HOODIE_MODEL_CANDIDATES: Record<"high" | "low", string[]> = {
 };
 
 export const JACKET_MODEL_CANDIDATES: Record<"high" | "low", string[]> = {
-  high: ["/models/sweater.glb?v=7"],
-  low: ["/models/sweater.glb?v=7"],
+  high: ["/models/jacket.glb?v=15"],
+  low: ["/models/jacket.glb?v=15"],
 };
 
 export const TSHIRT_MODEL_CANDIDATES: Record<"high" | "low", string[]> = {
@@ -133,8 +133,8 @@ export const TSHIRT_MODEL_CANDIDATES: Record<"high" | "low", string[]> = {
 };
 
 export const LONGSLEEVE_MODEL_CANDIDATES: Record<"high" | "low", string[]> = {
-  high: ["/models/longsleeve.glb?v=7"],
-  low: ["/models/longsleeve.glb?v=7"],
+  high: ["/models/longsleeve.glb?v=15"],
+  low: ["/models/longsleeve.glb?v=15"],
 };
 
 export const CREWNECK_MODEL_CANDIDATES: Record<"high" | "low", string[]> = {

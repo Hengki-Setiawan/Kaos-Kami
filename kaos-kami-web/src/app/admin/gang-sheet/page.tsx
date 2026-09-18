@@ -143,6 +143,7 @@ export default function GangSheetBuilderPage() {
   const [unduhUrl, setUnduhUrl] = useState<string | null>(null);
   const [peringatanEkspor, setPeringatanEkspor] = useState<string[]>([]);
   const [disalin, setDisalin] = useState(false);
+  const [rollOrientation, setRollOrientation] = useState<"vertical" | "horizontal">("vertical");
 
   // ── Muat task ──
   const muatTask = useCallback(async () => {
@@ -225,7 +226,9 @@ export default function GangSheetBuilderPage() {
       allowRotation: true,
     }));
     if (rects.length === 0) return;
-    const r = packGangSheet(rects); // default 1000×580 mm, gap & margin kontrak
+    const binW = rollOrientation === "vertical" ? 580 : 1000;
+    const binH = rollOrientation === "vertical" ? 1000 : 580;
+    const r = packGangSheet(rects, { binWmm: binW, binHmm: binH });
     setHasil(r);
     setKotakEdit(r.bins.map((b) => b.map((p) => ({ ...p }))));
     setBinAktif(0);
@@ -591,6 +594,34 @@ export default function GangSheetBuilderPage() {
             </button>
           </div>
           <div className="flex flex-wrap items-end gap-3">
+            <div className="flex flex-col gap-1">
+              <span className="text-xs text-text-muted font-mono">Orientasi Roll Mesin:</span>
+              <div className="flex gap-1">
+                <button
+                  type="button"
+                  onClick={() => setRollOrientation("vertical")}
+                  className={`px-3 py-1.5 rounded-lg border font-bold text-xs transition-all ${
+                    rollOrientation === "vertical"
+                      ? "bg-amber-400 text-black border-amber-400 font-black shadow-sm"
+                      : "bg-surface border-border-subtle text-text-muted hover:text-text-primary"
+                  }`}
+                >
+                  Roll 58×100 cm (Standar DTF)
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setRollOrientation("horizontal")}
+                  className={`px-3 py-1.5 rounded-lg border font-bold text-xs transition-all ${
+                    rollOrientation === "horizontal"
+                      ? "bg-amber-400 text-black border-amber-400 font-black shadow-sm"
+                      : "bg-surface border-border-subtle text-text-muted hover:text-text-primary"
+                  }`}
+                >
+                  100×58 cm (Landscape)
+                </button>
+              </div>
+            </div>
+
             <label className="text-xs text-text-muted font-mono">
               Harga film /meter (Rp)
               <input
@@ -599,13 +630,13 @@ export default function GangSheetBuilderPage() {
                 step={500}
                 value={hargaPerMeter}
                 onChange={(e) => setHargaPerMeter(Math.max(0, Math.round(Number(e.target.value) || 0)))}
-                className="ml-2 w-32 px-2 py-1.5 rounded-lg bg-surface border border-border-subtle text-text-primary text-sm"
+                className="ml-2 w-28 px-2 py-1.5 rounded-lg bg-surface border border-border-subtle text-text-primary text-sm"
               />
             </label>
             <button
               onClick={susunOtomatis}
               disabled={dipilihValid.length === 0}
-              className="px-5 py-2.5 rounded-xl bg-amber-400 text-black font-black text-sm uppercase tracking-wide disabled:opacity-40"
+              className="px-5 py-2.5 rounded-xl bg-amber-400 text-black font-black text-sm uppercase tracking-wide disabled:opacity-40 hover:brightness-110 shadow-[0_0_12px_rgba(251,191,36,0.25)]"
             >
               Auto-susun ({dipilihValid.length} desain · {totalKopiDiminta} kopi)
             </button>

@@ -4,6 +4,7 @@ import { count } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { ProductVariant } from "@/lib/drizzle-schema";
 import { VariantRowActions } from "@/components/admin/VariantRowActions";
+import { AddProductModal } from "@/components/admin/AddProductModal";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -47,9 +48,12 @@ export default async function AdminCatalogPage({
 
   return (
     <div className="p-5 sm:p-8 space-y-8 max-w-7xl mx-auto font-mono text-xs">
-      <div className="pb-4 border-b border-border-subtle">
-        <h1 className="font-display text-2xl sm:text-3xl font-black uppercase text-text-primary">KATALOG MANAGEMENT (ADMIN)</h1>
-        <p className="text-text-muted mt-1">CRUD ApparelCategory • ProductVariant • ColorOption • MaterialFinish • SablonMethod — sinkron dengan Turso DB</p>
+      <div className="pb-4 border-b border-border-subtle flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div>
+          <h1 className="font-display text-2xl sm:text-3xl font-black uppercase text-text-primary">KATALOG MANAGEMENT (ADMIN)</h1>
+          <p className="text-text-muted mt-1">Input & kelola produk etalase • Stok & Harga • Kategori Apparel — sinkron langsung dengan Turso DB</p>
+        </div>
+        <AddProductModal categories={categories.map((c: any) => ({ id: c.id, name: c.name, slug: c.slug }))} />
       </div>
 
       <section className="space-y-3">

@@ -6,9 +6,9 @@ import StudioClientLoader from "./StudioClientLoader";
 // halaman ini tetap Server Component (metadata).
 
 export const metadata: Metadata = {
-  title: "Studio 3D Kustom Sablon DTF — Mockup Real-Time | Kaos Kami Makassar",
+  title: "Studio 3D Kustom Sablon DTF",
   description:
-    "Desain kaos, hoodie & crewneck dalam 3D real-time: upload desain, atur posisi skala cm 1:1 (maks 30 cm), cek DPI, lalu order ke workshop Makassar.",
+    "Desain kaos, hoodie & crewneck dalam 3D real-time: upload desain, atur posisi skala cm presisi, cek kualitas DPI, dan pesan langsung dari workshop Makassar.",
 };
 
 export default function StudioPage() {

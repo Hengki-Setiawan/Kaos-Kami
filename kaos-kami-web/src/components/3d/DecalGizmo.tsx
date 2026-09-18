@@ -1,25 +1,39 @@
 "use client";
 
-import React, { useRef, useState, useCallback, useEffect } from "react";
+import React, { useRef, useState } from "react";
 import { Html } from "@react-three/drei";
 import { useThree } from "@react-three/fiber";
+import * as THREE from "three";
 import { useConfiguratorStore } from "@/store/useConfiguratorStore";
 import { useShallow } from "zustand/shallow";
-import { APPAREL_PHYSICAL_SPECS, maxDecalScaleUnits, REAL_WORLD_PRINT_LIMITS, surfaceZForApparel, DECAL_MOVE_LIMITS, clampDecalXY, computePhysicalPrintDimensions } from "@/lib/scaleCalibration";
-import { Move, ZoomIn, RotateCw } from "lucide-react";
+import {
+  APPAREL_PHYSICAL_SPECS,
+  maxDecalScaleUnits,
+  REAL_WORLD_PRINT_LIMITS,
+  surfaceZForApparel,
+  DECAL_MOVE_LIMITS,
+  clampDecalXY,
+  getDecal3DPlacement,
+} from "@/lib/scaleCalibration";
+import { RotateCw, X } from "lucide-react";
 
 interface DecalGizmoProps {
   surfaceZ?: number;
 }
 
-/**
- * Toleransi snap magnetis (unit 3D): |x|≤0,01 → x=0 (tengah horizontal),
- * |y|≤0,01 → y=0 (tengah vertikal = pusat koordinat, bukan default -0,05).
- * Rumus cm tak diubah — snap hanya menggeser INPUT x/y ≤0,01 unit
- * (≈≤1cm tergantung multiplier apparel).
- */
 const SNAP_TOL = 0.01;
 
+/**
+ * Modern Graphic Decal Gizmo (Canva / Figma Style):
+ * - Screen-space crisp rendering (no blurry CSS matrix3d distortion).
+ * - Exact aspect-ratio bounding box that fits the graphic tightly without empty space.
+ * - 4 sleek corner resize dots (10px) with generous touch buffers (24px).
+ * - Stemmed rotation handle above the top edge (Math.atan2 1:1 smooth rotation).
+ * - Entire inner area is draggable (cursor-grab / grabbing) with 0% visual obstruction.
+ * - Auto-zone transition when dragging across front/side/sleeve/back boundaries.
+ * - Clean & unobtrusive: all side positions and dimensions are managed in the customizer drawer.
+ * - Window-level pointer tracking that never loses drag or freezes.
+ */
 export const DecalGizmo: React.FC<DecalGizmoProps> = ({ surfaceZ }) => {
   const {
     viewMode,
@@ -31,7 +45,12 @@ export const DecalGizmo: React.FC<DecalGizmoProps> = ({ surfaceZ }) => {
     updateDecal,
     setGizmoDragging,
     activeApparel,
-    studioTheme,
+    modelPosX,
+    modelPosY,
+    modelScale,
+    setCameraPreset,
+    animationPreset,
+    isRotating,
   } = useConfiguratorStore(
     useShallow((s) => ({
       viewMode: s.viewMode,
@@ -43,363 +62,484 @@ export const DecalGizmo: React.FC<DecalGizmoProps> = ({ surfaceZ }) => {
       updateDecal: s.updateDecal,
       setGizmoDragging: s.setGizmoDragging,
       activeApparel: s.activeApparel,
-      studioTheme: s.studioTheme,
+      modelPosX: s.modelPosX,
+      modelPosY: s.modelPosY,
+      modelScale: s.modelScale,
+      setCameraPreset: s.setCameraPreset,
+      animationPreset: s.animationPreset,
+      isRotating: s.isRotating,
     }))
   );
-  const isLight = studioTheme === "gallery";
+
   const { size, camera } = useThree();
+  const containerRef = useRef<HTMLDivElement>(null);
 
   const [activeGizmoTool, setActiveGizmoTool] = useState<"move" | "scale" | "rotate" | null>(null);
-  // Sumbu yang sedang snap (untuk garis panduan tipis). Dibersihkan saat lepas.
   const [snapAxis, setSnapAxis] = useState<{ x: boolean; y: boolean }>({ x: false, y: false });
 
   const activeDecal = decals.find((d) => d.id === selectedDecalId) ?? decals[0];
 
-  const dragRef = useRef<{
-    startX: number;
-    startY: number;
-    initialX: number;
-    initialY: number;
-    initialScale: number;
-    initialRotation: number;
-  }>({
-    startX: 0,
-    startY: 0,
-    initialX: 0,
-    initialY: 0,
-    initialScale: 1,
-    initialRotation: 0,
-  });
-
-  // Two-finger pinch tracking (native PointerEvents, no Hammer.js — blueprint §2)
-  const pinchRef = useRef<{ initialDist: number; initialScale: number; initialAngle: number; initialRot: number } | null>(null);
-  const activePointers = useRef<Map<number, { x: number; y: number }>>(new Map());
-  // PERF #8: coalesce updateDecal per frame — pointermove bisa 60–120Hz; tiap
-  // event = 1 commit zustand + re-render React + re-render 3D (jank saat drag).
-  // Patch digabung (merge) lalu flush SEKALI via rAF; pointer-up flush sinkron
-  // agar posisi akhir pasti ke-commit sebelum drag state dibersihkan.
-  const pendingDecalPatchRef = useRef<{ id: string; patch: { x?: number; y?: number; scale?: number; rotation?: number } } | null>(null);
-  const decalRafRef = useRef<number>(0);
-  const queueDecalUpdate = (id: string, patch: { x?: number; y?: number; scale?: number; rotation?: number }) => {
-    const prev = pendingDecalPatchRef.current;
-    pendingDecalPatchRef.current =
-      prev && prev.id === id ? { id, patch: { ...prev.patch, ...patch } } : { id, patch };
-    if (decalRafRef.current) return;
-    decalRafRef.current = requestAnimationFrame(() => {
-      decalRafRef.current = 0;
-      const pending = pendingDecalPatchRef.current;
-      pendingDecalPatchRef.current = null;
-      if (pending) {
-        try {
-          updateDecal(pending.id, pending.patch);
-        } catch {}
-      }
-    });
-  };
-  const flushDecalUpdate = () => {
-    try {
-      if (decalRafRef.current) cancelAnimationFrame(decalRafRef.current);
-    } catch {}
-    decalRafRef.current = 0;
-    const pending = pendingDecalPatchRef.current;
-    pendingDecalPatchRef.current = null;
-    if (pending) {
-      try {
-        updateDecal(pending.id, pending.patch);
-      } catch {}
-    }
-  };
-  useEffect(() => {
-    return () => {
-      try {
-        if (decalRafRef.current) cancelAnimationFrame(decalRafRef.current);
-      } catch {}
-      decalRafRef.current = 0;
-      pendingDecalPatchRef.current = null;
-    };
-  }, []);
-  const maxScaleUnits = () =>
-    maxDecalScaleUnits(activeApparel, activeDecal?.targetSide ?? "front");
-
-  const getTouchDistance = (p1: { x: number; y: number }, p2: { x: number; y: number }) =>
-    Math.hypot(p2.x - p1.x, p2.y - p1.y);
-  const getTouchAngle = (p1: { x: number; y: number }, p2: { x: number; y: number }) =>
-    (Math.atan2(p2.y - p1.y, p2.x - p1.x) * 180) / Math.PI;
-
-  const onPointerDown = (tool: "move" | "scale" | "rotate", e: React.PointerEvent) => {
-    e.stopPropagation();
-    if (!activeDecal) return;    (e.target as HTMLElement).setPointerCapture(e.pointerId);
-    activePointers.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
-
-    // If two pointers on gizmo, start pinch
-    if (activePointers.current.size === 2) {
-      const pts = Array.from(activePointers.current.values());
-      if (pts.length === 2 && pts[0] && pts[1]) {
-        pinchRef.current = {
-          initialDist: getTouchDistance(pts[0], pts[1]),
-          initialScale: activeDecal.scale,
-          initialAngle: getTouchAngle(pts[0], pts[1]),
-          initialRot: activeDecal.rotation,
-        };
-        setActiveGizmoTool("scale");
-        setGizmoDragging(true);
-        return;
-      }
-    }
-
-    setActiveGizmoTool(tool);
-    setGizmoDragging(true);
-
-    dragRef.current = {
-      startX: e.clientX,
-      startY: e.clientY,
-      initialX: activeDecal.x,
-      initialY: activeDecal.y,
-      initialScale: activeDecal.scale,
-      initialRotation: activeDecal.rotation,
-    };
-  };
-
-  const onPointerMove = (e: React.PointerEvent) => {
-    if (!activeDecal) return;
-    e.stopPropagation();
-
-    // Update pointer position
-    if (activePointers.current.has(e.pointerId)) {
-      activePointers.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
-    }
-
-    // Two-finger pinch handling
-    if (activePointers.current.size === 2 && pinchRef.current) {
-      const pts = Array.from(activePointers.current.values());
-      if (pts.length === 2 && pts[0] && pts[1]) {
-        const curDist = getTouchDistance(pts[0], pts[1]);
-        const curAngle = getTouchAngle(pts[0], pts[1]);
-        const scaleFactor = curDist / Math.max(1, pinchRef.current.initialDist);
-        const nextScale = Math.max(REAL_WORLD_PRINT_LIMITS.minDecalScaleUnits, Math.min(maxScaleUnits(), pinchRef.current.initialScale * scaleFactor));
-        const angleDelta = curAngle - pinchRef.current.initialAngle;
-        const nextRot = Math.round(((pinchRef.current.initialRot + angleDelta + 180) % 360) - 180);
-        queueDecalUpdate(activeDecal.id, { scale: nextScale, rotation: nextRot });
-        return;
-      }
-    }
-
-    if (!activeGizmoTool) return;
-
-    // Drag akurat-cm (audit #4): konversi piksel → unit dunia via kamera
-    // (bukan fraksi viewport mentah yang beda arti tiap zoom).
-    const cam = camera as any;
-    const dist = cam?.position ? Math.hypot(cam.position.x, cam.position.y, cam.position.z) : 2.9;
-    const fov = ((cam?.fov ?? 40) * Math.PI) / 180;
-    const worldPerPixel = (2 * dist * Math.tan(fov / 2)) / Math.max(1, size.height);
-    const dx = (e.clientX - dragRef.current.startX) * worldPerPixel;
-    const dy = (e.clientY - dragRef.current.startY) * worldPerPixel;
-
-    if (activeGizmoTool === "move") {
-      // Jepit SSOT per sisi (audit #4 — dulu TIGA angka beda: gizmo ±0.25,
-      // guide 0.08, store ±0.35). clampDecalXY = DECAL_MOVE_LIMITS di
-      // scaleCalibration.ts; renderer memakai angka yang SAMA untuk jangkar
-      // tampil agar gizmo tak pernah lepas dari gambar sablon.
-      const jepit = clampDecalXY(
-        activeDecal.targetSide,
-        dragRef.current.initialX + dx,
-        dragRef.current.initialY - dy
-      );
-      // Snap magnetis: X≈0 → 0, Y tengah (≈0) → 0 bila dalam ±0,01.
-      // Garis panduan tipis tampil via snapAxis selama snap aktif.
-      const snappedX = Math.abs(jepit.x) <= SNAP_TOL;
-      const snappedY = Math.abs(jepit.y) <= SNAP_TOL;
-      setSnapAxis({ x: snappedX, y: snappedY });
-      queueDecalUpdate(activeDecal.id, {
-        x: snappedX ? 0 : jepit.x,
-        y: snappedY ? 0 : jepit.y,
-      });
-    } else if (activeGizmoTool === "scale") {
-      const deltaScale = 1 + dx * 1.5;
-      const nextScale = Math.max(REAL_WORLD_PRINT_LIMITS.minDecalScaleUnits, Math.min(maxScaleUnits(), dragRef.current.initialScale * deltaScale));
-      queueDecalUpdate(activeDecal.id, { scale: nextScale });
-    } else if (activeGizmoTool === "rotate") {
-      const deltaDeg = dx * 180;
-      const nextRot = Math.round(((dragRef.current.initialRotation + deltaDeg + 180) % 360) - 180);
-      queueDecalUpdate(activeDecal.id, { rotation: nextRot });
-    }
-  };
-
-  const onPointerUp = (e: React.PointerEvent) => {
-    e.stopPropagation();
-    activePointers.current.delete(e.pointerId);
-    if (activePointers.current.size < 2) pinchRef.current = null;
-    if (activePointers.current.size === 0) {
-      flushDecalUpdate();
-      setActiveGizmoTool(null);
-      setGizmoDragging(false);
-      // Panduan snap hanya bermakna saat drag — bersihkan saat lepas.
-      setSnapAxis({ x: false, y: false });
-    }
-  };
-
-  // Only render gizmo in studio mode when visible and decal exists
-  if (viewMode !== "studio" || isHideWebsiteUI || !isGizmoVisible || !activeDecal) {
+  // Only render gizmo in studio mode when visible, decal exists, model is static (not rotating or running physics simulation)
+  if (
+    viewMode !== "studio" ||
+    isHideWebsiteUI ||
+    !isGizmoVisible ||
+    !activeDecal ||
+    animationPreset !== "static" ||
+    isRotating
+  ) {
     return null;
   }
 
   const isBack = activeDecal.targetSide === "back";
   const isLeftSleeve = activeDecal.targetSide === "left_sleeve";
   const isRightSleeve = activeDecal.targetSide === "right_sleeve";
+  const isSideLeft = activeDecal.targetSide === "side_left";
+  const isSideRight = activeDecal.targetSide === "side_right";
   const isHood = activeDecal.targetSide === "hood";
 
-  // surfaceZ SSOT per apparel (audit #6 — default lama 0.18 beda dari guide
-  // 0.155 & renderer shirt 0.24 = selisih ±2.5–6cm). Prop parent
-  // (ApparelMeshRenderer) menang bila ada; fallback = SSOT apparel aktif.
   const zBase = surfaceZ ?? surfaceZForApparel(activeApparel);
+  const placement = getDecal3DPlacement(activeApparel, activeDecal.targetSide, activeDecal.x, activeDecal.y, zBase);
+  const localPos = placement.position;
 
-  let gizmoPos: [number, number, number] = [activeDecal.x, activeDecal.y, zBase + 0.01];
-  let gizmoRot: [number, number, number] = [0, 0, 0];
+  // Model group transform offset alignment (TshirtModel, LongsleeveModel, HoodieModel, etc.)
+  const capOffset = activeApparel === "cap" ? -0.11 : 0;
+  const groupPosX = modelPosX;
+  const groupPosY = modelPosY - 0.05 + capOffset;
+  const groupScale = modelScale;
 
-  if (isBack) {
-    gizmoPos = [activeDecal.x, activeDecal.y, -(zBase + 0.01)];
-    gizmoRot = [0, Math.PI, 0];
+  const gizmoPos: [number, number, number] = [
+    groupPosX + localPos[0] * groupScale,
+    groupPosY + localPos[1] * groupScale,
+    localPos[2] * groupScale,
+  ];
+
+  // Surface normal dot-product test: sembunyikan gizmo jika dilihat dari belakang atau sudut grazing tajam (< 10° dari tepi).
+  // Mencegah gizmo Html transform gepeng seperti jarum saat kamera berputar ke samping/depan.
+  if (!activeGizmoTool) {
+    const surfaceEuler = new THREE.Euler(placement.rotation[0], placement.rotation[1], placement.rotation[2], "XYZ");
+    const surfaceNormal = new THREE.Vector3(0, 0, 1).applyEuler(surfaceEuler);
+    const toCam = new THREE.Vector3(
+      camera.position.x - gizmoPos[0],
+      camera.position.y - gizmoPos[1],
+      camera.position.z - gizmoPos[2]
+    ).normalize();
+    const facingAngle = surfaceNormal.dot(toCam);
+    if (facingAngle < 0.18) {
+      return null;
+    }
   }
 
-  // Badge cm dari SSOT kalibrasi terukur (SAMA dengan pricing engine).
-  // Kerah per-apparel dari spek (audit #4 — hardcode 0.18 salah s/d 1,4cm).
-  // Jangkar lengan per apparel (bukan ±0.27 global).
-  const spec = APPAREL_PHYSICAL_SPECS[activeApparel];
-  const sleeveX = spec?.sleeveAnchorX ?? 0.27;
-  // Batas geser lengan/tudung dari SSOT (SAMA dengan renderer — lihat atas).
-  const sleeveSlide = Math.max(
-    -DECAL_MOVE_LIMITS.sleeveSlideX,
-    Math.min(DECAL_MOVE_LIMITS.sleeveSlideX, activeDecal.x)
-  );
+  const DISTANCE_FACTOR = 1.0;
+  const PIXELS_PER_UNIT = 400; // 400 / 1.0 = 400 pixels per 3D unit
 
-  if (isLeftSleeve) {
-    // Tanpa rotasi grup: Html drei selalu menghadap kamera; rotasi 90° bikin
-    // panel edge-on tak bisa diklik (audit #4). Posisi saja yang dijangkar.
-    gizmoPos = [-sleeveX, activeDecal.y, sleeveSlide];
-    gizmoRot = [0, 0, 0];
-  } else if (isRightSleeve) {
-    gizmoPos = [sleeveX, activeDecal.y, sleeveSlide];
-    gizmoRot = [0, 0, 0];
-  } else if (isHood) {
-    const hoodY = spec?.hoodAnchorY ?? 0.34;
-    const hoodZ = spec?.hoodAnchorZ ?? 0.095;
-    gizmoPos = [
-      Math.max(-DECAL_MOVE_LIMITS.hoodX, Math.min(DECAL_MOVE_LIMITS.hoodX, activeDecal.x)),
-      hoodY + Math.max(-DECAL_MOVE_LIMITS.hoodY, Math.min(DECAL_MOVE_LIMITS.hoodY, activeDecal.y)),
-      -(hoodZ + 0.01),
-    ];
-    gizmoRot = [0, Math.PI, 0];
-  }
-  // B-05: badge cm = SSOT computePhysicalPrintDimensions (SAMA dengan renderer
-  // DecalLayerRenderer + pricingEngine + confirmOrder — badge = render = cetak).
-  // Aspek riil dari printPx master upload (B-01); fallback 1.0 untuk decal
-  // legacy tanpa printPx. fitScale ke box sisi + offset kerah via multiplier
-  // apparel dikerjakan DI DALAM helper. Rumus cm tak diubah — hanya pemakaian.
+  // Aspect ratio calculation
   const printPw = Number((activeDecal as any)?.printPx?.w);
   const printPh = Number((activeDecal as any)?.printPx?.h);
   const realAspect = printPw > 0 && printPh > 0 ? printPw / printPh : 1.0;
-  const physical = computePhysicalPrintDimensions(
-    activeApparel,
-    activeDecal.scale,
-    activeDecal.y,
-    realAspect,
-    activeDecal.targetSide
-  );
-  const widthCm = physical.widthCm;
-  const heightCm = physical.heightCm;
-  const offsetCollarCm = physical.offsetFromCollarCm;
+
+  // Normalized 3D dimensions as rendered on decal mesh
+  let scaleX = activeDecal.scale;
+  let scaleY = activeDecal.scale;
+  if (realAspect >= 1) {
+    scaleY = activeDecal.scale / realAspect;
+  } else {
+    scaleX = activeDecal.scale * realAspect;
+  }
+
+  // Exact 3D-bound pixel dimensions (conforms to mesh surface 1:1)
+  const boxWidthPx = Math.max(28, Math.round(scaleX * PIXELS_PER_UNIT));
+  const boxHeightPx = Math.max(28, Math.round(scaleY * PIXELS_PER_UNIT));
+
+  // ==========================================
+  // Interaction Handlers (Window-level capture)
+  // ==========================================
+
+  const onScaleDown = (e: React.PointerEvent) => {
+    e.stopPropagation();
+    e.preventDefault();
+    setGizmoDragging(true);
+    setActiveGizmoTool("scale");
+
+    const rect = containerRef.current?.getBoundingClientRect();
+    const centerX = rect ? rect.left + rect.width / 2 : e.clientX;
+    const centerY = rect ? rect.top + rect.height / 2 : e.clientY;
+    const startDist = Math.max(10, Math.hypot(e.clientX - centerX, e.clientY - centerY));
+    const initialScale = activeDecal.scale;
+    const maxScale = maxDecalScaleUnits(activeApparel, activeDecal.targetSide);
+
+    const onPointerMove = (ev: PointerEvent) => {
+      ev.preventDefault();
+      const curDist = Math.hypot(ev.clientX - centerX, ev.clientY - centerY);
+      const ratio = curDist / startDist;
+      const nextScale = Math.max(
+        REAL_WORLD_PRINT_LIMITS.minDecalScaleUnits,
+        Math.min(maxScale, initialScale * ratio)
+      );
+      updateDecal(activeDecal.id, { scale: Number(nextScale.toFixed(4)) });
+    };
+
+    const onPointerUp = (ev: PointerEvent) => {
+      ev.preventDefault();
+      window.removeEventListener("pointermove", onPointerMove);
+      window.removeEventListener("pointerup", onPointerUp);
+      setGizmoDragging(false);
+      setActiveGizmoTool(null);
+    };
+
+    window.addEventListener("pointermove", onPointerMove);
+    window.addEventListener("pointerup", onPointerUp);
+  };
+
+  const onRotateDown = (e: React.PointerEvent) => {
+    e.stopPropagation();
+    e.preventDefault();
+    setGizmoDragging(true);
+    setActiveGizmoTool("rotate");
+
+    const rect = containerRef.current?.getBoundingClientRect();
+    const centerX = rect ? rect.left + rect.width / 2 : e.clientX;
+    const centerY = rect ? rect.top + rect.height / 2 : e.clientY;
+    const startAngle = Math.atan2(e.clientY - centerY, e.clientX - centerX) * (180 / Math.PI);
+    const initialRot = activeDecal.rotation;
+
+    const onPointerMove = (ev: PointerEvent) => {
+      ev.preventDefault();
+      const curAngle = Math.atan2(ev.clientY - centerY, ev.clientX - centerX) * (180 / Math.PI);
+      const delta = curAngle - startAngle;
+      let nextRot = Math.round((initialRot + delta) % 360);
+      if (nextRot > 180) nextRot -= 360;
+      if (nextRot < -180) nextRot += 360;
+      if (ev.shiftKey) nextRot = Math.round(nextRot / 15) * 15;
+      updateDecal(activeDecal.id, { rotation: nextRot });
+    };
+
+    const onPointerUp = (ev: PointerEvent) => {
+      ev.preventDefault();
+      window.removeEventListener("pointermove", onPointerMove);
+      window.removeEventListener("pointerup", onPointerUp);
+      setGizmoDragging(false);
+      setActiveGizmoTool(null);
+    };
+
+    window.addEventListener("pointermove", onPointerMove);
+    window.addEventListener("pointerup", onPointerUp);
+  };
+
+  const onMoveDown = (e: React.PointerEvent) => {
+    e.stopPropagation();
+    e.preventDefault();
+    setGizmoDragging(true);
+    setActiveGizmoTool("move");
+
+    let currentSide = activeDecal.targetSide;
+    let curStartX = e.clientX;
+    let curStartY = e.clientY;
+    let curInitialX = activeDecal.x;
+    let curInitialY = activeDecal.y;
+
+    const hasSleeves = ["tshirt", "longsleeve", "crewneck", "hoodie", "shirt"].includes(activeApparel);
+    const hasSides = ["tshirt", "longsleeve", "crewneck", "hoodie", "shirt", "pants", "shorts"].includes(activeApparel);
+
+    const onPointerMove = (ev: PointerEvent) => {
+      ev.preventDefault();
+      const dx = (ev.clientX - curStartX) / Math.max(1, PIXELS_PER_UNIT * groupScale);
+      const dy = (ev.clientY - curStartY) / Math.max(1, PIXELS_PER_UNIT * groupScale);
+
+      // Arah geser horizontal (signX):
+      // - front, left_sleeve, side_left: penambahan decalX menggeser ke kanan layar -> signX = +1
+      // - back, hood, right_sleeve, side_right: penambahan decalX menggeser ke kiri layar -> signX = -1
+      const signX =
+        currentSide === "back" ||
+        currentSide === "hood" ||
+        currentSide === "right_sleeve" ||
+        currentSide === "side_right"
+          ? -1
+          : 1;
+      let rawX = curInitialX + dx * signX;
+      let rawY = curInitialY - dy;
+
+      let nextSide = currentSide;
+      let nextX = rawX;
+      let nextY = rawY;
+      let triggerCam: "front" | "back" | "left" | "right" | null = null;
+
+      // Dynamic Auto-Zone Transition when crossing boundaries
+      if (currentSide === "front") {
+        if (rawX < -0.13) {
+          // Dragged left
+          if (hasSleeves && rawY > 0.0) {
+            nextSide = "left_sleeve";
+            nextX = 0;
+            nextY = 0.05;
+            triggerCam = "left";
+          } else if (hasSides) {
+            nextSide = "side_left";
+            nextX = 0;
+            nextY = Math.max(-0.25, Math.min(0.20, rawY));
+            triggerCam = "left";
+          }
+        } else if (rawX > 0.13) {
+          // Dragged right
+          if (hasSleeves && rawY > 0.0) {
+            nextSide = "right_sleeve";
+            nextX = 0;
+            nextY = 0.05;
+            triggerCam = "right";
+          } else if (hasSides) {
+            nextSide = "side_right";
+            nextX = 0;
+            nextY = Math.max(-0.25, Math.min(0.20, rawY));
+            triggerCam = "right";
+          }
+        }
+      } else if (currentSide === "side_left") {
+        if (rawX < -0.06) {
+          nextSide = "front";
+          nextX = -0.10;
+          nextY = rawY;
+          triggerCam = "front";
+        } else if (rawX > 0.06) {
+          nextSide = "back";
+          nextX = -0.10;
+          nextY = rawY;
+          triggerCam = "back";
+        }
+      } else if (currentSide === "side_right") {
+        if (rawX < -0.06) {
+          nextSide = "front";
+          nextX = 0.10;
+          nextY = rawY;
+          triggerCam = "front";
+        } else if (rawX > 0.06) {
+          nextSide = "back";
+          nextX = 0.10;
+          nextY = rawY;
+          triggerCam = "back";
+        }
+      } else if (currentSide === "back") {
+        if (rawX > 0.13) {
+          if (hasSleeves && rawY > 0.0) {
+            nextSide = "left_sleeve";
+            nextX = 0;
+            nextY = 0.05;
+            triggerCam = "left";
+          } else if (hasSides) {
+            nextSide = "side_left";
+            nextX = 0;
+            nextY = rawY;
+            triggerCam = "left";
+          }
+        } else if (rawX < -0.13) {
+          if (hasSleeves && rawY > 0.0) {
+            nextSide = "right_sleeve";
+            nextX = 0;
+            nextY = 0.05;
+            triggerCam = "right";
+          } else if (hasSides) {
+            nextSide = "side_right";
+            nextX = 0;
+            nextY = rawY;
+            triggerCam = "right";
+          }
+        }
+      } else if (currentSide === "left_sleeve") {
+        if (rawX < -0.06) {
+          if (rawY > -0.10) {
+            nextSide = "front";
+            nextX = -0.10;
+            nextY = 0.05;
+            triggerCam = "front";
+          } else {
+            nextSide = "side_left";
+            nextX = 0;
+            nextY = -0.05;
+            triggerCam = "left";
+          }
+        } else if (rawX > 0.06) {
+          nextSide = "back";
+          nextX = -0.10;
+          nextY = 0.05;
+          triggerCam = "back";
+        }
+      } else if (currentSide === "right_sleeve") {
+        if (rawX < -0.06) {
+          if (rawY > -0.10) {
+            nextSide = "front";
+            nextX = 0.10;
+            nextY = 0.05;
+            triggerCam = "front";
+          } else {
+            nextSide = "side_right";
+            nextX = 0;
+            nextY = -0.05;
+            triggerCam = "right";
+          }
+        } else if (rawX > 0.06) {
+          nextSide = "back";
+          nextX = 0.10;
+          nextY = 0.05;
+          triggerCam = "back";
+        }
+      }
+
+      if (nextSide !== currentSide) {
+        currentSide = nextSide;
+        curStartX = ev.clientX;
+        curStartY = ev.clientY;
+        curInitialX = nextX;
+        curInitialY = nextY;
+        if (triggerCam) setCameraPreset(triggerCam);
+        updateDecal(activeDecal.id, {
+          targetSide: nextSide,
+          x: Number(nextX.toFixed(4)),
+          y: Number(nextY.toFixed(4)),
+        });
+      } else {
+        const jepit = clampDecalXY(currentSide, rawX, rawY);
+        const snappedX = Math.abs(jepit.x) <= SNAP_TOL;
+        const snappedY = Math.abs(jepit.y) <= SNAP_TOL;
+        setSnapAxis({ x: snappedX, y: snappedY });
+        updateDecal(activeDecal.id, {
+          x: snappedX ? 0 : Number(jepit.x.toFixed(4)),
+          y: snappedY ? 0 : Number(jepit.y.toFixed(4)),
+        });
+      }
+    };
+
+    const onPointerUp = (ev: PointerEvent) => {
+      ev.preventDefault();
+      window.removeEventListener("pointermove", onPointerMove);
+      window.removeEventListener("pointerup", onPointerUp);
+      setGizmoDragging(false);
+      setActiveGizmoTool(null);
+      setSnapAxis({ x: false, y: false });
+    };
+
+    window.addEventListener("pointermove", onPointerMove);
+    window.addEventListener("pointerup", onPointerUp);
+  };
 
   return (
-    <group position={gizmoPos} rotation={gizmoRot}>
-      <Html center transform distanceFactor={2.2} zIndexRange={[100, 0]}>
+    <group position={gizmoPos} rotation={placement.rotation}>
+      <Html
+        transform
+        distanceFactor={DISTANCE_FACTOR}
+        pointerEvents="auto"
+        zIndexRange={[100, 0]}
+      >
         <div
-          className="relative pointer-events-auto select-none transition-all duration-150 group"
+          ref={containerRef}
+          className="relative pointer-events-auto select-none"
           style={{
-            width: `${Math.max(50, activeDecal.scale * 600)}px`,
-            height: `${Math.max(50, activeDecal.scale * 600)}px`,
-            transform: `rotate(${activeDecal.rotation}deg)`,
+            width: `${boxWidthPx}px`,
+            height: `${boxHeightPx}px`,
+            transform: `rotate(${isBack ? -activeDecal.rotation : activeDecal.rotation}deg)`,
           }}
         >
-          {/* Live Physical Centimeter Dimension Badge (Top) */}
-          <div className="absolute -top-6 left-1/2 -translate-x-1/2 flex items-center gap-1 px-2 py-0.5 rounded bg-surface/95 backdrop-blur-md text-[10px] font-mono font-bold text-emerald-400 border border-emerald-500/40 shadow-xl pointer-events-none whitespace-nowrap">
-            <span>↔ {widthCm}×{heightCm} cm</span>
-          </div>
+          {/* Thin, crisp dashed bounding box */}
+          <div
+            className={`absolute inset-0 border border-dashed rounded-sm transition-colors ${
+              activeGizmoTool
+                ? "border-brand-accent shadow-[0_0_8px_rgba(230,81,0,0.35)]"
+                : "border-brand-accent/70 hover:border-brand-accent"
+            }`}
+          />
 
-          {/* Distance from Collar Badge (Bottom) */}
-          <div className="absolute -bottom-6 left-1/2 -translate-x-1/2 flex items-center gap-1 px-1.5 py-0.5 rounded bg-surface/95 backdrop-blur-md text-[9px] font-mono text-text-muted border border-border-subtle shadow-lg pointer-events-none whitespace-nowrap">
-            <span>↓ {offsetCollarCm} cm dari kerah</span>
-          </div>
-
-          {/* Bounding Box Outline */}
-          <div className="absolute inset-0 border-2 border-dashed border-brand-accent/70 rounded-lg bg-brand-accent/5 shadow-[0_0_12px_rgba(230,81,0,0.3)] transition-colors hover:border-brand-accent" />
-
-          {/* Garis panduan snap magnetis (tipis 1px, hanya saat snap aktif). */}
+          {/* Magnetic snap guideline */}
           {snapAxis.x && (
-            <div aria-hidden className="absolute top-0 bottom-0 left-1/2 w-px -translate-x-1/2 bg-cyan-300/80 pointer-events-none" />
+            <div
+              aria-hidden
+              className="absolute -top-12 -bottom-12 left-1/2 w-px -translate-x-1/2 bg-cyan-400/90 pointer-events-none shadow-[0_0_4px_rgba(34,211,238,0.8)]"
+            />
           )}
           {snapAxis.y && (
-            <div aria-hidden className="absolute left-0 right-0 top-1/2 h-px -translate-y-1/2 bg-cyan-300/80 pointer-events-none" />
+            <div
+              aria-hidden
+              className="absolute -left-12 -right-12 top-1/2 h-px -translate-y-1/2 bg-cyan-400/90 pointer-events-none shadow-[0_0_4px_rgba(34,211,238,0.8)]"
+            />
           )}
 
-          {/* Move Center Handle (Semi-transparent with hover highlight) */}
-          {/* TOUCH-44px: min 44x44px (WCAG sentuh) + active:scale-95 + focus ring. */}
+          {/* Full-surface drag area (Clean & 100% transparent, 0 obstruction) */}
           <div
             role="button"
             tabIndex={0}
             aria-label="Geser sablon"
-            onPointerDown={(e) => onPointerDown("move", e)}
-            onPointerMove={onPointerMove}
-            onPointerUp={onPointerUp}
-            className="absolute inset-0 m-auto w-11 h-11 min-w-[44px] min-h-[44px] rounded-full bg-brand-accent/80 hover:bg-brand-accent text-canvas backdrop-blur-sm flex items-center justify-center cursor-move shadow-md hover:scale-110 active:scale-95 transition-all touch-manipulation focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/80 focus-visible:ring-offset-2 focus-visible:ring-offset-transparent"
-            title="Klik & tahan untuk menggeser sablon"
-          >
-            <Move size={13} className="stroke-[2.5]" />
+            onPointerDown={onMoveDown}
+            className={`absolute inset-0 ${
+              activeGizmoTool === "move" ? "cursor-grabbing" : "cursor-grab"
+            }`}
+            title="Klik & geser untuk memindahkan posisi sablon (Otomatis beralih ke samping/lengan saat digeser ke tepi)"
+          />
+
+          {/* Rotation Handle (Canva / Figma Stem Style above top-center) */}
+          <div className="absolute -top-6 left-1/2 -translate-x-1/2 flex flex-col items-center pointer-events-auto">
+            {activeGizmoTool === "rotate" && (
+              <div className="mb-1 px-1.5 py-0.5 rounded-full bg-neutral-950/90 border border-brand-accent text-[8.5px] font-mono font-bold text-amber-300 shadow-md whitespace-nowrap pointer-events-none">
+                {activeDecal.rotation}°
+              </div>
+            )}
+            <div
+              role="button"
+              tabIndex={0}
+              aria-label="Putar sablon"
+              onPointerDown={onRotateDown}
+              className={`w-5 h-5 rounded-full bg-neutral-900/85 hover:bg-brand-accent text-white border border-white/30 shadow-md flex items-center justify-center transition-all before:absolute before:-inset-2 before:content-[''] ${
+                activeGizmoTool === "rotate"
+                  ? "cursor-grabbing scale-110 bg-brand-accent"
+                  : "cursor-grab hover:scale-110"
+              }`}
+              title="Tarik melingkar untuk memutar sudut sablon (Tahan Shift untuk snap 15°)"
+            >
+              <RotateCw size={10} className="stroke-[2.5]" />
+            </div>
+            {/* Connection stem line */}
+            <div className="w-px h-2 bg-brand-accent/70" />
           </div>
 
-          {/* Close/Hide Gizmo Handle (Top Left) */}
-          {/* TOUCH-44px: hit-area 44px + active + focus ring (visual ikon tetap kecil). */}
+          {/* Corner Resize Handle 1: Top-Right */}
+          <div
+            role="button"
+            tabIndex={0}
+            aria-label="Ubah ukuran sablon"
+            onPointerDown={onScaleDown}
+            className="absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full bg-white border-2 border-brand-accent shadow-sm cursor-nwse-resize hover:scale-130 active:scale-110 transition-transform before:absolute before:-inset-2 before:content-['']"
+            title="Tarik untuk memperbesar/memperkecil sablon"
+          />
+
+          {/* Corner Resize Handle 2: Bottom-Right */}
+          <div
+            role="button"
+            tabIndex={0}
+            aria-label="Ubah ukuran sablon"
+            onPointerDown={onScaleDown}
+            className="absolute -bottom-1 -right-1 w-2.5 h-2.5 rounded-full bg-white border-2 border-brand-accent shadow-sm cursor-nesw-resize hover:scale-130 active:scale-110 transition-transform before:absolute before:-inset-2 before:content-['']"
+            title="Tarik untuk memperbesar/memperkecil sablon"
+          />
+
+          {/* Corner Resize Handle 3: Bottom-Left */}
+          <div
+            role="button"
+            tabIndex={0}
+            aria-label="Ubah ukuran sablon"
+            onPointerDown={onScaleDown}
+            className="absolute -bottom-1 -left-1 w-2.5 h-2.5 rounded-full bg-white border-2 border-brand-accent shadow-sm cursor-nwse-resize hover:scale-130 active:scale-110 transition-transform before:absolute before:-inset-2 before:content-['']"
+            title="Tarik untuk memperbesar/memperkecil sablon"
+          />
+
+          {/* Corner Handle 4: Top-Left (Quick Hide/Close) */}
           <button
             type="button"
             onClick={(e) => {
               e.stopPropagation();
               toggleGizmoVisible();
             }}
-            aria-label="Sembunyikan kotak kontrol gizmo"
-            className="absolute -top-2.5 -left-2.5 w-11 h-11 min-w-[44px] min-h-[44px] rounded-full bg-surface/95 text-text-muted hover:text-text-primary border border-border-subtle flex items-center justify-center cursor-pointer shadow-md hover:scale-110 active:scale-95 transition-all touch-manipulation focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-accent focus-visible:ring-offset-2 focus-visible:ring-offset-transparent"
-            title="Sembunyikan kotak kontrol gizmo"
+            aria-label="Sembunyikan gizmo"
+            className="absolute -top-1.5 -left-1.5 w-3.5 h-3.5 rounded-full bg-neutral-900/80 hover:bg-rose-600 text-white/90 hover:text-white border border-white/30 shadow-sm flex items-center justify-center transition-all before:absolute before:-inset-2 before:content-[''] cursor-pointer"
+            title="Sembunyikan kotak kontrol gizmo (Mode Preview)"
           >
-            <span className="text-[10px] font-bold leading-none">✕</span>
+            <X size={8} className="stroke-[3]" />
           </button>
-
-          {/* Scale Corner Handle (Top Right) */}
-          {/* TOUCH-44px: hit-area 44px + active + focus ring. */}
-          <div
-            role="button"
-            tabIndex={0}
-            aria-label="Ubah ukuran sablon"
-            onPointerDown={(e) => onPointerDown("scale", e)}
-            onPointerMove={onPointerMove}
-            onPointerUp={onPointerUp}
-            className={`absolute -top-2.5 -right-2.5 w-11 h-11 min-w-[44px] min-h-[44px] rounded-full border flex items-center justify-center cursor-nwse-resize shadow-md hover:scale-125 active:scale-95 transition-all touch-manipulation focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-accent focus-visible:ring-offset-2 focus-visible:ring-offset-transparent ${isLight ? "bg-neutral-900 text-white border-neutral-700" : "bg-white text-neutral-900 border-neutral-300"}`}
-            title="Tarik untuk memperbesar/memperkecil sablon"
-          >
-            <ZoomIn size={11} className="stroke-[2.5]" />
-          </div>
-
-          {/* Rotate Corner Handle (Bottom Right) */}
-          {/* TOUCH-44px: hit-area 44px + active + focus ring. */}
-          <div
-            role="button"
-            tabIndex={0}
-            aria-label="Putar sablon"
-            onPointerDown={(e) => onPointerDown("rotate", e)}
-            onPointerMove={onPointerMove}
-            onPointerUp={onPointerUp}
-            className="absolute -bottom-2.5 -right-2.5 w-11 h-11 min-w-[44px] min-h-[44px] rounded-full bg-neutral-900 text-brand-accent border border-brand-accent/50 flex items-center justify-center cursor-alias shadow-md hover:scale-125 active:scale-95 transition-all touch-manipulation focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-accent focus-visible:ring-offset-2 focus-visible:ring-offset-transparent"
-            title="Tarik untuk memutar sudut sablon"
-          >
-            <RotateCw size={11} className="stroke-[2.5]" />
-          </div>
         </div>
       </Html>
     </group>

@@ -18,7 +18,7 @@ const nextConfig = {
     // CWV Sep 2026: optimasi AKTIF (unoptimized:false) agar hero/katalog
     // dapat srcset AVIF/WebP + sizes responsif. R2 pub URL
     // (https://pub-*.r2.dev) diizinkan via remotePatterns wildcard.
-    unoptimized: false,
+    unoptimized: true,
     formats: ["image/avif", "image/webp"],
     remotePatterns: [
       {
@@ -47,7 +47,7 @@ const nextConfig = {
       "style-src 'self' 'unsafe-inline'",
       "img-src 'self' data: blob: https:",
       "font-src 'self' data:",
-      "connect-src 'self' blob: data: https://passport.duitku.com https://sandbox.duitku.com https://challenges.cloudflare.com https://kaoskami.biz.id https://pub-5746f36a46904edc8425ecd72517865c.r2.dev https://www.gstatic.com https://www.google-analytics.com https://analytics.google.com https://*.google-analytics.com https://cloudflareinsights.com",
+      "connect-src 'self' blob: data: https://passport.duitku.com https://sandbox.duitku.com https://app.duitku.com https://app-sandbox.duitku.com https://challenges.cloudflare.com https://kaoskami.biz.id https://pub-5746f36a46904edc8425ecd72517865c.r2.dev https://www.gstatic.com https://www.google-analytics.com https://analytics.google.com https://*.google-analytics.com https://www.googletagmanager.com https://cloudflareinsights.com",
       "frame-src 'self' https://app.duitku.com https://app-sandbox.duitku.com https://challenges.cloudflare.com",
       "object-src 'none'",
       "base-uri 'self'",
@@ -112,11 +112,25 @@ const nextConfig = {
   // Paksa SEMUA impor "@libsql/client" (termasuk dari dalam drizzle-orm)
   // ke build /web (fetch-only). Tanpa ini, kondisi "node"/CJS me-resolve
   // ke build native → require("@libsql/linux-x64-musl") → 500 di workerd.
-  webpack: (config) => {
+  webpack: (config, { dev }) => {
     config.resolve.alias = {
       ...config.resolve.alias,
       "@libsql/client$": "@libsql/client/web",
     };
+    if (dev) {
+      config.watchOptions = {
+        ...config.watchOptions,
+        ignored: [
+          "**/System Volume Information/**",
+          "**/node_modules/**",
+          "**/.git/**",
+          "**/.next/**",
+          "**/Asset 3D/**",
+          "**/backups/**",
+          "**/.gemini/**",
+        ],
+      };
+    }
     return config;
   },
 };

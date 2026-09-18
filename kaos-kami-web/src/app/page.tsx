@@ -21,8 +21,7 @@ import { HeroOverlay } from "@/components/ui/HeroOverlay";
 import { TechSpecsOverlay } from "@/components/ui/TechSpecsOverlay";
 import { BackGraphicOverlay } from "@/components/ui/BackGraphicOverlay";
 import { CustomizerDrawer } from "@/components/ui/CustomizerDrawer";
-import { EditorialLookbook } from "@/components/ui/EditorialLookbook";
-import { HomeCatalogSection } from "@/components/ui/HomeCatalogSection";
+import { StoreShowcaseSection } from "@/components/ui/StoreShowcaseSection";
 import { useScrollPhases } from "@/hooks/useScrollPhases";
 import { useWebglSupport } from "@/hooks/useWebglSupport";
 import { useDeviceTier } from "@/hooks/useDeviceTier";
@@ -94,8 +93,7 @@ export default function Home() {
       {/* Static Visual Sections, E-Commerce Showcase & Footer (Hidden in Clean Mockup Mode) */}
       {!isHideWebsiteUI && (
         <>
-          <HomeCatalogSection />
-          <EditorialLookbook />
+          <StoreShowcaseSection />
           <Footer />
         </>
       )}

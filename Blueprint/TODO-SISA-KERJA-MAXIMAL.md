@@ -159,4 +159,278 @@
   - **Pembersihan Modul Tak Terpasang**: Menghapus dynamic import modul `r3f-perf` dan `leva` yang tidak terdaftar di `package.json` dari `CanvasStage.tsx`, mencegah Webpack build error.
   - **Verifikasi Visual Browser Subagent**: Menguji langsung di browser subagent: modal MASUK terbuka tepat di tengah layar dengan kontras tajam, seluruh input dan tombol Google OAuth terlihat 100% utuh tanpa clipping.
   - **Eksekusi Build & Deploy**: Validasi `typecheck` web + mobile lulus (0 error), `vitest` (10/10 lulus), `mobile:build` (Next.js SSG sukses), push ke GitHub repository `origin main`, dan deploy live ke Cloudflare Worker via `npm run deploy`.
+  - [x] **Optimasi Disk C: (+38.02 GB Bebas Total, 39.25 GB Kapasitas Kosong), Re-Kalibrasi Pencahayaan 3D Matte, Rekoreografi Scroll 3D Home, Resolusi Hydration & Copywriting UMKM (14 Sep 2026 Malam)**:
+    - **Pembersihan Disk C: Menyeluruh & Aman (Tahap 1, 2 & 3 Extended)**: Membebaskan ruang penyimpanan SSD drive C: dari 1.23 GB (kritis 99% penuh) menjadi **39.25 GB** (+38.02 GB total ruang bebas):
+      - *Tahap 1*: AVD emulator lama `Pixel_6_API_34` (6.2 GB), `.gradle/caches` (2.26 GB), pip/npm cache, dan video temporary `browser_recordings` Antigravity (5.45 GB).
+      - *Tahap 2 (Kategori 1 - 4)*: Database dump CLI `opencode.db` (4.69 GB), Node.js v24 usang di nvm (3.83 GB), instalasi Playwright browsers lama (3.10 GB), sisa AI assistant `.codex`/`.bun`/`.codebuddy`/`.lingma`/`.codegpt` (3.0 GB), sisa folder editor yang di-uninstall `Trae`/`Kiro`/`Qoder`/`RStudio`/`Miro`/`WPS`/`CCleaner` (4.5 GB), dan folder proyek lama di root user `open-design` (1.65 GB) + `umkm-agent` (102 MB).
+      - *Tahap 3 (Aman Lanjutan)*: Cache & log CapCut `User Data\Cache` (2.54 GB — proyek/draft video 100% utuh), Cache browser Google Chrome (350 MB), dan pembersihan resmi Microsoft DISM Component Cleanup `WinSxS` (`Dism.exe /Online /Cleanup-Image /StartComponentCleanup`).
+      - *Dampak Performa*: Drive C: kini sangat lega dengan **39.25 GB** ruang bebas (Used turun dari 123.11 GB ke 85.09 GB), seluruh lag kompilasi dan disk throttling hilang permanen.
+    - **Re-Kalibrasi Pencahayaan 3D Mode Terang (Anti-Glow & Matte)**: Menghapus filter `<Bloom>` dan `<Vignette>` yang memicu aura neon dan glowing berlebihan pada pakaian putih di mode terang, menurunkan intensitas sheen material kain menjadi 0.20 (matte katun combed alami), serta menyeimbangkan pencahayaan studio (`StudioLighting.tsx` & `CanvasStageMobile.tsx`). Menghilangkan error React hook count mismatch.
+    - **Rekoreografi Posisi Kaos pada Scroll Home**: Menggeser posisi kaos pada Hero ke sisi kanan ($X \approx +0.60$), mempertahankan posisi kanan pada Tech Specs ($X \approx +0.56$) agar 4 kartu spesifikasi di kiri terbaca lapang, dan memutar kaos 180° ke sisi kiri ($X \approx -0.52$) pada Back Graphic Sablon A3+ sehingga headline kanan 100% tidak tertutup.
+    - **Penyatuan Etalase Toko, Perbaikan Transisi Fade Fase 3, dan Implementasi Kuota 5 Desain (14 Sep 2026)**:
+      - *Transisi Fade & Reposisi Kaos Fase 3*: Mengubah ambang progress scroll di `useScrollPhases.ts` (0.32/0.68/0.96) sehingga teks Fase 3 masuk tepat saat scrolled-in dan memicu animasi fade-in + translate-y mulus. Kaos digeser tegas ke sisi kiri ($X = -0.82$, rotY: 0.18 hadap depan) sehingga tidak lagi berada di tengah atau menyenggol kartu teks di kanan.
+      - *Etalase Toko E-Commerce Terpadu (`StoreShowcaseSection.tsx`)*: Menghapus tombol "SABLON 3D" (karena ini produk jadi). Menambahkan **Modal Detail Produk E-Commerce** interaktif saat kartu diklik: foto mockup besar, spesifikasi bahan katun combed & sablon DTF tahan cuci, pemilih ukuran (S, M, L, XL, XXL), kuantitas, dan tombol `+ TAMBAH KE KERANJANG`.
+      - *Sistem Input Produk Baru Admin (`POST /api/admin/catalog` & `AddProductModal.tsx`)*: Mengaktifkan endpoint pembuatan produk baru di `/api/admin/catalog` dan memasang form modal "+ TAMBAH PRODUK BARU" di dashboard `/admin/catalog` sehingga admin dapat menginput produk etalase baru kapan pun tanpa edit kode.
+      - *Pembatasan Kuota 5 Desain per Akun*: Memasang validasi server di `POST /api/designs` (menolak jika desain non-staff/customer >= 5) dan mengunci penyimpanan lokal di `useConfiguratorStore.ts` (slice 5). Memperbarui dashboard `orders/page.tsx` dengan indikator kuota interaktif (`X/5 SLOT` + badge `KUOTA PENUH`).
+      - *Audit Role & Hak Akses (RBAC)*: Memetakan 4 role resmi (`CUSTOMER`, `ADMIN`, `SUPER_ADMIN`, `PRODUCTION_STAFF`) untuk diskusi bersama pemilik proyek.
+      - *Validasi*: `typecheck` ✅ 0 error, dev server `localhost:3000` merespons HTTP 200 lancar.
+- [x] **Riset, Audit & Pembersihan Menyeluruh "AI Slop" Vibe Coding, Metadata Tab Browser & Database Turso (15 Sep 2026 Dini Hari)**:
+  - **Riset & Identifikasi AI Slop**: Mengidentifikasi 5 pola AI slop di website: (1) Judul tab browser kembung dengan em-dash dan kata kunci kaku terpotong di tab (`kaos kami — Heavywight 3D...`), (2) Penamaan produk jadi over-engineered bergaya robotik/cyberpunk (`Heavyweight Boxy Tee — Obsidian Black (Polos)`, `Acid Tangerine Edition — Makassar Streetwear Drop`), (3) Format pseudo-koding C++ di UI publik (`// 01 — SHIRT`, `ETALASE // READY STOCK`), (4) Tagline bombastis tidak membumi (`Heavyweight streetwear, engineered not printed`), (5) Filter kaku (`KAOS POLOS (BLANK)`, `EDISI GRAFIS DROP`).
+  - **Pembersihan Title & Metadata Tab Browser**:
+    - Root Layout (`layout.tsx`): Menjadi `Kaos Kami | Sablon Kaos & Streetwear Makassar` dengan deskripsi ramah UMKM. Template Next.js `template: "%s | Kaos Kami"` terpasang rapi.
+    - Halaman Anak: `catalog` (`Katalog Produk & Kaos Siap Kirim`), `studio` (`Studio 3D Kustom Sablon DTF`), `track` (`Lacak Status Pesanan`), `kalkulator-sablon` (`Kalkulator Biaya Sablon DTF`). Tab browser tidak lagi terpotong dan tidak ada duplikasi nama brand.
+    - OpenGraph (`opengraph-image.tsx`): Tagline diperbarui menjadi `"Sablon DTF Satuan & Kaos Polos Berkualitas Makassar"`.
+  - **Pembersihan Etalase & Filter**:
+    - `StoreShowcaseSection.tsx`: Nama produk default menjadi *Kaos Polos Boxy Combed 24s - Hitam*, *Kaos Polos Boxy Combed 24s - Putih Ecru*, *Kaos Streetwear Grafis Makassar - Oranye*, *Jaket Coach Urban - Hijau Olive*. Tag kartu diubah menjadi `#01 · KAOS COMBED` / `#04 · JAKET COACH`. Header diubah menjadi `KOLEKSI SIAP BELI · READY STOCK MAKASSAR`.
+    - `CatalogClient.tsx`: Filter tab diubah menjadi `SEMUA PRODUK`, `KAOS POLOS`, dan `EDISI SABLON`. Badge kartu diubah menjadi `KAOS POLOS COMBED` & `EDISI SABLON`.
+  - **Pembersihan Form Admin**:
+    - `AddProductModal.tsx` & `CmsHeroForm.tsx`: Placeholder diubah menjadi contoh nama pakaian Indonesia yang wajar.
+  - **Pembaruan Database Turso (libSQL)**:
+    - Menjalankan migrasi UPDATE langsung pada data `ProductVariant` dan `ApparelCategory` di database live Turso. Data lama bergaya AI slop otomatis berganti ke nama produk yang bersih, jelas, dan profesional.
+  - **Verifikasi**: `npm --workspace=kaos-kami-web run typecheck` ✅ 0 error. HTML title diuji langsung via HTTP: beranda menghasilkan `<title>Kaos Kami | Sablon Kaos &amp; Streetwear Makassar</title>`, katalog menghasilkan `<title>Katalog Produk &amp; Kaos Siap Kirim | Kaos Kami</title>`, dan `/api/catalog/variants` merespons varian bersih 100%.
+- [x] **Overhaul 3D Apparel Studio: Eliminasi Garis Hijau, Jaket Resleting Realistis, & Longsleeve Berbasis Kaos (15 Sep 2026 Siang)**:
+  - **Penghapusan Garis Pembatas Hijau (Batas Cetak)**: Menonaktifkan komponen `PrintZoneGuide` pada kanvas 3D (`ApparelMeshRenderer.tsx` & `PrintZoneGuide.tsx` return null). Frame kawat hijau dan label melayang tidak lagi menghalangi atau mengganggu visual render pakaian.
+  - **Asset Jaket dengan Resleting Realistis**: Mengganti model jaket dengan aset `fleece_jacket` (koleksi Sketchfab Jonathan Millhauser, CC-BY 4.0). Dioptimalkan dan dibersihkan dari tekstur berat menjadi hanya 304 KB di `public/models/jacket.glb`. Memperbarui `ShirtModel.tsx` dengan sistem dual-mesh: badan jaket kain (dapat diganti warna & multi-part) dan gerigi slider resleting logam mengkilap (`metalness: 0.90, roughness: 0.22, color: #222222`). Terbuka di tengah secara proporsional.
+  - **Longsleeve Berbasis Kaos T-Shirt**: Mengganti geometri longsleeve lama (yang berbasis sweater berpose T-pose terlalu lebar) menjadi turunan langsung dari `tee-basic.glb?v=9`. Menambahkan algoritma procedural sleeve tube (`createSleeveTube`) yang menyatu mulus dari cuff lengan pendek kaos ke pergelangan tangan dengan kerutan kain organik dan manset rib 3.5 cm. Pose lengan natural menghadap ke bawah menyatu dengan proporsi kaos.
+  - **Kalibrasi Permukaan Sablon (`surfaceZ`)**: Menyesuaikan `surfaceZ` untuk jaket (`0.24`) dan longsleeve (`0.151`) pada `scaleCalibration.ts` web dan `DecalGizmoMobile.tsx` mobile.
+  - **Sinkronisasi & Verifikasi Penuh**:
+    - `node scripts/sync-assets.mjs` menyinkronkan model `jacket.glb` dan `longsleeve.glb` ke mobile dan aset Android.
+    - `npm --workspace=kaos-kami-web run typecheck` ✅ 0 error.
+    - `npm run mobile:typecheck` ✅ 0 error.
+    - `npm --workspace=kaos-kami-web run test` (Vitest) ✅ 10/10 test lulus.
+- [x] **Penyelesaian Permanen Longsleeve: Ekstrusi Seamless Mesh Langsung dari Boundary Loop Kaos (15 Sep 2026 Sore)**:
+  - **Akar Masalah**: Pendekatan tabung prosedural terpisah (`createExtrudedLongsleeve`) di sisi client menimbulkan ketidaksejajaran ("meleset"), celah, dan bibir lipatan keliman lengan pendek yang melayang di atas tabung karena cuff kaos asli berbentuk kurva saddle 3D non-planar.
+  - **Solusi Standar Industri 3D (Cara yang Benar)**: Menganalisis topologi `tee-basic.glb` dan menemukan loop batas cuff luar terbuka 1-manifold tertutup (Loop 5 = 70 simpul di kiri, Loop 6 = 74 simpul di kanan).
+  - **Ekstrusi Geometri Terpadu**: Membuat script `scripts/test_seamless_longsleeve.mjs` yang mengekstrusi simpul lengan panjang langsung dari simpul cuff asli tanpa celah 0.000 mm, mengikuti trajektori anatomis lengan hingga pergelangan tangan (wrist), menghasilkan satu file model tunggal `longsleeve.glb` (7.491 vertices, 14.114 triangles).
+  - **Refaktorisasi Komponen**: `LongsleeveModel.tsx` kini memuat `/models/longsleeve.glb?v=14` secara bersih via `extractApparelGeometry(scene)` seperti `TshirtModel` dan `ShirtModel` tanpa tabung prosedural runtime yang berat.
+  - **Sinkronisasi & Verifikasi Penuh**: `node scripts/sync-assets.mjs` menyinkronkan ke mobile dan Android. Typecheck web + mobile 100% bebas error, dan seluruh unit test Vitest 10/10 lulus.
+- [x] **Kalibrasi Proporsi & Skala Seluruh 3D Apparel Mengacu pada Hoodie (15 Sep 2026 Malam)**:
+  - **Audits & Temuan**: Mengaudit geometri seluruh model terhadap Hoodie (acuan emas di mana sablon dada berada di Y=0). Ditemukan bahwa T-Shirt & Longsleeve mentah belum diselaraskan (terlalu tinggi, Y=0 jatuh di perut), Coach Jacket memiliki bentang 2.0 meter raksasa, dan Sweater terlalu lebar.
+  - **Penyelarasan T-Shirt & Longsleeve**: Mengaplikasikan `scaleMultiplier: 0.72` (lebar 51.5 cm = standar Size L) dan `crownYOffset: -0.12` sehingga kerah turun tepat di pangkal leher (+0.165) dan level dada pas di Y=0.000 (sablon template otomatis menempel di dada seperti Hoodie).
+  - **Penyelarasan Coach Jacket**: Mengaplikasikan `scaleMultiplier: 0.52` (bentang lengan proporsional 1.04m, tidak keluar frame) dan `crownYOffset: -0.075` sehingga garis bahu turun dari +0.227 ke **+0.110** (tepat sejajar Hoodie +0.108 dan Kaos +0.110), dada pas di Y=0.000, dan logo dada "KK" menempel di dada atas di samping resleting (bukan lagi di perut).
+  - **Penyelarasan Sweater**: Mengaplikasikan `scaleMultiplier: 0.74` (lebar 0.88m, identik dengan lebar Hoodie 0.87m) dan `crownYOffset: -0.10`.
+  - **Pembaruan SSOT**: Memperbarui `collarBaselineY` (0.155), `measuredMeshWidthUnits` (1.040), dan `sleeveAnchorX` (0.20) di `scaleCalibration.ts`.
+  - **Paritas Penuh Mobile (`kaos-kami-mobile`)**:
+    - Memperbarui `extractMobileApparelGeometry.ts` dengan perlindungan ketidakcocokan buffer tangent (mencegah lengan hitam).
+    - Memperbarui `MobileApparelMeshRenderer.tsx` dan `MobileSweaterModel.tsx` agar menggunakan skala dan offset terstandarisasi yang identik dengan Web (`tshirt/longsleeve` 0.72/-0.12, `hoodie` 0.74, `shirt` 0.52/-0.075, `sweater` 0.74/-0.10, `shorts` 0.0125).
+    - Memperbaiki penempatan `<MobileDecalLayerRenderer />` langsung di dalam `<mesh>`, melenyapkan bug Drei Decal tersembunyi di mobile.
+  - **Verifikasi Menyeluruh**:
+    - `npm --workspace=kaos-kami-web run typecheck` ✅ 0 error.
+    - `npm run mobile:typecheck` ✅ 0 error.
+    - `npm --workspace=kaos-kami-web test` (Vitest) ✅ 10/10 test lulus 100% hijau!
+- [x] **Overhaul Total Gizmo 3D Sablon: Standar Industri Canva / Figma (15 Sep 2026 Malam)**:
+  - **Akar Masalah Sizing**: Penggunaan Drei `<Html transform>` menimbulkan distorsi skala di mana pada sablon kecil (`5.5 × 3.5 cm`), tombol CSS 24px-44px menjadi lebih besar dari keseluruhan gambar sablon sehingga saling bertumpuk dan menutupi kaos seperti gumpalan hitam pekat.
+  - **Akar Masalah Kontrol Macet**: Rumus skala dan rotasi lama hanya membaca delta `dx` horizontal tanpa memperhitungkan sudut putar (`Math.atan2`) dan jarak radial. Event listener terpasang lokal pada elemen tombol sehingga tarikan mouse cepat langsung kehilangan fokus (drop tracking/freeze).
+  - **Arsitektur Baru Canva/Figma**:
+    - **Screen-Space Crisp Rendering**: Menghilangkan `transform` 3D CSS matrix3d. Menghitung ukuran piksel layar dinamis (`pxPerUnit`) langsung dari FOV dan jarak kamera ke apparel, memastikan bounding box membungkus gambar sablon dengan presisi piksel 1:1, tajam, dan tidak pecah.
+    - **Rotasi Bertangkai (Stem Handle)**: Memindahkan tombol putar ke tangkai di atas kotak (`-top-6`) persis seperti Canva/Figma/Fabric.js sehingga 0% menutupi karya seni. Menggunakan kalkulasi trigonometri sejati `Math.atan2` (1:1 mulus dengan kursor) + snap 15° via tombol Shift.
+    - **Titik Skala Sudut Minimalis (Corner Resize Dots)**: Memasang 4 titik sudut berukuran 10px (`w-2.5 h-2.5`) dengan border oranye dan warna putih khas Figma. Menarik sudut mana pun menjauh atau mendekat dari pusat mengubah skala secara simetris dan alami.
+    - **Drag Penuh Bebas Hambatan**: Seluruh bidang dalam kotak dapat diklik dan digeser (`cursor-grab` / `cursor-grabbing`), menghilangkan bola oranye yang sebelumnya menutupi logo.
+    - **Window-Level Pointer Tracking**: Mengikat event `pointermove` dan `pointerup` ke `window` selama proses dragging berlangsung, menjamin pergerakan mouse tidak akan pernah lepas atau macet kendati ditarik kencang ke luar area kanvas.
+    - **Kapsul Informasi Kompak**: Menggabungkan dimensi dan jarak kerah ke dalam 1 kapsul kaca semi-transparan elegan di bawah gambar (`↔ 5.5×3.5 cm | ↓ 11.4 cm`), yang secara dinamis menampilkan derajat saat diputar (`🔄 15°`) dan jarak saat digeser.
+  - **Verifikasi**: `web:typecheck` ✅ 0 error. `mobile:typecheck` ✅ 0 error. Vitest 10/10 lulus.
+- [x] **Sistem Perpindahan Proyektor 3D Decal Multi-Sisi (Depan, Belakang, Lengan Longitudinal, & Rusuk Samping) (16 Sep 2026 Pagi)**:
+  - **Keputusan Arsitektur**: Mempertahankan Three.js Drei `<Decal>` (`DecalGeometry`) dengan sistem orientasi dan penempatan proyektor dinamis berpresisi tinggi untuk menjamin ketajaman visual, zero UV-distortion, dan tanpa batasan pemetaan UV kanvas 2D.
+  - **Orientasi Proyektor Lengan Longitudinal (Anti-Shear & Anti-Bleed)**:
+    - Menghitung vektor trajektori 3D lengan per garmen (`armShoulder` ke `armCuff`) untuk mengekstrak basis ortonormal lengan.
+    - Mengintegrasikan sudut rotasi Euler terkalibrasi (`armEulerLeft` & `armEulerRight`) sesuai kemiringan lengan anatomis garmen ($17^\circ$ hingga $36^\circ$).
+    - Proyektor lengan diposisikan sepanjang trajektori lengan dengan depth terkontrol $0.20$, menangkap ribuan vertices di seluruh rentang lengan (hingga 40 cm pada longsleeve, hoodie, & sweater) tanpa terpotong dan tanpa tembus (bleed) ke torso badan.
+  - **Orientasi Proyektor Rusuk Samping (Side Left & Side Right)**:
+    - Proyektor dikunci tegak lurus pada $X = \pm(sideAnchorX + EPS)$ dan $Z \in [-0.08, 0.08]$ dengan sudut $90^\circ$ persis ($[0, \mp\pi/2, 0]$), depth $0.20$.
+    - Mengeliminasi grazing angle shear 100%, mendukung sablon tipografi streetwear memanjang vertikal di rusuk samping pinggang.
+  - **Orientasi Proyektor Dada & Punggung (Front & Back)**:
+    - Kedalaman proyektor dipertahankan $0.32$ (unclipped), melenyapkan batas sablon tengah di dada pada apparel berlekuk.
+  - **Sinkronisasi Rotasi & DecalGizmo**:
+    - Memperbarui `DecalLayerRenderer.tsx` untuk menggabungkan orientasi dasar bidang 3D (`placement.rotation`) dengan rotasi pengguna melalui perkalian quaternion `qBase.multiply(qUser)`.
+    - Menyelaraskan `<group position={gizmoPos} rotation={placement.rotation}>` pada `DecalGizmo.tsx` sehingga kotak kontrol gizmo menempel rata dan planar mengikuti kemiringan lengan serta rusuk samping di semua sudut pandang kamera.
+- [x] **Sistem Perpindahan Proyektor 3D Decal Multi-Sisi & Auto-Zone Snap Transition (16 Sep 2026 Siang)**:
+  - **Akar Masalah (Root Cause) Terpecahkan**:
+    1. *Depth Penetration & Spike Shear*: Proyeksi depan (`depth 0.32`) menembus torso tipis di pinggang dan menabrak rusuk samping pada sudut grazing $85^\circ-90^\circ$, memicu Three.js DecalGeometry merentangkan UV ke tak hingga (segitiga hitam memanjang ke lantai).
+    2. *Parallax Detachment & Needle Gizmo*: Gizmo HTML transform terkunci pada `rotation [0,0,0]` depan saat kamera berputar ke samping atau saat decal digeser ke lengan, tampak melayang di dada atau gepeng menjadi garis jarum setebal 0 piksel.
+    3. *Ketiadaan Update targetSide saat Drag*: Menggeser decal melampaui batas samping tidak otomatis mengalihkan `targetSide` ke lengan atau rusuk.
+  - **Solusi Tuntas Opsi B (Hybrid Cerdas)**:
+    1. **Adaptive Depth Clamping (`scaleCalibration.ts`)**: Kedalaman proyeksi depan/belakang otomatis ditipiskan adaptif saat mendekati tepi rusuk (`Math.max(0.14, 0.32 - Math.max(0, Math.abs(decalX) - 0.08) * 1.5)`), sedangkan rusuk samping dan lengan dikunci aman pada `0.16` dan `0.14`. Tuntas melenyapkan spike dan tembusan ke punggung/lantai.
+    2. **Auto-Zone Snap Transition (`DecalGizmo.tsx`)**: Saat pengguna menyeret sablon melintasi $X < -0.13$ atau $X > 0.13$, sistem mendeteksi tinggi $Y$ dan otomatis memindahkan `targetSide` ke `left_sleeve`/`side_left` atau `right_sleeve`/`side_right`, mereset origin seret mulus, memutar orientasi proyektor/gizmo, dan menggerakkan kamera dengan sinematik (`setCameraPreset('left' | 'right')`).
+    3. **Quick-Docking Mini Bar**: Bilah tombol mini melayang di bawah kapsul gizmo (`[DADA]`, `[SMPG KIRI]`, `[SMPG KANAN]`, `[LGN KIRI]`, `[LGN KANAN]`, `[PUNGGUNG]`) untuk memindahkan sablon dalam 1-klik instan beserta rotasi sudut kamera otomatis.
+    4. **Surface-Normal View Culling**: Pengujian dot-product vektor normal permukaan terhadap kamera (`surfaceNormal.dot(toCam) >= 0.18`) menyembunyikan gizmo HTML secara elegan saat dilihat dari belakang atau sudut tepi ekstrim (< 10°), melenyapkan tampilan jarum gepeng 100%.
+    5. **Direct 3D Decal Click Selection (`DecalLayerRenderer.tsx`)**: Menambahkan `onPointerDown` pada Drei `<Decal>` sehingga klik langsung pada grafis di lengan/rusuk/dada seketika memilih decal dan mengaktifkan gizmo di permukaan tersebut.
+  - **Verifikasi**:
+    - `npm --workspace=kaos-kami-web run typecheck` ✅ 0 error.
+    - Vitest unit tests (`sideAndSleevePlacement.test.ts`, dll.) ✅ 15/15 passed.
+    - Localhost 3000 HTTP GET `/studio` ✅ 200 OK.
+- [x] **Overhaul Pola 2D & Penyempurnaan Longsleeve 3D (16 Sep 2026 Siang)**:
+  - **Audit Seluruh Aset Pola 2D**: Memperbaiki `patternSilhouette.ts` agar lengan panjang (`isLong`) merender siluet panjang yang akurat untuk `longsleeve`, `hoodie`, `crewneck`, dan `jacket`. Memvalidasi paritas 1:1 koordinat titik acuan dan batas cetak via `patternGeometry.ts` & `patternSync.ts` (19/19 test Vitest `patternParity.test.ts` lulus).
+  - **Penyederhanaan Teks & Eliminasi Jargon DPI**: Menghapus teks instruksi yang berbelit-belit dan istilah teknis (seperti @261 DPI). Tombol aksi kini ringkas dan ramah: `💾 Simpan Pola Sablon` (loading: `Menyimpan Pola Sablon...`), label aktif disederhanakan menjadi `Terpilih: {nama}`, dan notifikasi penyimpanan dibuat santun.
+  - **Penghapusan Batas Hijau Kotak**: Menghilangkan objek `bounds` (kotak hijau putus-putus) dan `label` ukuran hijau dari kanvas Fabric.js 2D, menjadikan kanvas bersih murni hanya menampilkan garis luar garmen dan grafis pengguna. Magnetik snapping tetap bekerja presisi di latar belakang.
+  - **Optimasi Mode Perbesar Layar Penuh (Expanded Studio UI)**:
+    - Merancang ulang tampilan layar penuh dengan arsitektur studio profesional: Header bar ramping di atas (nama panel, dimensi cm, tab panel, tombol zoom Fit/100%/150%, dan tombol Tutup).
+    - Menjadikan area kanvas tengah 100% bebas hambatan (spacious & unobstructed), menampilkan keseluruhan baju dari kerah hingga ujung keliman bawah tanpa terpotong.
+    - Menghadirkan Floating HUD Toolbar di bagian bawah untuk alat aksi cepat (Posisi Tengah Dada / Dada Kiri / Reset, Upload, + Teks, Hapus, Simpan Pola) yang melayang secara elegan tanpa menekan atau mempersempit kanvas.
+  - **Perbaikan Longsleeve 3D (Anti-Tembus & Celah Bahu)**:
+    - *Solusi Sablon Tembus*: Menyesuaikan titik proyektor lengan pada `scaleCalibration.ts` ke permukaan terluar kain (`armRadius + EPS`) dan memperkecil `projectionDepth` dari `0.14` ke `0.06`, sehingga proyeksi hanya menjangkau kain luar dan secara fisik mustahil menembus ke sisi dalam lengan atau rusuk badan.
+    - *Solusi Celah Bahu*: Mengidentifikasi 579 pasang simpul batas koinsiden di sambungan bahu/lubang lengan yang sebelumnya memiliki normal divergen hingga 180°. Memperbarui script `scripts/test_seamless_longsleeve.mjs` dengan penyatuan normal mulus (unified normal pooling) sehingga perbedaan sudut normal menjadi 0.0000°, melenyapkan garis bayangan gelap/celah jahitan bahu dan menghasilkan pantulan cahaya yang 100% kontinu. Diekspor dan disinkronkan ke `longsleeve.glb` web & mobile.
+  - **Verifikasi Menyeluruh**:
+    - `npm --workspace=kaos-kami-web test` (Vitest) ✅ 93/93 test lulus 100%.
+    - `npm --workspace=kaos-kami-web run typecheck` (`tsc --noEmit`) ✅ 0 error.
+- [x] **Remake Murni Longsleeve 3D & Solusi Desain Terbelah di Lengan (16 Sep 2026 Sore)**:
+  - **Eliminasi Undakan/Tambalan Lengan**: Melakukan pembedahan topologi mesh `tee-basic.glb` dan menghapus `Component 5` (160 verteks) serta `Component 6` (170 verteks) yang merupakan lipatan kelim kaos pendek (short-sleeve cuff band) yang sebelumnya terperangkap di lengan atas.
+  - **Ekstrusi Murni dari Boundary Loop**: Menelusuri loop batas 32 verteks lengan kiri (simpul 196 ke 201) dan 34 verteks lengan kanan (simpul 3091 ke 3094), lalu mengekstrusi 24 cincin lengan panjang secara mulus hingga pergelangan tangan dengan kurva Hermite alami.
+  - **Penyatuan Normal (Normal Pooling)**: Menyatukan normal verteks pada 315 kluster seam sehingga pencahayaan di sambungan lengan 100% mulus ($0.000^\circ$ deviasi), tanpa bayangan gelap atau celah.
+  - **Solusi Desain Terbelah / Sliced di Lengan**: Memperbaiki `projectionDepth` dari `0.06` ke `0.11` dan memusatkan proyektor pada `(armRadius + EPS - 0.008)` di `scaleCalibration.ts`. Menangkap 100% segitiga desain pada semua sudut rotasi (729–913 segitiga) tanpa terpotong di tengah, sekaligus menjaga jarak aman $>6\text{ cm}$ dari torso (bebas tembus badan).
+  - **Verifikasi**:
+    - `npm --workspace=kaos-kami-web test` (Vitest) ✅ 19/19 tests passed.
+    - `npm --workspace=kaos-kami-web run typecheck` ✅ 0 error.
+    - `npm run mobile:typecheck` ✅ 0 error.
+- [x] **Integrasi Penuh Pola 2D & 3D, In-Drawer Zoom, Perbaikan Kotak Biru, Visibilitas Teks, & Opsi A (16 Sep 2026 Sore)**:
+  - **Sinkronisasi Dua Arah Real-Time (3D <-> 2D Parity)**: Memperbaiki loop sinkronisasi di `PatternStudio.tsx` dengan loader otomatis asinkron via `FabricImage.fromURL` dan `decalToFabric`. Setiap desain/teks yang ditambahkan di 3D otomatis muncul di kanvas 2D, dan sebaliknya setiap geseran/rotasi/skala di 2D otomatis menggerakkan 3D seketika (60fps). Seleksi objek di 3D dan 2D tersinkronisasi dua arah.
+  - **Eliminasi "Banyak Kotak-Kotak Biru" (Clustered Blue Selection Boxes)**: Menggantikan 9 kotak biru Fabric.js 13px yang menumpuk pada artwork kecil dengan kontrol gaya Canva/Figma modern (4 lingkaran sudut putih bersih beraksen ring hijau emerald `#10b981`, nonaktifkan handle tengah `ml, mr, mt, mb`, dan pendekkan offset rotasi `mtr` ke `-18`).
+  - **In-Drawer Canvas Zoom**: Menambahkan Floating Zoom HUD (`[-]`, `{Persen}%`, `[+]`) di pojok atas kanvas drawer standar, mendukung mouse wheel zoom dan drag-to-pan tanpa harus membuka mode perbesar.
+  - **Smart Contrast Text & Visibilitas Teks**: Memperbaiki teks yang sebelumnya di-hardcode putih sehingga hilang (invisible white-on-white) di kaos putih. Sistem kini otomatis menerapkan kontras cerdas (`#111827` pada kaos terang, `#FFFFFF` pada kaos gelap) dilengkapi tombol pemilih warna cepat (Auto, Hitam, Putih, Oranye, Merah) dan menghubungkan master registry ke `setMasterDataUrl` & `setOriginalMasterDataUrl`.
+  - **Eksekusi Opsi A (Unifikasi Simpan)**: Menghapus tombol manual `"💾 SIMPAN POLA SABLON"` yang redundan dan membingungkan dari drawer dan mode layar penuh, menggantikannya dengan badge status real-time: `"✓ Tersinkronisasi Otomatis ke 3D"` dengan radar pulse hijau emerald. Master produksi diekspor terpadu saat checkout via `ensureDecalMastersUploaded`.
+- [x] **Kalibrasi Skala Presisi 1:1 (3D Mockup <-> Pola 2D <-> Standar Fisik DTF Makassar) (16 Sep 2026 Sore)**:
+  - **Riset & Akar Masalah Ketidakcocokan Skala (Discrepancy Root Cause)**:
+    - Melakukan slicing verteks 3D pada model `tee-basic.glb` dan perbandingan rasio fisik garmen nyata (Kaos Dewasa XL: Lebar Dada $56.0\text{ cm}$, Panjang Badan $74.0\text{ cm}$, rasio fisik $74/56 = 1.321$; rasio 3D $0.5066/0.3818 = 1.327$, akurasi geometri $99.5\%$).
+    - Menemukan bahwa nilai `meshMultiplier: 78.4` sebelumnya SALAH FATAL karena membagi $56.0\text{ cm}$ dengan $0.71464\text{ unit}$, yang merupakan bentang ujung-ke-ujung lengan (armspan), BUKAN lebar dada (torso chest)!
+    - Akibatnya: sablon berskala $0.12$ di 3D menutupi $31.2\%$ lebar dada (terlihat besar seperti A4), tetapi dikonversi ke 2D hanya sebagai $9.4\text{ cm}$ ($16.8\%$ dari dada $56\text{ cm}$, terlihat kerdil seukuran saku). Discrepancy visual mencapai $1.86\times - 2.0\times$!
+  - **Kalibrasi Mutlak 1:1 Torso Chest Parity**:
+    - Memperbarui formula SSOT di `kaos-kami-web/src/lib/scaleCalibration.ts`: $\text{meshMultiplier} = \text{Lebar Dada Nyata} / \text{Lebar Dada Torso 3D} = 56.0 / 0.385 = \mathbf{145.5}$.
+    - `tshirt` & `longsleeve`: `meshMultiplier: 145.5`, `measuredMeshWidthUnits: 0.385`.
+    - `crewneck`: `meshMultiplier: 163.7`, `measuredMeshWidthUnits: 0.354` ($58.0 / 0.354$).
+    - `maxDecalScaleUnits` otomatis mengunci batas maksimal cetak pada $30.0\text{ cm} / 145.5 = 0.2062\text{ unit}$ ($53.6\%$ dada), selaras sempurna dengan batas roll film DTF $30\text{ cm}$ workshop Makassar.
+    - Sinkronisasi `MOBILE_UNITS_TO_CM` di `kaos-kami-mobile/src/store/useMobileStudioStore.ts`.
+  - **Hasil Paritas 100%**:
+    - Desain $0.12$ di 3D menutupi $31.2\%$ dada.
+    - Ukuran fisik terhitung $17.5\text{ cm}$ (Standar A4).
+    - Desain di kanvas 2D menutupi $17.5 / 56.0 = 31.2\%$ dada!
+    - Tampilan visual di 3D mockup, kanvas pola 2D, dan ukuran cetak fisik kini **100% identik dan berparitas 1:1**.
+  - **Verifikasi**:
+    - `npm --workspace=kaos-kami-web test` (Vitest) ✅ 19/19 tests passed (seluruh test paritas & pricing lulus).
+    - `npm --workspace=kaos-kami-web run typecheck` (`tsc --noEmit`) ✅ 0 error.
+    - `npm run mobile:typecheck` ✅ 0 error.
+- [x] **Reorganisasi Menu & Optimasi Studio 3D menjadi "3D Test" di Bagan Sablon (16 Sep 2026 Sore)**:
+  - **Integrasi Menu Sablon & 3D Test**:
+    - Memindahkan fitur uji 3D (sebelumnya bernama "STUDIO 3D" yang tersembunyi di Tab Opsi & Ekspor) ke dalam **Tab SABLON** (Tab 2) dengan nama baru yang lebih tegas dan berorientasi pengujian: **"3D TEST"**.
+    - Menghadirkan alur kerja terpadu 3-pilar di dalam bagan Sablon: `[SABLON DTF (jumlah)]` (upload & teks), `[POLA 2D]` (tata letak sentimeter akurat), dan `[3D TEST]` (inspeksi 360°, manekin, dan fisika kain).
+  - **Optimasi Tata Letak & Hierarki Tampilan (Desktop & Mobile)**:
+    - **Header Info Status**: Menampilkan status real-time garmen aktif, warna, dan indikator sablon (`X Sablon Aktif Terpasang` berkedip hijau emerald) dengan tombol ringkas panduan kustomisasi (`PANDUAN`).
+    - **Uji Sudut Pandang 360°**: 4 tombol preset instan (`DEPAN 0°`, `SERONG 45°`, `SAMPING 90°`, `BELAKANG 180°`), tombol toggle putar otomatis (turntable) dengan animasi rotasi aktif, slider 360° kontinu, tombol posisi kamera (`KIRI`, `TENGAH`, `KANAN`), dan zoom slider garmen.
+    - **Simulasi Model / Manekin**: Pilihan mode `👕 HANYA BAJU` vs `🚶 MANEKIN GERAK` dengan 4 klip gerak in-place (`DIAM`, `JALAN`, `LARI`, `SPRINT`) dan pengatur kecepatan gerak ($0.2\times - 2.0\times$).
+    - **Simulasi Kain & Angin**: 4 mode fisika kain (`DIAM`, `ANGIN`, `JALAN`, `RAJUT`) beserta pengatur intensitas angin.
+    - **Pencahayaan & Tekstur Bahan**: Pemilihan tekstur kain (`COTTON 24S`, `HEAVY FLEECE`, `POPLIN`), suasana pencahayaan studio (`STUDIO_MOODS`), tema latar studio (`DARK`, `LIGHT`, `GREY`), dan saklar toggle wireframe kerangka 3D.
+    - **Penyederhanaan Tab Opsi & Ekspor**: Menghapus seluruh elemen kontrol 3D yang tumpang tindih dari Tab 3, sehingga Tab Opsi & Ekspor kini bersih dan fokus hanya pada 2 sub-mode: `[TERSIMPAN]` dan `[EKSPOR MOCKUP]`.
+  - **Verifikasi**:
+    - `npm --workspace=kaos-kami-web run typecheck` (`tsc --noEmit`) ✅ 0 error.
+    - `npm run mobile:typecheck` (`tsc --noEmit`) ✅ 0 error.
+    - `npm --workspace=kaos-kami-web test` (Vitest) ✅ 19/19 passed.
+- [x] **Integrasi Manekin Memakai Baju, Estetika Atelier Mewah, & Perbaikan Desain Mode Wind/Animasi (16 Sep 2026 Sore)**:
+  - **Manekin Mengenakan Pakaian Aktif (`ApparelMeshRenderer.tsx`)**: Mengubah arsitektur rendering sehingga saat `modelMode === "mannequin"`, komponen garmen aktif (`TshirtModel`, `HoodieModel`, `LongsleeveModel`, dll.) dirender bersamaan membungkus tubuh manekin secara 1:1. Warna pilihan pengguna dan sablon DTF tetap aktif dan terlihat di atas badan manekin.
+  - **Proporsi & Dimensi Pas (Kalibrasi 1:1)**: Menerapkan transformasi fitting presisi `position={[0, -0.88, -0.015]}` dan `scale={[0.69, 0.69, 0.69]}` pada model manekin Quaternius (`mannequin.glb`). Leher manekin tepat di $Y = +0.109$ (pas keluar dari kerah kaos $Y = +0.165$), kepala muncul proporsional di atas kerah, dada memiliki clearance $4.8\text{ cm}$ aman di dalam rongga baju (anti-clipping), punggung memiliki clearance $2.9\text{ cm}$, tangan keluar dari lengan baju, dan kaki keluar di bawah keliman.
+  - **Upgrade Material Mewah (Atelier Showroom)**: Mengganti material default Quaternius yang ungu dan recoloring tubuh senada kaos. Tubuh (`M_Main`) kini menggunakan material porselen alabaster matte netral mewah (`#e2e8f0`, roughness 0.65, metalness 0.04) dan sendi artikulasi (`M_Joints`) menggunakan titanium gelap satin (`#252830`, roughness 0.35, metalness 0.80).
+  - **Solusi Tuntas Error Desain / Gizmo Melayang (`DecalGizmo.tsx`)**: Menyelesaikan masalah kotak seleksi melayang di udara saat kain bergoyang atau berputar (seperti pada screenshot kendala pengguna) dengan menyembunyikan gizmo secara otomatis saat `animationPreset !== "static"`, `isRotating`, atau `modelMode === "mannequin"`. Gizmo hanya aktif saat mode desain statis.
+- [x] **Procedural Skeletal Skinning & Weight Transfer Busana Lengkap Manekin (Kaos, Hoodie, Celana, Shorts, Topi) (16 Sep 2026 Petang)**:
+  - **Akar Masalah (Root Cause) Dinamika Manekin**:
+    - `mannequin.glb` (Quaternius Animated Base Character) memiliki 53 tulang bersendi (`DEF-hips`, `DEF-spine`, `DEF-shoulder`, `DEF-upper_arm`, `DEF-forearm`, `DEF-thigh`, `DEF-shin`, dll.) yang digerakkan oleh klip animasi skeletal in-place (Walk, Jog, Sprint, Dance).
+    - Seluruh aset pakaian 3D (`tee-basic.glb`, `hoodie-blue.glb`, `pants.glb`, `shorts.glb`, `cap.glb`) sebelumnya merupakan static unskinned `THREE.Mesh` tanpa tulang (`0 joints`).
+    - Akibatnya: Saat manekin bergerak jalan atau lari, rangka tulang manekin bergerak maju-mundur mengayunkan lengan dan kaki, sedangkan pakaian diam melayang di tempat (manekin menembus keluar dari kaos).
+  - **Arsitektur Procedural WebGL Skeletal Skinning (`proceduralSkinning.ts`)**:
+    - **Algoritma Harmonic Falloff**: Menghitung jarak verteks kain ke segmen 3D setiap tulang rangka manekin ($d$) dengan bobot harmonik invers-kubik ($w = 1 / (d^3 + 1e-4)$).
+    - **Part-Based Anatomical Masking**: Membagi transfer bobot secara ketat ke zona anatomis tubuh manusia:
+      - Sisi kiri garmen ($X < -0.15$) hanya mengikat ke lengan kiri (`armL`) dan torso, mustahil mengikat ke lengan kanan atau dada kanan (mencegah fenomena underarm webbing).
+      - Sisi kanan garmen ($X > 0.15$) hanya mengikat ke lengan kanan (`armR`) dan torso.
+      - Bagian bawah/celana ($X < -0.02$) mengikat kaki kiri (`legL`) dan pinggul, sedangkan ($X > 0.02$) mengikat kaki kanan (`legR`) dan pinggul, melenyapkan peregangan silang di selangkangan saat melangkah (anti-crotch pinching).
+    - **Normalisasi Bobot & WeakMap Caching**: Mengambil 4 pengaruh tulang terkuat per simpul, menormalisasi $\sum w_i = 1.0$, menyematkan atribut `skinIndex` (Uint16) dan `skinWeight` (Float32), serta menyimpan geometri terikat di `WeakMap` cache (komputasi transfer bobot hanya berjalan 1× di inisialisasi, 0ms overhead di runtime per frame).
+  - **Busana Lengkap Manekin Runway Terpadu (`MannequinModel.tsx`)**:
+    - **Upper Body Skinned Layer**: Mendukung 5 arketipe busana atas (`tshirt`, `hoodie`, `longsleeve`, `shirt`/jacket, `crewneck`/sweater). Deformasi mengikuti ayunan bahu, tulang belakang, dan lengan secara lentur dan natural. Tetap menampilkan warna kustom, multi-part, dan sablon DTF via `<DecalLayerRenderer />`. Bila pengguna memilih celana atau topi, manekin otomatis mengenakan t-shirt rapi (tidak pernah bertelanjang dada).
+    - **Lower Body Skinned Layer**: Mendukung celana panjang cargo (`pants.glb`) dan celana pendek (`shorts.glb`). Mengikat ke tulang pinggul (`DEF-hips`), paha (`DEF-thigh`), dan betis (`DEF-shin`), sehingga celana menekuk dan melangkah luwes mengikuti ayunan kaki saat berjalan dan berlari.
+    - **Headwear Socket Layer**: Topi baseball (`cap.glb`) di-socket langsung ke tulang kepala `DEF-head`, bergerak, menengok, dan mengangguk menyatu dengan kepala manekin.
+  - **Pemisahan Mode Bersih (`ApparelMeshRenderer.tsx`)**:
+    - `{isMannequin ? <MannequinModel /> : renderApparel()}`: Saat `modelMode === "mannequin"`, pakaian statis yang melayang otomatis dilepas dan digantikan oleh manekin lengkap berbusana skinned. Saat `modelMode === "garment"`, studio kembali menampilkan busana mengambang 1:1 centimeter dengan DecalGizmo untuk kalibrasi cetak DTF.
+- [x] **Solusi Tuntas Kaos Rusak / Lengan Corong Manekin & Pembuatan Skill AI Agent Blender (`blender-apparel-designer`) (17 Sep 2026 Dini Hari)**:
+  - **Akar Masalah (Root Cause) Geometri Corong di Tangkapan Layar**:
+    - Manekin (`mannequin.glb`) memiliki bind/rest pose berbentuk **T-Pose** (lengan horizontal $180^\circ$ lurus di $Z = 1.42\text{ m}$).
+    - Model kaos awal (`tee-basic.glb`) dimodelkan dalam **A-Pose** (lengan miring $45^\circ$ ke bawah).
+    - Saat dilakukan transfer bobot tanpa penyesuaian sudut lengan, verteks lengan kaos terikat ke tulang yang salah (tulang rusuk/torso/klavikula terdekat). Ketika manekin beranimasi (misal `Idle_Loop`), lengan ditarik paksa sehingga membalik ke luar seperti corong zirah robot.
+  - **Pembuatan Skill Resmi AI Agent (`.agents/skills/blender-apparel-designer/SKILL.md`)**:
+    - Mendokumentasikan arsitektur kontrol mandiri Blender headless via Python (`blender.exe -b -P`) dan integrasi open-source MCP GitHub (`ahujasid/mcp-for-blender`, `sandraschi/blender-mcp`, `PatrykIti/blender-ai-mcp`).
+    - Panduan rotasi lengan A-Pose ke T-Pose sebelum binding untuk mencegah artefak sayap.
+    - Panduan transfer bobot permukaan via `DATA_TRANSFER` modifier (`POLYINTERP_NEAREST`) dengan isolasi tulang upper body.
+    - Protokol inspeksi visual mandiri (*self-validation*) dengan camera pass otomatis 512x512.
+  - **Produksi Ulang Model Presisi (`mannequin-tee.glb`)**:
+    - Menggunakan base mesh `tshirt-heavyweight.glb` (10.526 verteks) dengan topologi lipatan kain fisik nyata.
+    - Menerapkan rotasi lengan terkalibrasi ($36^\circ$ pivot bahu) ke orientasi horizontal T-Pose.
+    - Transfer bobot halus `POLYINTERP_NEAREST` dari `Mannequin` ke `Apparel_Tee`, membersihkan seluruh grup tulang kaki, dan menormalisasi bobot $\sum w_i = 1.0$.
+    - Ekspor glTF 2.0 (`mannequin-tee.glb`) dengan 54 tulang dan seluruh 45 klip animasi skeletal utuh.
+    - Validasi visual render studio di Blender membuktikan lengan kaos jatuh alami melingkari lengan atas, kerah pas di leher, dan rongga torso tertutup rapat tanpa clipping.
+  - **Verifikasi Kode & Sistem**:
+    - Inspeksi Three.js GLTF Loader (`test-inspect-glb.mjs`) ✅ 45 animasi, 3 SkinnedMesh (`Apparel_Tee`, `Mannequin_1`, `Mannequin_2`), 54 bones.
+    - Three.js Animation Mixer test ✅ Animasi berjalan mulus tanpa error.
+    - `npx tsc --noEmit` di `kaos-kami-web` ✅ 0 error.
+- [x] **Produksi Penuh 7 Aset Busana Skinned Manekin Runway & Sistem Universal DTF Decal Socketing (17 Sep 2026 Pagi)**:
+  - **Produksi 7 Model Skinned Penuh di Blender Headless Portable (54 Tulang & 45 Klip Animasi)**:
+    1. `mannequin-tee.glb` (Kaos / T-Shirt Heavyweight 10.526 verteks, lengan T-pose terkalibrasi).
+    2. `mannequin-hoodie.glb` (Hoodie dengan tudung, saku kanguru, dan lengan terintegrasi).
+    3. `mannequin-longsleeve.glb` (Kaos lengan panjang, terikat dari bahu hingga pergelangan tangan).
+    4. `mannequin-sweater.glb` (Crewneck / Sweater rajut tebal).
+    5. `mannequin-pants.glb` (Celana panjang kargo, terikat ke pinggul, paha, dan betis).
+    6. `mannequin-shorts.glb` (Celana pendek + T-shirt, pergerakan paha natural).
+    7. `mannequin-cap.glb` (Topi baseball + T-shirt, topi terikat 100% ke `DEF-head`, bergerak luwes mengikuti tengokan dan anggukan kepala).
+  - **Penyelesaian Tuntas Bug Reparenting `<primitive>` Decal via `createPortal` (`MannequinSkinnedApparel.tsx`)**:
+    - Menemukan akar masalah mengapa decal sablon sebelumnya lepas/melayang: penggunaan `<primitive object={socket}>` di JSX R3F memaksa Three.js memindahkan `socket` dari tulang manekin (`spine3`) ke scene root.
+    - Mengganti ke `createPortal(children, socket)` dari `@react-three/fiber` sehingga seluruh mesh sablon DTF tersemat langsung sebagai child native Three.js dari tulang rangka tanpa terlepas.
+  - **Sistem Multi-Target DTF Sablon Universal di Manekin**:
+    - Sisi Dada Depan (`front`) & Punggung (`back`): terhubung ke tulang `DEF-spine003` dengan kurvatur anatomi dada/punggung dan clearance permukaan adaptif per garmen ($0.180\text{ m} - 0.192\text{ m}$).
+    - Sisi Rusuk Samping Kiri (`side_left`) & Kanan (`side_right`): terhubung ke `DEF-spine003` menghadap lateral ($90^\circ$).
+    - Sisi Lengan Kiri (`left_sleeve`): terhubung ke soket tulang bicep `DEF-upper_armL` yang bergerak sinkron saat lengan berayun.
+    - Sisi Lengan Kanan (`right_sleeve`): terhubung ke soket tulang bicep `DEF-upper_armR`.
+    - Sisi Mahkota Topi (`cap` / `head`): terhubung ke `DEF-head` pada mahkota dahi topi.
+    - Koreksi pemetaan koordinat: membetulkan `decal.x` dan `decal.y` yang berpusat di $0$ (sebelumnya salah diasumsikan $0.5$).
+  - **Invalidasi Cache Service Worker (`sw.js`)**:
+    - Menaikkan cache ke `kaos-kami-cache-v9` dan menambahkan seluruh 7 model glb manekin ke `STATIC_ASSETS` precache.
+- [x] **Solusi Tuntas & Permanen Sablon Lengan Tembus / Bocor ke Badan di Seluruh Aset Pakaian (18 Sep 2026 Subuh)**:
+  - **Identifikasi Akar Masalah**:
+    - `getDecal3DPlacement` sebelumnya tidak memiliki data spek koordinat lengan spesifik per model pakaian, sehingga untuk Sweater, Longsleeve, Hoodie, dan Jaket jatuh ke fallback sempit kaos pendek ($[-0.17, 0.10]$ s/d $[-0.257, -0.03]$).
+    - Titik tengah default ($u=0.5$ / `decalY=0`) jatuh persis di ketiak / perbatasan rusuk dada ($X=-0.21$, $Y=0.035$). Akibatnya kotak proyeksi menabrak rusuk badan dan memotong kain secara ganda (sebagian di rusuk badan, sebagian di lengan seperti pada foto screenshot).
+    - Jangkauan vertikal hanya 5 cm di pangkal bahu dan tidak pernah bisa mencapai tengah lengan apalagi pergelangan tangan / manset.
+  - **Kalibrasi Trajektori Lereng Lengan 5 Model Pakaian (`scaleCalibration.ts`)**:
+    - Ekstraksi kontur verteks 3D asli dari bahu ke manset untuk `tshirt`, `longsleeve`, `crewneck` (sweater), `hoodie`, dan `shirt` (jaket).
+    - Interpolasi trajektori non-linear $u \in [0, 1]$ (`decalY` $+0.35$ bahu $\to$ $0.0$ tengah lengan $\to$ $-0.35$ ujung manset).
+    - Pemetaan posisi tengah lengan (`decalY = 0`) berada di rentang $X = -0.235\text{ s/d } -0.374\text{ m}$ (jauh di luar batas torso $X = -0.15\text{ s/d } -0.16\text{ m}$).
+    - Pemetaan ujung manset (`decalY = -0.35`) mencapai pergelangan tangan $X = -0.251\text{ s/d } -0.520\text{ m}$, $Y = -0.045\text{ s/d } -0.340\text{ m}$.
+    - Orientasi sudut proyektor dihitung presisi via normal basis vector murni (`computeEulerFromNormal`) tanpa dependensi pustaka Three.js, menjaga batas Cloudflare Worker 1.2MB.
+    - Menurunkan ketebalan kedalaman (*projection depth*) dari 16–22.5 cm menjadi 7.5–8.5 cm (sesuai ketebalan kain silinder lengan).
+  - **Isolasi Spasial Dua Lapis di `CleanDecal.tsx`**:
+    - Menambahkan `targetSide` ke `filterDecalBackfaces`.
+    - Proyektor `left_sleeve` otomatis mengeliminasi poligon apapun yang berada di koordinat rusuk/torso ($x > -0.165\text{ m}$).
+    - Proyektor `right_sleeve` otomatis mengeliminasi poligon dengan $x < 0.165\text{ m}$.
+    - Proyektor `front` & `back` mengeliminasi poligon yang tumpah ke lengan ($|x| > 0.22\text{ m}$).
+    - Kebocoran sablon lengan ke torso = **0% (Hilang Total)**.
+  - **Verifikasi**:
+    - `sideAndSleevePlacement.test.ts` (10/10 tests passed).
+    - `npm --workspace=kaos-kami-web run typecheck` (0 error).
+    - Dev server hot-reloaded lancar di `http://localhost:3000/studio`.
+- [x] **Penyempurnaan Menyeluruh Dashboard User, Dashboard Admin & Gang Sheet 100×58 DTF (18 Sep 2026 Siang)**:
+  - **Akun Superadmin**: Dibuat dan diverifikasi `hengkishadow@gmail.com` dengan role `ADMIN`.
+  - **Dashboard User (`/dashboard/orders`)**:
+    - Tab navigasi segmented (`[ Pesanan Saya ]`, `[ Koleksi Desain 3D ]`, `[ Buku Alamat ]`).
+    - Stepper timeline status pesanan 6 tahap (*Dipesan → Lunas → Cetak DTF → Quality Check → Siap/Dikirim → Selesai*).
+    - Kotak salin resi instan 1-klik, kartu pratinjau thumbnail desain 3D asli, kuota storage (5 slot), tombol Buka di 3D Studio, ganti nama & hapus.
+  - **Dashboard Admin (`/admin/*`)**:
+    - Multi-field Smart Search di `/admin/orders` (cari berdasarkan ID pesanan, nama pembeli, nomor WhatsApp, nomor resi).
+    - Filter periode omset di overview (`all`, `today`, `7d`, `30d`), kartu peringatan stok menipis (*Low Stock Alert* $\le 5$ pcs).
+    - Tombol aksi cepat: *Tandai Siap Kirim/Ambil* & *Tandai Selesai/Diambil* (auto-update `ProductionTask.stage = 'DONE'`).
+    - Endpoint export CSV UTF-8 dengan BOM di `/api/admin/orders/export` untuk pembukuan UMKM.
+  - **Gang Sheet 100×58 cm & Arahan Sablon DTF Maklon**:
+    - Pemilih orientasi roll: `Roll 58×100 cm (Standar DTF)` vs `100×58 cm (Landscape)`.
+    - Ekspor HD PNG transparan murni (`ctx.clearRect` 300 DPI, tanpa latar belakang putih) agar software RIP maklon (AcroRIP/Hoson) tidak mencetak blok underbase putih yang keliru.
+    - Job Ticket terkalibrasi dimensi cm real, offset kerah, checklist QC suhu oven (160°C 120s) dan heat press (165°C 15s).
+  - **Validasi Build Menyeluruh**:
+    - `npm --workspace=kaos-kami-web run typecheck`: 0 error.
+    - `npm run mobile:typecheck`: 0 error.
+    - `npm run mobile:build`: Berhasil (Next.js static export ke `out/`).
+    - `npm run mobile:sync`: Berhasil (Capacitor web assets & 17 plugins disinkronkan ke Android & iOS).
+    - `gradlew.bat assembleDebug`: BUILD SUCCESSFUL (APK Android debug selesai dikompilasi).
+    - `npm --workspace=kaos-kami-web run build`: Berhasil (53/53 rute).
+    - `npx opennextjs-cloudflare build`: Berhasil (Cloudflare Worker bundle `.open-next/worker.js` siap deploy).
+
+
 

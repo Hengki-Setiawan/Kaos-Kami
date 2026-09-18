@@ -31,10 +31,10 @@ function buildStudioEquirect(tint: string | null, isLight = false): HTMLCanvasEl
   // Langit studio — gelap obsidian vs terang gallery (hanya warna, tanpa ubah three logic).
   const sky = ctx.createLinearGradient(0, 0, 0, H);
   if (isLight) {
-    sky.addColorStop(0, "#F5F4F0");
-    sky.addColorStop(0.45, "#E9E7E1");
-    sky.addColorStop(0.75, "#DDDAD2");
-    sky.addColorStop(1, "#D0CCC2");
+    sky.addColorStop(0, "#EFECE6");
+    sky.addColorStop(0.45, "#E5E1D8");
+    sky.addColorStop(0.75, "#DDD8CD");
+    sky.addColorStop(1, "#D2CCC0");
   } else {
     sky.addColorStop(0, "#3a3f4a");
     sky.addColorStop(0.45, "#141418");
@@ -45,6 +45,7 @@ function buildStudioEquirect(tint: string | null, isLight = false): HTMLCanvasEl
   ctx.fillRect(0, 0, W, H);
 
   // Softbox = radial gradient putih (didukung semua browser, tanpa ctx.filter).
+  const softboxScale = isLight ? 0.4 : 1.0;
   const softbox = (x: number, y: number, r: number, alpha: number) => {
     const g = ctx.createRadialGradient(x, y, 0, x, y, r);
     g.addColorStop(0, `rgba(255,252,245,${alpha})`);
@@ -53,10 +54,10 @@ function buildStudioEquirect(tint: string | null, isLight = false): HTMLCanvasEl
     ctx.fillStyle = g;
     ctx.fillRect(x - r, y - r, r * 2, r * 2);
   };
-  softbox(W * 0.5, H * 0.16, 120, 1.0); // key atas (paling terang)
-  softbox(W * 0.12, H * 0.42, 60, 0.55); // strip kiri
-  softbox(W * 0.88, H * 0.42, 60, 0.55); // strip kanan
-  softbox(W * 0.5, H * 0.3, 200, 0.18); // isi lembut tengah
+  softbox(W * 0.5, H * 0.16, 120, 1.0 * softboxScale); // key atas (paling terang)
+  softbox(W * 0.12, H * 0.42, 60, 0.55 * softboxScale); // strip kiri
+  softbox(W * 0.88, H * 0.42, 60, 0.55 * softboxScale); // strip kanan
+  softbox(W * 0.5, H * 0.3, 200, 0.18 * softboxScale); // isi lembut tengah
 
   // Pantulan lantai hangat (bounce untuk kain bawah).
   const floor = ctx.createLinearGradient(0, H * 0.72, 0, H);

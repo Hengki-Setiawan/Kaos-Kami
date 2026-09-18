@@ -9,7 +9,7 @@ const DECAL_A4 = [
     targetSide: "front" as const,
     x: 0,
     y: -0.05,
-    scale: 0.2, // Fase 13: 0.2 × 78.4 = ~15.7cm di kaos -> A4
+    scale: 0.14, // 0.14 × 145.5 = ~20.4cm di kaos -> A4 (15.1 - 25.0 cm)
     rotation: 0,
     opacity: 1,
   },
@@ -24,7 +24,7 @@ describe("pricingEngine 6 variabel", () => {
       decals: DECAL_A4,
       quantity: 1,
     });
-    expect(p.basePriceIdr).toBe(149000);
+    expect(p.basePriceIdr).toBe(79000);
     expect(p.totalSablonCostIdr).toBe(25000);
     expect(p.sizeSurchargeIdr).toBe(0);
     expect(p.discountPercentage).toBe(0);

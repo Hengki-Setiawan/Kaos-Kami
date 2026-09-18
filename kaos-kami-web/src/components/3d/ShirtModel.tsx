@@ -4,22 +4,18 @@ import React, { useEffect, useMemo, useRef, Suspense } from "react";
 import * as THREE from "three";
 import { useGLTF } from "@react-three/drei";
 import { useFrame, useThree } from "@react-three/fiber";
-import * as BufferGeometryUtils from "three/examples/jsm/utils/BufferGeometryUtils.js";
 import { useConfiguratorStore } from "@/store/useConfiguratorStore";
 import { useShallow } from "zustand/shallow";
 import { useDeviceTier } from "@/hooks/useDeviceTier";
 import { extractApparelGeometry } from "@/lib/extractApparelGeometry";
 import { DecalLayerRenderer } from "./DecalLayerRenderer";
 import { easing } from "maath";
-import { applyWindToMaterial } from "@/lib/shaders/windDisplacement";
-import { ensureWindWeights, ensureBoxUV } from "@/lib/geometryPrep";
 import { createClothPhysicalMaterial } from "@/lib/materials/clothPhysicalMaterial";
 import { useResourceTracker, useTrackedResource } from "@/lib/threeResourceTracker";
 import { surfaceZForApparel } from "@/lib/scaleCalibration";
+import { getStretchFactors } from "@/lib/3d/stretchPhysics";
 
-import { SilentModelFallback } from "@/components/ui/ModelErrorBoundary";
-
-const MODEL_PATH = "/models/sweater.glb?v=7";
+const MODEL_PATH = "/models/jacket.glb?v=15";
 
 // PERF 14 Sep 2026: top-level useGLTF.preload DIHAPUS — preload terpusat
 // HANYA via idle-preload di CanvasStage (aktif + tetangga katalog) agar tak
@@ -29,7 +25,7 @@ const GltfJacket: React.FC<{ path: string }> = ({ path }) => {
   const meshRef = useRef<THREE.Group>(null);
   const { tier } = useDeviceTier();
   const invalidate = useThree((s) => s.invalidate);
-  const { scene } = useGLTF(path);
+  const { scene } = useGLTF(path) as any;
   const {
     selectedColor,
     isRotating,
@@ -55,12 +51,17 @@ const GltfJacket: React.FC<{ path: string }> = ({ path }) => {
     useShallow((s) => ({ partColors: s.partColors, activeColorMode: s.activeColorMode }))
   );
 
-  const { animationPreset, animationSpeed } = useConfiguratorStore(
-    useShallow((s) => ({ animationPreset: s.animationPreset, animationSpeed: s.animationSpeed }))
+  const { animationPreset, animationSpeed, testLabMode, stretchIntensity, stretchDirection } = useConfiguratorStore(
+    useShallow((s) => ({
+      animationPreset: s.animationPreset,
+      animationSpeed: s.animationSpeed,
+      testLabMode: s.testLabMode,
+      stretchIntensity: s.stretchIntensity,
+      stretchDirection: s.stretchDirection,
+    }))
   );
   const windStrength =
     animationPreset === "wind" ? 0.8 * animationSpeed : animationPreset === "walking" ? 0.4 * animationSpeed : 0;
-  const roughness = materialFinish === "poplin" ? 0.78 : 0.86;
 
   const material = useMemo(() => {
     return createClothPhysicalMaterial({
@@ -74,42 +75,40 @@ const GltfJacket: React.FC<{ path: string }> = ({ path }) => {
     });
   }, [selectedColor, isWireframe, activeColorMode, materialFinish, windStrength, tier]);
 
-  const mergedBase = useMemo(() => {
-    return extractApparelGeometry(scene, { scaleMultiplier: 1.0 });
+  // Ekstrak geometri jaket terkalibrasi proporsional (selaras Hoodie acuan emas):
+  // scaleMultiplier 0.52 & crownYOffset -0.075 agar bahu tepat di Y=0.110 dan area dada atas di Y=0.05 (logo KK pas di dada).
+  const baseGeometry = useMemo(() => {
+    return extractApparelGeometry(scene, { scaleMultiplier: 0.52, crownYOffset: -0.075 });
   }, [scene, path]);
 
   useEffect(() => {
-    if (mergedBase) invalidate();
-  }, [invalidate, mergedBase]);
+    if (baseGeometry) invalidate();
+  }, [invalidate, baseGeometry]);
 
-  // Atribut warna vertex (multi-part) — mutasi mergedBase MILIK SENDIRI
-  // (bukan cache GLB drei), tanpa merge ulang. Atribut dipakai ulang in-place
-  // + needsUpdate agar buffer GPU tak bocor tiap ganti warna. Single-color:
-  // material.color yang bicara (useFrame damp) — buang atribut basi.
-  // Ambang part (y>0.22 kerah, |x|>0.18 lengan) TAK DIUBAH — kalibrasi visual.
+  // Atribut warna vertex (multi-part) untuk badan jaket (ruang terkalibrasi: kerah y>0.14, lengan |x|>0.20)
   const mergedGeometry = useMemo(() => {
-    if (!mergedBase) return null;
+    if (!baseGeometry) return null;
     if (activeColorMode !== "multi-part") {
-      if (mergedBase.getAttribute("color")) mergedBase.deleteAttribute("color");
-      return mergedBase;
+      if (baseGeometry.getAttribute("color")) baseGeometry.deleteAttribute("color");
+      return baseGeometry;
     }
-    const pos = mergedBase.attributes.position as THREE.BufferAttribute;
+    const pos = baseGeometry.attributes.position as THREE.BufferAttribute;
     if (pos) {
       const colBody = new THREE.Color(partColors.body || selectedColor);
       const colSleeve = new THREE.Color(partColors.sleeves || partColors.sleeve || selectedColor);
       const colCollar = new THREE.Color(partColors.collar || selectedColor);
-      let attr = mergedBase.getAttribute("color") as THREE.BufferAttribute | null;
+      let attr = baseGeometry.getAttribute("color") as THREE.BufferAttribute | null;
       if (!attr || attr.count !== pos.count) {
         attr = new THREE.BufferAttribute(new Float32Array(pos.count * 3), 3);
-        mergedBase.setAttribute("color", attr);
+        baseGeometry.setAttribute("color", attr);
       }
       const arr = attr.array as Float32Array;
       const tmp = new THREE.Color();
       for (let i = 0; i < pos.count; i++) {
         const x = pos.getX(i);
         const y = pos.getY(i);
-        if (y > 0.22) tmp.copy(colCollar);
-        else if (Math.abs(x) > 0.18) tmp.copy(colSleeve);
+        if (y > 0.14) tmp.copy(colCollar);
+        else if (Math.abs(x) > 0.20) tmp.copy(colSleeve);
         else tmp.copy(colBody);
         arr[i * 3] = tmp.r;
         arr[i * 3 + 1] = tmp.g;
@@ -117,13 +116,10 @@ const GltfJacket: React.FC<{ path: string }> = ({ path }) => {
       }
       attr.needsUpdate = true;
     }
-    return mergedBase;
-  }, [mergedBase, activeColorMode, partColors, selectedColor]);
+    return baseGeometry;
+  }, [baseGeometry, activeColorMode, partColors, selectedColor]);
 
-  // Dispose via ResourceTracker terpisah per jenis (audit #6: effect gabungan
-  // dispose geometri yang MASIH hidup saat material berubah mis. ganti warna
-  // → mesh blank use-after-dispose). Geometri cache GLB milik drei — TIDAK
-  // di-track (bukan milik sendiri), hanya merged + material milik sendiri.
+  // Dispose via ResourceTracker terpisah per jenis
   const geoTracker = useResourceTracker();
   const matTracker = useResourceTracker();
   useTrackedResource(geoTracker, mergedGeometry);
@@ -154,11 +150,13 @@ const GltfJacket: React.FC<{ path: string }> = ({ path }) => {
   const posY = viewMode === "story" ? -0.05 : modelPosY - 0.05;
   const scale = viewMode === "story" ? 1.0 : modelScale;
 
+  const stretchFactors = getStretchFactors(testLabMode, stretchIntensity, stretchDirection);
+
   return (
     <group
       ref={meshRef}
       position={[posX, posY, 0]}
-      scale={[scale, scale, scale]}
+      scale={[scale * stretchFactors.stretchX, scale * stretchFactors.stretchY, scale * stretchFactors.stretchZ]}
       dispose={null}
     >
       <mesh

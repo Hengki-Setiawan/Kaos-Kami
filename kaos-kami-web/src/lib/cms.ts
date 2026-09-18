@@ -7,8 +7,8 @@ export interface HeroContent {
 }
 
 export const DEFAULT_HERO: HeroContent = {
-  heroTitle: "HEAVYWEIGHT BOXY TEE",
-  heroSubtitle: "Katun combed tebal berkarakter boxy tegap.",
+  heroTitle: "BIKIN KAOS IMPIANMU\nDENGAN MOCKUP 3D",
+  heroSubtitle: "Platform sablon DTF kustom satuan & kaos polos katun combed berkualitas di Makassar. Simulasikan desainmu 360° secara akurat.",
   updatedAt: "",
 };
 

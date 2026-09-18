@@ -524,25 +524,43 @@ export async function POST(req: NextRequest) {
     }
 
     // 3. Find or create user for this WhatsApp number.
-    // Anti-race: dua checkout bersamaan nomor baru sama → onConflictDoNothing
-    // lalu baca ulang (tanpa ini salah satu 500 UNIQUE).
+    // Prioritaskan pengguna yang sedang login (session), sinkronkan nomor WhatsApp-nya.
     const cleanPhone = phoneNumber.replace(/[^0-9]/g, "");
-    const guestEmail = email || `${cleanPhone}@kaoskami.customer`;
-    let user = await db.query.User.findFirst({
-      where: (t, { or, eq }) => or(eq(t.phoneNumber, cleanPhone), eq(t.email, guestEmail)),
-    });
+    let user: any = null;
+
+    try {
+      const { auth } = await import("@/lib/auth");
+      const session = await auth.api.getSession({ headers: req.headers });
+      if (session?.user?.id) {
+        user = await db.query.User.findFirst({
+          where: (t, { eq }) => eq(t.id, session.user.id),
+        });
+        if (user && cleanPhone && user.phoneNumber !== cleanPhone) {
+          try {
+            await db.update(User).set({ phoneNumber: cleanPhone }).where(eq(User.id, user.id));
+          } catch {}
+        }
+      }
+    } catch {}
 
     if (!user) {
-      const [created] = await db
-        .insert(User)
-        .values({ id: nanoid(), name: recipientName, phoneNumber: cleanPhone, email: guestEmail, role: "CUSTOMER" })
-        .onConflictDoNothing()
-        .returning();
-      user =
-        created! ||
-        (await db.query.User.findFirst({
-          where: (t, { or, eq }) => or(eq(t.phoneNumber, cleanPhone), eq(t.email, guestEmail)),
-        }))!;
+      const guestEmail = email || `${cleanPhone}@kaoskami.customer`;
+      user = await db.query.User.findFirst({
+        where: (t, { or, eq }) => or(eq(t.phoneNumber, cleanPhone), eq(t.email, guestEmail)),
+      });
+
+      if (!user) {
+        const [created] = await db
+          .insert(User)
+          .values({ id: nanoid(), name: recipientName, phoneNumber: cleanPhone, email: guestEmail, role: "CUSTOMER" })
+          .onConflictDoNothing()
+          .returning();
+        user =
+          created! ||
+          (await db.query.User.findFirst({
+            where: (t, { or, eq }) => or(eq(t.phoneNumber, cleanPhone), eq(t.email, guestEmail)),
+          }))!;
+      }
     }
 
     // 4. Save Address

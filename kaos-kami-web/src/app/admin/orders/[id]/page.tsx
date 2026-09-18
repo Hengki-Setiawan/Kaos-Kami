@@ -138,8 +138,20 @@ export default async function AdminOrderDetailPage({ params }: AdminOrderDetailP
             <Layers size={14} className="text-brand-accent" />
             <span>GANG SHEET A3</span>
           </a>
+          <Link
+            href="/admin/gang-sheet"
+            className="py-2.5 px-3.5 rounded-xl bg-amber-400 text-black font-black transition-all flex items-center gap-1.5 hover:brightness-110 shadow-[0_0_12px_rgba(251,191,36,0.3)]"
+          >
+            <Layers size={14} />
+            <span>BUILDER GANG SHEET 100×58</span>
+          </Link>
         </div>
-        <OrderAdminActions orderId={order.id} currentTracking={order.trackingNumber} />
+        <OrderAdminActions
+          orderId={order.id}
+          currentTracking={order.trackingNumber}
+          orderStatus={order.status}
+          deliveryMethod={order.deliveryMethod}
+        />
       </div>
 
       {/* 360° 3D Inspector (BLUEPRINT-03 §5) — Orbit untuk verifikasi visual operator */}

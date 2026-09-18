@@ -70,6 +70,11 @@ export function extractMobileApparelGeometry(
     if (child.isMesh && child.geometry) {
       const cloned = child.geometry.clone();
       cloned.applyMatrix4(child.matrixWorld);
+      const tang = cloned.getAttribute("tangent");
+      const posAttr = cloned.getAttribute("position");
+      if (tang && posAttr && tang.count !== posAttr.count) {
+        cloned.deleteAttribute("tangent");
+      }
       geoms.push(cloned);
     }
   });
