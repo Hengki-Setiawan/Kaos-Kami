@@ -150,11 +150,20 @@ export class DuitkuPaymentProvider {
       returnUrl,
       signature,
       expiryPeriod: 1440, // 24 jam dalam menit
-      itemDetails: params.itemDetails?.map((it) => ({
-        name: it.name,
-        price: it.price,
-        quantity: it.quantity,
-      })),
+      // Duitku v2 Inquiry API: Duitku validates paymentAmount == sum(it.price).
+      // If quantity > 1, Duitku does NOT multiply price * quantity in its validation check.
+      // We normalize each line so price = unitPrice * quantity and quantity = 1,
+      // prefixing name with "Nx " if quantity > 1 so line item clarity is preserved.
+      itemDetails: params.itemDetails?.map((it) => {
+        const qty = it.quantity || 1;
+        const linePrice = it.price * qty;
+        const prefix = qty > 1 && !it.name.startsWith(`${qty}x `) ? `${qty}x ` : "";
+        return {
+          name: `${prefix}${it.name}`.slice(0, 120),
+          price: linePrice,
+          quantity: 1,
+        };
+      }),
     };
 
     try {

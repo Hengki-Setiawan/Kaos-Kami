@@ -30,6 +30,7 @@ model User {
   phoneNumber   String?   @unique  // E.164 format, e.g. 081234567890 / +6281234567890
   name          String?
   emailVerified Boolean   @default(false)
+  phoneVerified Boolean   @default(false)
   image         String?
   passwordHash  String?
   role          UserRole  @default(CUSTOMER)

@@ -50,35 +50,25 @@ export async function POST(req: NextRequest) {
       expiresAt,
     });
 
-    // Kirim WA. Kode OTP TIDAK PERNAH dikembalikan ke client di production —
-    // mock code hanya untuk development lokal tanpa Fonnte.
+    // Kirim WA nyata. Kode OTP TIDAK PERNAH dikembalikan ke client (mock mode dinonaktifkan)
     const token = process.env.FONNTE_TOKEN;
-    const isProd = process.env.NODE_ENV === "production";
     if (!token) {
-      // P1: kode TIDAK BOLEH masuk log di prod (log draiange = oracle OTP).
-      if (isProd) {
-        return NextResponse.json(
-          { error: "Layanan OTP belum dikonfigurasi. Hubungi admin." },
-          { status: 503 }
-        );
-      }
-      console.log(`[OTP Mock] ${clean} → ${code}`);
-      return NextResponse.json({ success: true, mock: true, code, message: "OTP mock (Fonnte belum set)" });
+      return NextResponse.json(
+        { error: "Layanan WhatsApp OTP belum dikonfigurasi (FONNTE_TOKEN kosong). Hubungi admin." },
+        { status: 503 }
+      );
     }
 
     const res = await sendWhatsAppNotification(clean, `*Kaos Kami — Kode OTP*\nKode verifikasi WA kamu: *${code}*\nBerlaku 5 menit. Jangan bagikan ke siapapun.`);
     if (!res.success) {
-      console.warn("Fonnte OTP fail, fallback log", res.error);
-      if (isProd) {
-        return NextResponse.json(
-          { error: "Gagal mengirim OTP ke WA. Coba lagi sesaat." },
-          { status: 502 }
-        );
-      }
-      return NextResponse.json({ success: true, mock: true, code, warning: res.error });
+      console.warn("Fonnte OTP fail:", res.error);
+      return NextResponse.json(
+        { error: res.error || "Gagal mengirim OTP ke WA. Coba lagi sesaat." },
+        { status: 502 }
+      );
     }
 
-    return NextResponse.json({ success: true, message: "OTP terkirim ke WA" });
+    return NextResponse.json({ success: true, message: "OTP terkirim ke WhatsApp" });
   } catch (e: any) {
     return NextResponse.json({ error: e.message }, { status: 500 });
   }

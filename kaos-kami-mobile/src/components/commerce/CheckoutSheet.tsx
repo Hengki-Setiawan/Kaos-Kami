@@ -6,7 +6,7 @@ import { BottomSheet, HapticButton, Badge } from '@/components/ui';
 import { useMobileCartStore } from '@/store/useMobileCartStore';
 import { MOBILE_APPAREL_META } from '@/store/useMobileStudioStore';
 import { useShallow } from 'zustand/shallow';
-import { MAKASSAR_DELIVERY_OPTIONS, MAKASSAR_SUBDISTRICTS, DeliveryOption } from '@/lib/shipping/deliveryOptionsMobile';
+import { MAKASSAR_DELIVERY_OPTIONS, MAKASSAR_SUBDISTRICTS, WORKSHOP_LOCATION, PRODUCTION_TURNAROUND_OPTIONS, TurnaroundTier, DeliveryOption } from '@/lib/shipping/deliveryOptionsMobile';
 import { mobileApiClient, quoteShipping, reverseGeocode, searchLocations, ShipLocation } from '@/lib/api/mobileApiClient';
 import { getCurrentCoords } from '@/lib/bridge/geolocation';
 import { openDuitkuPaymentModal } from '@/lib/payments/duitkuMobile';
@@ -75,6 +75,7 @@ export function CheckoutSheet({ open, onOpenChange, onOrderSuccess, onNotify }: 
   const [customerPhone, setCustomerPhone] = useState('');
   const [customerAddress, setCustomerAddress] = useState('');
   const [couponCode, setCouponCode] = useState('');
+  const [turnaroundTier, setTurnaroundTier] = useState<TurnaroundTier>('REGULER');
   const [selectedDelivery, setSelectedDelivery] = useState<DeliveryOption>(MAKASSAR_DELIVERY_OPTIONS[0]);
   // P0-3: kecamatan FREE_MAKASSAR — WAJIB dari MAKASSAR_SUBDISTRICTS (cerminan
   // whitelist web; server 400 bila di luar daftar). Default = 'Tallo' (workshop).
@@ -124,10 +125,12 @@ export function CheckoutSheet({ open, onOpenChange, onOrderSuccess, onNotify }: 
   const subtotal = getSubtotal();
   const selectedZone = zones.find((z) => z.key === selectedZoneId) || null;
   const isExpedition = selectedDelivery.id === 'EXPEDITION';
+  const selectedTurnaround = PRODUCTION_TURNAROUND_OPTIONS.find((t) => t.tier === turnaroundTier);
+  const turnaroundSurcharge = selectedTurnaround?.surchargeIdr || 0;
   // HARGA JUJUR (audit HIGH): ongkir ekspedisi TANPA quote = belum diketahui
   // (null), BUKAN Rp 25.000 placeholder. Total = estimasi, server hitung ulang.
   const deliveryFee: number | null = isExpedition ? (selectedZone ? selectedZone.cost : null) : selectedDelivery.price;
-  const grandTotal: number | null = deliveryFee === null ? null : subtotal + deliveryFee;
+  const grandTotal: number | null = deliveryFee === null ? null : subtotal + deliveryFee + turnaroundSurcharge;
 
   const handleCheckOngkir = async () => {
     if (destCity.trim().length < 2) return setZonesError('Isi nama kota dulu (min. 2 huruf).');
@@ -367,6 +370,7 @@ export function CheckoutSheet({ open, onOpenChange, onOrderSuccess, onNotify }: 
         expeditionService: isExpedition && selectedZone?.serviceCode ? selectedZone.serviceCode : undefined,
         paymentMethod: 'QRIS',
         couponCode: couponCode.trim() || undefined,
+        turnaroundTier,
         items: items.map((it, mapIdx) => {
           const decalUrl = resolvedDecalUrls[mapIdx] ?? it.decalUrl;
           const per = getDecalForItem(it);
@@ -428,6 +432,23 @@ export function CheckoutSheet({ open, onOpenChange, onOrderSuccess, onNotify }: 
         // Persisten via Preferences (native) + cermin localStorage.
         void setStoredUserId(res.userId);
         try { localStorage.setItem('kaoskami_user_id', res.userId); } catch {}
+      }
+      if (res.orderId) {
+        try {
+          const historyRaw = localStorage.getItem('kaoskami_order_history') || '[]';
+          const history = JSON.parse(historyRaw);
+          const newEntry = {
+            id: res.orderId,
+            orderNumber: res.orderNumber || res.orderId,
+            totalIdr: grandTotal ?? subtotal,
+            itemCount: items.length,
+            deliveryMethod: selectedDelivery.name,
+            status: 'PENDING_PAYMENT',
+            createdAt: new Date().toISOString(),
+          };
+          const updated = [newEntry, ...history.filter((h: any) => h.id !== res.orderId)].slice(0, 20);
+          localStorage.setItem('kaoskami_order_history', JSON.stringify(updated));
+        } catch {}
       }
       clearCart();
       haptic.success();
@@ -628,6 +649,36 @@ export function CheckoutSheet({ open, onOpenChange, onOrderSuccess, onNotify }: 
               );
             })}
 
+            {/* WORKSHOP_PICKUP: info lokasi SSOT Tallo Makassar + Google Maps navigasi */}
+            {selectedDelivery.id === 'WORKSHOP_PICKUP' && (
+              <div className="p-3.5 rounded-2xl bg-zinc-900 border border-emerald-500/40 space-y-2.5">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold text-white flex items-center gap-1.5 font-['Syne']">
+                    <MapPin className="w-4 h-4 text-emerald-400" />
+                    {WORKSHOP_LOCATION.name}
+                  </span>
+                  <Badge variant="success">Rp 0</Badge>
+                </div>
+                <p className="text-[11px] text-zinc-300 leading-relaxed">
+                  {WORKSHOP_LOCATION.address}
+                </p>
+                <p className="text-[10px] text-zinc-400">
+                  ⏰ Jam Buka: {WORKSHOP_LOCATION.operatingHours}
+                </p>
+                <button
+                  type="button"
+                  onClick={() => {
+                    haptic.tap();
+                    window.open(WORKSHOP_LOCATION.googleMapsUrl, '_blank');
+                  }}
+                  className="w-full py-2 px-3 rounded-xl bg-emerald-600/20 border border-emerald-500/40 text-emerald-400 text-xs font-bold flex items-center justify-center gap-1.5 hover:bg-emerald-600/30 transition-colors"
+                >
+                  <MapPin className="w-3.5 h-3.5" />
+                  <span>Buka Rute Google Maps</span>
+                </button>
+              </div>
+            )}
+
             {/* FREE_MAKASSAR: kecamatan WAJIB dari whitelist (server 400 bila di
                 luar daftar). Opsi = MAKASSAR_SUBDISTRICTS, cerminan whitelist web. */}
             {selectedDelivery.id === 'FREE_MAKASSAR' && (
@@ -731,6 +782,41 @@ export function CheckoutSheet({ open, onOpenChange, onOrderSuccess, onNotify }: 
               </div>
             )}
 
+            {/* Turnaround Tier (Reguler vs Express 24 Jam) */}
+            <div className="pt-2 space-y-2">
+              <label className="text-xs font-bold text-white block font-['Syne']">
+                Kecepatan Produksi Sablon DTF:
+              </label>
+              <div className="grid grid-cols-2 gap-2">
+                {PRODUCTION_TURNAROUND_OPTIONS.map((t) => {
+                  const isSelected = turnaroundTier === t.tier;
+                  return (
+                    <button
+                      key={t.tier}
+                      type="button"
+                      onClick={() => {
+                        haptic.selection();
+                        setTurnaroundTier(t.tier);
+                      }}
+                      className={`p-3 rounded-2xl border text-left transition-all ${
+                        isSelected
+                          ? 'bg-[#FF6B35]/15 border-[#FF6B35] ring-1 ring-orange-500/30'
+                          : 'bg-zinc-900 border-zinc-800 hover:border-zinc-700'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between mb-1">
+                        <span className="text-xs font-bold text-white font-['Syne']">{t.label}</span>
+                      </div>
+                      <span className={`text-[10px] font-bold block mb-1 ${isSelected ? 'text-[#FF6B35]' : 'text-zinc-400'}`}>
+                        {t.badge}
+                      </span>
+                      <p className="text-[10px] text-zinc-400 leading-snug">{t.description}</p>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
             <div className="flex gap-2 pt-2">
               <HapticButton
                 variant="secondary"
@@ -797,6 +883,12 @@ export function CheckoutSheet({ open, onOpenChange, onOrderSuccess, onNotify }: 
                     : `Rp ${deliveryFee.toLocaleString('id-ID')}`}
                 </span>
               </div>
+              {turnaroundSurcharge > 0 && (
+                <div className="flex justify-between">
+                  <span>Layanan ({selectedTurnaround?.label}):</span>
+                  <span className="text-amber-400 font-medium">+Rp {turnaroundSurcharge.toLocaleString('id-ID')}</span>
+                </div>
+              )}
               <div>
                 <label htmlFor="m-coupon" className="block mb-1">Kode kupon (opsional)</label>
                 <input

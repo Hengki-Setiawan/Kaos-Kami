@@ -430,7 +430,83 @@
     - `npm run mobile:sync`: Berhasil (Capacitor web assets & 17 plugins disinkronkan ke Android & iOS).
     - `gradlew.bat assembleDebug`: BUILD SUCCESSFUL (APK Android debug selesai dikompilasi).
     - `npm --workspace=kaos-kami-web run build`: Berhasil (53/53 rute).
-    - `npx opennextjs-cloudflare build`: Berhasil (Cloudflare Worker bundle `.open-next/worker.js` siap deploy).
+- [x] **Penyempurnaan Otentikasi Multi-Identifier, OTP Email, Turnstile Captcha & Upgrade Maksimal Dashboard (18 Sep 2026 Sore)**:
+  - **Perbaikan Modal Scroll & Lenis Interception**:
+    - Memasang atribut `data-lenis-prevent="true"` pada `AuthModal.tsx`, `CheckoutModal.tsx`, dan `CartDrawer.tsx` untuk mencegah Lenis smooth scroll mencegat event scroll mousewheel dan touch di dalam pop-up dialog.
+    - Menetapkan tinggi maksimal modal dengan `max-h-[min(90dvh,700px)]` dan scroll internal responsif `flex-1 overflow-y-auto overscroll-contain`.
+    - Mengunci scroll body saat modal aktif (`document.body.style.overflow = "hidden"`). Tombol "BUAT AKUN" kini 100% dapat dijangkau dan di-scroll dengan mulus di desktop maupun mobile.
+  - **Arsitektur Otentikasi Multi-Identifier & Email-First OTP**:
+    - Integrasi utilitas email Edge-compatible (`lib/notifications/email.ts`) via Resend REST API dengan template HTML bertema gelap Kaos Kami + fallback mock logger lokal.
+    - Rute `POST /api/auth/resolve-identifier`: menyelesaikan Email, Nomor Telepon/WhatsApp (via `normalizePhoneId`), atau Username menjadi email kanonik yang dikenali Better Auth tanpa merusak hash scrypt/session cookies.
+    - Rute `POST /api/auth/send-email-otp`: memverifikasi format email, mendeteksi duplikat akun, memvalidasi Cloudflare Turnstile, menghasilkan CSPRNG 6-digit OTP, dan menyimpan hash-nya di tabel `Verification` (`email-otp:<email>`).
+    - Rute `POST /api/auth/verify-email-otp`: verifikasi brute-force protected (maksimal 5 kali percobaan), menerbitkan tiket verifikasi (`email-verified:<email>`).
+    - Rute `POST /api/auth/verify-turnstile`: validasi server-side token Cloudflare Turnstile.
+    - Rute `POST /api/auth/update-phone`: mengaitkan nomor WhatsApp opsional ke profil user pasca registrasi.
+    - Alur pendaftaran 2-tahap di `AuthModal.tsx`: Tahap 1 (Nama, Email, WhatsApp Opsional, Password, Captcha) -> Tahap 2 (Input 6-Digit OTP dengan countdown timer 60 detik dan opsi ganti email).
+    - Login fleksibel multi-input (bisa ketik email, nomor WhatsApp, atau username).
+  - **Penyempurnaan User Dashboard (`CustomerDashboardView.tsx`)**:
+    - Quick Filter Tabs: `Semua`, `Sedang Diproses`, `Siap & Dikirim`, `Selesai`, `Dibatalkan` dengan counter badge live per status.
+    - Badge Estimasi Selesai (ETA): Pesanan aktif menampilkan estimasi pengerjaan `⏱ Estimasi Pengerjaan: ~[Tgl] (1–2 Hari Kerja)` atau `⚡ Prioritas Express: Siap dalam 24 Jam`.
+    - Size Breakdown Summary Pill: Menampilkan rincian ukuran per pesanan (`Ukuran: M (2), L (1)`).
+    - Tombol Cepat "CETAK NOTA RESMI" mengarahkan langsung ke halaman cetak invoice.
+  - **Penyempurnaan Invoice Resmi & Nota Siap Cetak (`orders/[id]/page.tsx`)**:
+    - Komponen `PrintInvoiceButton`: memicu pencetakan instan (`window.print()`).
+    - Kop nota resmi workshop tersembunyi di web dan otomatis muncul saat dicetak: `KAOS KAMI MAKASSAR — DTF PRINT & SABLON WORKSHOP`.
+    - Stylesheet cetak (`print:bg-white`, `print:text-black`, `print:border-black`, `print:hidden` untuk tombol navigasi/WA/cancel) menghasilkan nota fisik A4 bersih tanpa background gelap.
+  - **Penyempurnaan Admin Order Detail (`admin/orders/[id]/page.tsx`)**:
+    - Modul Quick Dispatch WhatsApp (`AdminWhatsAppDispatch.tsx`): 5 preset pesan otomatis (Antrean cetak DTF, Sedang oven, Lolos QC, Siap ambil di workshop, Paket dikirim + No. resi) dengan opsi salin atau kirim via `wa.me`.
+    - Rekap Bahan Kaos Polos Gudang (*Blank Garment Pull Matrix*): Ringkasan total pcs kaos polos per warna dan ukuran yang harus diambil operator gudang sebelum pencetakan.
+    - Indikator Preflight QC DTF: Validasi lebar cetak otomatis (<= 30.0 cm safe vs > 30.0 cm over limit) dan status master 300 DPI R2.
+  - **Validasi Lokal (Bebas Push / Deploy Sesuai Instruksi Owner)**:
+    - `scripts/test-auth-otp-flow.mjs`: 100% SUKSES (4/4 pengujian lolos).
+    - `scripts/test-dashboard-and-pages.mjs`: 100% SUKSES (5/5 pengujian lolos).
+    - `npm --workspace=kaos-kami-web run typecheck`: 0 error (lulus bersih).
+- [x] **Eksekusi Nyata End-to-End (E2E) Kasus 1 s/d Kasus 6 & Pengujian Keamanan Sistem (19 Sep 2026 Dini Hari)**:
+  - **Kasus 1 (Kaos Boxy Makassar - Order `KK-20260919-6521`)**: Pelanggan `hengki vibecoding1` mendesain Kaos Boxy Combed 24s dengan artwork resmi maskot A4 depan & kerah belakang, pengiriman `FREE_MAKASSAR` (Rp 0 via GPS Tamalanrea), bypass OTP 1x berhasil (0 Fonnte calls), simulasi webhook Duitku QRIS lunas, 2 `ProductionTask` terbit dengan dimensi presisi. Dokumen transaksi, invoice web, dan Job Ticket SPK tersimpan di `Blueprint/hasil-pengujian-e2e/orders-invoices/`.
+  - **Kasus 2 (Hoodie Tamalanrea Pickup - Order `KK-20260919-2728`)**: Uji toleransi fisik sablon DTF: artwork punggung ditarik hingga 36cm berhasil di-clamp secara otomatis dan presisi pada tepat **30.0 cm** (batas fisik printhead mesin sablon DTF workshop), pembayaran VA BCA lunas.
+  - **Kasus 3 (Bulk Merch 12 Pcs Kaos Komunitas - Order `KK-20260919-3258`)**: Pemesanan massal heterogen (6 pcs Boxy Black + 6 pcs Combed White) dengan 24 item sablon fisik (A3, A4, Saku A6, Kerah), pengiriman JNE, pembayaran lunas Rp 1.723.600.
+  - **Kasus 4 (Nesting Roll DTF 1000mm × 580mm)**: Kompilasi 28 kopi artwork fisik dari Kasus 1, 2, dan 3 menggunakan MaxRects Packer multi-start (`gangPacker.ts`). Hasil: **0 tabrakan (Zero-Overlap lolos 100%)**, 0 item unplaced. Berkas visual HD SVG (`gang-sheet-100x58-live-render.svg`) dan metrik matematis 7 bin (`gang-sheet-100x58-metrics.json`) tersimpan di `Blueprint/hasil-pengujian-e2e/gang-sheets/`.
+  - **Kasus 5 (Audit Sad Cases & Keamanan - 7/7 Lolos)**:
+    1. Idempotency Double-Click: `HTTP 409 Conflict` (mencegah order ganda).
+    2. Webhook Signature MD5 Palsu: `HTTP 401 Unauthorized` (ditolak keras).
+    3. Wrong OTP: `HTTP 400 Bad Request` (anti-oracle).
+    4. RBAC Privilege Escalation: Customer ditolak memodifikasi antrean admin (`HTTP 403 Forbidden`).
+    5. Underpayment Callback: Callback Rp 1.000 untuk tagihan Rp 149.000 ditolak (`HTTP 400 Amount mismatch`).
+    6. Geo Restriction: Kecamatan non-Makassar (Somba Opu) ditolak untuk Free Makassar (`HTTP 400 Bad Request`).
+    7. Oversized Body Bomb (>16KB): `HTTP 413 Payload Too Large`.
+    Laporan audit tersimpan di `KASUS-5-sad-cases-security-audit.json`.
+  - **Kasus 6 (Workshop Kanban 7-Tahap & Serah Terima 3 Metode)**:
+    - Seluruh 8 task produksi diproses melalui 7 tahap fisik (`DESIGN_PREP` $\to$ `SCREEN_PRINT_SETUP` $\to$ `PRINTING` $\to$ `PRESSING` $\to$ `QUALITY_CHECK` $\to$ `PACKAGING` $\to$ `DONE`).
+    - Alur serah terima selesai penuh: Kasus 1 (Antar Tamalanrea `DELIVERED`), Kasus 2 (Pickup Tamalanrea `COMPLETED`), Kasus 3 (Ekspedisi Nasional `SHIPPED` dengan nomor resi resmi `JNE-MKS-9823419082`).
+    - Riwayat status dan invoice dapat diakses pelanggan secara realtime (`KASUS-6-kanban-fulfillment-audit.json`).
+  - **Observasi Kritis & Rekomendasi**:
+    - Terdeteksi rate limiting pada `PATCH /api/admin/production-tasks` (`30 req/min`). Disarankan untuk menaikkan limit admin ke 120 req/min atau berbasis userId / batch update.
+    - Protokol DEPLOY/PUSH GATE dipertahankan ketat: 0 deploy dan 0 git push. Database Turso sinkron 100%.
 
+- [x] **Paritas Penuh & Maksimasi Fitur Native Capacitor Mobile `kaos-kami-mobile` & Workshop SSOT Tallo (20 Sep 2026)**:
+  - **Koreksi Single Source of Truth (SSOT) Workshop Tallo Makassar**:
+    - Memperbarui alamat workshop resmi di seluruh web dan mobile ke: `Jl. Galangan Kapal, Lrg. Permandian 1, Kel. Kaluku Bodoa, Kec. Tallo, Kota Makassar, Sulawesi Selatan 90211` (`-5.106018313739206, 119.43239633333334`).
+    - Kartu navigasi 1-klik Google Maps dipasang pada tab Profil Mobile, Lembar Checkout Mobile (Opsi Pickup Workshop), Modal SPK Admin, dan invoice resmi web.
+  - **Maksimasi 3D Studio Mobile & Sensasi Native**:
+    - *Canvas 2D Magic Cutout 1-Klik* (`removeSolidBackground.ts`): Algoritma flood-fill BFS dari piksel pinggir untuk memotong background putih/hitam polos (<10ms) dengan radius choke 1px dan antialias feather 1px langsung di canvas memori HP tanpa beban server.
+    - *Gyroscope / Device Motion Parallax* (`TouchOrbitControls.tsx`): Mendengarkan sensor kemiringan HP (`deviceorientation` gamma/beta) untuk menggeser sudut kamera tiga dimensi secara halus saat memegang ponsel, memberikan efek kedalaman realistis pada pakaian 3D.
+    - *Toggle Sisi Depan / Belakang*: Tombol `[Depan | Belakang]` pada overlay kontrol 3D untuk memutar kamera dan memindahkan posisi stiker sablon secara instan.
+    - *Peringatan Resolusi Low-DPI*: Indikator otomatis (<150 DPI) yang memperingatkan user bila gambar stiker yang diunggah berisiko buram saat dicetak DTF.
+  - **Turnaround Tier Paritas Penuh (Reguler vs Express 24 Jam)**:
+    - Opsi pengerjaan diintegrasikan ke mobile checkout: `Reguler (3–5 Hari Kerja, Rp 0)` vs `⚡ Express 24 Jam Jadi (+Rp 25.000)`.
+    - Server `POST /api/mobile/orders/checkout` divalidasi ketat: penambahan surcharge Rp 25.000, penandaan catatan kurir `[TIER:EXPRESS_24H]`, dan breakdown item invoice Duitku secara transparan.
+  - **Admin Mobile Workshop & Lembar Kerja SPK Operator**:
+    - *AdminJobTicketModal (`AdminJobTicketModal.tsx`)*: Lembar SPK interaktif yang memuat spesifikasi sablon DTF (dimensi cm, clamping 30cm, resolusi DPI), SOP Curing Mesin Press (160°C, 15 detik), dan checklist QC 8 langkah (kualitas film, curing, jahitan, sizing, packing).
+    - Fitur *Bagikan Lembar Kerja SPK*: Mengirim rangkuman instruksi kerja ke operator atau WhatsApp menggunakan Capacitor Native Share Sheet (`shareText`).
+    - Quick Dispatch WhatsApp Hyperlocal Makassar: 3 preset pesan otomatis (Siap Ambil di Workshop Tallo, Kurir Meluncur Makassar, Revisi Desain).
+    - Thumbnail visual artwork sablon pada daftar antrean produksi admin mobile.
+  - **User Dashboard & Multi-Order History Mobile**:
+    - *UserOrderHistory (`UserOrderHistory.tsx`)*: Menyimpan seluruh riwayat pemesanan di memori lokal (`kaoskami_order_history`) pasca checkout.
+    - Sub-tab switcher di Tab Pesanan: Pengguna dapat beralih antara "Pantau Langsung" (Live Tracker real-time) dan "Riwayat Pesanan" untuk melihat pesanan-pesanan sebelumnya.
+    - Opsi melanjutkan pembayaran Duitku jika pesanan masih pending.
+  - **Verifikasi & Kebersihan Kode**:
+    - `kaos-kami-mobile`: `npx tsc --noEmit` lolos **0 error** (Exit Code 0).
+    - `kaos-kami-web`: `npm run typecheck` lolos **0 error** (Exit Code 0).
+    - Seluruh aturan DEPLOY/PUSH GATE dipatuhi ketat (0 git push, 0 Cloudflare deploy).
 
 

@@ -7,6 +7,7 @@ import { useShallow } from "zustand/shallow";
 import {
   MAKASSAR_DELIVERY_OPTIONS,
   MAKASSAR_SUBDISTRICTS,
+  WORKSHOP_LOCATION,
   type DeliveryMethod,
 } from "@/lib/shipping/deliveryOptions";
 import { calculate6VariablePrice, materialFinishToPricing } from "@/lib/pricingEngine";
@@ -28,6 +29,7 @@ import {
   Store,
   Lock,
   Sparkles,
+  ExternalLink,
 } from "lucide-react";
 
 import { useSession } from "@/lib/auth-client";
@@ -112,6 +114,14 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
   const [otpMsg, setOtpMsg] = useState<string | null>(null);
   const [resendCooldown, setResendCooldown] = useState(0);
 
+  const sessionUser = session?.user as any;
+  const cleanPhone = (p?: string | null) => (p || "").replace(/[^0-9]/g, "").replace(/^0/, "62");
+  const isAccountPhoneVerified =
+    Boolean(sessionUser?.phoneVerified) &&
+    Boolean(sessionUser?.phoneNumber) &&
+    Boolean(phoneNumber) &&
+    cleanPhone(phoneNumber) === cleanPhone(sessionUser?.phoneNumber);
+
   const [district, setDistrict] = useState(MAKASSAR_SUBDISTRICTS[0] || "Tallo");
   const [fullAddress, setFullAddress] = useState("");
   const [courierNotes, setCourierNotes] = useState("");
@@ -144,6 +154,7 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
   const [quoteMsg, setQuoteMsg] = useState<string | null>(null);
   const [gpsLoading, setGpsLoading] = useState(false);
   const [gpsMsg, setGpsMsg] = useState<string | null>(null);
+  const [gpsCoords, setGpsCoords] = useState<{ lat: number; lon: number } | null>(null);
 
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -388,9 +399,11 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
     setGpsMsg(null);
     navigator.geolocation.getCurrentPosition(
       async (pos) => {
+        const { latitude, longitude } = pos.coords;
+        setGpsCoords({ lat: latitude, lon: longitude });
         try {
           const j = await fetchJson<{ result?: { displayName?: string; district?: string; city?: string } }>(
-            `/api/geocode/reverse?lat=${pos.coords.latitude}&lon=${pos.coords.longitude}`,
+            `/api/geocode/reverse?lat=${latitude}&lon=${longitude}`,
             undefined,
             12000
           );
@@ -463,7 +476,15 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
       return;
     }
 
-    if (!/^\d{6}$/.test(otpCode.trim())) {
+    const sessionUser = session?.user as any;
+    const cleanPhone = (p?: string | null) => (p || "").replace(/[^0-9]/g, "").replace(/^0/, "62");
+    const isAccountPhoneVerified =
+      Boolean(sessionUser?.phoneVerified) &&
+      Boolean(sessionUser?.phoneNumber) &&
+      Boolean(normPhone) &&
+      cleanPhone(normPhone) === cleanPhone(sessionUser?.phoneNumber);
+
+    if (!isAccountPhoneVerified && !/^\d{6}$/.test(otpCode.trim())) {
       setErrorMessage("Kode OTP 6 digit wajib diisi. Klik KIRIM OTP untuk menerima kode via WhatsApp.");
       return;
     }
@@ -563,7 +584,7 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
         recipientName,
         phoneNumber: normPhone,
         email: email || session.user.email || undefined,
-        otpCode: otpCode.trim(),
+        otpCode: isAccountPhoneVerified ? undefined : otpCode.trim(),
         deliveryMethod,
         turnaroundTier,
         district: deliveryMethod === "EXPEDITION_MANUAL" ? destQuery.trim() || undefined : deliveryMethod !== "PICKUP" ? district : undefined,
@@ -644,12 +665,14 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
   return createPortal(
     <div
       className="fixed inset-0 z-[130] flex items-center justify-center p-2 sm:p-4 md:p-6 bg-black/80 backdrop-blur-md animate-fadeIn overflow-y-auto"
+      data-lenis-prevent="true"
       role="dialog"
       aria-modal="true"
       aria-label="Checkout pesanan sablon DTF"
     >
       <div
         ref={panelRef}
+        data-lenis-prevent="true"
         className="relative w-full max-w-4xl lg:max-w-5xl max-h-[94dvh] flex flex-col bg-surface border border-border-subtle rounded-2xl shadow-2xl text-text-primary my-auto overflow-hidden"
       >
         {/* Top Accent Stripe */}
@@ -764,9 +787,16 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
                   </div>
 
                   <div>
-                    <label className="block font-mono text-[11px] text-text-muted uppercase mb-1">
-                      Nomor WhatsApp *
-                    </label>
+                    <div className="flex items-center justify-between mb-1">
+                      <label className="block font-mono text-[11px] text-text-muted uppercase">
+                        Nomor WhatsApp *
+                      </label>
+                      {isAccountPhoneVerified && (
+                        <span className="inline-flex items-center gap-1 text-[10px] font-mono font-bold text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-full border border-emerald-500/30">
+                          <CheckCircle2 size={11} /> TERVERIFIKASI
+                        </span>
+                      )}
+                    </div>
                     <div className="flex gap-2">
                       <input
                         type="tel"
@@ -779,26 +809,39 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
                           setOtpCode("");
                         }}
                         placeholder="081234567890"
-                        aria-label="Nomor WhatsApp untuk OTP"
+                        aria-label="Nomor WhatsApp"
                         className="flex-1 min-w-0 px-3.5 py-2.5 rounded-xl bg-surface border border-border-subtle focus:border-brand-accent text-sm text-text-primary font-mono focus:outline-none transition-colors"
                       />
-                      <button
-                        type="button"
-                        onClick={handleSendOtp}
-                        disabled={isSendingOtp || !phoneNumber || resendCooldown > 0}
-                        className="px-3 py-2 rounded-xl bg-surface border border-brand-accent/40 text-brand-accent text-[11px] font-mono font-bold hover:bg-brand-accent hover:text-canvas disabled:opacity-50 transition-all shrink-0 cursor-pointer"
-                      >
-                        {isSendingOtp
-                          ? "..."
-                          : resendCooldown > 0
-                          ? `TUNGGU (${resendCooldown}s)`
-                          : otpSent
-                          ? "KIRIM ULANG"
-                          : "KIRIM OTP"}
-                      </button>
+                      {!isAccountPhoneVerified && (
+                        <button
+                          type="button"
+                          onClick={handleSendOtp}
+                          disabled={isSendingOtp || !phoneNumber || resendCooldown > 0}
+                          className="px-3 py-2 rounded-xl bg-surface border border-brand-accent/40 text-brand-accent text-[11px] font-mono font-bold hover:bg-brand-accent hover:text-canvas disabled:opacity-50 transition-all shrink-0 cursor-pointer"
+                        >
+                          {isSendingOtp
+                            ? "..."
+                            : resendCooldown > 0
+                            ? `TUNGGU (${resendCooldown}s)`
+                            : otpSent
+                            ? "KIRIM ULANG"
+                            : "KIRIM OTP"}
+                        </button>
+                      )}
                     </div>
 
-                    {otpSent && (
+                    {isAccountPhoneVerified ? (
+                      <p className="text-[11px] font-sans text-emerald-400/90 mt-1.5 flex items-center gap-1.5 bg-emerald-950/20 border border-emerald-500/20 px-2.5 py-1.5 rounded-lg">
+                        <CheckCircle2 size={13} className="shrink-0 text-emerald-400" />
+                        <span>Nomor WhatsApp terverifikasi permanen untuk akun ini. OTP tidak diperlukan lagi!</span>
+                      </p>
+                    ) : sessionUser?.phoneVerified && sessionUser?.phoneNumber && cleanPhone(phoneNumber) !== cleanPhone(sessionUser?.phoneNumber) ? (
+                      <p className="text-[11px] font-sans text-amber-400/90 mt-1.5 flex items-center gap-1.5 bg-amber-950/20 border border-amber-500/20 px-2.5 py-1.5 rounded-lg">
+                        <span>⚠️ Nomor baru terdeteksi. Silakan klik KIRIM OTP untuk memverifikasi nomor baru ini.</span>
+                      </p>
+                    ) : null}
+
+                    {!isAccountPhoneVerified && otpSent && (
                       <div className="mt-2 space-y-1.5 animate-fadeIn">
                         <div className="relative">
                           <input
@@ -828,14 +871,16 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
                       </div>
                     )}
 
-                    {otpMsg && (
+                    {!isAccountPhoneVerified && otpMsg && (
                       <p className="text-[11px] font-mono mt-1 text-amber-400" role="status">
                         {otpMsg}
                       </p>
                     )}
-                    <p className="text-[10px] font-sans text-text-muted mt-1 leading-snug">
-                      Kode verifikasi 6 digit akan dikirim via WhatsApp ke nomor ini untuk konfirmasi pesanan.
-                    </p>
+                    {!isAccountPhoneVerified && (
+                      <p className="text-[10px] font-sans text-text-muted mt-1 leading-snug">
+                        Verifikasi nomor WhatsApp 1x per akun selamanya untuk konfirmasi dan keamanan transaksi.
+                      </p>
+                    )}
                   </div>
                 </div>
               </div>
@@ -894,7 +939,7 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
                         </div>
                         <p className="font-sans text-[11px] text-text-muted leading-tight">
                           {opt.method === "PICKUP"
-                            ? "Ambil di workshop Tamalanrea setelah sablon selesai."
+                            ? "Ambil di workshop Tallo (Jl. Galangan Kapal, Lrg. Permandian 1) setelah sablon selesai."
                             : opt.method === "FREE_MAKASSAR"
                             ? "Gratis antar ke seluruh wilayah Kota Makassar."
                             : "Kirim keluar Makassar via JNE, J&T, atau SiCepat."}
@@ -906,16 +951,27 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
 
                 {/* Sub-card based on Delivery Method */}
                 {deliveryMethod === "PICKUP" && (
-                  <div className="p-3.5 rounded-xl bg-brand-accent/10 border border-brand-accent/30 space-y-1.5 animate-fadeIn">
+                  <div className="p-3.5 rounded-xl bg-brand-accent/10 border border-brand-accent/30 space-y-2 animate-fadeIn">
                     <div className="flex items-center space-x-2 text-brand-accent font-mono text-xs font-bold">
                       <Store size={14} />
                       <span>LOKASI WORKSHOP KAOS KAMI MAKASSAR</span>
                     </div>
                     <p className="font-sans text-xs text-text-primary leading-relaxed">
-                      Jl. Perintis Kemerdekaan KM 10 (Dekat Pintu 1 Kampus Unhas Tamalanrea), Kota Makassar, Sulawesi Selatan.
+                      {WORKSHOP_LOCATION.address}
                     </p>
+                    <div>
+                      <a
+                        href={WORKSHOP_LOCATION.googleMapsUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-brand-accent/20 hover:bg-brand-accent/30 text-brand-accent text-[11px] font-mono font-bold transition-colors"
+                      >
+                        <MapPin size={13} />
+                        Buka Titik Lokasi di Google Maps (Navigasi) ↗
+                      </a>
+                    </div>
                     <p className="font-mono text-[10px] text-text-muted">
-                      🕒 Jam Operasional: Setiap Hari 09:00 - 21:00 WITA. Pesanan siap diambil setelah notifikasi selesai produksi.
+                      🕒 Jam Operasional: {WORKSHOP_LOCATION.operatingHours}. Pesanan siap diambil setelah notifikasi selesai produksi.
                     </p>
                   </div>
                 )}
@@ -949,6 +1005,19 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
                         </button>
                       </div>
                       {gpsMsg && <p className="font-mono text-[10px] text-text-muted mt-1">{gpsMsg}</p>}
+                      {gpsCoords && (
+                        <div className="mt-1">
+                          <a
+                            href={`https://www.google.com/maps?q=${gpsCoords.lat},${gpsCoords.lon}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center gap-1 font-mono text-[10px] text-brand-accent hover:underline"
+                          >
+                            <span>Buka titik di Google Maps</span>
+                            <ExternalLink size={10} />
+                          </a>
+                        </div>
+                      )}
                     </div>
 
                     <div>

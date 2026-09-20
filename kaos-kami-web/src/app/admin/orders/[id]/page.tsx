@@ -17,6 +17,7 @@ import {
 } from "lucide-react";
 import OrderInspector3D from "@/components/admin/OrderInspector3D";
 import { OrderAdminActions } from "@/components/admin/OrderAdminActions";
+import { AdminWhatsAppDispatch } from "@/components/admin/AdminWhatsAppDispatch";
 
 interface AdminOrderDetailPageProps {
   params: Promise<{ id: string }>;
@@ -77,6 +78,14 @@ export default async function AdminOrderDetailPage({ params }: AdminOrderDetailP
     `*Halo ${order.user?.name || "Pelanggan"}*, update dari Workshop Kaos Kami mengenai pesanan Anda *${order.orderNumber}*:`
   );
   const waLink = waDigits.length >= 10 ? `https://wa.me/${waDigits}?text=${waMessage}` : null;
+
+  // Rekap kebutuhan bahan polos (Blank Garment Pull Matrix) untuk tim workshop
+  const blankSummary = order.items.reduce<Record<string, number>>((acc, it) => {
+    const key = `${it.snapshotColorName || "Warna"} - Size ${it.snapshotSize || "Std"}`;
+    acc[key] = (acc[key] || 0) + it.quantity;
+    return acc;
+  }, {});
+  const totalBlanks = order.items.reduce((s, it) => s + it.quantity, 0);
 
   return (
     <div className="p-5 sm:p-8 space-y-6 max-w-6xl mx-auto font-mono text-xs">
@@ -184,6 +193,26 @@ export default async function AdminOrderDetailPage({ params }: AdminOrderDetailP
               <span>SPESIFIKASI TEKNIS CETAK SABLON (JOB TICKET)</span>
             </h2>
 
+            {/* Rekap Blank Garment Warehouse Pull Matrix */}
+            <div className="p-3 rounded-xl bg-black/40 border border-white/10 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
+              <div className="flex items-center gap-2">
+                <Package size={14} className="text-amber-400 shrink-0" />
+                <span className="font-bold text-white uppercase text-[11px]">
+                  Bahan Kaos Polos Gudang ({totalBlanks} pcs):
+                </span>
+              </div>
+              <div className="flex flex-wrap gap-1.5">
+                {Object.entries(blankSummary).map(([spec, count]) => (
+                  <span
+                    key={spec}
+                    className="px-2 py-0.5 rounded-md bg-white/10 text-white font-bold text-[10px]"
+                  >
+                    {spec}: <strong className="text-amber-400">{count} pcs</strong>
+                  </span>
+                ))}
+              </div>
+            </div>
+
             <div className="space-y-4">
               {order.items.map((item, idx) => (
                 <div
@@ -217,9 +246,20 @@ export default async function AdminOrderDetailPage({ params }: AdminOrderDetailP
                         <div>
                           <span className="block text-text-muted">LEBAR CETAK (MAX 30CM):</span>
                           {task?.printWidthCm ? (
-                            <span className="font-bold text-emerald-400">
-                              📏 {task.printWidthCm.toFixed(1)} cm (A3 DTF)
-                            </span>
+                            <div className="flex items-center gap-1 mt-0.5">
+                              <span className="font-bold text-emerald-400">
+                                📏 {task.printWidthCm.toFixed(1)} cm
+                              </span>
+                              {task.printWidthCm <= 30.0 ? (
+                                <span className="px-1.5 py-0.2 text-[9px] rounded bg-emerald-500/20 text-emerald-300 font-bold">
+                                  ✓ Aman DTF
+                                </span>
+                              ) : (
+                                <span className="px-1.5 py-0.2 text-[9px] rounded bg-rose-500/20 text-rose-300 font-bold">
+                                  ⚠ Over 30cm
+                                </span>
+                              )}
+                            </div>
                           ) : (
                             <span className="font-bold text-amber-400">⚠ Belum terukur — hitung di Studio</span>
                           )}
@@ -227,7 +267,7 @@ export default async function AdminOrderDetailPage({ params }: AdminOrderDetailP
                         <div>
                           <span className="block text-text-muted">TINGGI CETAK:</span>
                           {task?.printHeightCm ? (
-                            <span className="font-bold text-emerald-400">📏 {task.printHeightCm.toFixed(1)} cm</span>
+                            <span className="font-bold text-emerald-400 mt-0.5 block">📏 {task.printHeightCm.toFixed(1)} cm</span>
                           ) : (
                             <span className="font-bold text-amber-400">⚠ Belum terukur</span>
                           )}
@@ -235,7 +275,7 @@ export default async function AdminOrderDetailPage({ params }: AdminOrderDetailP
                         <div>
                           <span className="block text-text-muted">JARAK DARI KERAH:</span>
                           {task?.offsetFromCollarCm ? (
-                            <span className="font-bold text-white">~{task.offsetFromCollarCm.toFixed(1)} cm di bawah rib</span>
+                            <span className="font-bold text-white mt-0.5 block">~{task.offsetFromCollarCm.toFixed(1)} cm di bawah rib</span>
                           ) : (
                             <span className="font-bold text-amber-400">⚠ Belum terukur</span>
                           )}
@@ -310,6 +350,16 @@ export default async function AdminOrderDetailPage({ params }: AdminOrderDetailP
 
         {/* Right Col: Customer & Payment Details */}
         <div className="space-y-6">
+          {/* Quick WhatsApp Dispatch Module */}
+          <AdminWhatsAppDispatch
+            recipientName={order.shippingAddress?.recipientName || order.user?.name || "Pelanggan"}
+            phoneNumber={order.user?.phoneNumber || order.shippingAddress?.phoneNumber}
+            orderNumber={order.orderNumber}
+            orderStatus={order.status}
+            deliveryMethod={order.deliveryMethod}
+            trackingNumber={order.trackingNumber}
+          />
+
           {/* Customer & Shipping Card */}
           <div className="p-5 rounded-2xl bg-[#141416] border border-white/5 space-y-3">
             <h2 className="text-xs font-bold uppercase tracking-wider text-text-muted flex items-center gap-2">

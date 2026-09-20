@@ -1,0 +1,32 @@
+{
+  "tshirt": {
+    "chestWidthCm": 56,
+    "maxFrontWidthCm": 30,
+    "maxBackWidthCm": 30,
+    "multiplier": 145.5
+  },
+  "hoodie": {
+    "chestWidthCm": 60,
+    "maxFrontWidthCm": 30,
+    "maxBackWidthCm": 30,
+    "multiplier": 105.6
+  },
+  "longsleeve": {
+    "chestWidthCm": 56,
+    "maxFrontWidthCm": 30,
+    "maxBackWidthCm": 30,
+    "multiplier": 145.5
+  },
+  "crewneck": {
+    "chestWidthCm": 58,
+    "maxFrontWidthCm": 30,
+    "maxBackWidthCm": 30,
+    "multiplier": 163.7
+  },
+  "jacket": {
+    "chestWidthCm": 58,
+    "maxFrontWidthCm": 30,
+    "maxBackWidthCm": 30,
+    "multiplier": 69.5
+  }
+}

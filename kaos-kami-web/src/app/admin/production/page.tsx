@@ -510,15 +510,25 @@ export default function ProductionKanbanPage() {
                               <span className="font-bold text-amber-700 dark:text-amber-400 block">⚠ Belum terukur</span>
                             )}
                             {task.printFileUrl && (
-                              <a
-                                href={task.printFileUrl}
-                                target="_blank"
-                                rel="noreferrer"
-                                onClick={(e) => e.stopPropagation()}
-                                className="inline-flex items-center gap-1 mt-1 px-2 py-1 rounded bg-emerald-500/15 border border-emerald-500/40 text-emerald-700 dark:text-emerald-300 font-bold hover:bg-emerald-500/25 transition-all"
-                              >
-                                <span>📄 FILE CETAK 300DPI</span>
-                              </a>
+                              <div className="flex items-center gap-2 mt-1">
+                                <img
+                                  src={task.printFileUrl}
+                                  alt="Thumbnail DTF"
+                                  className="w-8 h-8 object-contain rounded bg-black/40 border border-border-subtle p-0.5"
+                                  onError={(e) => {
+                                    (e.currentTarget as HTMLElement).style.display = "none";
+                                  }}
+                                />
+                                <a
+                                  href={task.printFileUrl}
+                                  target="_blank"
+                                  rel="noreferrer"
+                                  onClick={(e) => e.stopPropagation()}
+                                  className="inline-flex items-center gap-1 px-2 py-1 rounded bg-emerald-500/15 border border-emerald-500/40 text-emerald-700 dark:text-emerald-300 font-bold hover:bg-emerald-500/25 transition-all"
+                                >
+                                  <span>📄 FILE CETAK 300DPI</span>
+                                </a>
+                              </div>
                             )}
                             {task.dueDate && (
                               <span className="block text-text-muted mt-1">

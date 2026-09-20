@@ -48,6 +48,8 @@ export interface OrderItemData {
   createdAt: string;
   /** ID ProductionTask server (jika data dari /api/admin/production-tasks). */
   taskId?: string;
+  artworkUrl?: string | null;
+  customerPhone?: string;
 }
 
 const STATUS_STEPS: { key: OrderStatus; label: string; icon: React.ComponentType<{ className?: string }> }[] = [

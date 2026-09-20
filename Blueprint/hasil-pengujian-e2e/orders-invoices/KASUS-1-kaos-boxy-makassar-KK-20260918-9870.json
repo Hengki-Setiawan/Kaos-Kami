@@ -1,0 +1,35 @@
+{
+  "order": {
+    "id": "2LxjgwtyZtizvnzIqXcKp",
+    "orderNumber": "KK-20260918-9870",
+    "userId": "6XBFRQCO5zsXOmdOFsBk0YJmU0lilEWn",
+    "status": "PENDING_PAYMENT",
+    "deliveryMethod": "FREE_MAKASSAR",
+    "subtotalIdr": 159000,
+    "shippingCostIdr": 0,
+    "discountIdr": 0,
+    "totalIdr": 159000,
+    "shippingAddressId": "1gx4G2WOn61_dmeDkO-p8",
+    "courierNotes": "",
+    "trackingNumber": null,
+    "notes": null,
+    "createdAt": "2026-09-18T13:37:20.427Z",
+    "updatedAt": "2026-09-18T13:37:20.427Z"
+  },
+  "items": [
+    {
+      "id": "3R6LRtEQgQqH0k7DaS9EB",
+      "orderId": "2LxjgwtyZtizvnzIqXcKp",
+      "productVariantId": null,
+      "designId": "VXmH2CHOoTRSJ-YEdl5By",
+      "quantity": 1,
+      "unitPriceIdr": 159000,
+      "lineTotalIdr": 159000,
+      "snapshotName": "TSHIRT Custom DTF Sablon",
+      "snapshotImageUrl": null,
+      "snapshotSize": "L",
+      "snapshotColorName": "Hitam Solid"
+    }
+  ],
+  "tasks": []
+}

@@ -43,3 +43,35 @@ export async function shareCustomDesign(
     return false;
   }
 }
+
+export async function shareText(
+  title: string,
+  text: string,
+  dialogTitle: string = 'Bagikan'
+): Promise<boolean> {
+  try {
+    await Share.share({
+      title,
+      text,
+      dialogTitle,
+    });
+    return true;
+  } catch (err) {
+    try {
+      if (typeof navigator !== 'undefined' && typeof (navigator as any).share === 'function') {
+        await (navigator as any).share({ title, text });
+        return true;
+      }
+    } catch {
+      return false;
+    }
+    try {
+      if (typeof navigator !== 'undefined' && navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(text);
+        return false;
+      }
+    } catch {}
+    return false;
+  }
+}
+

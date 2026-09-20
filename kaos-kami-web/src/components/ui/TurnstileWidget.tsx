@@ -53,11 +53,10 @@ export const TurnstileWidget: React.FC<TurnstileWidgetProps> = ({
   const resolvedTheme: "dark" | "light" =
     theme === "auto" ? (studioTheme === "gallery" ? "light" : "dark") : theme;
 
-  const siteKey =
-    process.env.NEXT_PUBLIC_CLOUDFLARE_TURNSTILE_SITE_KEY ||
-    // Cloudflare Default Always-Pass Testing Site Key (DEV ONLY —
-    // server prod menolak token ini karena secret asli, jadi aman).
-    "1x00000000000000000000AA";
+  const configuredSiteKey = process.env.NEXT_PUBLIC_CLOUDFLARE_TURNSTILE_SITE_KEY;
+  const [siteKey, setSiteKey] = useState<string>(() => {
+    return configuredSiteKey || "1x00000000000000000000AA";
+  });
 
   useEffect(() => {
     let isMounted = true;
@@ -79,6 +78,26 @@ export const TurnstileWidget: React.FC<TurnstileWidgetProps> = ({
             if (isMounted) cbRef.current.onVerify(token);
           },
           "error-callback": (err: any) => {
+            console.warn("[Turnstile] Widget error dengan siteKey:", siteKey, err);
+            // Jika di localhost dan siteKey produksi gagal (karena domain localhost belum diizinkan di CF Dashboard):
+            const isLocal =
+              typeof window !== "undefined" &&
+              (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1");
+
+            if (isLocal && siteKey !== "1x00000000000000000000AA") {
+              console.info("[Turnstile] Auto-fallback ke Cloudflare Always-Pass Dev SiteKey untuk localhost.");
+              if (widgetIdRef.current && window.turnstile) {
+                try {
+                  window.turnstile.remove(widgetIdRef.current);
+                } catch {
+                  /* ignore */
+                }
+                widgetIdRef.current = null;
+              }
+              setSiteKey("1x00000000000000000000AA");
+              return;
+            }
+
             if (isMounted) cbRef.current.onError?.(err);
           },
           "expired-callback": () => {

@@ -10,7 +10,7 @@ import { PRODUCT_COLORS, APPAREL_CATALOG, type ApparelType } from "@/lib/constan
 import { duitkuProvider } from "@/lib/payments/duitku";
 import { hashOtp } from "@/lib/otp";
 import { sendWhatsAppNotification, buildOrderConfirmedMessage } from "@/lib/notifications/whatsapp";
-import { MAKASSAR_DELIVERY_OPTIONS, MAKASSAR_SUBDISTRICTS } from "@/lib/shipping/deliveryOptions";
+import { MAKASSAR_DELIVERY_OPTIONS, MAKASSAR_SUBDISTRICTS, PRODUCTION_TURNAROUND_OPTIONS } from "@/lib/shipping/deliveryOptions";
 import { verifyTurnstileToken } from "@/lib/turnstile";
 import { DecalLayerSchema, ApparelSlugSchema, CheckoutMasterMapSchema } from "@/lib/schemas/design";
 import { checkRateLimitAsync, getClientIp, rateLimitHeaders } from "@/lib/security/rateLimiter";
@@ -85,6 +85,7 @@ const MobileCheckoutSchema = z.object({
   // Nilai lain DITOLAK 400 (bukan collapse diam-diam).
   paymentMethod: z.enum(["QRIS", "SP"]).optional(),
   couponCode: z.string().max(32).optional(),
+  turnaroundTier: z.enum(["REGULER", "EXPRESS_24H"]).default("REGULER").optional(),
   // P0-3/P0-4 paritas web: bukti OTP WA + token anti-bot (keduanya opsional di
   // skema, tapi gerbang server mewajibkan OTP; Turnstile wajib bila secret ada).
   otpCode: z.string().max(32).optional(),
@@ -183,7 +184,7 @@ export async function POST(req: NextRequest) {
     if (!validation.success) {
       return NextResponse.json({ error: validation.error.errors[0]?.message }, { status: 400 });
     }
-    const { recipientName, phoneNumber, email, deliveryMethod, district, destinationCity, expeditionZoneId, destinationPostalCode, expeditionCourier, expeditionService, fullAddress, courierNotes, couponCode, items, turnstileToken } =
+    const { recipientName, phoneNumber, email, deliveryMethod, district, destinationCity, expeditionZoneId, destinationPostalCode, expeditionCourier, expeditionService, fullAddress, courierNotes, couponCode, turnaroundTier, items, turnstileToken } =
       validation.data;
 
     // P0-3 GUARD FREE_MAKASSAR (paritas web): kecamatan wajib & whitelist kota.
@@ -333,7 +334,9 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ error: couponErr?.message || "Kupon tidak valid" }, { status: 400 });
       }
     }
-    const totalIdr = subtotalIdr - discountIdr + shippingIdr;
+    const selectedTurnaround = PRODUCTION_TURNAROUND_OPTIONS.find((t) => t.tier === turnaroundTier);
+    const turnaroundSurchargeIdr = selectedTurnaround?.surchargeIdr || 0;
+    const totalIdr = subtotalIdr - discountIdr + shippingIdr + turnaroundSurchargeIdr;
     // Paritas web: batas wajar transaksi tunggal (audit).
     if (!Number.isSafeInteger(totalIdr) || totalIdr < 10000 || totalIdr > 500_000_000) {
       return NextResponse.json({ error: "Total transaksi di luar batas wajar" }, { status: 400 });
@@ -509,11 +512,13 @@ export async function POST(req: NextRequest) {
             // Marker kupon untuk restore kuota saat batal/refund
             // (dibaca getOrderCouponCode — JANGAN hapus/pakai untuk teks bebas).
             notes: appliedCoupon ? `COUPON:${appliedCoupon}` : null,
-            courierNotes: [courierNotes, expeditionLabel]
+            courierNotes: [
+              (courierNotes || "").replace(/\[TIER:[^\]]*\]/g, "").trim(),
+              expeditionLabel,
+              turnaroundTier === "EXPRESS_24H" ? "EXPRESS 24H [TIER:EXPRESS_24H]" : "",
+            ]
               .filter(Boolean)
-              .join(" | ")
-              .replace(/\[TIER:[^\]]*\]/g, "")
-              .trim() || undefined,
+              .join(" | ") || undefined,
           })
           .returning();
         createdOrder = row!;
@@ -667,6 +672,9 @@ export async function POST(req: NextRequest) {
         })),
         ...(shippingIdr > 0
           ? [{ name: `Ongkir ${expeditionLabel || delivery?.name || deliveryMethod}`.slice(0, 120), price: shippingIdr, quantity: 1 }]
+          : []),
+        ...(turnaroundSurchargeIdr > 0
+          ? [{ name: "Surcharge EXPRESS 24H", price: turnaroundSurchargeIdr, quantity: 1 }]
           : []),
         ...(discountIdr > 0
           ? [{ name: `Diskon kupon ${appliedCoupon || ""}`.trim(), price: -discountIdr, quantity: 1 }]

@@ -126,6 +126,7 @@ export const CartDrawer: React.FC = () => {
       {isCartOpen && isClient && typeof document !== "undefined" && createPortal(
       <div
         className="fixed inset-0 z-[110] flex justify-end"
+        data-lenis-prevent="true"
         role="dialog"
         aria-modal="true"
         aria-label="Keranjang belanja"
@@ -140,6 +141,7 @@ export const CartDrawer: React.FC = () => {
         {/* Drawer Panel */}
         <aside
           ref={panelRef}
+          data-lenis-prevent="true"
           className="relative z-10 w-full max-w-md bg-surface border-l border-border-subtle text-text-primary h-full flex flex-col shadow-2xl animate-slideLeft">
           {/* Header */}
           <div className="p-5 border-b border-border-subtle flex items-center justify-between">

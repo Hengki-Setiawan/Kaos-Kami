@@ -21,6 +21,7 @@ export function TouchOrbitControls() {
   const cameraAngle = useMobileStudioStore((s) => s.cameraAngle);
   const isGizmoDragging = useMobileStudioStore((s) => s.isGizmoDragging);
   const targetPosRef = useRef<THREE.Vector3 | null>(null);
+  const gyroOffsetRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
 
   useEffect(() => {
     if (cameraAngle && CAMERA_POSITIONS[cameraAngle]) {
@@ -28,6 +29,31 @@ export function TouchOrbitControls() {
       targetPosRef.current = new THREE.Vector3(...pos);
     }
   }, [cameraAngle]);
+
+  // Sensor DeviceOrientation: Parallax kemiringan HP halus saat memegang perangkat
+  useEffect(() => {
+    const handleOrientation = (e: DeviceOrientationEvent) => {
+      if (isGizmoDragging || targetPosRef.current) return;
+      // gamma: kiri/kanan (-90 ke 90), beta: depan/belakang (-180 ke 180)
+      const gamma = e.gamma ?? 0;
+      const beta = (e.beta ?? 45) - 45; // normalisasi posisi pegang ~45 deg
+      const clampX = Math.max(-20, Math.min(20, gamma)) / 20; // -1 to 1
+      const clampY = Math.max(-20, Math.min(20, beta)) / 20;  // -1 to 1
+      gyroOffsetRef.current = {
+        x: clampX * 0.08,
+        y: clampY * 0.06,
+      };
+    };
+
+    if (typeof window !== 'undefined' && 'DeviceOrientationEvent' in window) {
+      window.addEventListener('deviceorientation', handleOrientation, { passive: true });
+    }
+    return () => {
+      if (typeof window !== 'undefined' && 'DeviceOrientationEvent' in window) {
+        window.removeEventListener('deviceorientation', handleOrientation);
+      }
+    };
+  }, [isGizmoDragging]);
 
   useFrame((_, delta) => {
     if (targetPosRef.current && controlsRef.current) {
@@ -38,6 +64,12 @@ export function TouchOrbitControls() {
       if (camera.position.distanceTo(targetPosRef.current) < 0.01) {
         targetPosRef.current = null;
       }
+    } else if (controlsRef.current && !isGizmoDragging) {
+      // Subtle gyro parallax response
+      const targetX = gyroOffsetRef.current.x;
+      const targetY = gyroOffsetRef.current.y;
+      controlsRef.current.target.x = THREE.MathUtils.lerp(controlsRef.current.target.x, targetX, Math.min(1, delta * 3));
+      controlsRef.current.target.y = THREE.MathUtils.lerp(controlsRef.current.target.y, targetY, Math.min(1, delta * 3));
     }
   });
 
@@ -59,3 +91,4 @@ export function TouchOrbitControls() {
     />
   );
 }
+

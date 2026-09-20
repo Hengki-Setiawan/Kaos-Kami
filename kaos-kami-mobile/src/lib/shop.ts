@@ -5,7 +5,7 @@ export const SHOP_WHATSAPP =
 
 export const SHOP_ADDRESS =
   process.env.NEXT_PUBLIC_SHOP_WORKSHOP_ADDRESS ||
-  'Workshop Kaos Kami, Makassar';
+  'Jl. Galangan Kapal, Lrg. Permandian 1, Kel. Kaluku Bodoa, Kec. Tallo, Makassar 90211';
 
 export function shopWaLink(message: string): string {
   return `https://wa.me/${SHOP_WHATSAPP}?text=${encodeURIComponent(message)}`;

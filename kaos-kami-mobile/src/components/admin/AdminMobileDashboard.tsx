@@ -14,6 +14,7 @@ import {
   SlidersHorizontal,
   ChevronDown,
   ScanLine,
+  FileText,
 } from 'lucide-react';
 import { GlassCard, Badge, HapticButton, BottomSheet } from '@/components/ui';
 import { OrderItemData, OrderStatus } from '@/components/commerce/UserOrderTracker';
@@ -21,6 +22,7 @@ import { mobileApiClient } from '@/lib/api/mobileApiClient';
 import { SHOP_WHATSAPP } from '@/lib/shop';
 import { scanJobTicketOrQris } from '@/lib/bridge/scanner';
 import { haptic } from '@/lib/bridge/haptics';
+import { AdminJobTicketModal, AdminJobTicketData } from './AdminJobTicketModal';
 
 const STAGE_TO_STATUS: Record<string, OrderStatus> = {
   DESIGN_PREP: 'PENDING_DESIGN_APPROVAL',
@@ -106,6 +108,7 @@ export function AdminMobileDashboard({
   const [filter, setFilter] = useState<'ALL' | 'PENDING' | 'PRODUCTION' | 'COMPLETED'>('ALL');
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedOrder, setSelectedOrder] = useState<OrderItemData | null>(null);
+  const [spkModalData, setSpkModalData] = useState<AdminJobTicketData | null>(null);
   const [liveMode, setLiveMode] = useState(false);
   const [loadingLive, setLoadingLive] = useState(false);
 
@@ -126,6 +129,8 @@ export function AdminMobileDashboard({
               (s: number, it: any) => s + (it.lineTotalIdr || 0),
               0
             );
+            const artworkUrl = first?.snapshotImageUrl || first?.design?.previewImageFrontUrl || (Array.isArray(first?.decals) ? first?.decals[0]?.url : null) || null;
+            const customerPhone = t.order?.shippingAddress?.phoneNumber || t.order?.user?.phoneNumber || '';
             return {
               id: t.orderId || t.id,
               taskId: t.id,
@@ -141,6 +146,8 @@ export function AdminMobileDashboard({
               paymentMethod: '-',
               deliveryMethod: t.order?.deliveryMethod || '-',
               createdAt: t.createdAt || '',
+              artworkUrl,
+              customerPhone,
             } as OrderItemData;
           })
         );
@@ -354,14 +361,24 @@ export function AdminMobileDashboard({
                 </Badge>
               </div>
 
-              <div className="flex items-center justify-between text-xs">
-                <div>
-                  <h4 className="font-bold text-white leading-tight font-['Syne']">{ord.apparelTitle}</h4>
-                  <p className="text-[11px] text-zinc-400 mt-0.5">
+              <div className="flex items-center gap-3">
+                {ord.artworkUrl ? (
+                  <div className="w-12 h-12 rounded-xl overflow-hidden bg-black/60 border border-zinc-700/80 shrink-0 flex items-center justify-center">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={ord.artworkUrl} alt="Artwork" className="w-full h-full object-contain p-0.5" />
+                  </div>
+                ) : (
+                  <div className="w-12 h-12 rounded-xl bg-zinc-850 bg-[#18181B] border border-zinc-700/60 shrink-0 flex items-center justify-center text-zinc-400">
+                    <Printer className="w-5 h-5 text-[#FF6B35]" />
+                  </div>
+                )}
+                <div className="flex-1 min-w-0">
+                  <h4 className="font-bold text-white leading-tight truncate font-['Syne']">{ord.apparelTitle}</h4>
+                  <p className="text-[11px] text-zinc-400 mt-0.5 truncate">
                     {ord.colorName} • Size {ord.size} • Sablon {ord.printWidthCm}x{ord.printHeightCm} cm
                   </p>
                 </div>
-                <span className="font-bold text-[#FF6B35]">
+                <span className="font-bold text-[#FF6B35] shrink-0 text-xs">
                   Rp {ord.totalAmount.toLocaleString('id-ID')}
                 </span>
               </div>
@@ -510,24 +527,95 @@ export function AdminMobileDashboard({
               </HapticButton>
             )}
 
-            {/* Chat WhatsApp Pelanggan */}
+            {/* Lembar SPK Job Ticket Modal Button */}
             <HapticButton
-              variant="secondary"
-              icon={<MessageCircle className="w-4 h-4 text-emerald-400" />}
+              variant="glass"
+              icon={<FileText className="w-4 h-4 text-amber-400" />}
               onClick={() => {
                 haptic.tap();
-                const msg = encodeURIComponent(
-                  `Halo dari Kaos Kami Workshop Makassar! Mengenai pesanan Anda ${selectedOrder.orderNumber}...`
-                );
-                window.open(`https://wa.me/${SHOP_WHATSAPP}?text=${msg}`, '_blank');
+                setSpkModalData({
+                  orderNumber: selectedOrder.orderNumber,
+                  customerName: selectedOrder.apparelTitle,
+                  apparelTitle: selectedOrder.apparelTitle,
+                  colorName: selectedOrder.colorName,
+                  size: selectedOrder.size,
+                  quantity: selectedOrder.quantity,
+                  printWidthCm: selectedOrder.printWidthCm,
+                  printHeightCm: selectedOrder.printHeightCm,
+                  decalDpi: 300,
+                  deliveryMethod: selectedOrder.deliveryMethod,
+                  artworkUrl: selectedOrder.artworkUrl,
+                });
               }}
-              className="w-full py-2.5 text-xs"
+              className="w-full py-2.5 text-xs font-bold border-amber-500/30 text-amber-300"
             >
-              Chat WhatsApp Pelanggan Langsung
+              Lihat Lembar SPK / Job Ticket Workshop
             </HapticButton>
+
+            {/* Quick WhatsApp Dispatch Makassar */}
+            <div className="p-3 rounded-2xl bg-zinc-900 border border-zinc-800 space-y-2 text-xs">
+              <span className="font-bold text-white block font-['Syne']">
+                Dispatch WhatsApp Pelanggan:
+              </span>
+              <div className="grid grid-cols-1 gap-1.5">
+                <button
+                  onClick={() => {
+                    haptic.tap();
+                    const phone = selectedOrder.customerPhone || SHOP_WHATSAPP;
+                    const msg = encodeURIComponent(
+                      `Halo Kak! Pesanan ${selectedOrder.orderNumber} (${selectedOrder.apparelTitle}) sudah SELESAI di-press & lolos QC. Silakan ambil di Workshop Kaos Kami (Jl. Galangan Kapal, Lrg. Permandian 1, Kel. Kaluku Bodoa, Tallo). Rute Maps: https://www.google.com/maps?q=-5.106018,119.432396`
+                    );
+                    window.open(`https://wa.me/${phone}?text=${msg}`, '_blank');
+                  }}
+                  className="w-full p-2.5 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-left text-[11px] text-zinc-300 flex items-center gap-2 transition-colors"
+                >
+                  <span className="shrink-0 text-emerald-400 font-bold">📍</span>
+                  <span className="truncate">Siap Ambil di Workshop Tallo</span>
+                </button>
+
+                <button
+                  onClick={() => {
+                    haptic.tap();
+                    const phone = selectedOrder.customerPhone || SHOP_WHATSAPP;
+                    const msg = encodeURIComponent(
+                      `Halo Kak! Pesanan ${selectedOrder.orderNumber} (${selectedOrder.apparelTitle}) sudah selesai dipacking rapi dan kurir tim Kaos Kami sedang MELUNCUR ke alamat Anda. Mohon standby di nomor ini ya. Terima kasih!`
+                    );
+                    window.open(`https://wa.me/${phone}?text=${msg}`, '_blank');
+                  }}
+                  className="w-full p-2.5 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-left text-[11px] text-zinc-300 flex items-center gap-2 transition-colors"
+                >
+                  <span className="shrink-0 text-sky-400 font-bold">🛵</span>
+                  <span className="truncate">Kurir Tim Kaos Kami Sedang Meluncur</span>
+                </button>
+
+                <button
+                  onClick={() => {
+                    haptic.tap();
+                    const phone = selectedOrder.customerPhone || SHOP_WHATSAPP;
+                    const msg = encodeURIComponent(
+                      `Halo Kak! Mengenai pesanan ${selectedOrder.orderNumber}, tim produksi kami mengecek file logo resolusinya kurang tajam (<150 DPI). Boleh kirimkan file mentah PNG transparan / PDF resolusi tinggi via WhatsApp ini agar hasil sablon DTF tidak buram? Terima kasih!`
+                    );
+                    window.open(`https://wa.me/${phone}?text=${msg}`, '_blank');
+                  }}
+                  className="w-full p-2.5 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-left text-[11px] text-zinc-300 flex items-center gap-2 transition-colors"
+                >
+                  <span className="shrink-0 text-amber-400 font-bold">⚠️</span>
+                  <span className="truncate">Minta File Resolusi Tinggi (Buram)</span>
+                </button>
+              </div>
+            </div>
           </div>
         </BottomSheet>
       )}
+
+      {/* SPK Job Ticket Modal */}
+      <AdminJobTicketModal
+        open={!!spkModalData}
+        onOpenChange={(open) => {
+          if (!open) setSpkModalData(null);
+        }}
+        data={spkModalData}
+      />
     </div>
   );
 }

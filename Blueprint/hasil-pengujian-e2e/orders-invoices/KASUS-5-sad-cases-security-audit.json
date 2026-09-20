@@ -1,0 +1,96 @@
+[
+  {
+    "id": "SEC-IDEMPOTENCY-01",
+    "name": "Double-Click Idempotency Collision Protection",
+    "scenario": "Mengirim 2 checkout request berturut-turut dengan Idempotency-Key yang identik",
+    "targetEndpoint": "POST /api/checkout",
+    "expectedStatus": 409,
+    "actualStatus": 409,
+    "responseSnippet": {
+      "error": "Checkout ini sudah diproses (Idempotency-Key sama) — tidak dibuat order ganda.",
+      "orderId": "C5pSC-rist06MYNBbheH3",
+      "orderNumber": "KK-20260919-1000",
+      "invoiceUrl": "http://localhost:3000/orders/C5pSC-rist06MYNBbheH3"
+    },
+    "passed": true,
+    "notes": "Sistem berhasil mencegah pembuatan order ganda dan mengembalikan HTTP 409 Conflict dengan referensi order sebelumnya."
+  },
+  {
+    "id": "SEC-WEBHOOK-02",
+    "name": "Duitku Webhook MD5 Signature Tampering Rejection",
+    "scenario": "Mengirim payload callback pembayaran dengan tanda tangan MD5 yang dimanipulasi",
+    "targetEndpoint": "POST /api/webhooks/duitku",
+    "expectedStatus": 401,
+    "actualStatus": 401,
+    "responseSnippet": {
+      "error": "Invalid signature"
+    },
+    "passed": true,
+    "notes": "Server menolak callback dengan tanda tangan MD5 tidak sah (HTTP 401 Unauthorized)."
+  },
+  {
+    "id": "SEC-AUTH-03",
+    "name": "Invalid OTP Rejection & Anti-Oracle Shield",
+    "scenario": "Mengirim tebakan OTP 6-digit salah (000000)",
+    "targetEndpoint": "POST /api/auth/verify-otp",
+    "expectedStatus": 400,
+    "actualStatus": 400,
+    "responseSnippet": {
+      "error": "Kode salah atau kadaluarsa"
+    },
+    "passed": true,
+    "notes": "Server menolak OTP salah dengan pesan generik anti-oracle (HTTP 400 Bad Request)."
+  },
+  {
+    "id": "SEC-RBAC-04",
+    "name": "Customer Blocked from Workshop Admin Portal (RBAC)",
+    "scenario": "Akun role CUSTOMER mencoba mengubah stage antrean produksi via PATCH /api/admin/production-tasks",
+    "targetEndpoint": "PATCH /api/admin/production-tasks",
+    "expectedStatus": 403,
+    "actualStatus": 403,
+    "responseSnippet": {
+      "error": "Forbidden: insufficient role"
+    },
+    "passed": true,
+    "notes": "Gerbang RBAC memblokir akun non-admin secara ketat (HTTP 403 Forbidden: insufficient role)."
+  },
+  {
+    "id": "SEC-UNDERPAY-05",
+    "name": "Underpayment Callback Rejection",
+    "scenario": "Penyerang mengirim callback lunas dengan nominal Rp 1.000 untuk tagihan Rp 149.000",
+    "targetEndpoint": "POST /api/webhooks/duitku",
+    "expectedStatus": 400,
+    "actualStatus": 400,
+    "responseSnippet": {
+      "error": "Amount mismatch"
+    },
+    "passed": true,
+    "notes": "Server mendeteksi ketidaksesuaian nominal order dan menolak update lunas (HTTP 400 Amount mismatch)."
+  },
+  {
+    "id": "SEC-SHIP-06",
+    "name": "Non-Makassar Subdistrict Rejected for Free Delivery",
+    "scenario": "Pengguna memilih metode FREE_MAKASSAR tetapi mengisi kecamatan 'Somba Opu' (wilayah Kab. Gowa)",
+    "targetEndpoint": "POST /api/checkout",
+    "expectedStatus": 400,
+    "actualStatus": 400,
+    "responseSnippet": {
+      "error": "Kecamatan \"Somba Opu\" di luar jangkauan antar gratis. Pilih kecamatan se-Kota Makassar atau metode pengiriman lain."
+    },
+    "passed": true,
+    "notes": "Server memvalidasi whitelist kecamatan se-Kota Makassar dan menolak wilayah di luar batas (HTTP 400 Bad Request)."
+  },
+  {
+    "id": "SEC-OVERSIZE-07",
+    "name": "Webhook Payload Bomb / Oversized Body Rejection",
+    "scenario": "Mengirim payload JSON sebesar 25KB melebihi batas MAX_WEBHOOK_BYTES (16KB)",
+    "targetEndpoint": "POST /api/webhooks/duitku",
+    "expectedStatus": 413,
+    "actualStatus": 413,
+    "responseSnippet": {
+      "error": "Payload too large"
+    },
+    "passed": true,
+    "notes": "Server langsung memutus request melebihi batas ukuran (HTTP 413 Payload too large)."
+  }
+]

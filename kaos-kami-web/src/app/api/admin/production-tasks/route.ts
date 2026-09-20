@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
-import { and, eq, isNull } from "drizzle-orm";
+import { and, eq, inArray, isNull } from "drizzle-orm";
 import { nanoid } from "nanoid";
 import { db } from "@/lib/db";
 import { siteUrl } from "@/lib/siteUrl";
@@ -12,9 +12,9 @@ import { checkRateLimitAsync, getClientIp, rateLimitHeaders } from "@/lib/securi
 export async function GET(req: NextRequest) {
   try {
     const ip = getClientIp(req);
-    const rl = await checkRateLimitAsync(`admin-tasks:ip:${ip}`, 30, 60);
+    const rl = await checkRateLimitAsync(`admin-tasks:ip:${ip}`, 120, 60);
     if (rl.isLimited)
-      return NextResponse.json({ error: "Rate limited" }, { status: 429, headers: rateLimitHeaders(rl, 30) });
+      return NextResponse.json({ error: "Rate limited" }, { status: 429, headers: rateLimitHeaders(rl, 120) });
 
     // RBAC: wajib login; PRODUCTION_STAFF hanya lihat assigned/unassigned, ADMIN lihat semua.
     // Anon SELALU 401 — data berisi PII pelanggan (nama, WA, alamat).
@@ -66,9 +66,9 @@ export async function GET(req: NextRequest) {
 export async function PATCH(req: NextRequest) {
   try {
     const ip = getClientIp(req);
-    const rl = await checkRateLimitAsync(`admin-tasks:ip:${ip}`, 30, 60);
+    const rl = await checkRateLimitAsync(`admin-tasks:ip:${ip}`, 120, 60);
     if (rl.isLimited)
-      return NextResponse.json({ error: "Rate limited" }, { status: 429, headers: rateLimitHeaders(rl, 30) });
+      return NextResponse.json({ error: "Rate limited" }, { status: 429, headers: rateLimitHeaders(rl, 120) });
 
     // RBAC: selalu enforce di semua env (dev fail-open = WA palsu + stage palsu).
     let actorUserId: string | null = null;
@@ -91,16 +91,83 @@ export async function PATCH(req: NextRequest) {
     }
     const body = await req.json();
     const parsed = z.object({
-      taskId: z.string().min(1),
+      taskId: z.string().min(1).optional(),
+      taskIds: z.array(z.string().min(1)).optional(),
       stage: z.enum(["DESIGN_PREP", "SCREEN_PRINT_SETUP", "PRINTING", "PRESSING", "QUALITY_CHECK", "PACKAGING", "DONE"]).optional(),
       notes: z.string().max(500).optional(),
       claim: z.boolean().optional(),
+    }).refine((d) => Boolean(d.taskId || (d.taskIds && d.taskIds.length > 0)), {
+      message: "taskId atau taskIds wajib diisi",
     }).safeParse(body);
 
     if (!parsed.success) {
       return NextResponse.json({ error: parsed.error.errors[0]?.message || "Invalid input" }, { status: 400 });
     }
-    const { taskId, stage, notes, claim } = parsed.data;
+    const { taskId, taskIds, stage, notes, claim } = parsed.data;
+
+    // Batch update stage untuk banyak task (dipakai oleh Gang-Sheet Builder saat ekspor)
+    if (taskIds && taskIds.length > 0) {
+      if (!stage) {
+        return NextResponse.json({ error: "stage wajib diisi" }, { status: 400 });
+      }
+      await db
+        .update(ProductionTask)
+        .set({
+          stage,
+          ...(notes !== undefined ? { notes } : {}),
+          ...(stage === "DONE" ? { completedAt: new Date() } : {}),
+        })
+        .where(inArray(ProductionTask.id, taskIds));
+
+      // Otomatis sinkronkan status order yang terpengaruh
+      if (stage === "PRINTING") {
+        const affectedTasks = await db.query.ProductionTask.findMany({
+          where: inArray(ProductionTask.id, taskIds),
+          columns: { orderId: true },
+        });
+        const distinctOrderIds = Array.from(new Set(affectedTasks.map((t) => t.orderId)));
+        for (const oId of distinctOrderIds) {
+          await db.update(Order).set({ status: "PRINTING" }).where(eq(Order.id, oId));
+          await db.insert(OrderStatusEvent).values({
+            id: nanoid(),
+            orderId: oId,
+            status: "PRINTING",
+            note: "Pesanan masuk antrean cetak mesin sablon DTF (batch gang-sheet).",
+          });
+        }
+      } else if (stage === "PACKAGING" || stage === "DONE") {
+        const affectedTasks = await db.query.ProductionTask.findMany({
+          where: inArray(ProductionTask.id, taskIds),
+          columns: { orderId: true },
+          with: { order: { columns: { id: true, deliveryMethod: true } } },
+        });
+        const distinctOrderIds = Array.from(new Set(affectedTasks.map((t) => t.orderId)));
+        for (const oId of distinctOrderIds) {
+          const siblingTasks = await db.query.ProductionTask.findMany({
+            where: (t, { eq }) => eq(t.orderId, oId),
+            columns: { id: true, stage: true },
+          });
+          const allCompleted = siblingTasks.every((t) => t.stage === "PACKAGING" || t.stage === "DONE");
+          if (allCompleted) {
+            const ord = affectedTasks.find((t) => t.orderId === oId)?.order;
+            const nextStatus = ord?.deliveryMethod === "PICKUP" ? "READY_TO_SHIP" : "SHIPPED";
+            await db.update(Order).set({ status: nextStatus }).where(eq(Order.id, oId));
+            await db.insert(OrderStatusEvent).values({
+              id: nanoid(),
+              orderId: oId,
+              status: nextStatus,
+              note: `Produksi sablon selesai dan telah di-packing rapi (${ord?.deliveryMethod === "PICKUP" ? "siap diambil di workshop" : "siap dikirim"}).`,
+            });
+          }
+        }
+      }
+
+      return NextResponse.json({ success: true, updatedCount: taskIds.length, stage });
+    }
+
+    if (!taskId) {
+      return NextResponse.json({ error: "taskId wajib diisi" }, { status: 400 });
+    }
 
     // Ambil alih task ke diri sendiri (operator) — HANYA bila belum
     // dipegang siapa pun (assignedToUserId IS NULL). Klaim task yang sudah
@@ -174,45 +241,23 @@ export async function PATCH(req: NextRequest) {
         note: `Pesanan sedang dicetak di mesin sablon DTF.`,
       });
 
-      // Send WhatsApp update to customer
-      if (order.user?.phoneNumber) {
-        const invoiceUrl = `${siteUrl()}/orders/${updatedTask.orderId}`;
-        sendWhatsAppNotification(
-          order.user.phoneNumber,
-          buildProductionStatusMessage({
-            orderNumber: order.orderNumber,
-            recipientName: order.user.name || "Pelanggan",
-            stageName: "Sedang Dicetak di Mesin Sablon DTF",
-            note: "Desain Anda saat ini sedang dalam proses cetak roll DTF & oven curing.",
-            invoiceUrl,
-          })
-        ).catch((err) => console.warn("WA trigger error:", err));
-      }
+      // PENGHEMATAN KUOTA FONNTE: Update status sablon dicatat di OrderStatusEvent
+      // dan tampil realtime di invoice web serta aplikasi mobile.
     } else if (stage === "PACKAGING" || stage === "DONE") {
-      const nextStatus = order.deliveryMethod === "PICKUP" ? "READY_TO_SHIP" : "SHIPPED";
-      await db.update(Order).set({ status: nextStatus }).where(eq(Order.id, updatedTask.orderId));
-      await db.insert(OrderStatusEvent).values({
-        id: nanoid(),
-        orderId: updatedTask.orderId,
-        status: nextStatus,
-        note: `Produksi sablon selesai dan telah di-packing rapi.`,
+      const siblingTasks = await db.query.ProductionTask.findMany({
+        where: (t, { eq }) => eq(t.orderId, updatedTask.orderId),
+        columns: { id: true, stage: true },
       });
-
-      if (order.user?.phoneNumber) {
-        const invoiceUrl = `${siteUrl()}/orders/${updatedTask.orderId}`;
-        sendWhatsAppNotification(
-          order.user.phoneNumber,
-          buildProductionStatusMessage({
-            orderNumber: order.orderNumber,
-            recipientName: order.user.name || "Pelanggan",
-            stageName:
-              order.deliveryMethod === "PICKUP"
-                ? "Siap Diambil di Workshop Kaos Kami"
-                : "Sedang Dikirim ke Alamat Anda",
-            note: "Silakan periksa invoice atau bawa nomor pesanan saat pengambilan.",
-            invoiceUrl,
-          })
-        ).catch((err) => console.warn("WA trigger error:", err));
+      const allCompleted = siblingTasks.every((t) => t.stage === "PACKAGING" || t.stage === "DONE");
+      if (allCompleted) {
+        const nextStatus = order.deliveryMethod === "PICKUP" ? "READY_TO_SHIP" : "SHIPPED";
+        await db.update(Order).set({ status: nextStatus }).where(eq(Order.id, updatedTask.orderId));
+        await db.insert(OrderStatusEvent).values({
+          id: nanoid(),
+          orderId: updatedTask.orderId,
+          status: nextStatus,
+          note: `Produksi sablon selesai dan telah di-packing rapi (${order.deliveryMethod === "PICKUP" ? "siap diambil di workshop" : "siap dikirim"}).`,
+        });
       }
     }
 

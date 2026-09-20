@@ -121,7 +121,7 @@ export default function GangSheetBuilderPage() {
   // (3) REVIEW
   const [terpilih, setTerpilih] = useState<number | null>(null);
   const [zoom, setZoom] = useState(1);
-  const [tampilPotong, setTampilPotong] = useState(true);
+  const [tampilPotong, setTampilPotong] = useState(false);
   const svgRef = useRef<SVGSVGElement | null>(null);
   const seretRef = useRef<{
     idx: number;
@@ -138,6 +138,7 @@ export default function GangSheetBuilderPage() {
   const [nomorMaklon, setNomorMaklon] = useState("");
   const [mengekspor, setMengekspor] = useState(false);
   const [galatEkspor, setGalatEkspor] = useState<string | null>(null);
+  const [pesanSukses, setPesanSukses] = useState<string | null>(null);
   const [rekap, setRekap] = useState<string | null>(null);
   const [namaFile, setNamaFile] = useState<string | null>(null);
   const [unduhUrl, setUnduhUrl] = useState<string | null>(null);
@@ -162,7 +163,9 @@ export default function GangSheetBuilderPage() {
           throw new Error(data?.error || `Server ${res.status}`);
         }
         const list = Array.isArray(data.tasks) ? (data.tasks as TaskRow[]) : [];
-        setTasks(list.filter((x) => x && x.order));
+        // Antrean Gang Sheet: HANYA menampilkan desain yang belum masuk ke tahap cetak/selesai (DESIGN_PREP & SCREEN_PRINT_SETUP).
+        // Desain yang sudah PRINTING, PRESSING, QC, PACKAGING, atau DONE otomatis disembunyikan agar tidak tercetak ganda!
+        setTasks(list.filter((x) => x && x.order && (x.stage === "DESIGN_PREP" || x.stage === "SCREEN_PRINT_SETUP")));
       } finally {
         window.clearTimeout(t);
       }
@@ -321,6 +324,111 @@ export default function GangSheetBuilderPage() {
     setTerpilih(null);
   }
 
+  function cetakSPK() {
+    if (!hasil || isiBinAktif.length === 0) return;
+    const printWindow = window.open("", "_blank", "width=850,height=1100");
+    if (!printWindow) {
+      alert("Izinkan pop-up di browser untuk mencetak SPK Job Ticket");
+      return;
+    }
+    const barisHtml = isiBinAktif.map((p, idx) => `
+      <tr>
+        <td style="border: 1px solid #ccc; padding: 6px; text-align: center;">${idx + 1}</td>
+        <td style="border: 1px solid #ccc; padding: 6px; font-weight: bold; font-family: monospace;">${p.orderNumber}</td>
+        <td style="border: 1px solid #ccc; padding: 6px;">${p.label}</td>
+        <td style="border: 1px solid #ccc; padding: 6px; text-align: center; font-family: monospace;">${(p.wMm / 10).toFixed(1)} × ${(p.hMm / 10).toFixed(1)} cm</td>
+        <td style="border: 1px solid #ccc; padding: 6px; text-align: center; font-family: monospace;">X:${(p.xMm / 10).toFixed(1)} Y:${(p.yMm / 10).toFixed(1)} cm ${p.rot ? '(Putar 90°)' : ''}</td>
+        <td style="border: 1px solid #ccc; padding: 6px; text-align: center;">[ &nbsp; ]</td>
+      </tr>
+    `).join("");
+
+    printWindow.document.write(`
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <title>SPK Job Ticket - ${gangId} (Meter ${binAktif + 1})</title>
+        <style>
+          body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; font-size: 12px; color: #111; padding: 24px; }
+          .header { display: flex; justify-content: space-between; border-bottom: 2px solid #000; padding-bottom: 12px; margin-bottom: 16px; }
+          .title { font-size: 18px; font-weight: 900; letter-spacing: -0.5px; }
+          .badge { background: #eee; padding: 4px 8px; border-radius: 4px; font-family: monospace; font-weight: bold; }
+          table { width: 100%; border-collapse: collapse; margin-top: 12px; }
+          th { background: #f4f4f4; border: 1px solid #ccc; padding: 8px; font-size: 11px; text-align: left; }
+          .sop { margin-top: 20px; padding: 12px; background: #fafafa; border: 1px dashed #999; border-radius: 6px; line-height: 1.5; }
+          .sig-grid { display: flex; justify-content: space-between; margin-top: 36px; text-align: center; }
+          .sig-box { width: 30%; }
+          .sig-line { margin-top: 60px; border-bottom: 1px solid #000; }
+        </style>
+      </head>
+      <body>
+        <div class="header">
+          <div>
+            <div class="title">KAOS KAMI MAKASSAR — SPK JOB TICKET DTF</div>
+            <div style="color: #666; margin-top: 4px;">Workshop: Jl. Galangan Kapal, Lrg. Permandian 1, Kaluku Bodoa, Tallo | WA: 0812-4400-2026</div>
+          </div>
+          <div style="text-align: right;">
+            <div class="badge">${gangId}</div>
+            <div style="margin-top: 4px; font-size: 11px;">Meter ${binAktif + 1} dari ${hasil.bins.length} | ${new Date().toLocaleString("id-ID")}</div>
+          </div>
+        </div>
+
+        <div style="display: flex; gap: 16px; margin-bottom: 16px; background: #f9f9f9; padding: 10px; border-radius: 6px; font-size: 11px;">
+          <div><strong>Dimensi Roll:</strong> ${hasil.binWmm} × ${hasil.binHmm} mm</div>
+          <div><strong>Total Kopi:</strong> ${isiBinAktif.length} artwork</div>
+          <div><strong>Utilisasi Luas:</strong> ${utilLive.toFixed(1)}%</div>
+          <div><strong>Strategi:</strong> ${hasil.strategyName || "Multi-Heuristic"}</div>
+        </div>
+
+        <table>
+          <thead>
+            <tr>
+              <th style="width: 30px; text-align: center;">No</th>
+              <th>No. Order</th>
+              <th>Deskripsi / Item</th>
+              <th style="text-align: center;">Ukuran Cetak</th>
+              <th style="text-align: center;">Posisi Roll</th>
+              <th style="width: 70px; text-align: center;">QC Check</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${barisHtml}
+          </tbody>
+        </table>
+
+        <div class="sop">
+          <strong>SOP PRODUKSI WORKSHOP TALLO:</strong><br/>
+          1. <strong>Print RIP:</strong> Cek nozzle check & tinta putih sebelum cetak roll.<br/>
+          2. <strong>Powder & Shaker:</strong> Pastikan bubuk lem merata dan oven cure pada suhu 120°C.<br/>
+          3. <strong>Heat Press Kaos:</strong> Suhu 160°C, 15 detik, tekanan 4-5 bar. Cold peel (tunggu dingin), lalu press ulang 5 detik teflon.
+        </div>
+
+        <div class="sig-grid">
+          <div class="sig-box">
+            <div>Operator Cetak DTF</div>
+            <div class="sig-line"></div>
+            <div style="margin-top: 4px; font-size: 10px; color: #666;">(Nama & Tanda Tangan)</div>
+          </div>
+          <div class="sig-box">
+            <div>Operator Press Kaos</div>
+            <div class="sig-line"></div>
+            <div style="margin-top: 4px; font-size: 10px; color: #666;">(Nama & Tanda Tangan)</div>
+          </div>
+          <div class="sig-box">
+            <div>QC & Packaging Final</div>
+            <div class="sig-line"></div>
+            <div style="margin-top: 4px; font-size: 10px; color: #666;">(Nama & Tanda Tangan)</div>
+          </div>
+        </div>
+
+        <script>
+          window.onload = function() { window.print(); }
+        </script>
+      </body>
+      </html>
+    `);
+    printWindow.document.close();
+  }
+
   // Drag pointer → geser kotak, snap 1 mm, jepit di dalam lembar.
   function onKotakPointerDown(e: React.PointerEvent, idx: number) {
     const p = isiBinAktif[idx];
@@ -383,6 +491,39 @@ export default function GangSheetBuilderPage() {
       document.body.appendChild(a);
       a.click();
       a.remove();
+
+      // AUTO-ADVANCE STAGE:
+      // Ambil ID task yang ada di bin yang baru saja diekspor
+      const taskIdsInBin = Array.from(new Set(isiBinAktif.map((p) => p.id)));
+      if (taskIdsInBin.length > 0) {
+        try {
+          const patchRes = await fetch("/api/admin/production-tasks", {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            credentials: "include",
+            body: JSON.stringify({
+              taskIds: taskIdsInBin,
+              stage: "PRINTING",
+              notes: `Dicetak via Gang Sheet: ${out.filename}`,
+            }),
+          });
+          if (patchRes.ok) {
+            setPesanSukses(
+              `✓ ${taskIdsInBin.length} desain berhasil diekspor ke "${out.filename}" dan statusnya otomatis dimajukan ke PRINTING. Desain ini telah dibersihkan dari antrean susun agar tidak tercetak dobel.`
+            );
+            // Bersihkan centang task yang sudah diproses
+            setCentang((prev) => {
+              const next = { ...prev };
+              for (const id of taskIdsInBin) delete next[id];
+              return next;
+            });
+            // Segarkan antrean sehingga task yang sudah dicetak LANGSUNG HILANG dari antrean susun
+            await muatTask();
+          }
+        } catch (updateErr) {
+          console.error("Gagal auto-advance stage task:", updateErr);
+        }
+      }
     } catch (e) {
       setGalatEkspor(e instanceof Error ? e.message : "Gagal mengekspor PNG");
     } finally {
@@ -647,7 +788,30 @@ export default function GangSheetBuilderPage() {
       {/* (2) HASIL SUSUN */}
       {hasil && (
         <section className="rounded-2xl border border-border-subtle bg-surface p-4 space-y-3">
-          <h2 className="font-bold text-text-primary">2 — Hasil susunan</h2>
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <h2 className="font-bold text-text-primary">2 — Hasil susunan</h2>
+            <button
+              onClick={cetakSPK}
+              className="px-3 py-1.5 rounded-lg bg-amber-400 hover:bg-amber-300 text-black text-xs font-bold font-mono flex items-center gap-1.5 transition-colors"
+            >
+              <span>🖨️</span> Cetak SPK Roll (A4)
+            </button>
+          </div>
+          {hasil.strategyName && (
+            <div className="flex flex-wrap items-center justify-between gap-2 p-3 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-600 dark:text-amber-400 font-mono text-xs animate-fadeIn">
+              <div className="flex items-center gap-2">
+                <span className="text-base">🏆</span>
+                <span>
+                  <strong>Pemenang Turnamen (10 Kombinasi):</strong> {hasil.strategyName}
+                </span>
+              </div>
+              {hasil.maxReachMm ? (
+                <span className="text-[11px] text-text-muted">
+                  Panjang Roll Efektif: {(hasil.maxReachMm / 10).toFixed(1)} cm
+                </span>
+              ) : null}
+            </div>
+          )}
           <div className="grid sm:grid-cols-3 gap-3">
             <div className="rounded-xl bg-surface border border-border-subtle p-3">
               <p className="font-mono text-[11px] uppercase text-text-muted">Utilisasi (packer)</p>
@@ -951,6 +1115,11 @@ export default function GangSheetBuilderPage() {
             </p>
           )}
           {galatEkspor && <p className="text-sm text-red-700 dark:text-red-400 font-mono">{galatEkspor}</p>}
+          {pesanSukses && (
+            <div className="p-3 rounded-xl bg-emerald-500/15 border border-emerald-500/30 text-emerald-800 dark:text-emerald-300 font-bold text-sm">
+              {pesanSukses}
+            </div>
+          )}
 
           {rekap && (
             <div className="space-y-2">
@@ -983,6 +1152,12 @@ export default function GangSheetBuilderPage() {
                   className="px-4 py-2 rounded-xl bg-black/5 dark:bg-white/5 border border-border-subtle text-text-primary text-sm font-bold"
                 >
                   {disalin ? "Tersalin ✓" : "Salin rekap"}
+                </button>
+                <button
+                  onClick={cetakSPK}
+                  className="px-4 py-2 rounded-xl bg-amber-400 hover:bg-amber-300 text-black text-sm font-bold flex items-center gap-1.5 transition-colors"
+                >
+                  <span>🖨️</span> Cetak SPK / Job Ticket A4
                 </button>
               </div>
               {peringatanEkspor.length > 0 && (

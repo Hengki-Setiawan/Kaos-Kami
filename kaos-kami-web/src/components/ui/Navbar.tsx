@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useConfiguratorStore } from "@/store/useConfiguratorStore";
 import { useCartStore } from "@/store/useCartStore";
 import { useShallow } from "zustand/shallow";
-import { Sun, Moon, Menu, X, User as UserIcon, ShoppingBag } from "lucide-react";
+import { Sun, Moon, Menu, X, User as UserIcon, ShoppingBag, ShieldCheck, Smartphone } from "lucide-react";
 import { AuthModal } from "@/components/ui/AuthModal";
 import { CartDrawer } from "@/components/ui/CartDrawer";
 import { useSession } from "@/lib/auth-client";
@@ -20,6 +20,11 @@ export const Navbar: React.FC = () => {
   }, []);
 
   const { data: session } = useSession();
+  const userRole = (session?.user as any)?.role || "CUSTOMER";
+  const isAdmin =
+    ["ADMIN", "SUPER_ADMIN", "PRODUCTION_STAFF"].includes(userRole) ||
+    session?.user?.email === "hengkishadow@gmail.com" ||
+    session?.user?.email === "admin@kaoskami.biz.id";
   // Badge reaktif: subscribe `items` langsung (hitung qty via reduce) agar
   // badge update tiap add/remove/updateQuantity. JANGAN subscribe getTotalCount
   // (referensi fungsi stabil → tak memicu render ulang saat isi berubah).
@@ -97,6 +102,25 @@ export const Navbar: React.FC = () => {
           >
             LACAK PESANAN
           </Link>
+          {session?.user && (
+            <Link
+              href="/dashboard/orders"
+              className="text-text-muted hover:text-text-primary transition-colors font-bold uppercase tracking-wider"
+            >
+              PESANANKU
+            </Link>
+          )}
+          <a
+            href="https://pub-5746f36a46904edc8425ecd721b0bfdc.r2.dev/aplikasi/kaos-kami.apk"
+            target="_blank"
+            rel="noopener noreferrer"
+            download="kaos-kami.apk"
+            className="text-brand-accent hover:brightness-125 transition-all font-bold uppercase tracking-wider flex items-center gap-1.5"
+            title="Download Aplikasi Android Kaos Kami (Capacitor APK)"
+          >
+            <Smartphone size={13} />
+            <span>UNDUH APK</span>
+          </a>
         </nav>
       </div>
 
@@ -131,6 +155,25 @@ export const Navbar: React.FC = () => {
             <Sun size={15} className="text-brand-accent" />
           )}
         </button>
+
+        {/* Admin Quick Jump Pill (Executive Dual-Tone Badge) */}
+        {isAdmin && (
+          <Link
+            href="/admin"
+            className="group relative flex items-center gap-2 px-3.5 py-1.5 rounded-full font-mono text-xs font-bold border transition-all duration-200 active:scale-95 shadow-sm
+              bg-white text-neutral-900 border-amber-500/70 hover:bg-amber-500 hover:text-black hover:border-amber-600 hover:shadow-[0_0_16px_rgba(245,158,11,0.35)]
+              dark:bg-amber-500/15 dark:text-amber-300 dark:border-amber-500/50 dark:hover:bg-amber-500 dark:hover:text-black dark:hover:border-amber-400 dark:shadow-[0_0_12px_rgba(245,158,11,0.2)]"
+            title="Buka Dashboard Admin & Workshop DTF"
+          >
+            <div className="w-5 h-5 rounded-full bg-amber-500/20 text-amber-600 dark:text-amber-400 group-hover:bg-black/20 group-hover:text-black flex items-center justify-center transition-colors">
+              <ShieldCheck size={13} className="stroke-[2.5]" />
+            </div>
+            <span className="font-extrabold tracking-tight">PANEL ADMIN</span>
+            <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-amber-500 text-black font-black tracking-wider transition-transform group-hover:scale-105">
+              OPS
+            </span>
+          </Link>
+        )}
 
         {/* User Account / Login Button */}
         <button
@@ -174,6 +217,19 @@ export const Navbar: React.FC = () => {
           className="md:hidden absolute top-full left-0 right-0 bg-surface/95 backdrop-blur-xl border-b border-border-subtle px-4 py-3 flex flex-col gap-1 text-xs font-mono"
           aria-label="Menu mobile"
         >
+          {isAdmin && (
+            <Link
+              href="/admin"
+              onClick={() => setIsMenuOpen(false)}
+              className="px-3 py-2.5 rounded-xl text-amber-400 bg-amber-500/10 border border-amber-500/30 font-bold uppercase tracking-wider transition-colors flex items-center justify-between mb-1"
+            >
+              <span className="flex items-center gap-2">
+                <ShieldCheck size={15} />
+                PANEL ADMIN & WORKSHOP
+              </span>
+              <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-500 text-black font-mono font-bold">OPS</span>
+            </Link>
+          )}
           {[
             { href: "/catalog", label: "KATALOG PRODUK" },
             { href: "/studio", label: "STUDIO 3D" },
@@ -189,6 +245,17 @@ export const Navbar: React.FC = () => {
               {l.label}
             </Link>
           ))}
+          <a
+            href="https://pub-5746f36a46904edc8425ecd721b0bfdc.r2.dev/aplikasi/kaos-kami.apk"
+            target="_blank"
+            rel="noopener noreferrer"
+            download="kaos-kami.apk"
+            onClick={() => setIsMenuOpen(false)}
+            className="mt-1 px-3 py-2.5 rounded-xl text-brand-accent bg-brand-accent/10 border border-brand-accent/30 font-bold uppercase tracking-wider transition-all flex items-center gap-2"
+          >
+            <Smartphone size={14} />
+            <span>UNDUH APK ANDROID</span>
+          </a>
         </nav>
       )}
     </header>

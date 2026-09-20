@@ -1,0 +1,132 @@
+{
+  "kasus": "KASUS 1: KAOS BOXY HYPERLOCAL MAKASSAR",
+  "order": {
+    "id": "NBxowtUHGRnJXSDry8QOl",
+    "orderNumber": "KK-20260919-6521",
+    "userId": "6XBFRQCO5zsXOmdOFsBk0YJmU0lilEWn",
+    "status": "PENDING_PAYMENT",
+    "deliveryMethod": "FREE_MAKASSAR",
+    "subtotalIdr": 149000,
+    "shippingCostIdr": 0,
+    "discountIdr": 0,
+    "totalIdr": 149000,
+    "shippingAddressId": "LF_f9n_G0M0rDIYU5O8h8",
+    "courierNotes": "Antar depan pagar hitam samping warkop. Titik lokasi terkalibrasi via GPS Google Maps.",
+    "trackingNumber": null,
+    "notes": null,
+    "createdAt": "2026-09-18T16:58:16.423Z",
+    "updatedAt": "2026-09-18T16:58:16.423Z"
+  },
+  "paidStatus": "PAYMENT_CONFIRMED",
+  "customer": {
+    "id": "6XBFRQCO5zsXOmdOFsBk0YJmU0lilEWn",
+    "name": "hengki vibecoding1",
+    "email": "hengkivibecoding@gmail.com",
+    "phone": "0895803463032",
+    "phoneVerified": true
+  },
+  "items": [
+    {
+      "apparelSlug": "tshirt",
+      "fabricThicknessSlug": "combed-24s",
+      "materialFinishSlug": "standard",
+      "colorHex": "#121214",
+      "colorName": "Obsidian Black",
+      "size": "L",
+      "quantity": 1,
+      "title": "Custom TSHIRT Sablon DTF Boxy Makassar",
+      "decals": [
+        {
+          "id": "decal-front-mascot",
+          "name": "Logo Kaos Kami Putih A4",
+          "targetSide": "front",
+          "url": "https://pub-5746f36a46904edc8425ecd721b0bfdc.r2.dev/mascot/logo-white.png",
+          "x": 0,
+          "y": 0.05,
+          "scale": 0.55,
+          "rotation": 0,
+          "opacity": 1,
+          "printPx": {
+            "w": 2000,
+            "h": 2800
+          }
+        },
+        {
+          "id": "decal-collar-mascot",
+          "name": "Logo Minimalis Kerah",
+          "targetSide": "back",
+          "url": "https://pub-5746f36a46904edc8425ecd721b0bfdc.r2.dev/mascot/logo-transparent.png",
+          "x": 0,
+          "y": 0.4,
+          "scale": 0.15,
+          "rotation": 0,
+          "opacity": 1,
+          "printPx": {
+            "w": 500,
+            "h": 500
+          }
+        }
+      ],
+      "masterAssetUrl": {
+        "front": "https://pub-5746f36a46904edc8425ecd721b0bfdc.r2.dev/master/logo-white.png",
+        "back": "https://pub-5746f36a46904edc8425ecd721b0bfdc.r2.dev/master/logo-transparent.png"
+      }
+    }
+  ],
+  "productionTasks": [
+    {
+      "id": "FxzJyx2mM_QCW2a8C0H6l",
+      "orderId": "NBxowtUHGRnJXSDry8QOl",
+      "orderItemId": "PqVxZMs0Qu95vQd8tzQiP",
+      "stage": "DESIGN_PREP",
+      "assignedToUserId": null,
+      "priority": 0,
+      "dueDate": null,
+      "notes": "Item: Custom TSHIRT Sablon DTF Boxy Makassar (L, Obsidian Black) — front — Logo Kaos Kami Putih A4",
+      "printWidthCm": 30,
+      "printHeightCm": 42,
+      "placementSide": "front",
+      "offsetFromCollarCm": 16.7,
+      "rawAssetUrl": null,
+      "mockupPreviewUrl": null,
+      "printFileUrl": "https://pub-5746f36a46904edc8425ecd721b0bfdc.r2.dev/master/logo-white.png",
+      "completedAt": null,
+      "createdAt": "2026-09-18T16:58:26.949Z",
+      "updatedAt": "2026-09-18T16:58:26.949Z"
+    },
+    {
+      "id": "P2xD_2TLRX8T8Y1FlxXLb",
+      "orderId": "NBxowtUHGRnJXSDry8QOl",
+      "orderItemId": "PqVxZMs0Qu95vQd8tzQiP",
+      "stage": "DESIGN_PREP",
+      "assignedToUserId": null,
+      "priority": 0,
+      "dueDate": null,
+      "notes": "Item: Custom TSHIRT Sablon DTF Boxy Makassar (L, Obsidian Black) — back — Logo Minimalis Kerah",
+      "printWidthCm": 21.8,
+      "printHeightCm": 21.8,
+      "placementSide": "back",
+      "offsetFromCollarCm": 2,
+      "rawAssetUrl": null,
+      "mockupPreviewUrl": null,
+      "printFileUrl": "https://pub-5746f36a46904edc8425ecd721b0bfdc.r2.dev/master/logo-transparent.png",
+      "completedAt": null,
+      "createdAt": "2026-09-18T16:58:27.261Z",
+      "updatedAt": "2026-09-18T16:58:27.261Z"
+    }
+  ],
+  "payment": {
+    "gateway": "Duitku v2 Sandbox",
+    "paymentMethod": "QRIS",
+    "signature": "357de303df05554028d79ebcf906fd4e",
+    "resultCode": "00",
+    "reference": "DS2852126UDW3EC7QFE7IVPB"
+  },
+  "shipping": {
+    "method": "FREE_MAKASSAR",
+    "district": "Tamalanrea",
+    "address": "Jl. Perintis Kemerdekaan KM 10 No. 45, Tamalanrea Indah, Kota Makassar, Sulawesi Selatan 90245 (Koordinat GPS: -5.1353, 119.4891)",
+    "notes": "Antar depan pagar hitam samping warkop. Titik lokasi terkalibrasi via GPS Google Maps."
+  },
+  "executedAt": "2026-09-18T16:59:12.758Z"
+}

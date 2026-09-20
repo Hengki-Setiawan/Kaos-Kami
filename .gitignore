@@ -98,3 +98,12 @@ Asset 3D/
 *.tmp.mjs
 __pycache__/
 *.pyc
+
+# heavy raw artwork & gangsheet rendering cache
+kaos-kami-web/public/mascot/
+!kaos-kami-web/public/mascot/favicon-32.png
+!kaos-kami-web/public/mascot/favicon-512.png
+!kaos-kami-web/public/mascot/logo-transparent.png
+Blueprint/hasil-pengujian-e2e/gang-sheets/
+
+

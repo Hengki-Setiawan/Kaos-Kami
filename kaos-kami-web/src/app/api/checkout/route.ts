@@ -435,57 +435,77 @@ export async function POST(req: NextRequest) {
     // (dipakai saat Fonnte mati). RISIKO: bypass OTP = order fiktif mungkin
     // (nomor WA tak terverifikasi) — aktifkan hanya sementara saat darurat.
     // P0-3 GERBANG OTP (paritas repay): dipasang SETELAH semua 400 validasi
-    // murah (harga/ongkir/zona) agar OTP satu-pakai tak hangus sia-sia, dan
-    // SEBELUM tulis apa pun (kupon/user/address/order). Buktikan kepemilikan
-    // nomor WA pemesan: kode 6 digit dari /api/auth/send-otp → hashOtp +
-    // expiry + owner-match (nomor bukti WAJIB == nomor pemesan) + satu-pakai.
-    // INTEGRASI WAJIB: client (CheckoutModal/APK) harus kirim otpCode — tanpa
-    // itu SEMUA checkout 401 (fail-closed, bukan opsional).
-    if (process.env.CHECKOUT_OTP_REQUIRED === "false") {
-      console.warn("[checkout] CHECKOUT_OTP_REQUIRED=false — gerbang OTP DILEWATI (mode darurat)");
-    } else {
-    const otpRaw =
-      (body as any)?.otpCode ??
-      (body as any)?.code ??
-      (body as any)?.otp ??
-      (body as any)?.otpToken ??
-      (body as any)?.proof;
-    const otpParsed = z
-      .object({
-        phoneNumber: z.string().min(9).max(20),
-        otp: z.string().regex(/^\d{6}$/),
-      })
-      .safeParse({
-        phoneNumber: (body as any)?.phoneNumber,
-        otp: typeof otpRaw === "string" ? otpRaw : "",
-      });
-    if (!otpParsed.success) {
-      return NextResponse.json(
-        {
-          error:
-            "Verifikasi OTP WA diperlukan. Minta kode via /api/auth/send-otp lalu kirim ulang dengan phoneNumber + otpCode milik nomor pemesan.",
-        },
-        { status: 401 }
-      );
-    }
-    const cleanProofPhone = otpParsed.data.phoneNumber.replace(/[^0-9]/g, "");
+    // Resolve session & existing user first:
     const cleanOrderPhone = phoneNumber.replace(/[^0-9]/g, "");
-    const otpRecord = await db.query.Verification.findFirst({
-      where: (t, { and, eq }) =>
-        and(eq(t.identifier, `otp:${cleanProofPhone}`), eq(t.value, hashOtp(otpParsed.data.otp))),
-      orderBy: (t, { desc }) => desc(t.createdAt),
-    });
-    // Satu pesan untuk salah & kadaluarsa (anti-oracle, paritas repay/verify-otp).
-    if (!otpRecord || new Date() > otpRecord.expiresAt) {
-      return NextResponse.json({ error: "Kode OTP salah atau kadaluarsa" }, { status: 401 });
-    }
-    // Owner-match SEBELUM hanguskan — nomor lain tak boleh menghanguskan OTP sah.
-    if (!cleanOrderPhone || cleanProofPhone !== cleanOrderPhone) {
-      return NextResponse.json({ error: "OTP bukan milik nomor pemesan ini" }, { status: 403 });
-    }
-    // Satu-pakai: hanguskan seperti verify-otp / repay / track/orders.
-    await db.delete(Verification).where(eq(Verification.identifier, `otp:${cleanProofPhone}`)).catch(() => {});
-    } // end CHECKOUT_OTP_REQUIRED kill-switch (default wajib)
+    let sessionUser: any = null;
+    try {
+      const { auth } = await import("@/lib/auth");
+      const session = await auth.api.getSession({ headers: req.headers });
+      if (session?.user?.id) {
+        sessionUser = await db.query.User.findFirst({
+          where: (t, { eq }) => eq(t.id, session.user.id),
+        });
+      }
+    } catch {}
+
+    // OPTIMALISASI FONNTE (Keputusan Sep 2026):
+    // Verifikasi nomor telepon HANYA SEKALI SELAMANYA per akun!
+    // Bila akun sudah pernah verifikasi (phoneVerified === true) dan nomor WA
+    // yang digunakan sama dengan nomor akunnya -> LEWATI GERBANG OTP!
+    const cleanUserPhone = (sessionUser?.phoneNumber || "").replace(/[^0-9]/g, "").replace(/^0/, "62");
+    const isAlreadyVerified =
+      Boolean(sessionUser?.phoneVerified) &&
+      Boolean(sessionUser?.phoneNumber) &&
+      cleanUserPhone === cleanOrderPhone.replace(/^0/, "62");
+
+    if (process.env.CHECKOUT_OTP_REQUIRED === "false" || isAlreadyVerified) {
+      if (isAlreadyVerified) {
+        console.log(`[checkout] Akun ${sessionUser?.id} (${cleanOrderPhone}) sudah phoneVerified — gerbang OTP dilewati.`);
+      } else {
+        console.warn("[checkout] CHECKOUT_OTP_REQUIRED=false — gerbang OTP DILEWATI (mode darurat)");
+      }
+    } else {
+      const otpRaw =
+        (body as any)?.otpCode ??
+        (body as any)?.code ??
+        (body as any)?.otp ??
+        (body as any)?.otpToken ??
+        (body as any)?.proof;
+      const otpParsed = z
+        .object({
+          phoneNumber: z.string().min(9).max(20),
+          otp: z.string().regex(/^\d{6}$/),
+        })
+        .safeParse({
+          phoneNumber: (body as any)?.phoneNumber,
+          otp: typeof otpRaw === "string" ? otpRaw : "",
+        });
+      if (!otpParsed.success) {
+        return NextResponse.json(
+          {
+            error:
+              "Verifikasi OTP WA diperlukan. Minta kode via /api/auth/send-otp lalu kirim ulang dengan phoneNumber + otpCode milik nomor pemesan.",
+          },
+          { status: 401 }
+        );
+      }
+      const cleanProofPhone = otpParsed.data.phoneNumber.replace(/[^0-9]/g, "");
+      const otpRecord = await db.query.Verification.findFirst({
+        where: (t, { and, eq }) =>
+          and(eq(t.identifier, `otp:${cleanProofPhone}`), eq(t.value, hashOtp(otpParsed.data.otp))),
+        orderBy: (t, { desc }) => desc(t.createdAt),
+      });
+      // Satu pesan untuk salah & kadaluarsa (anti-oracle, paritas repay/verify-otp).
+      if (!otpRecord || new Date() > otpRecord.expiresAt) {
+        return NextResponse.json({ error: "Kode OTP salah atau kadaluarsa" }, { status: 401 });
+      }
+      // Owner-match SEBELUM hanguskan — nomor lain tak boleh menghanguskan OTP sah.
+      if (!cleanOrderPhone || cleanProofPhone !== cleanOrderPhone) {
+        return NextResponse.json({ error: "OTP bukan milik nomor pemesan ini" }, { status: 403 });
+      }
+      // Satu-pakai: hanguskan seperti verify-otp / repay / track/orders.
+      await db.delete(Verification).where(eq(Verification.identifier, `otp:${cleanProofPhone}`)).catch(() => {});
+    } // end CHECKOUT_OTP_REQUIRED / isAlreadyVerified;
 
     // P0-2 KLAIM: tandai key sedang diproses SEBELUM reservasi kuota kupon /
     // tulis order — retry sequential dengan key sama berhenti di cek replay
@@ -524,26 +544,18 @@ export async function POST(req: NextRequest) {
     }
 
     // 3. Find or create user for this WhatsApp number.
-    // Prioritaskan pengguna yang sedang login (session), sinkronkan nomor WhatsApp-nya.
-    const cleanPhone = phoneNumber.replace(/[^0-9]/g, "");
-    let user: any = null;
+    // Prioritaskan pengguna yang sedang login (session), tandai phoneVerified = true untuk selamanya.
+    const cleanPhone = cleanOrderPhone;
+    let user: any = sessionUser;
 
-    try {
-      const { auth } = await import("@/lib/auth");
-      const session = await auth.api.getSession({ headers: req.headers });
-      if (session?.user?.id) {
-        user = await db.query.User.findFirst({
-          where: (t, { eq }) => eq(t.id, session.user.id),
-        });
-        if (user && cleanPhone && user.phoneNumber !== cleanPhone) {
-          try {
-            await db.update(User).set({ phoneNumber: cleanPhone }).where(eq(User.id, user.id));
-          } catch {}
-        }
-      }
-    } catch {}
-
-    if (!user) {
+    if (user) {
+      try {
+        await db
+          .update(User)
+          .set({ phoneNumber: cleanPhone, phoneVerified: true })
+          .where(eq(User.id, user.id));
+      } catch {}
+    } else {
       const guestEmail = email || `${cleanPhone}@kaoskami.customer`;
       user = await db.query.User.findFirst({
         where: (t, { or, eq }) => or(eq(t.phoneNumber, cleanPhone), eq(t.email, guestEmail)),
@@ -552,7 +564,14 @@ export async function POST(req: NextRequest) {
       if (!user) {
         const [created] = await db
           .insert(User)
-          .values({ id: nanoid(), name: recipientName, phoneNumber: cleanPhone, email: guestEmail, role: "CUSTOMER" })
+          .values({
+            id: nanoid(),
+            name: recipientName,
+            phoneNumber: cleanPhone,
+            phoneVerified: true,
+            email: guestEmail,
+            role: "CUSTOMER",
+          })
           .onConflictDoNothing()
           .returning();
         user =
@@ -560,6 +579,12 @@ export async function POST(req: NextRequest) {
           (await db.query.User.findFirst({
             where: (t, { or, eq }) => or(eq(t.phoneNumber, cleanPhone), eq(t.email, guestEmail)),
           }))!;
+      } else {
+        await db
+          .update(User)
+          .set({ phoneNumber: cleanPhone, phoneVerified: true })
+          .where(eq(User.id, user.id))
+          .catch(() => {});
       }
     }
 
@@ -786,6 +811,11 @@ export async function POST(req: NextRequest) {
           ? [{ name: `Diskon kupon ${appliedCoupon || ""}`.trim(), price: -discountIdr, quantity: 1 }]
           : []),
       ];
+      console.log("[checkout] DUITKU CHARGE DEBUG:", {
+        computedTotalIdr,
+        duitkuItems,
+        sum: duitkuItems.reduce((acc, it) => acc + it.price * it.quantity, 0),
+      });
       chargeResult = await duitkuProvider.createCharge({
         orderId: order.id,
         orderNumber: order.orderNumber,
@@ -823,28 +853,19 @@ export async function POST(req: NextRequest) {
       .set({ providerRef: chargeResult.reference })
       .where(eq(Payment.orderId, order.id));
 
-    // 9. Send WhatsApp Confirmation asynchronously (Graceful fallback)
+    // 9. Send WhatsApp Confirmation:
+    // PENGHEMATAN KUOTA FONNTE (Keputusan Owner Sep 2026):
+    // Notifikasi transaksional otomatis via WhatsApp dinonaktifkan agar kuota Fonnte
+    // khusus dipakai untuk OTP verifikasi nomor telepon (1x selamanya per akun).
+    // Pelanggan memantau status via Dashboard Invoice Web, Web Notification, dan Aplikasi Capacitor.
+    // Tombol chat WhatsApp manual (wa.me) tetap tersedia di halaman invoice secara gratis.
     const invoiceUrl = `${siteUrl()}/orders/${order.id}`;
-    const itemsSummary = validatedItems
-      .map((it) => `${it.quantity}x ${it.apparelSlug.toUpperCase()} (${it.size})`)
-      .join(", ");
-
-    sendWhatsAppNotification(
-      cleanPhone,
-      buildOrderConfirmedMessage({
-        orderNumber: order.orderNumber,
-        recipientName,
-        totalIdr: computedTotalIdr,
-        deliveryMethod: selectedDelivery?.name || deliveryMethod,
-        itemSummary: itemsSummary,
-        invoiceUrl,
-      })
-    ).catch((err) => console.warn("Background WA notification warning:", err));
 
     return NextResponse.json({
       success: true,
       orderId: order.id,
       orderNumber: order.orderNumber,
+      amount: computedTotalIdr,
       paymentUrl: chargeResult.paymentUrl,
       reference: chargeResult.reference,
       invoiceUrl,

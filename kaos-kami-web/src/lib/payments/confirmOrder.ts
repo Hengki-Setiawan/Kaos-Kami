@@ -238,19 +238,7 @@ export async function confirmOrderPaid(
     }
   }
 
-  // Notify customer via WhatsApp (fail-safe).
-  const invoiceUrl = `${siteUrl()}/orders/${order.id}`;
-  if (order.user?.phoneNumber) {
-    sendWhatsAppNotification(
-      order.user.phoneNumber,
-      buildProductionStatusMessage({
-        orderNumber: order.orderNumber,
-        recipientName: order.user.name || "Pelanggan",
-        stageName: "Pembayaran Dikonfirmasi — Antrean Sablon DTF",
-        note: "Pesanan Anda telah lunas via Duitku dan masuk antrean workshop produksi sablon Kaos Kami.",
-        invoiceUrl,
-      })
-    ).catch((err) => console.warn("Confirm WA notify error:", err));
-  }
+  // PENGHEMATAN KUOTA FONNTE: Notifikasi status lunas otomatis via WhatsApp dinonaktifkan.
+  // Status lunas langsung ter-update di invoice web, web notification, dan aplikasi Capacitor.
   return "confirmed";
 }

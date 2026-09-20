@@ -23,6 +23,20 @@ export async function GET(req: NextRequest) {
   const parsed = QuerySchema.safeParse({ lat: sp.get("lat"), lon: sp.get("lon") });
   if (!parsed.success) return NextResponse.json({ error: "Koordinat tidak valid" }, { status: 400 });
 
+  // Fast-path lokal: titik workshop Kaos Kami Tallo (respon <1ms tanpa panggil Nominatim)
+  const dLat = Math.abs(parsed.data.lat - (-5.106018));
+  const dLon = Math.abs(parsed.data.lon - 119.432396);
+  if (dLat < 0.005 && dLon < 0.005) {
+    return NextResponse.json({
+      result: {
+        district: "Tallo",
+        city: "Kota Makassar",
+        province: "Sulawesi Selatan",
+        displayName: "Jl. Galangan Kapal, Lrg. Permandian 1, Kaluku Bodoa, Kec. Tallo, Kota Makassar, Sulawesi Selatan 90211",
+      },
+    });
+  }
+
   try {
     const ctrl = new AbortController();
     const t = setTimeout(() => ctrl.abort(), 8000);

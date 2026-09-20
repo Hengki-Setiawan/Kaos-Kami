@@ -109,6 +109,21 @@ const nextConfig = {
       },
     ];
   },
+  async redirects() {
+    return [
+      {
+        source: "/:path*",
+        has: [
+          {
+            type: "host",
+            value: "(?<subdomain>.*)\\.workers\\.dev",
+          },
+        ],
+        destination: "https://kaoskami.biz.id/:path*",
+        permanent: true,
+      },
+    ];
+  },
   // Paksa SEMUA impor "@libsql/client" (termasuk dari dalam drizzle-orm)
   // ke build /web (fetch-only). Tanpa ini, kondisi "node"/CJS me-resolve
   // ke build native → require("@libsql/linux-x64-musl") → 500 di workerd.

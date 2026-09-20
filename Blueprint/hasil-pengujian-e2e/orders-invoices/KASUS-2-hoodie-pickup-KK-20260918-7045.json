@@ -1,0 +1,77 @@
+{
+  "order": {
+    "id": "wDbbxG8uiPZ-bKH1CST9H",
+    "orderNumber": "KK-20260918-7045",
+    "userId": "6XBFRQCO5zsXOmdOFsBk0YJmU0lilEWn",
+    "status": "PAYMENT_CONFIRMED",
+    "deliveryMethod": "PICKUP",
+    "subtotalIdr": 259000,
+    "shippingCostIdr": 0,
+    "discountIdr": 0,
+    "totalIdr": 259000,
+    "shippingAddressId": "YqOtP4xj3fJ_2z3MvHVq9",
+    "courierNotes": "",
+    "trackingNumber": null,
+    "notes": null,
+    "createdAt": "2026-09-18T13:41:39.275Z",
+    "updatedAt": "2026-09-18T13:41:47.477Z"
+  },
+  "items": [
+    {
+      "id": "B9utkMBJ0i-CGmp56F5Iq",
+      "orderId": "wDbbxG8uiPZ-bKH1CST9H",
+      "productVariantId": null,
+      "designId": "DRhpyuLv8n74zmU4zwJ74",
+      "quantity": 1,
+      "unitPriceIdr": 259000,
+      "lineTotalIdr": 259000,
+      "snapshotName": "HOODIE Custom DTF Sablon",
+      "snapshotImageUrl": null,
+      "snapshotSize": "XL",
+      "snapshotColorName": "Deep Blue"
+    }
+  ],
+  "tasks": [
+    {
+      "id": "073O783tAoJBs5WH77HmI",
+      "orderId": "wDbbxG8uiPZ-bKH1CST9H",
+      "orderItemId": "B9utkMBJ0i-CGmp56F5Iq",
+      "stage": "DESIGN_PREP",
+      "assignedToUserId": null,
+      "priority": 0,
+      "dueDate": null,
+      "notes": "Item: HOODIE Custom DTF Sablon (XL, Deep Blue) — back — Maskot Sablon Jumbo",
+      "printWidthCm": 30,
+      "printHeightCm": 30,
+      "placementSide": "back",
+      "offsetFromCollarCm": 22.2,
+      "rawAssetUrl": null,
+      "mockupPreviewUrl": null,
+      "printFileUrl": "http://localhost:3000/mascot/mascot-sablon.png",
+      "completedAt": null,
+      "createdAt": "2026-09-18T13:41:48.833Z",
+      "updatedAt": "2026-09-18T13:41:48.833Z"
+    },
+    {
+      "id": "PmmAGWV-eQynbTPQ7weCE",
+      "orderId": "wDbbxG8uiPZ-bKH1CST9H",
+      "orderItemId": "B9utkMBJ0i-CGmp56F5Iq",
+      "stage": "DESIGN_PREP",
+      "assignedToUserId": null,
+      "priority": 0,
+      "dueDate": null,
+      "notes": "Item: HOODIE Custom DTF Sablon (XL, Deep Blue) — front — Emblem Saku",
+      "printWidthCm": 26,
+      "printHeightCm": 26,
+      "placementSide": "front",
+      "offsetFromCollarCm": 38,
+      "rawAssetUrl": null,
+      "mockupPreviewUrl": null,
+      "printFileUrl": "http://localhost:3000/mascot/logo-emblem.png",
+      "completedAt": null,
+      "createdAt": "2026-09-18T13:41:49.163Z",
+      "updatedAt": "2026-09-18T13:41:49.163Z"
+    }
+  ],
+  "printheadClamped": true
+}

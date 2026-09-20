@@ -21,8 +21,16 @@ export const auth = betterAuth({
       verification: Verification,
     },
   }),
-  secret: authSecret || "kaos-kami-dev-only-insecure-secret-ganti-di-prod",
-  baseURL: process.env.BETTER_AUTH_URL || process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000",
+  baseURL: (() => {
+    if (process.env.NODE_ENV !== "production") {
+      const url = process.env.BETTER_AUTH_URL || process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
+      if (url.includes("workers.dev") || url.includes("kaoskami.biz.id")) {
+        return "http://localhost:3000";
+      }
+      return url;
+    }
+    return process.env.BETTER_AUTH_URL || process.env.NEXT_PUBLIC_SITE_URL || "https://kaoskami.biz.id";
+  })(),
   // Domain kanonis + www: login/cookie dari kedua host harus diterima.
   // C3 (owner, 11 Sep 2026): *.workers.dev DITOLAK permanen — cabut-total
   // (tak ada user lama); JANGAN tambahkan kembali sebagai trustedOrigin /
@@ -69,6 +77,11 @@ export const auth = betterAuth({
         type: "string",
         defaultValue: "CUSTOMER",
         // KRITIS: tanpa input:false, pendaftar bisa kirim role:"ADMIN".
+        input: false,
+      },
+      phoneVerified: {
+        type: "boolean",
+        defaultValue: false,
         input: false,
       },
     },

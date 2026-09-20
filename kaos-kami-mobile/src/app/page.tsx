@@ -63,6 +63,7 @@ import {
   CheckoutSheet,
   UserOrderTrackerLive,
   TechPackModal,
+  UserOrderHistory,
 } from '@/components/commerce';
 import { openDuitkuPaymentModal, parseDuitkuReturnUrl } from '@/lib/payments/duitkuMobile';
 import { AdminMobileDashboard } from '@/components/admin';
@@ -107,6 +108,7 @@ export default function MobileApp() {
   const [techPackOpen, setTechPackOpen] = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [isOnline, setIsOnline] = useState(true);
+  const [ordersViewMode, setOrdersViewMode] = useState<'live' | 'history'>('live');
 
   // Cart & Offline Stores
   const { items, addItem, getItemCount, getSubtotal } = useMobileCartStore(
@@ -899,61 +901,103 @@ export default function MobileApp() {
           <div className="space-y-3">
             <div className="flex items-center justify-between">
               <h2 className="text-lg font-bold font-['Syne']">Status Sablon DTF</h2>
-              <Badge variant="production">Live Tracking</Badge>
+              <Badge variant="production">Makassar Workshop</Badge>
             </div>
 
-            {/* Dynamic Island Live Activity Simulation */}
-            <div className="py-1">
-              <p className="text-[10px] text-zinc-500 text-center mb-1.5 uppercase font-mono tracking-wider">
-                Simulasi iOS Dynamic Island & Lock Screen
-              </p>
-              <DynamicIslandPreview
-                orderNumber={activeOrderId ? `#${activeOrderId.slice(-6).toUpperCase()}` : '#-'}
-                apparelTitle="Pesanan Sablon DTF"
+            {/* Sub-tab switcher: Live Tracking vs Riwayat */}
+            <div className="flex items-center gap-1.5 p-1 rounded-2xl bg-zinc-900 border border-zinc-800">
+              <button
+                onClick={() => {
+                  haptic.selection();
+                  setOrdersViewMode('live');
+                }}
+                className={`flex-1 py-2 rounded-xl text-xs font-bold transition-all ${
+                  ordersViewMode === 'live'
+                    ? 'bg-[#FF6B35] text-white shadow-md shadow-orange-600/30'
+                    : 'text-zinc-400 hover:text-white'
+                }`}
+              >
+                Pantau Langsung
+              </button>
+              <button
+                onClick={() => {
+                  haptic.selection();
+                  setOrdersViewMode('history');
+                }}
+                className={`flex-1 py-2 rounded-xl text-xs font-bold transition-all ${
+                  ordersViewMode === 'history'
+                    ? 'bg-[#FF6B35] text-white shadow-md shadow-orange-600/30'
+                    : 'text-zinc-400 hover:text-white'
+                }`}
+              >
+                Riwayat Pesanan
+              </button>
+            </div>
+
+            {ordersViewMode === 'history' ? (
+              <UserOrderHistory
+                onSelectOrder={(oid) => {
+                  persistActiveOrder(oid);
+                  setOrdersViewMode('live');
+                }}
+                onNewOrder={() => setActiveTab('studio')}
               />
-            </div>
-
-            {/* Live Order Tracker — polling /api/mobile/orders/:id/status */}
-            {activeOrderId ? (
+            ) : (
               <>
-                <UserOrderTrackerLive
-                  orderId={activeOrderId}
-                  paymentUrl={pendingPaymentUrl ?? undefined}
-                  onNotify={(msg) => triggerToast(msg)}
-                />
-                {pendingPaymentUrl && (
-                  <HapticButton
-                    variant="primary"
-                    onClick={() => openDuitkuPaymentModal(pendingPaymentUrl)}
-                    className="w-full py-3 text-xs font-bold"
-                  >
-                    Lanjutkan Pembayaran
-                  </HapticButton>
-                )}
-                {!pendingPaymentUrl && pendingInvoiceUrl && (
-                  <HapticButton
-                    variant="secondary"
-                    onClick={() => openDuitkuPaymentModal(pendingInvoiceUrl)}
-                    className="w-full py-3 text-xs font-bold"
-                  >
-                    Buka Invoice (Bayar Manual via WA)
-                  </HapticButton>
+                {/* Dynamic Island Live Activity Simulation */}
+                <div className="py-1">
+                  <p className="text-[10px] text-zinc-500 text-center mb-1.5 uppercase font-mono tracking-wider">
+                    Simulasi iOS Dynamic Island & Lock Screen
+                  </p>
+                  <DynamicIslandPreview
+                    orderNumber={activeOrderId ? `#${activeOrderId.slice(-6).toUpperCase()}` : '#-'}
+                    apparelTitle="Pesanan Sablon DTF"
+                  />
+                </div>
+
+                {/* Live Order Tracker — polling /api/mobile/orders/:id/status */}
+                {activeOrderId ? (
+                  <>
+                    <UserOrderTrackerLive
+                      orderId={activeOrderId}
+                      paymentUrl={pendingPaymentUrl ?? undefined}
+                      onNotify={(msg) => triggerToast(msg)}
+                    />
+                    {pendingPaymentUrl && (
+                      <HapticButton
+                        variant="primary"
+                        onClick={() => openDuitkuPaymentModal(pendingPaymentUrl)}
+                        className="w-full py-3 text-xs font-bold"
+                      >
+                        Lanjutkan Pembayaran
+                      </HapticButton>
+                    )}
+                    {!pendingPaymentUrl && pendingInvoiceUrl && (
+                      <HapticButton
+                        variant="secondary"
+                        onClick={() => openDuitkuPaymentModal(pendingInvoiceUrl)}
+                        className="w-full py-3 text-xs font-bold"
+                      >
+                        Buka Invoice (Bayar Manual via WA)
+                      </HapticButton>
+                    )}
+                  </>
+                ) : (
+                  <GlassCard className="p-5 text-center space-y-2">
+                    <p className="text-xs font-bold text-white">Belum ada pesanan aktif</p>
+                    <p className="text-[11px] text-zinc-400">
+                      Desain di Studio 3D, masukkan ke keranjang, lalu checkout — status sablon terpantau di sini.
+                    </p>
+                    <HapticButton
+                      variant="primary"
+                      onClick={() => setActiveTab('studio')}
+                      className="w-full py-2.5 text-xs font-bold"
+                    >
+                      Mulai Desain
+                    </HapticButton>
+                  </GlassCard>
                 )}
               </>
-            ) : (
-              <GlassCard className="p-5 text-center space-y-2">
-                <p className="text-xs font-bold text-white">Belum ada pesanan aktif</p>
-                <p className="text-[11px] text-zinc-400">
-                  Desain di Studio 3D, masukkan ke keranjang, lalu checkout — status sablon terpantau di sini.
-                </p>
-                <HapticButton
-                  variant="primary"
-                  onClick={() => setActiveTab('studio')}
-                  className="w-full py-2.5 text-xs font-bold"
-                >
-                  Mulai Desain
-                </HapticButton>
-              </GlassCard>
             )}
 
             {items.length > 0 && (
@@ -985,11 +1029,35 @@ export default function MobileApp() {
               </div>
               <div>
                 <h3 className="text-sm font-bold text-white font-['Syne']">Pelanggan Kaos Kami</h3>
-                <p className="text-[11px] text-zinc-400">Mode tamu • Tamalanrea, Makassar</p>
+                <p className="text-[11px] text-zinc-400">Mode tamu • Kaluku Bodoa, Tallo, Makassar 90211</p>
                 <div className="flex gap-2 mt-1.5">
                   <Badge variant="success">Face ID Aktif</Badge>
                 </div>
               </div>
+            </GlassCard>
+
+            {/* Workshop & Default Lokasi Makassar */}
+            <GlassCard className="p-4 space-y-2 border-zinc-800 bg-zinc-900/60">
+              <div className="flex items-center justify-between">
+                <h4 className="text-xs font-bold text-white font-['Syne'] flex items-center gap-1.5">
+                  <span className="text-[#FF6B35]">📍</span>
+                  Workshop Kaos Kami Makassar
+                </h4>
+                <Badge variant="production">Tallo 90211</Badge>
+              </div>
+              <p className="text-[11px] text-zinc-300 leading-relaxed">
+                Jl. Galangan Kapal, Lrg. Permandian 1, Kel. Kaluku Bodoa, Kec. Tallo, Kota Makassar, Sulawesi Selatan 90211
+              </p>
+              <HapticButton
+                variant="glass"
+                onClick={() => {
+                  haptic.tap();
+                  window.open('https://www.google.com/maps?q=-5.106018313739206,119.43239633333334', '_blank');
+                }}
+                className="w-full py-2 text-xs font-bold text-emerald-400 border-emerald-500/30"
+              >
+                Buka Navigasi Google Maps Workshop
+              </HapticButton>
             </GlassCard>
 
             <SavedDesignsGallery

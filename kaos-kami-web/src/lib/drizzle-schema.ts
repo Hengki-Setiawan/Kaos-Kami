@@ -43,6 +43,7 @@ export const User = sqliteTable(
     phoneNumber: text("phoneNumber").unique(),
     name: text("name"),
     emailVerified: integer("emailVerified", { mode: "boolean" }).notNull().default(false),
+    phoneVerified: integer("phoneVerified", { mode: "boolean" }).notNull().default(false),
     image: text("image"),
     passwordHash: text("passwordHash"),
     role: text("role").notNull().default("CUSTOMER"),

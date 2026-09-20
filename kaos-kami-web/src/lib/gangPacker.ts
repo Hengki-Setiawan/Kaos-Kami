@@ -70,6 +70,8 @@ export interface GangPackResult {
   utilizationPct: number;
   binWmm: number;
   binHmm: number;
+  strategyName?: string;
+  maxReachMm?: number;
 }
 
 // ─── Tipe internal (tidak diekspor) ───
@@ -162,6 +164,17 @@ function pembandingSisiMin(a: KopiGang, b: KopiGang): number {
   );
 }
 
+/** Sortir cluster: mengelompokkan desain per nomor pesanan (agar potongan workshop rapi berdekatan). */
+function pembandingOrderClustering(a: KopiGang, b: KopiGang): number {
+  return (
+    bandingString(a.sumber.orderNumber, b.sumber.orderNumber) ||
+    b.w * b.h - a.w * a.h ||
+    Math.max(b.w, b.h) - Math.max(a.w, a.h) ||
+    bandingString(a.sumber.id, b.sumber.id) ||
+    a.copyIndex - b.copyIndex
+  );
+}
+
 /**
  * Ubah isi packer menjadi GangPlacement per bin.
  * Indeks array luar == field `bin` (0-based) agar bins[p.bin] selalu tepat.
@@ -203,11 +216,11 @@ function petakanBin(packer: MaxRectsPacker): GangPlacement[][] {
  * Aturan yang diterapkan:
  * (1) `qty` di-expand menjadi kopi individual (copyIndex 0-based per rect).
  * (2) Packer: smart:false, pot:false, square:false, allowRotation:true,
- *     border=margin, padding=gap, logic MAX_EDGE.
- * (3) Multi-start deterministik: 4 sortir menurun (luas, keliling,
- *     sisi-terpanjang, sisi-terpendek) x rotasi aktif; utilisasi tertinggi
- *     menang, seri diputus secara deterministik (bin lebih sedikit, lalu
- *     rotasi lebih sedikit, lalu kandidat lebih awal).
+ *     border=margin, padding=gap.
+ * (3) Multi-Heuristic Tournament: 5 urutan sortir (luas, keliling, sisi-terpanjang,
+ *     sisi-terpendek, order-cluster) x 2 packing logic (MAX_EDGE & MAX_AREA) = 10 turnamen.
+ *     Pemenang dipilih berdasarkan: bin paling sedikit, utilisasi luas tertinggi,
+ *     jangkauan fisik roll terpendek (hemat film), dan rotasi paling sedikit.
  * (4) Overflow meluber ke bin berikutnya (bin 0, 1, 2, ...).
  * (5) Semua satuan mm integer (input dibulatkan, output dibulatkan).
  * (6) utilizationPct = total(w*h) / (jumlahBin*binW*binH) * 100 TANPA gap.
@@ -266,66 +279,94 @@ export function packGangSheet(
     }
   }
 
-  // 3. Multi-start deterministik: 4 urutan x rotasi aktif, ambil utilisasi tertinggi.
+  // 3. Multi-Heuristic Tournament: 5 urutan x 2 packing logic (10 turnamen deterministik)
   const urutan = [
-    pembandingArea,
-    pembandingPerimeter,
-    pembandingSisiMax,
-    pembandingSisiMin,
+    { nama: "Area-Descending", fn: pembandingArea },
+    { nama: "Perimeter-Descending", fn: pembandingPerimeter },
+    { nama: "Max-Edge-Descending", fn: pembandingSisiMax },
+    { nama: "Min-Edge-Descending", fn: pembandingSisiMin },
+    { nama: "Order-Clustered", fn: pembandingOrderClustering },
   ];
+  const logikaList = [
+    { nama: "MAX_EDGE", val: PACKING_LOGIC.MAX_EDGE },
+    { nama: "MAX_AREA", val: PACKING_LOGIC.MAX_AREA },
+  ];
+
   let terbaik: GangPlacement[][] | null = null;
   let utilTerbaik = -1;
-  let rotTerbaik = 0;
-  for (const banding of urutan) {
-    // Packer baru tiap kandidat agar hasil antar kandidat saling independen.
-    const packer = new MaxRectsPacker(binW, binH, gap, {
-      smart: false, // bin tetap (jangan auto-resize mengikuti isi)
-      pot: false, // jangan bulatkan ke power-of-2
-      square: false, // jangan paksa bin persegi
-      allowRotation: true, // rotasi global aktif; rect sensitif dikunci per-rect
-      border: margin, // tepi aman sheet
-      logic: PACKING_LOGIC.MAX_EDGE, // heuristik best-shortside-fit
-    });
-    const antre = [...kopi].sort(banding);
-    for (const k of antre) {
-      // Wajib instance Rectangle asli (bukan objek polos) agar override
-      // allowRotation per-rect dibaca librari; data JANGAN berisi kunci
-      // "allowRotation" karena setter data akan menimpanya.
-      const rc = new Rectangle(k.w, k.h, 0, 0, k.praRotasi, k.bolehRotasi);
-      const data: DataKopi = {
-        id: k.sumber.id,
-        orderNumber: k.sumber.orderNumber,
-        label: k.sumber.label,
-        masterUrl: k.sumber.masterUrl,
-        copyIndex: k.copyIndex,
-      };
-      rc.data = data;
-      // Dijamin selalu muat (pra-saring): gagal di bin lama -> bin baru kosong.
-      packer.add(rc);
-    }
-    const kandidat = petakanBin(packer);
-    let luas = 0;
-    let putar = 0;
-    for (const b of kandidat) {
-      for (const p of b) {
-        luas += p.wMm * p.hMm; // TANPA gap, sesuai kontrak
-        if (p.rot) putar += 1;
+  let jangkauanTerbaik = Infinity;
+  let rotTerbaik = Infinity;
+  let strategiTerbaik = "";
+
+  for (const logika of logikaList) {
+    for (const itemUrutan of urutan) {
+      const packer = new MaxRectsPacker(binW, binH, gap, {
+        smart: false,
+        pot: false,
+        square: false,
+        allowRotation: true,
+        border: margin,
+        logic: logika.val,
+      });
+      const antre = [...kopi].sort(itemUrutan.fn);
+      for (const k of antre) {
+        const rc = new Rectangle(k.w, k.h, 0, 0, k.praRotasi, k.bolehRotasi);
+        const data: DataKopi = {
+          id: k.sumber.id,
+          orderNumber: k.sumber.orderNumber,
+          label: k.sumber.label,
+          masterUrl: k.sumber.masterUrl,
+          copyIndex: k.copyIndex,
+        };
+        rc.data = data;
+        packer.add(rc);
       }
-    }
-    const util =
-      kandidat.length > 0 ? (luas / (kandidat.length * binW * binH)) * 100 : 0;
-    // Tie-break deterministik: utilisasi lebih tinggi, lalu bin lebih sedikit,
-    // lalu rotasi lebih sedikit, lalu kandidat lebih awal (luas dulu).
-    const menang =
-      terbaik === null ||
-      util > utilTerbaik ||
-      (util === utilTerbaik &&
-        (kandidat.length < terbaik.length ||
-          (kandidat.length === terbaik.length && putar < rotTerbaik)));
-    if (menang) {
-      terbaik = kandidat;
-      utilTerbaik = util;
-      rotTerbaik = putar;
+      const kandidat = petakanBin(packer);
+      let luas = 0;
+      let putar = 0;
+      let maxReach = 0;
+
+      for (const b of kandidat) {
+        for (const p of b) {
+          luas += p.wMm * p.hMm;
+          if (p.rot) putar += 1;
+          const reach = p.xMm + p.wMm;
+          if (reach > maxReach) maxReach = reach;
+        }
+      }
+
+      const util =
+        kandidat.length > 0 ? (luas / (kandidat.length * binW * binH)) * 100 : 0;
+
+      // Evaluasi pemenang:
+      // 1. Bin paling sedikit (paling hemat roll)
+      // 2. Utilisasi luas tertinggi
+      // 3. Jangkauan fisik X terpendek (panjang film terpakai paling minim)
+      // 4. Rotasi paling sedikit
+      let menang = false;
+      if (terbaik === null) {
+        menang = true;
+      } else if (kandidat.length < terbaik.length) {
+        menang = true;
+      } else if (kandidat.length === terbaik.length) {
+        if (util > utilTerbaik + 0.05) {
+          menang = true;
+        } else if (Math.abs(util - utilTerbaik) <= 0.05) {
+          if (maxReach < jangkauanTerbaik) {
+            menang = true;
+          } else if (maxReach === jangkauanTerbaik && putar < rotTerbaik) {
+            menang = true;
+          }
+        }
+      }
+
+      if (menang) {
+        terbaik = kandidat;
+        utilTerbaik = util;
+        jangkauanTerbaik = maxReach;
+        rotTerbaik = putar;
+        strategiTerbaik = `${itemUrutan.nama} (${logika.nama})`;
+      }
     }
   }
 
@@ -344,5 +385,7 @@ export function packGangSheet(
     utilizationPct,
     binWmm: binW,
     binHmm: binH,
+    strategyName: strategiTerbaik,
+    maxReachMm: Number.isFinite(jangkauanTerbaik) ? jangkauanTerbaik : 0,
   };
 }

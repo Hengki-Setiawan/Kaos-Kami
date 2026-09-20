@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useMemo } from "react";
 import Link from "next/link";
 import {
   Package,
@@ -18,10 +18,12 @@ import {
   RotateCcw,
   Palette,
   ShieldCheck,
+  Printer,
 } from "lucide-react";
 import { ReorderButton } from "@/components/commerce/ReorderButton";
 import { DesignCardActions } from "@/components/commerce/DesignCardActions";
 import { AddressBook } from "@/components/commerce/AddressBook";
+import { UserProfileCard } from "@/components/commerce/UserProfileCard";
 
 interface OrderItemData {
   id: string;
@@ -129,13 +131,41 @@ function formatRupiah(n: number) {
   return "Rp " + n.toLocaleString("id-ID");
 }
 
+function getSizeBreakdown(items: OrderItemData[]): string {
+  const counts: Record<string, number> = {};
+  for (const it of items) {
+    const size = it.snapshotSize || "Std";
+    counts[size] = (counts[size] || 0) + it.quantity;
+  }
+  return Object.entries(counts)
+    .map(([size, qty]) => `${size} (${qty})`)
+    .join(", ");
+}
+
+function getOrderEta(order: OrderData): { badge: string; isExpress: boolean } {
+  if (order.courierNotes?.includes("EXPRESS")) {
+    return { badge: "Prioritas Express: Siap dalam 24 Jam", isExpress: true };
+  }
+  const orderDate = new Date(order.createdAt);
+  const targetDate = new Date(orderDate);
+  targetDate.setDate(targetDate.getDate() + 2);
+  const dateStr = targetDate.toLocaleDateString("id-ID", {
+    weekday: "short",
+    day: "numeric",
+    month: "short",
+  });
+  return { badge: `Estimasi Pengerjaan: ~${dateStr} (1–2 Hari Kerja)`, isExpress: false };
+}
+
 export function CustomerDashboardView({
   orders,
   designs,
   addresses,
   user,
 }: CustomerDashboardViewProps) {
+  const [currentUser, setCurrentUser] = useState(user);
   const [activeTab, setActiveTab] = useState<"orders" | "designs" | "addresses">("orders");
+  const [orderFilter, setOrderFilter] = useState<"ALL" | "ACTIVE" | "SHIPPED" | "COMPLETED" | "CANCELLED">("ALL");
   const [copiedResi, setCopiedResi] = useState<string | null>(null);
 
   const copyResi = (resi: string) => {
@@ -144,25 +174,65 @@ export function CustomerDashboardView({
     setTimeout(() => setCopiedResi(null), 2500);
   };
 
+  const orderCounts = useMemo(() => {
+    let active = 0;
+    let shipped = 0;
+    let completed = 0;
+    let cancelled = 0;
+    for (const o of orders) {
+      if (["CANCELLED", "REFUNDED"].includes(o.status)) {
+        cancelled++;
+      } else if (o.status === "COMPLETED") {
+        completed++;
+      } else if (["READY_TO_SHIP", "SHIPPED", "DELIVERED"].includes(o.status)) {
+        shipped++;
+      } else {
+        active++;
+      }
+    }
+    return { all: orders.length, active, shipped, completed, cancelled };
+  }, [orders]);
+
+  const filteredOrders = useMemo(() => {
+    if (orderFilter === "ACTIVE") {
+      return orders.filter(
+        (o) =>
+          !["CANCELLED", "REFUNDED", "COMPLETED", "READY_TO_SHIP", "SHIPPED", "DELIVERED"].includes(
+            o.status
+          )
+      );
+    }
+    if (orderFilter === "SHIPPED") {
+      return orders.filter((o) => ["READY_TO_SHIP", "SHIPPED", "DELIVERED"].includes(o.status));
+    }
+    if (orderFilter === "COMPLETED") {
+      return orders.filter((o) => o.status === "COMPLETED");
+    }
+    if (orderFilter === "CANCELLED") {
+      return orders.filter((o) => ["CANCELLED", "REFUNDED"].includes(o.status));
+    }
+    return orders;
+  }, [orders, orderFilter]);
+
   return (
     <div className="space-y-8 font-mono">
       {/* Header Info Akun Pelanggan */}
       <div className="p-6 rounded-2xl bg-surface border border-border-subtle shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-6">
         <div className="flex items-center space-x-4">
           <div className="w-14 h-14 rounded-2xl bg-brand-accent/20 border border-brand-accent/40 text-brand-accent flex items-center justify-center font-display font-black text-2xl shadow-inner">
-            {(user?.name || "K")[0]?.toUpperCase()}
+            {(currentUser?.name || "K")[0]?.toUpperCase()}
           </div>
           <div>
             <div className="flex items-center space-x-2">
               <h1 className="font-display text-xl sm:text-2xl font-black uppercase tracking-tight text-text-primary">
-                {user?.name || "Pelanggan Kaos Kami"}
+                {currentUser?.name || "Pelanggan Kaos Kami"}
               </h1>
               <span className="px-2 py-0.5 rounded-full text-[10px] font-bold uppercase bg-brand-accent/15 text-brand-accent border border-brand-accent/30">
-                {user?.role || "CUSTOMER"}
+                {currentUser?.role || "CUSTOMER"}
               </span>
             </div>
             <p className="text-xs text-text-muted mt-1">
-              {user?.email || "—"} · {user?.phoneNumber || "No. WA Belum Terdaftar"}
+              {currentUser?.email || "—"} · {currentUser?.phoneNumber || "No. WA Belum Terdaftar"}
             </p>
           </div>
         </div>
@@ -213,13 +283,48 @@ export function CustomerDashboardView({
           }`}
         >
           <MapPin size={15} />
-          <span>Buku Alamat ({addresses.length})</span>
+          <span>Profil & Alamat ({addresses.length})</span>
         </button>
       </div>
 
       {/* TAB 1: DAFTAR PESANAN + VISUAL STEPPER */}
       {activeTab === "orders" && (
         <div className="space-y-6">
+          {/* Status Quick Filter Tabs */}
+          {orders.length > 0 && (
+            <div className="flex flex-wrap items-center gap-2 pb-1">
+              {[
+                { key: "ALL", label: "Semua", count: orderCounts.all },
+                { key: "ACTIVE", label: "Sedang Diproses", count: orderCounts.active },
+                { key: "SHIPPED", label: "Siap & Dikirim", count: orderCounts.shipped },
+                { key: "COMPLETED", label: "Selesai", count: orderCounts.completed },
+                { key: "CANCELLED", label: "Dibatalkan", count: orderCounts.cancelled },
+              ].map((tab) => (
+                <button
+                  key={tab.key}
+                  type="button"
+                  onClick={() => setOrderFilter(tab.key as any)}
+                  className={`py-1.5 px-3 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 ${
+                    orderFilter === tab.key
+                      ? "bg-brand-accent text-canvas shadow-sm"
+                      : "bg-surface border border-border-subtle text-text-muted hover:text-text-primary hover:border-brand-accent/40"
+                  }`}
+                >
+                  <span>{tab.label}</span>
+                  <span
+                    className={`px-1.5 py-0.5 rounded-full text-[10px] ${
+                      orderFilter === tab.key
+                        ? "bg-black/20 text-white font-black"
+                        : "bg-black/5 dark:bg-white/10 text-text-muted"
+                    }`}
+                  >
+                    {tab.count}
+                  </span>
+                </button>
+              ))}
+            </div>
+          )}
+
           {orders.length === 0 ? (
             <div className="p-12 text-center rounded-2xl bg-surface border border-border-subtle text-text-muted space-y-4">
               <Package size={36} className="mx-auto text-text-muted/60" />
@@ -234,10 +339,27 @@ export function CustomerDashboardView({
                 Mulai Desain Sekarang
               </Link>
             </div>
+          ) : filteredOrders.length === 0 ? (
+            <div className="p-8 text-center rounded-2xl bg-surface border border-border-subtle text-text-muted space-y-3">
+              <p className="text-xs font-bold text-text-primary">
+                Tidak ada pesanan dengan filter status ini.
+              </p>
+              <button
+                type="button"
+                onClick={() => setOrderFilter("ALL")}
+                className="px-3.5 py-1.5 rounded-xl bg-surface border border-border-subtle hover:border-brand-accent text-brand-accent text-xs font-bold"
+              >
+                Tampilkan Semua Pesanan ({orders.length})
+              </button>
+            </div>
           ) : (
-            orders.map((order) => {
+            filteredOrders.map((order) => {
               const currentStepIdx = getStepIndex(order.status);
               const isCancelled = order.status === "CANCELLED" || order.status === "REFUNDED";
+              const isFinished = order.status === "COMPLETED";
+              const eta = getOrderEta(order);
+              const sizeBreakdown = getSizeBreakdown(order.items);
+              const totalPcs = order.items.reduce((s, it) => s + it.quantity, 0);
 
               return (
                 <div
@@ -288,6 +410,20 @@ export function CustomerDashboardView({
                       </span>
                     </div>
                   </div>
+
+                  {/* Production ETA Badge (Hanya tampil pada order aktif) */}
+                  {!isCancelled && !isFinished && (
+                    <div
+                      className={`px-3.5 py-2 rounded-xl text-xs flex items-center gap-2 border ${
+                        eta.isExpress
+                          ? "bg-amber-500/15 border-amber-500/30 text-amber-400 font-bold"
+                          : "bg-brand-accent/10 border-brand-accent/20 text-brand-accent"
+                      }`}
+                    >
+                      <Clock size={14} className="shrink-0" />
+                      <span>{eta.badge}</span>
+                    </div>
+                  )}
 
                   {/* Visual Stepper Tracker (Hanya tampil jika tidak dibatalkan) */}
                   {!isCancelled ? (
@@ -360,31 +496,44 @@ export function CustomerDashboardView({
                     </div>
                   )}
 
-                  {/* Items List */}
-                  <div className="divide-y divide-border-subtle bg-black/5 dark:bg-white/5 rounded-xl p-3 text-xs space-y-2">
-                    {order.items.map((item, idx) => (
-                      <div key={item.id} className="pt-2 first:pt-0 flex justify-between items-center">
-                        <div className="space-y-0.5">
-                          <span className="font-bold text-text-primary block">
-                            #{idx + 1}. {item.snapshotName}
-                          </span>
-                          <span className="text-[11px] text-text-muted">
-                            Ukuran: <strong className="text-text-primary">{item.snapshotSize}</strong> · Warna:{" "}
-                            <strong className="text-text-primary">{item.snapshotColorName}</strong> · Qty:{" "}
-                            <strong className="text-brand-accent">{item.quantity} pcs</strong>
+                  {/* Items List with Size Breakdown Summary */}
+                  <div className="space-y-2">
+                    <div className="flex flex-wrap items-center justify-between gap-2 px-1 text-[11px] text-text-muted">
+                      <span>
+                        {order.items.length} jenis item ({totalPcs} pcs)
+                      </span>
+                      {sizeBreakdown && (
+                        <span className="font-bold text-text-primary bg-black/5 dark:bg-white/5 px-2 py-0.5 rounded-md border border-border-subtle">
+                          Ukuran: {sizeBreakdown}
+                        </span>
+                      )}
+                    </div>
+
+                    <div className="divide-y divide-border-subtle bg-black/5 dark:bg-white/5 rounded-xl p-3 text-xs space-y-2">
+                      {order.items.map((item, idx) => (
+                        <div key={item.id} className="pt-2 first:pt-0 flex justify-between items-center">
+                          <div className="space-y-0.5">
+                            <span className="font-bold text-text-primary block">
+                              #{idx + 1}. {item.snapshotName}
+                            </span>
+                            <span className="text-[11px] text-text-muted">
+                              Ukuran: <strong className="text-text-primary">{item.snapshotSize}</strong> · Warna:{" "}
+                              <strong className="text-text-primary">{item.snapshotColorName}</strong> · Qty:{" "}
+                              <strong className="text-brand-accent">{item.quantity} pcs</strong>
+                            </span>
+                          </div>
+                          <span className="font-bold text-text-primary">
+                            {formatRupiah(item.lineTotalIdr)}
                           </span>
                         </div>
-                        <span className="font-bold text-text-primary">
-                          {formatRupiah(item.lineTotalIdr)}
-                        </span>
-                      </div>
-                    ))}
+                      ))}
+                    </div>
                   </div>
 
                   {/* Bottom Actions */}
                   <div className="flex flex-wrap items-center justify-between gap-3 pt-2">
                     <span className="text-[11px] text-text-muted">
-                      {order.items.length} jenis item sablon
+                      ID: {order.id.slice(0, 8)}…
                     </span>
 
                     <div className="flex flex-wrap items-center gap-2">
@@ -401,8 +550,17 @@ export function CustomerDashboardView({
                       <Link
                         href={`/orders/${order.id}`}
                         className="px-3.5 py-1.5 rounded-xl bg-surface border border-border-subtle hover:border-brand-accent text-text-primary font-bold hover:text-brand-accent transition-all flex items-center gap-1.5 text-xs"
+                        title="Buka atau Cetak Nota Resmi"
                       >
-                        <span>LIHAT INVOICE</span>
+                        <Printer size={13} className="text-brand-accent" />
+                        <span>CETAK NOTA RESMI</span>
+                      </Link>
+
+                      <Link
+                        href={`/orders/${order.id}`}
+                        className="px-3.5 py-1.5 rounded-xl bg-surface border border-border-subtle hover:border-brand-accent text-text-primary font-bold hover:text-brand-accent transition-all flex items-center gap-1.5 text-xs"
+                      >
+                        <span>INVOICE</span>
                         <ExternalLink size={12} />
                       </Link>
                     </div>
@@ -522,21 +680,21 @@ export function CustomerDashboardView({
         </div>
       )}
 
-      {/* TAB 3: BUKU ALAMAT */}
+      {/* TAB 3: PROFIL & BUKU ALAMAT */}
       {activeTab === "addresses" && (
-        <div className="space-y-4">
-          <div className="p-4 rounded-xl bg-surface border border-border-subtle flex items-center justify-between text-xs">
-            <div>
-              <span className="font-bold text-text-primary block">
-                Buku Alamat Pengiriman ({addresses.length})
-              </span>
-              <p className="text-text-muted text-[11px] mt-0.5">
-                Kelola alamat pengiriman untuk kemudahan checkout otomatis tanpa mengetik ulang.
-              </p>
-            </div>
-          </div>
+        <div className="space-y-6 animate-fadeIn">
+          {/* 1. Pengelolaan Identitas Profil */}
+          <UserProfileCard
+            user={currentUser}
+            onProfileUpdated={(updated) => setCurrentUser((prev: any) => ({ ...prev, ...updated }))}
+          />
 
-          <AddressBook initial={addresses} />
+          {/* 2. Pengelolaan Buku Alamat Interaktif dengan GPS */}
+          <AddressBook
+            initial={addresses}
+            defaultRecipientName={currentUser?.name || ""}
+            defaultPhoneNumber={currentUser?.phoneNumber || ""}
+          />
         </div>
       )}
     </div>

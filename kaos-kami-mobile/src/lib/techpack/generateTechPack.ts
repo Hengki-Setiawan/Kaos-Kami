@@ -144,7 +144,7 @@ export function generateTechPackHtml(data: TechPackData): string {
         </div>
 
         <div class="instructions">
-          <strong>SOP PRESS PANAS WORKSHOP TAMALANREA:</strong><br />
+          <strong>SOP PRESS PANAS WORKSHOP TALLO:</strong><br />
           1. Panaskan mesin heat press hingga suhu stabil <strong>160°C</strong>.<br />
           2. Press kain polos selama <strong>3 detik</strong> untuk menghilangkan kelembapan serat kain.<br />
           3. Posisikan film DTF sesuai ukuran <strong>${data.printWidthCm}x${data.printHeightCm} cm</strong> dan press selama <strong>15 detik</strong> dengan tekanan 4-5 bar.<br />

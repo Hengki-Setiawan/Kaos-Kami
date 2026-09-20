@@ -4,6 +4,7 @@ import { SmoothScrollProvider } from "@/components/providers/SmoothScrollProvide
 import { QueryProvider } from "@/components/providers/QueryProvider";
 import { DesignSyncProvider } from "@/components/providers/DesignSyncProvider";
 import { AppDownloadBanner } from "@/components/ui/AppDownloadBanner";
+import { NotificationGpsPrompt } from "@/components/ui/NotificationGpsPrompt";
 import Script from "next/script";
 import "./globals.css";
 
@@ -169,6 +170,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           <DesignSyncProvider>
             <SmoothScrollProvider>{children}</SmoothScrollProvider>
             <AppDownloadBanner />
+            <NotificationGpsPrompt />
           </DesignSyncProvider>
         </QueryProvider>
       </body>

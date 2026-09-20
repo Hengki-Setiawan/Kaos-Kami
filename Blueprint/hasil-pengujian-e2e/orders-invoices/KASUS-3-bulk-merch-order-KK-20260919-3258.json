@@ -1,0 +1,220 @@
+{
+  "kasus": "KASUS 3: BULK MERCH ORDER 12 PCS KAOS KOMUNITAS",
+  "summary": {
+    "totalShirts": 12,
+    "totalPrintTasks": 4,
+    "orderNumber": "KK-20260919-3258",
+    "orderId": "-u0ql4Py8t_VwnBGa7X3H",
+    "totalAmountIdr": 1723600
+  },
+  "order": {
+    "id": "-u0ql4Py8t_VwnBGa7X3H",
+    "orderNumber": "KK-20260919-3258",
+    "userId": "6XBFRQCO5zsXOmdOFsBk0YJmU0lilEWn",
+    "status": "PENDING_PAYMENT",
+    "deliveryMethod": "EXPEDITION_MANUAL",
+    "subtotalIdr": 1698600,
+    "shippingCostIdr": 25000,
+    "discountIdr": 0,
+    "totalIdr": 1723600,
+    "shippingAddressId": "NZBtRRKIEa28dSGO1dwOq",
+    "courierNotes": "Pesanan merchandise kaos komunitas. Harap bungkus plastik tebal + bubble wrap. | Ekspedisi JNE REG ke Lainnya (Luar Kota) (est. 2-4 hari)",
+    "trackingNumber": null,
+    "notes": null,
+    "createdAt": "2026-09-18T17:00:50.346Z",
+    "updatedAt": "2026-09-18T17:00:50.346Z"
+  },
+  "customer": {
+    "name": "hengki vibecoding1",
+    "email": "hengkivibecoding@gmail.com",
+    "phone": "0895803463032"
+  },
+  "items": [
+    {
+      "apparelSlug": "tshirt",
+      "fabricThicknessSlug": "combed-24s",
+      "materialFinishSlug": "standard",
+      "colorHex": "#121214",
+      "colorName": "Obsidian Black",
+      "size": "L",
+      "quantity": 6,
+      "title": "Batch A - Kaos Komunitas Boxy Hitam (Qty 6)",
+      "decals": [
+        {
+          "id": "decal-primary-a3",
+          "name": "Maskot Kaos Kami Primary A3",
+          "targetSide": "front",
+          "url": "https://pub-5746f36a46904edc8425ecd721b0bfdc.r2.dev/mascot/mascot-primary.png",
+          "x": 0,
+          "y": 0.05,
+          "scale": 0.6,
+          "rotation": 0,
+          "opacity": 1,
+          "printPx": {
+            "w": 2800,
+            "h": 3800
+          }
+        },
+        {
+          "id": "decal-label-back",
+          "name": "Label Kerah Minimalis",
+          "targetSide": "back",
+          "url": "https://pub-5746f36a46904edc8425ecd721b0bfdc.r2.dev/mascot/logo-transparent.png",
+          "x": 0,
+          "y": 0.38,
+          "scale": 0.12,
+          "rotation": 0,
+          "opacity": 1,
+          "printPx": {
+            "w": 600,
+            "h": 600
+          }
+        }
+      ],
+      "masterAssetUrl": {
+        "front": "https://pub-5746f36a46904edc8425ecd721b0bfdc.r2.dev/master/mascot-primary.png",
+        "back": "https://pub-5746f36a46904edc8425ecd721b0bfdc.r2.dev/master/logo-transparent.png"
+      }
+    },
+    {
+      "apparelSlug": "tshirt",
+      "fabricThicknessSlug": "combed-30s",
+      "materialFinishSlug": "standard",
+      "colorHex": "#ffffff",
+      "colorName": "Pure White",
+      "size": "XL",
+      "quantity": 6,
+      "title": "Batch B - Kaos Komunitas Putih 30s (Qty 6)",
+      "decals": [
+        {
+          "id": "decal-cool-a4",
+          "name": "Maskot Kaos Kami Cool A4",
+          "targetSide": "front",
+          "url": "https://pub-5746f36a46904edc8425ecd721b0bfdc.r2.dev/mascot/mascot-cool.png",
+          "x": 0,
+          "y": 0.08,
+          "scale": 0.5,
+          "rotation": 0,
+          "opacity": 1,
+          "printPx": {
+            "w": 2000,
+            "h": 2800
+          }
+        },
+        {
+          "id": "decal-pocket-a6",
+          "name": "Logo Saku Kaos Kami Hitam",
+          "targetSide": "front",
+          "url": "https://pub-5746f36a46904edc8425ecd721b0bfdc.r2.dev/mascot/logo-black.png",
+          "x": -0.25,
+          "y": 0.2,
+          "scale": 0.2,
+          "rotation": 0,
+          "opacity": 1,
+          "printPx": {
+            "w": 1000,
+            "h": 1000
+          }
+        }
+      ],
+      "masterAssetUrl": {
+        "front": "https://pub-5746f36a46904edc8425ecd721b0bfdc.r2.dev/master/mascot-cool.png"
+      }
+    }
+  ],
+  "productionTasks": [
+    {
+      "id": "4WlObQ4FcMxSrHfSX4wHO",
+      "orderId": "-u0ql4Py8t_VwnBGa7X3H",
+      "orderItemId": "k4YW7hLlBIJB8VFfLYj2L",
+      "stage": "DESIGN_PREP",
+      "assignedToUserId": null,
+      "priority": 0,
+      "dueDate": null,
+      "notes": "Item: Batch A - Kaos Komunitas Boxy Hitam (Qty 6) (L, Obsidian Black) — front — Maskot Kaos Kami Primary A3",
+      "printWidthCm": 30,
+      "printHeightCm": 40.7,
+      "placementSide": "front",
+      "offsetFromCollarCm": 16.7,
+      "rawAssetUrl": null,
+      "mockupPreviewUrl": null,
+      "printFileUrl": "https://pub-5746f36a46904edc8425ecd721b0bfdc.r2.dev/master/mascot-primary.png",
+      "completedAt": null,
+      "createdAt": "2026-09-18T17:00:57.529Z",
+      "updatedAt": "2026-09-18T17:00:57.529Z"
+    },
+    {
+      "id": "j7VBTKCmlfFQdQsQ8cmFx",
+      "orderId": "-u0ql4Py8t_VwnBGa7X3H",
+      "orderItemId": "k4YW7hLlBIJB8VFfLYj2L",
+      "stage": "DESIGN_PREP",
+      "assignedToUserId": null,
+      "priority": 0,
+      "dueDate": null,
+      "notes": "Item: Batch A - Kaos Komunitas Boxy Hitam (Qty 6) (L, Obsidian Black) — back — Label Kerah Minimalis",
+      "printWidthCm": 17.5,
+      "printHeightCm": 17.5,
+      "placementSide": "back",
+      "offsetFromCollarCm": 2,
+      "rawAssetUrl": null,
+      "mockupPreviewUrl": null,
+      "printFileUrl": "https://pub-5746f36a46904edc8425ecd721b0bfdc.r2.dev/master/logo-transparent.png",
+      "completedAt": null,
+      "createdAt": "2026-09-18T17:00:57.677Z",
+      "updatedAt": "2026-09-18T17:00:57.677Z"
+    },
+    {
+      "id": "NKm8jSrueiyHVkWHKullK",
+      "orderId": "-u0ql4Py8t_VwnBGa7X3H",
+      "orderItemId": "DERkHx0Ath9anI8hRo1OU",
+      "stage": "DESIGN_PREP",
+      "assignedToUserId": null,
+      "priority": 0,
+      "dueDate": null,
+      "notes": "Item: Batch B - Kaos Komunitas Putih 30s (Qty 6) (XL, Pure White) — front — Maskot Kaos Kami Cool A4",
+      "printWidthCm": 30,
+      "printHeightCm": 42,
+      "placementSide": "front",
+      "offsetFromCollarCm": 12.4,
+      "rawAssetUrl": null,
+      "mockupPreviewUrl": null,
+      "printFileUrl": "https://pub-5746f36a46904edc8425ecd721b0bfdc.r2.dev/master/mascot-cool.png",
+      "completedAt": null,
+      "createdAt": "2026-09-18T17:00:58.052Z",
+      "updatedAt": "2026-09-18T17:00:58.052Z"
+    },
+    {
+      "id": "DVkA1gFOSf73wd0xa-UJs",
+      "orderId": "-u0ql4Py8t_VwnBGa7X3H",
+      "orderItemId": "DERkHx0Ath9anI8hRo1OU",
+      "stage": "DESIGN_PREP",
+      "assignedToUserId": null,
+      "priority": 0,
+      "dueDate": null,
+      "notes": "Item: Batch B - Kaos Komunitas Putih 30s (Qty 6) (XL, Pure White) — front — Logo Saku Kaos Kami Hitam",
+      "printWidthCm": 29.1,
+      "printHeightCm": 29.1,
+      "placementSide": "front",
+      "offsetFromCollarCm": 2,
+      "rawAssetUrl": null,
+      "mockupPreviewUrl": null,
+      "printFileUrl": "https://pub-5746f36a46904edc8425ecd721b0bfdc.r2.dev/master/mascot-cool.png",
+      "completedAt": null,
+      "createdAt": "2026-09-18T17:00:58.188Z",
+      "updatedAt": "2026-09-18T17:00:58.188Z"
+    }
+  ],
+  "payment": {
+    "gateway": "Duitku v2 Sandbox",
+    "paymentMethod": "QRIS",
+    "resultCode": "00",
+    "reference": "DS2852126X6T3FG1UMLK6PN3"
+  },
+  "shipping": {
+    "method": "EXPEDITION_MANUAL",
+    "destination": "Jakarta Selatan",
+    "address": "Jl. Kemang Raya No. 88, Mampang Prapatan, Jakarta Selatan, DKI Jakarta 12730",
+    "notes": "Pesanan merchandise kaos komunitas. Harap bungkus plastik tebal + bubble wrap."
+  },
+  "executedAt": "2026-09-18T17:01:01.124Z"
+}

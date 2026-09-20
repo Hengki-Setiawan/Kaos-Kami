@@ -9,11 +9,46 @@ export interface DeliveryOption {
   costIdr: number;
 }
 
+export interface WorkshopLocation {
+  name: string;
+  address: string;
+  road: string;
+  suburb: string;
+  district: string;
+  city: string;
+  province: string;
+  postalCode: string;
+  lat: number;
+  lng: number;
+  googleMapsUrl: string;
+  operatingHours: string;
+}
+
+/**
+ * Single Source of Truth (SSOT) Titik Workshop Kaos Kami
+ * Koordinat: -5.106018313739206, 119.43239633333334
+ * Lokasi: Jl. Galangan Kapal, Lrg. Permandian 1, Kaluku Bodoa, Kec. Tallo, Kota Makassar 90211
+ */
+export const WORKSHOP_LOCATION: WorkshopLocation = {
+  name: "Workshop Kaos Kami Makassar",
+  address: "Jl. Galangan Kapal, Lrg. Permandian 1, Kel. Kaluku Bodoa, Kec. Tallo, Kota Makassar, Sulawesi Selatan 90211",
+  road: "Jalan Galangan Kapal, Lorong Permandian 1",
+  suburb: "Kaluku Bodoa",
+  district: "Tallo",
+  city: "Kota Makassar",
+  province: "Sulawesi Selatan",
+  postalCode: "90211",
+  lat: -5.106018313739206,
+  lng: 119.43239633333334,
+  googleMapsUrl: "https://www.google.com/maps?q=-5.106018313739206,119.43239633333334",
+  operatingHours: "Setiap Hari 09:00 - 21:00 WITA",
+};
+
 export const MAKASSAR_DELIVERY_OPTIONS: DeliveryOption[] = [
   {
     method: "PICKUP",
-    name: "Ambil di Workshop Kaos Kami (Rp 0)",
-    description: "Ambil langsung di workshop Kaos Kami Makassar setelah sablon selesai (Gratis).",
+    name: "Ambil di Workshop Kaos Kami (Tallo) — Rp 0",
+    description: "Ambil langsung di workshop Kaos Kami (Jl. Galangan Kapal, Lrg. Permandian 1, Tallo) setelah sablon selesai (Gratis).",
     costIdr: 0,
   },
   {

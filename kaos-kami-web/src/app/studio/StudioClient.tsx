@@ -3,7 +3,24 @@
 import React, { Suspense, useEffect, useState } from "react";
 import Link from "next/link";
 import dynamic from "next/dynamic";
-import { ArrowLeft, Sparkles, Sun, Moon, Maximize2, Minimize2, Move, CircleHelp, Shirt, RotateCw, ZoomIn, Layers } from "lucide-react";
+import {
+  ArrowLeft,
+  Sparkles,
+  Sun,
+  Moon,
+  Maximize2,
+  Minimize2,
+  Move,
+  CircleHelp,
+  Shirt,
+  RotateCw,
+  ZoomIn,
+  Layers,
+  ShieldCheck,
+  User as UserIcon,
+} from "lucide-react";
+import { useSession } from "@/lib/auth-client";
+import { AuthModal } from "@/components/ui/AuthModal";
 // P0 bundle: CanvasStage (three/fiber/drei) + three lazy client-only agar
 // chunk 3D tak masuk bundle awal. Vector3 dibuat via dynamic import("three").
 const CanvasStage = dynamic(
@@ -57,6 +74,14 @@ export function StudioClient() {
   const webglSupported = useWebglSupport();
   // M4.4 — tombol LENGAN bergantian kiri/kanan tiap klik (hemat tempat header).
   const [sisiLengan, setSisiLengan] = useState<"left" | "right">("left");
+  const [isAuthOpen, setIsAuthOpen] = useState(false);
+
+  const { data: session } = useSession();
+  const userRole = (session?.user as any)?.role || "CUSTOMER";
+  const isAdmin =
+    ["ADMIN", "SUPER_ADMIN", "PRODUCTION_STAFF"].includes(userRole) ||
+    session?.user?.email === "hengkishadow@gmail.com" ||
+    session?.user?.email === "admin@kaoskami.biz.id";
 
   useEffect(() => {
     setViewMode("studio");
@@ -91,8 +116,9 @@ export function StudioClient() {
         <div className="flex items-center space-x-3">
           <Link
             href="/"
-            onClick={() => setViewMode("story")}
-            className="flex items-center space-x-1.5 px-3 py-1.5 rounded-full bg-surface border border-border-subtle text-text-muted hover:text-text-primary hover:border-brand-accent transition-all text-xs font-mono font-bold uppercase"
+            prefetch={true}
+            className="flex items-center space-x-1.5 px-3.5 py-1.5 rounded-full bg-surface border border-border-subtle text-text-muted hover:text-text-primary hover:border-brand-accent transition-all text-xs font-mono font-bold uppercase active:scale-95 cursor-pointer"
+            title="Kembali ke Beranda"
           >
             <ArrowLeft size={13} />
             <span>KEMBALI</span>
@@ -248,6 +274,40 @@ export function StudioClient() {
             {isHideWebsiteUI ? <Minimize2 size={12} /> : <Maximize2 size={12} />}
             <span className="text-[11px] font-bold">{isHideWebsiteUI ? "KELUAR" : "TAMPIL BERSIH"}</span>
           </button>
+
+          {/* Admin Quick Jump Pill (Executive Dual-Tone Badge) */}
+          {isAdmin && (
+            <Link
+              href="/admin"
+              className="group relative flex items-center gap-1.5 px-3 py-1.5 rounded-full font-mono text-xs font-bold border transition-all duration-200 active:scale-95 shadow-sm
+                bg-white text-neutral-900 border-amber-500/70 hover:bg-amber-500 hover:text-black hover:border-amber-600 hover:shadow-[0_0_14px_rgba(245,158,11,0.3)]
+                dark:bg-amber-500/15 dark:text-amber-300 dark:border-amber-500/50 dark:hover:bg-amber-500 dark:hover:text-black dark:hover:border-amber-400"
+              title="Buka Dashboard Admin & Workshop DTF"
+            >
+              <div className="w-4 h-4 rounded-full bg-amber-500/20 text-amber-600 dark:text-amber-400 group-hover:bg-black/20 group-hover:text-black flex items-center justify-center transition-colors">
+                <ShieldCheck size={12} className="stroke-[2.5]" />
+              </div>
+              <span className="hidden sm:inline font-extrabold tracking-tight">PANEL ADMIN</span>
+              <span className="text-[9px] px-1.5 py-0.2 rounded-full bg-amber-500 text-black font-black">OPS</span>
+            </Link>
+          )}
+
+          {/* User Account / Dashboard Modal Trigger */}
+          <button
+            onClick={() => setIsAuthOpen(true)}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full font-mono text-xs border transition-all cursor-pointer active:scale-95 ${
+              session?.user
+                ? "bg-surface border-brand-accent/40 text-brand-accent font-bold shadow-sm"
+                : "bg-surface border-border-subtle text-text-muted hover:text-text-primary"
+            }`}
+            title={session?.user ? `Akun: ${session.user.name}` : "Masuk / Akun Saya"}
+            aria-label="Akun Pengguna & Dashboard"
+          >
+            <UserIcon size={13} />
+            <span className="hidden sm:inline font-bold">
+              {session?.user ? session.user.name?.split(" ")[0] : "MASUK"}
+            </span>
+          </button>
         </div>
       </header>
 
@@ -331,6 +391,9 @@ export function StudioClient() {
 
       {/* Floating Customizer Drawer */}
       <CustomizerDrawer />
+
+      {/* User Auth & Dashboard Modal */}
+      <AuthModal isOpen={isAuthOpen} onClose={() => setIsAuthOpen(false)} />
     </main>
   );
 }
