@@ -4,6 +4,13 @@ import path from "path";
 import { createClient } from "@libsql/client/web";
 
 const BASE_URL = "http://localhost:3000";
+// Secret WAJIB via env (JANGAN hardcode — insiden Sep 2026).
+function requireEnv(name) {
+  const v = process.env[name];
+  if (!v) throw new Error("E2E butuh env " + name + " (isi dari kaos-kami-web/.env.local, JANGAN commit)");
+  return v;
+}
+
 const OUTPUT_DIR = "d:/Vibe coding Semester 7/Kaos Kami/Blueprint/hasil-pengujian-e2e/orders-invoices";
 
 const c = createClient({
@@ -130,8 +137,8 @@ async function runKasus1() {
 
   // 4. Simulasi Pembayaran Lunas Duitku (Webhook Callback dengan Tanda Tangan MD5)
   console.log("\n4. Menjalankan Simulasi Pembayaran Lunas via Duitku Webhook...");
-  const merchantCode = process.env.DUITKU_MERCHANT_CODE || "DS28521";
-  const apiKey = process.env.DUITKU_API_KEY || "ea279c7a1381333794d265d70b55693a";
+  const merchantCode = requireEnv("DUITKU_MERCHANT_CODE");
+  const apiKey = requireEnv("DUITKU_API_KEY");
   const amountStr = String(dbOrder.totalIdr);
   const merchantOrderId = orderNumber;
   

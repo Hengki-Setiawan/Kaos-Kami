@@ -92,7 +92,7 @@ export async function sendEmailOtp(toEmail: string, otpCode: string, name?: stri
   <style>
     body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #0E0E10; color: #ECECED; margin: 0; padding: 20px; }
     .card { max-width: 500px; margin: 0 auto; background-color: #18181B; border: 1px solid #27272A; border-radius: 16px; padding: 32px; box-shadow: 0 10px 25px rgba(0,0,0,0.5); }
-    .brand { color: #E65100; font-weight: 900; font-size: 20px; letter-spacing: 2px; text-transform: uppercase; margin-bottom: 24px; text-align: center; }
+    .brand { color: #FF6D00; font-weight: 900; font-size: 20px; letter-spacing: 2px; text-transform: uppercase; margin-bottom: 24px; text-align: center; } /* A11Y: samakan otp-code (6.04:1 di card gelap) */
     .title { font-size: 18px; font-weight: 700; color: #FFFFFF; margin-bottom: 12px; }
     .text { font-size: 14px; line-height: 1.6; color: #A1A1AA; margin-bottom: 24px; }
     .otp-box { background-color: #0E0E10; border: 2px dashed #E65100; border-radius: 12px; padding: 18px; text-align: center; margin-bottom: 24px; }

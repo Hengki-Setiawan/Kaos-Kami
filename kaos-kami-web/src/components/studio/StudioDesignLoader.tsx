@@ -42,6 +42,17 @@ export function StudioDesignLoader() {
       if (timerRef.current) clearTimeout(timerRef.current);
       timerRef.current = setTimeout(() => setNotice(null), 4000);
     };
+    // Deep-link lokal dulu: id lokal ATAU serverId yg sudah tersinkron
+    // (tamu/offline + lintas-perangkat tanpa fetch bila sudah ada lokal).
+    try {
+      const st0 = useConfiguratorStore.getState();
+      const local = st0.savedDesigns.find((d) => d.id === designId || d.serverId === designId);
+      if (local) {
+        st0.loadSavedDesign(local.id);
+        say(`Desain "${local.title}" dimuat dari koleksi. Silakan edit / checkout.`);
+        return;
+      }
+    } catch {}
     (async () => {
       try {
         const data = await fetchJson<{ design?: any }>(

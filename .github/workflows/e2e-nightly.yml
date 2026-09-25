@@ -1,0 +1,49 @@
+name: E2E Nightly (regresi penuh)
+
+# R4 regresi nightly — DRAF (belum proof-hijau; butuh push = blokir).
+# Acuan: Blueprint/e2e/E2E-MASTER-PLAN.md Bab 8 R4.2.
+# Jadwal: cron 0 19 * * 0 = Senin 02:00 WIB. Matrix 4 shard (pola Elio Navarrete).
+# Artefak: hasil-pengujian-e2e/<run-ts>/ + trace + LAPORAN.md.
+
+on:
+  schedule:
+    - cron: "0 19 * * 0"
+  workflow_dispatch:
+
+jobs:
+  nightly:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3, 4]
+    env:
+      TURSO_CI_URL: ${{ secrets.TURSO_CI_URL }}
+      TURSO_CI_TOKEN: ${{ secrets.TURSO_CI_TOKEN }}
+      DUITKU_SBX_MERCHANT_CODE: ${{ secrets.DUITKU_SBX_MERCHANT_CODE }}
+      DUITKU_SBX_API_KEY: ${{ secrets.DUITKU_SBX_API_KEY }}
+      DUITKU_ENV: sandbox
+      RUN_STAMP: ${{ github.run_id }}-${{ matrix.shard }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - name: Full Bab 1-5 + 10 rantai (shard ${{ matrix.shard }}/4)
+        run: npx playwright test --shard=${{ matrix.shard }}/4
+      - name: Upload artefak nightly (run-ts + trace + LAPORAN)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-nightly-${{ github.run_id }}-shard-${{ matrix.shard }}
+          path: |
+            playwright-report/
+            test-results/
+            Blueprint/e2e/hasil-pengujian-e2e/
+      - name: Notify-fail (placeholder)
+        if: failure()
+        run: 'echo "NOTIFY-FAIL-PLACEHOLDER: isi webhook owner bila nightly merah (Bab 8 R4.2)"'

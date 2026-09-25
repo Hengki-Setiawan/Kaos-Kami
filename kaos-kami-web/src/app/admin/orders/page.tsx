@@ -2,19 +2,34 @@ import React from "react";
 import Link from "next/link";
 import { db } from "@/lib/db";
 import { Order, User, Address } from "@/lib/drizzle-schema";
-import { and, count, desc, ilike, or, eq, inArray } from "drizzle-orm";
+import { and, count, desc, or, eq, inArray, sql, type SQLWrapper } from "drizzle-orm";
 import { Package, Search, ExternalLink, Download } from "lucide-react";
+import { maskPhone as maskPhoneLib } from "@/lib/mask"; // SSOT PII (S-045)
 
 export const revalidate = 0;
 export const dynamic = "force-dynamic";
 
 const PER_PAGE = 25;
 
-// Mask WA di daftar (konsisten dengan /admin/customers + UU PDP).
+// Mask WA di daftar (SSOT @/lib/mask + UU PDP).
 function maskPhone(p?: string | null) {
   if (!p) return "-";
-  return `${p.slice(0, 4)}****${p.slice(-2)}`;
-}const STATUSES = [
+  return maskPhoneLib(p) || "-";
+}
+
+// Escape karakter khusus LIKE (% _ \) — tanpa ini input pencarian menjadi wildcard.
+function escapeLike(s: string): string {
+  return s.replace(/[\\%_]/g, (c) => `\\${c}`);
+}
+
+// LIKE case-insensitive + ESCAPE eksplisit. Catatan: helper `ilike()` bawaan
+// drizzle memancarkan keyword ILIKE yang DITOLAK Turso/libSQL (syntax error),
+// dan escape backslash tanpa klausa ESCAPE tidak berpengaruh di SQLite —
+// keduanya sudah diverifikasi via uji baca-only 20 Sep 2026.
+function ciLike(column: SQLWrapper, raw: string) {
+  return sql`lower(${column}) like lower(${"%" + escapeLike(raw) + "%"}) escape '\\'`;
+}
+const STATUSES = [
   "PENDING_PAYMENT",
   "PAYMENT_CONFIRMED",
   "IN_PRODUCTION_QUEUE",
@@ -33,6 +48,22 @@ export default async function AdminOrdersListPage({
 }: {
   searchParams: Promise<{ page?: string; q?: string; status?: string }>;
 }) {
+  try {
+    const { headers } = await import("next/headers");
+    const { redirect } = await import("next/navigation");
+    const { auth } = await import("@/lib/auth");
+    const session = await auth.api.getSession({ headers: (await headers()) as any });
+    const userRole = ((session?.user as any)?.role || "ADMIN").toUpperCase();
+    if (userRole === "PRODUCTION_STAFF") {
+      redirect("/admin/production");
+    }
+    if (userRole === "COURIER") {
+      redirect("/admin/deliveries");
+    }
+  } catch (err: any) {
+    if (err?.digest?.startsWith?.("NEXT_REDIRECT") || err?.message === "NEXT_REDIRECT") throw err;
+  }
+
   const sp = await searchParams;
   const page = Math.max(1, Number(sp.page) || 1);
   const q = (sp.q || "").trim().slice(0, 40);
@@ -46,9 +77,9 @@ export default async function AdminOrdersListPage({
         .from(User)
         .where(
           or(
-            ilike(User.name, `%${q}%`),
-            ilike(User.phoneNumber, `%${q}%`),
-            ilike(User.email, `%${q}%`)
+            ciLike(User.name, q),
+            ciLike(User.phoneNumber, q),
+            ciLike(User.email, q)
           )
         )
         .limit(50),
@@ -57,9 +88,9 @@ export default async function AdminOrdersListPage({
         .from(Address)
         .where(
           or(
-            ilike(Address.recipientName, `%${q}%`),
-            ilike(Address.phoneNumber, `%${q}%`),
-            ilike(Address.fullAddress, `%${q}%`)
+            ciLike(Address.recipientName, q),
+            ciLike(Address.phoneNumber, q),
+            ciLike(Address.fullAddress, q)
           )
         )
         .limit(50),
@@ -69,8 +100,8 @@ export default async function AdminOrdersListPage({
     const addressIds = matchingAddresses.map((a) => a.id);
 
     const orClauses: any[] = [
-      ilike(Order.orderNumber, `%${q}%`),
-      ilike(Order.trackingNumber, `%${q}%`),
+      ciLike(Order.orderNumber, q),
+      ciLike(Order.trackingNumber, q),
     ];
     if (userIds.length > 0) orClauses.push(inArray(Order.userId, userIds));
     if (addressIds.length > 0) orClauses.push(inArray(Order.shippingAddressId, addressIds));
@@ -115,7 +146,12 @@ export default async function AdminOrdersListPage({
 
         <div className="flex items-center gap-3">
           <a
-            href={`/api/admin/orders/export${status ? `?status=${encodeURIComponent(status)}` : ""}`}
+            href={`/api/admin/orders/export?${(() => {
+              const s = new URLSearchParams();
+              if (status) s.set("status", status);
+              if (q) s.set("q", q);
+              return s.toString();
+            })()}`}
             download
             className="py-2.5 px-4 rounded-xl bg-emerald-500/20 border border-emerald-500/40 hover:bg-emerald-500 hover:text-white text-emerald-400 font-bold transition-all flex items-center gap-1.5"
           >

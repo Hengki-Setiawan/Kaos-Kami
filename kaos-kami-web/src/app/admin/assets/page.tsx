@@ -86,7 +86,13 @@ export default function AdminAssetsPage() {
         <p className="text-text-muted mt-1">
           SSOT: <span className="text-text-primary">src/lib/assetManifest.ts</span> • angka tris/byte/UV TERUKUR via{" "}
           <span className="text-text-primary">gltf-transform inspect</span> (read-only, 12 Sep 2026 sore) + SHA256 identik
-          dengan master Asset 3D/ • lisensi staged ✅ TERVERIFIKASI CC-BY 4.0 (12 Sep 2026, API Sketchfab)
+          dengan master Asset 3D/ • lisensi dinilai <span className="text-text-primary">per file</span> di kolom catatan
+          (tidak ada klaim generik — tiap file bisa MIT / CC-BY / belum terverifikasi, lihat ASSET_CREDITS.md)
+        </p>
+        <p className="mt-2 p-3 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-700 dark:text-amber-300 text-[11px]">
+          CATATAN KEADALUWARSAAN: isi tabel di bawah HANYA memuat array manifest (15 file + arsip) — disk{" "}
+          <span className="font-bold">public/models/</span> kini 22 file (+pants/shorts/mannequin + varian Draco, 14 Sep 2026)
+          yang BELUM masuk array. Tabel diperbarui hanya bila owner memutuskan (manifest TIDAK ditulis ulang di sini).
         </p>
       </div>
 

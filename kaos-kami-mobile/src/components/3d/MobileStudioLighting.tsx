@@ -6,7 +6,14 @@ import { useMobileDeviceTier } from '@/hooks/useMobileDeviceTier';
 
 export type MobileStudioTheme = 'gallery' | 'obsidian' | 'concrete';
 
-export function MobileStudioLighting({ theme = 'obsidian' }: { theme?: MobileStudioTheme }) {
+export function MobileStudioLighting({
+  theme = 'obsidian',
+  dimFactor = 1.0,
+}: {
+  theme?: MobileStudioTheme;
+  /** F2 Test Lab: 0.05 saat mode senter (darkroom QC cermin web testLabDim). */
+  dimFactor?: number;
+}) {
   const { shadows, tier } = useMobileDeviceTier();
   // Resolusi shadow map per-tier (hemat VRAM low-end).
   const shadowResolution = tier === 'high' ? 1024 : tier === 'mid' ? 512 : 256;
@@ -24,13 +31,13 @@ export function MobileStudioLighting({ theme = 'obsidian' }: { theme?: MobileStu
   return (
     <>
       {/* Studio Ambient Base (hemisphere agar lipatan terbaca, cermin web) */}
-      <hemisphereLight args={[hemiSky, hemiGround, hemiIntensity]} />
-      <ambientLight intensity={0.25} color="#F8FAFC" />
+      <hemisphereLight args={[hemiSky, hemiGround, hemiIntensity * dimFactor]} />
+      <ambientLight intensity={0.25 * dimFactor} color="#F8FAFC" />
 
       {/* Main Key Light */}
       <directionalLight
         position={[2.5, 4.0, 3.0]}
-        intensity={1.2}
+        intensity={1.2 * dimFactor}
         color="#FFFFFF"
         castShadow={shadows}
         shadow-mapSize-width={shadowResolution}
@@ -41,14 +48,14 @@ export function MobileStudioLighting({ theme = 'obsidian' }: { theme?: MobileStu
       {/* Fill Light */}
       <directionalLight
         position={[-2.5, 2.0, 2.0]}
-        intensity={0.55}
+        intensity={0.55 * dimFactor}
         color={fillColor}
       />
 
       {/* Rim / Backlight (Makassar Streetwear Edge Glow) */}
       <directionalLight
         position={[0, 3.5, -3.0]}
-        intensity={0.85}
+        intensity={0.85 * dimFactor}
         color={rimColor}
       />
 

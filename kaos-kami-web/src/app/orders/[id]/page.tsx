@@ -2,10 +2,14 @@ import React from "react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { db } from "@/lib/db";
-import { SHOP_WHATSAPP, SHOP_WORKSHOP_ADDRESS } from "@/lib/shop";
+import { maskPhone as maskPhoneLib, maskEmail as maskEmailLib, maskName as maskNameLib } from "@/lib/mask"; // SSOT PII (S-045)
+import { SHOP_WHATSAPP, SHOP_WORKSHOP_ADDRESS, APK_DOWNLOAD_URL } from "@/lib/shop";
 import { RepayButton } from "@/components/commerce/RepayButton";
 import { CancelOrderButton } from "@/components/commerce/CancelOrderButton";
 import { PrintInvoiceButton } from "@/components/commerce/PrintInvoiceButton";
+import { PaymentDeadline, InvoiceStatusPoller, CopyResiButton, ClearCartOnSuccess } from "@/components/commerce/InvoiceLiveBits";
+import { InvoicePdfButton } from "@/components/commerce/InvoicePdfButton";
+import { ComplaintForm } from "@/components/commerce/ComplaintForm";
 import {
   CheckCircle2,
   Clock,
@@ -65,17 +69,42 @@ export default async function OrderReceiptPage({ params, searchParams }: OrderRe
   const canSeePII = isOwner || isPrivileged;
 
   const maskPhone = (p?: string | null) =>
-    !p ? "-" : canSeePII ? p : `${p.slice(0, 4)}****${p.slice(-2)}`;
+    !p ? "-" : canSeePII ? p : maskPhoneLib(p) || "-";
   const maskEmail = (e?: string | null) => {
     if (!e) return "-";
     if (canSeePII) return e;
-    const [u, d] = e.split("@");
-    return `${(u || "").slice(0, 2)}***@${d || "***"}`;
+    return maskEmailLib(e) || "-";
   };
 
-  // Banner status server
+  // Banner status server (+ ?status=error/pending dari redirect Duitku — dulu diabaikan).
   const isPaid = !["PENDING_PAYMENT", "CANCELLED", "REFUNDED"].includes(order.status);
   const isSuccess = sp.status === "success" && isPaid;
+  const queryFlag = typeof sp.status === "string" ? sp.status : null;
+  const showPayError = queryFlag === "error" && !isPaid;
+  const showPayPending = queryFlag === "pending" && !isPaid;
+
+  // I6: tautan lacak kurir dari info ekspedisi (fallback: teks resi saja).
+  const trackingUrl = (() => {
+    const resi = order.trackingNumber?.trim();
+    if (!resi) return null;
+    const notes = `${(order as any).courierNotes || ""}`.toUpperCase();
+    const map: Array<[RegExp, (r: string) => string]> = [
+      [/JNE/, (r) => `https://www.jne.co.id/id/tracking/trace/${encodeURIComponent(r)}`],
+      [/J&T|JNT/, (r) => `https://jet.co.id/track?awb=${encodeURIComponent(r)}`],
+      [/SICEPAT/, (r) => `https://www.sicepat.com/checkAwb/${encodeURIComponent(r)}`],
+      [/NINJA/, (r) => `https://www.ninjavan.co/id-id/tracking?id=${encodeURIComponent(r)}`],
+      [/GOSEND|GOJEK/, () => `https://gojek.com/id-id/gosend/`],
+      [/GRAB/, () => `https://www.grab.com/id/express/`],
+      [/ANTER/, (r) => `https://anteraja.id/tracking/search/${encodeURIComponent(r)}`],
+      [/LION|JAGOPACK/, (r) => `https://lionparcel.com/track?stt_no=${encodeURIComponent(r)}`],
+      [/\bPOS\b|POS INDONESIA/, (r) => `https://www.posindonesia.co.id/id/tracking?awb=${encodeURIComponent(r)}`],
+      [/TIKI/, (r) => `https://tiki.id/id/tracking?cnno=${encodeURIComponent(r)}`],
+    ];
+    for (const [re, build] of map) {
+      if (re.test(notes)) return build(resi);
+    }
+    return null;
+  })();
 
   // WhatsApp manual fallback link
   const waMessage = encodeURIComponent(
@@ -137,6 +166,16 @@ export default async function OrderReceiptPage({ params, searchParams }: OrderRe
           <h1 className="font-display text-2xl sm:text-3xl font-black uppercase tracking-tight text-text-primary print:text-black print:text-2xl">
             {isSuccess ? "PESANAN BERHASIL DITERIMA" : "INVOICE RESMI PEMESANAN"}
           </h1>
+          {showPayError && (
+            <p className="font-mono text-xs text-rose-400 font-bold print:hidden">
+              ⚠️ Pembayaran gagal/dibatalkan — pesanan masih PENDING. Klik BAYAR ULANG di bawah atau minta link baru via WhatsApp.
+            </p>
+          )}
+          {showPayPending && (
+            <p className="font-mono text-xs text-amber-400 font-bold print:hidden">
+              ⏳ Pembayaran masih diproses — status berubah otomatis bila lunas (tunggu ~1 menit lalu muat ulang).
+            </p>
+          )}
           <p className="font-mono text-xs text-text-muted print:text-black">
             Nomor Pesanan: <span className="text-text-primary print:text-black font-bold font-mono text-sm">{order.orderNumber}</span>
           </p>
@@ -146,7 +185,7 @@ export default async function OrderReceiptPage({ params, searchParams }: OrderRe
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 font-mono text-xs print:grid-cols-2">
           <div className="p-4 rounded-xl bg-surface/50 border border-border-subtle space-y-1.5 print:bg-white print:border-black">
             <span className="block text-[11px] text-text-muted uppercase print:text-black font-bold">Penerima & Kontak</span>
-            <p className="font-bold text-text-primary text-sm print:text-black">{order.shippingAddress?.recipientName || order.user?.name || "Pelanggan"}</p>
+            <p className="font-bold text-text-primary text-sm print:text-black">{canSeePII ? (order.shippingAddress?.recipientName || order.user?.name || "Pelanggan") : (maskNameLib(order.shippingAddress?.recipientName || order.user?.name) || "Pelanggan")}</p>
             <p className="text-text-muted print:text-black">{maskPhone(order.user?.phoneNumber || order.shippingAddress?.phoneNumber)}</p>
             <p className="text-text-muted truncate print:text-black">{maskEmail(order.user?.email)}</p>
           </div>
@@ -171,9 +210,26 @@ export default async function OrderReceiptPage({ params, searchParams }: OrderRe
               if (shown.length === 0) return null;
               return <p className="text-amber-400 text-[10px] print:text-black">Catatan: {shown.join(" | ")}</p>;
             })()}
-            {order.trackingNumber && (
-              <p className="text-emerald-400 text-[11px] print:text-black">
-                No. Resi: <span className="font-bold select-all">{order.trackingNumber}</span>
+            {order.trackingNumber && order.status !== "PENDING_PAYMENT" && (
+              <p className="text-emerald-400 text-[11px] print:text-black flex items-center gap-2 flex-wrap">
+                <span>
+                  No. Resi:{" "}
+                  {trackingUrl ? (
+                    <a
+                      href={trackingUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="font-bold select-all underline underline-offset-2"
+                    >
+                      {order.trackingNumber} ↗
+                    </a>
+                  ) : (
+                    <span className="font-bold select-all">{order.trackingNumber}</span>
+                  )}
+                </span>
+                <span className="print:hidden">
+                  <CopyResiButton resi={order.trackingNumber} />
+                </span>
               </p>
             )}
           </div>
@@ -264,7 +320,7 @@ export default async function OrderReceiptPage({ params, searchParams }: OrderRe
           </p>
           <div className="flex flex-wrap items-center gap-2 pt-1">
             <a
-              href="https://pub-5746f36a46904edc8425ecd721b0bfdc.r2.dev/aplikasi/kaos-kami.apk"
+              href={APK_DOWNLOAD_URL}
               target="_blank"
               rel="noopener noreferrer"
               download="kaos-kami.apk"
@@ -275,6 +331,17 @@ export default async function OrderReceiptPage({ params, searchParams }: OrderRe
             </a>
           </div>
         </div>
+
+        {/* I1+I2: deadline bayar + auto-refresh status saat PENDING. */}
+        {needsPayLink && (
+          <div className="print:hidden">
+            <PaymentDeadline createdAtISO={new Date(order.createdAt).toISOString()} />
+          </div>
+        )}
+        <InvoiceStatusPoller orderId={order.id} initialStatus={order.status} />
+        <React.Suspense fallback={null}>
+          <ClearCartOnSuccess />
+        </React.Suspense>
 
         {/* Fail-Safe Direct WhatsApp Fallback Button & Actions (Hidden on Print) */}
         <div className="pt-2 flex flex-col sm:flex-row gap-3 print:hidden">
@@ -301,7 +368,31 @@ export default async function OrderReceiptPage({ params, searchParams }: OrderRe
             <span>KONFIRMASI VIA WHATSAPP (MANUAL)</span>
           </a>
 
-          <PrintInvoiceButton />
+          {/* I7: duplikat bawah dihapus — tombol cetak atas dipertahankan. */}
+          <InvoicePdfButton
+            order={{
+              id: order.id,
+              orderNumber: order.orderNumber,
+              status: order.status,
+              totalIdr: order.totalIdr,
+              subtotalIdr: order.subtotalIdr,
+              shippingCostIdr: order.shippingCostIdr,
+              discountIdr: order.discountIdr,
+              trackingNumber: order.trackingNumber,
+              createdAt: new Date(order.createdAt).toISOString(),
+              items: order.items.map((it) => ({
+                snapshotName: it.snapshotName,
+                snapshotSize: it.snapshotSize,
+                snapshotColorName: it.snapshotColorName,
+                quantity: it.quantity,
+                lineTotalIdr: it.lineTotalIdr,
+              })),
+            }}
+          />
+
+          {(order.status === "SHIPPED" || order.status === "DELIVERED" || order.status === "COMPLETED") && (
+            <ComplaintForm orderId={order.id} />
+          )}
 
           <Link
             href="/studio"

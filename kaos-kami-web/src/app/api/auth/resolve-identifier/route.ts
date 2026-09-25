@@ -34,6 +34,18 @@ export async function POST(req: NextRequest) {
 
     const raw = parsed.data.identifier.trim();
 
+    // A4 anti-enumerasi: rate per-identifier (bucket hash, bukan PII mentah) +
+    // respons SERAGAM tanpa flag matched (ada/tidaknya akun tak bisa dibedakan).
+    let idHash = 0;
+    for (let i = 0; i < raw.length; i++) idHash = (idHash * 31 + raw.charCodeAt(i)) | 0;
+    const idLimit = await checkRateLimitAsync(`resolve-id:one:${(idHash >>> 0).toString(36)}`, 10, 300);
+    if (idLimit.isLimited) {
+      return NextResponse.json(
+        { error: "Terlalu banyak percobaan untuk identifier ini." },
+        { status: 429, headers: rateLimitHeaders(idLimit, 10) }
+      );
+    }
+
     // 1. Jika sudah berformat email standar
     if (/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(raw)) {
       return NextResponse.json({
@@ -63,7 +75,6 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({
           email: userByPhone.email,
           type: "phone",
-          matched: true,
         });
       }
 
@@ -71,7 +82,6 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({
         email: `${normalized08}@kaoskami.phone`,
         type: "phone",
-        matched: false,
       });
     }
 
@@ -88,7 +98,6 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({
         email: userByName.email,
         type: "username",
-        matched: true,
       });
     }
 
@@ -96,7 +105,6 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({
       email: raw,
       type: "unknown",
-      matched: false,
     });
   } catch (err: any) {
     return NextResponse.json({ error: err?.message || "Internal server error" }, { status: 500 });

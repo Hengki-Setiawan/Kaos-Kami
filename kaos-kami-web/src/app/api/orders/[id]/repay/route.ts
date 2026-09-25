@@ -77,7 +77,9 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
         { status: 401 }
       );
     }
-    const cleanProofPhone = proofParsed.data.phoneNumber.replace(/[^0-9]/g, "");
+    // I3: kunci + owner-match kanonis (anti gagal lintas format 08/62).
+    const { canonicalPhone } = await import("@/lib/phone");
+    const cleanProofPhone = canonicalPhone(proofParsed.data.phoneNumber);
     const otpRecord = await db.query.Verification.findFirst({
       where: (t, { and, eq }) =>
         and(eq(t.identifier, `otp:${cleanProofPhone}`), eq(t.value, hashOtp(proofParsed.data.otp))),
@@ -90,7 +92,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     // OTP valid HARUS milik nomor pemilik order (anti pakai OTP nomor lain).
     // Dicek SEBELUM hanguskan OTP — percobaan nomor lain tak boleh
     // menghanguskan OTP yang sah.
-    const ownerPhone = (order.user?.phoneNumber || "").replace(/[^0-9]/g, "");
+    const ownerPhone = canonicalPhone(order.user?.phoneNumber || "");
     if (!ownerPhone || ownerPhone !== cleanProofPhone) {
       return NextResponse.json({ error: "OTP bukan milik pemilik order ini" }, { status: 403 });
     }
@@ -196,12 +198,14 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       );
     }
 
+    // I5: kanal asli DIPERTAHANKAN (dulu ditimpa "RETRY" → jejak hilang).
+    // Info retry dicatat di event, bukan dgn merusak kolom method.
+    const origMethod = (order.payment as any)?.method || "QRIS";
     if (order.payment) {
       await db
         .update(Payment)
         .set({
           providerRef: charge.reference,
-          method: "RETRY",
           amountIdr: order.totalIdr,
           status: "PENDING",
           paidAt: null,
@@ -214,11 +218,20 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
         orderId: order.id,
         provider: "DUITKU",
         providerRef: charge.reference,
-        method: "RETRY",
+        method: origMethod,
         amountIdr: order.totalIdr,
         status: "PENDING",
       });
     }
+    try {
+      const { OrderStatusEvent: OSE } = await import("@/lib/drizzle-schema");
+      await db.insert(OSE).values({
+        id: nanoid(),
+        orderId: order.id,
+        status: order.status,
+        note: `Link bayar baru diminta (kanal ${origMethod}, ref ${charge.reference}).`,
+      });
+    } catch {}
 
     return NextResponse.json({ success: true, paymentUrl: charge.paymentUrl, reference: charge.reference });
   } catch (e: any) {

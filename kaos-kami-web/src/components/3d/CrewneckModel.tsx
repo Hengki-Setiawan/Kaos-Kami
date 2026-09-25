@@ -15,14 +15,15 @@ import { useResourceTracker, useTrackedResource } from "@/lib/threeResourceTrack
 import { surfaceZForApparel } from "@/lib/scaleCalibration";
 import { SilentModelFallback } from "@/components/ui/ModelErrorBoundary";
 import { extractApparelGeometry } from "@/lib/extractApparelGeometry";
-import { getStretchFactors } from "@/lib/3d/stretchPhysics";
+import { applyStretchToMaterial, sharedStretchUniforms } from "@/lib/3d/stretchDeform";
 import { HoodieModel } from "./HoodieModel";
 
 // FASE 13 — crewneck akhirnya punya mesh SENDIRI (sweater.glb, sweater_pack
 // Sketchfab, TANPA tudung — bukan lagi pinjaman hoodie). Struktur meniru
 // TshirtModel (single-mesh + center + cloth material + DecalLayerRenderer).
 // Fallback DIAM ke mesh cadangan (HoodieModel / hoodie-blue) bila sweater gagal dimuat.
-const MODEL_PATH_NEW = "/models/sweater.glb?v=7";
+// SWAP 20 Sep 2026: sweater Tristen (CC-BY 4.0, low-poly 5.6k tris, Y-up native).
+const MODEL_PATH_NEW = "/models/sweater.glb?v=16";
 
 // PERF 14 Sep 2026: top-level useGLTF.preload DIHAPUS — preload terpusat
 // HANYA via idle-preload di CanvasStage (aktif + tetangga katalog) agar tak
@@ -86,10 +87,12 @@ const GltfCrewneckNew: React.FC<{ path: string }> = ({ path }) => {
   const windStrength =
     animationPreset === "wind" ? 0.8 * animationSpeed : animationPreset === "walking" ? 0.4 * animationSpeed : animationPreset === "knit" ? 0.2 : 0;
 
-  // FASE KALIBRASI PROPORSIONAL (selaras Hoodie acuan emas):
-  // scaleMultiplier 0.74 (lebar 0.88m = selaras lebar Hoodie 0.87m) & crownYOffset -0.10 (kerah di +0.16m, dada di Y=0).
+  // KALIBRASI 20 Sep 2026 (sweater Tristen, paritas hem 1:1 vs mesh lama):
+  // hem baru 1.33324 × 0.1965 = hem lama 0.35404 × 0.74 = 0.262 → ruang
+  // terkalibrasi IDENTIK (threshold multi-part y>0.12/|x|>0.16 tetap valid).
+  // crownYOffset -0.093: kerah di +0.16, dada di Y=0.
   const baseGeometry = useMemo(() => {
-    return extractApparelGeometry(scene, { scaleMultiplier: 0.74, crownYOffset: -0.10 });
+    return extractApparelGeometry(scene, { scaleMultiplier: 0.1965, crownYOffset: -0.093 });
   }, [scene, path]);
 
   useEffect(() => {
@@ -182,13 +185,25 @@ const GltfCrewneckNew: React.FC<{ path: string }> = ({ path }) => {
   const posY = viewMode === "story" ? -0.05 : modelPosY - 0.05;
   const scale = viewMode === "story" ? 1.0 : modelScale;
 
-  const stretchFactors = getStretchFactors(testLabMode, stretchIntensity, stretchDirection);
+  // Uji Tarik REAL: deformasi per-vertex via shader (bukan group-scale affine).
+  // Inject sekali per material; uniforms BERSAMA ditulis StretchPhysicsController.
+  useEffect(() => {
+    applyStretchToMaterial(material, sharedStretchUniforms);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [material]);
+  // Mode inspeksi bleed X-ray: kain transparan, sablon tetap opak.
+  const bleedCheck = useConfiguratorStore((s) => s.inspectMode === "bleed");
+  useEffect(() => {
+    material.transparent = bleedCheck;
+    material.opacity = bleedCheck ? 0.15 : 1;
+    material.depthWrite = !bleedCheck;
+  }, [material, bleedCheck]);
 
   return (
     <group
       ref={meshRef}
       position={[posX, posY, 0]}
-      scale={[scale * stretchFactors.stretchX, scale * stretchFactors.stretchY, scale * stretchFactors.stretchZ]}
+      scale={[scale, scale, scale]}
       dispose={null}
     >
       <mesh

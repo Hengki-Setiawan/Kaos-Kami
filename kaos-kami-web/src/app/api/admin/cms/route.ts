@@ -12,8 +12,8 @@ const CmsSchema = z.object({
 
 /** GET /api/admin/cms — baca konten hero (PUBLIK, fail-soft ke default). */
 export async function GET(req: NextRequest) {
-  // P0: rate-limit GET 30/mnt tiru pola admin lain (anti-scrape publik).
-  const rl = await checkRateLimitAsync(`admin-cms:ip:${getClientIp(req)}`, 30, 60);
+  // Bucket rate-limit sendiri (terpisah dari POST hero & lookbook).
+  const rl = await checkRateLimitAsync(`admin-cms-get:ip:${getClientIp(req)}`, 30, 60);
   if (rl.isLimited) return NextResponse.json({ error: "Rate limited" }, { status: 429, headers: rateLimitHeaders(rl, 30) });
   try {
     const hero = await getHeroContent();
@@ -28,7 +28,8 @@ export async function GET(req: NextRequest) {
 
 /** POST /api/admin/cms — simpan konten hero ke R2 (admin only). */
 export async function POST(req: NextRequest) {
-  const rl = await checkRateLimitAsync(`admin-cms:ip:${getClientIp(req)}`, 10, 60);
+  // Bucket rate-limit sendiri (terpisah dari GET hero & lookbook).
+  const rl = await checkRateLimitAsync(`admin-cms-post:ip:${getClientIp(req)}`, 10, 60);
   if (rl.isLimited) return NextResponse.json({ error: "Rate limited" }, { status: 429, headers: rateLimitHeaders(rl, 10) });
   try {
     const { auth } = await import("@/lib/auth");
@@ -50,6 +51,7 @@ export async function POST(req: NextRequest) {
     updatedAt: new Date().toISOString(),
   };
   // Arsip hero lama best-effort (gagal arsip tak gagalkan POST) + retensi maks 10.
+  // Kegagalan dicatat via console.error agar terlihat di log server.
   try {
     const old = await getHeroContent();
     if (old && old.updatedAt) {
@@ -62,17 +64,17 @@ export async function POST(req: NextRequest) {
           for (const k of excess) {
             try {
               await deleteFromR2(k);
-            } catch {
-              /* abaikan per-file */
+            } catch (e) {
+              console.error("CMS retensi: gagal hapus arsip hero", k, (e as Error)?.message || e);
             }
           }
         }
-      } catch {
-        /* retensi best-effort */
+      } catch (e) {
+        console.error("CMS retensi: gagal list arsip hero", (e as Error)?.message || e);
       }
     }
-  } catch {
-    /* arsip best-effort */
+  } catch (e) {
+    console.error("CMS arsip: gagal arsipkan hero lama (best-effort)", (e as Error)?.message || e);
   }
   const up = await uploadToR2("cms/hero.json", JSON.stringify(payload, null, 2), "application/json");
   if (!up.success) return NextResponse.json({ error: up.error || "Upload gagal" }, { status: 500 });

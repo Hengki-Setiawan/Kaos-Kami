@@ -129,3 +129,117 @@ export function ensureBoxUV(geo: THREE.BufferGeometry): THREE.BufferGeometry {
   geo.setAttribute("uv", new THREE.BufferAttribute(uv, 2));
   return geo;
 }
+
+/**
+ * TAMBAHAN (Sep 2026) — bobot stretch uji-tarik, di samping ensureWindWeights:
+ * 5. ensureStretchWeights — atribut float `aStretchW` per-vertex (1 di area
+ *    tarik, 0 di kerah/bahu y > 0.12 dan — mode dada — di lengan |x| > 0.165,
+ *    smoothstep feather di perbatasan). Dipakai shader `lib/3d/stretchDeform.ts`
+ *    (`applyStretchToMaterial`). Ambang IDENTIK dengan default
+ *    `StretchWeightOpts` di sana (bukti: collarBaselineY 0.155–0.31 &
+ *    sleeveAnchorX ≈0.17 di `scaleCalibration.ts`); bila ambang berubah,
+ *    ubah di DUA tempat.
+ * 6. ensureWindAndStretchWeights — SATU pass untuk kedua atribut (hindari
+ *    loop ganda saat setup mesh). Rumus wind di dalamnya IDENTIK dengan
+ *    `ensureWindWeights` di atas (termasuk zona dada + blok lipatan
+ *    FOLD_DISP_AMP) — JANGAN diverge; perilaku existing tak diubah
+ *    (fungsi lama dibiarkan apa adanya).
+ */
+
+function stretchSmoothstep(edge0: number, edge1: number, x: number): number {
+  const t = Math.max(0, Math.min(1, (x - edge0) / Math.max(1e-6, edge1 - edge0)));
+  return t * t * (3 - 2 * t);
+}
+
+export interface StretchPrepOpts {
+  /** 'chest' (default): mask lengan |x|>sleeveX → 0. 'full': seluruh mesh. */
+  mode?: "chest" | "full";
+  collarY?: number;
+  sleeveX?: number;
+  feather?: number;
+}
+
+export function ensureStretchWeights(
+  geo: THREE.BufferGeometry,
+  opts: StretchPrepOpts = {}
+): THREE.BufferGeometry {
+  if (geo.getAttribute("aStretchW")) return geo;
+  const pos = geo.getAttribute("position") as THREE.BufferAttribute | undefined;
+  if (!pos) return geo;
+  const { mode = "chest", collarY = 0.12, sleeveX = 0.165, feather = 0.02 } = opts;
+  const weights = new Float32Array(pos.count);
+  for (let i = 0; i < pos.count; i++) {
+    const collarFree = 1 - stretchSmoothstep(collarY, collarY + feather, pos.getY(i));
+    const sleeveFree =
+      mode === "full" ? 1 : 1 - stretchSmoothstep(sleeveX, sleeveX + feather, Math.abs(pos.getX(i)));
+    weights[i] = collarFree * sleeveFree;
+  }
+  geo.setAttribute("aStretchW", new THREE.BufferAttribute(weights, 1));
+  return geo;
+}
+
+export interface WindStretchPrepOpts extends StretchPrepOpts {
+  pinY?: number;
+  hemY?: number;
+}
+
+/**
+ * Tulis `windWeight` + `aStretchW` dalam SATU loop (atribut yang sudah ada
+ * dilewati). Geser lipatan hanya diterapkan bila `windWeight` belum ada —
+ * cermin perilaku `ensureWindWeights` (yang me-return dini bila atribut ada).
+ */
+export function ensureWindAndStretchWeights(
+  geo: THREE.BufferGeometry,
+  opts: WindStretchPrepOpts = {}
+): THREE.BufferGeometry {
+  const needWind = !geo.getAttribute("windWeight");
+  const needStretch = !geo.getAttribute("aStretchW");
+  if (!needWind && !needStretch) return geo;
+  const pos = geo.getAttribute("position") as THREE.BufferAttribute | undefined;
+  if (!pos) return geo;
+  const { pinY, hemY, mode = "chest", collarY = 0.12, sleeveX = 0.165, feather = 0.02 } = opts;
+  geo.computeBoundingBox();
+  const bb = geo.boundingBox!;
+  const top = pinY ?? (bb.min.y + (bb.max.y - bb.min.y) * 0.72);
+  const bottom = hemY ?? bb.min.y;
+  const span = Math.max(1e-5, top - bottom);
+  const halfWidth = Math.max(1e-5, (bb.max.x - bb.min.x) * 0.5);
+  const nor = geo.getAttribute("normal") as THREE.BufferAttribute | undefined;
+  const wind = needWind ? new Float32Array(pos.count) : null;
+  const stretch = needStretch ? new Float32Array(pos.count) : null;
+  for (let i = 0; i < pos.count; i++) {
+    const x = pos.getX(i);
+    const y = pos.getY(i);
+    if (wind) {
+      // Rumus IDENTIK ensureWindWeights (jangan diverge — lihat catatan §6).
+      const isChestPrintZone = Math.abs(x) < halfWidth * 0.65 && y > (bb.min.y + (bb.max.y - bb.min.y) * 0.38);
+      const chestDamp = isChestPrintZone ? 0.0 : 1.0;
+      const t = Math.max(0, Math.min(1, (top - y) / span));
+      wind[i] = t * t * (3 - 2 * t) * chestDamp;
+      if (nor) {
+        const side = Math.min(1, Math.abs(x) / halfWidth);
+        const mask = (0.45 + 0.55 * side) * (0.65 + 0.35 * t);
+        const d =
+          FOLD_DISP_AMP *
+          mask *
+          (0.6 * Math.sin(x * 28 + y * 20) + 0.4 * Math.sin(x * 17 - y * 25 + 1.3));
+        pos.setXYZ(
+          i,
+          x + nor.getX(i) * d,
+          y + nor.getY(i) * d,
+          pos.getZ(i) + nor.getZ(i) * d
+        );
+      }
+    }
+    if (stretch) {
+      const collarFree = 1 - stretchSmoothstep(collarY, collarY + feather, y);
+      const sleeveFree =
+        mode === "full" ? 1 : 1 - stretchSmoothstep(sleeveX, sleeveX + feather, Math.abs(x));
+      stretch[i] = collarFree * sleeveFree;
+    }
+  }
+  pos.needsUpdate = true;
+  if (wind) geo.setAttribute("windWeight", new THREE.BufferAttribute(wind, 1));
+  if (stretch) geo.setAttribute("aStretchW", new THREE.BufferAttribute(stretch, 1));
+  return geo;
+}

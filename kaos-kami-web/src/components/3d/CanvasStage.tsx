@@ -9,6 +9,31 @@ import { StudioLighting } from "./StudioLighting";
 import { ApparelMeshRenderer } from "./ApparelMeshRenderer";
 import { CameraRig } from "./CameraRig";
 import { TestLabOverlay3D } from "./TestLabOverlay3D";
+import { PrintZoneGuide } from "./PrintZoneGuide";
+
+/**
+ * Cermin transform grup model agar overlay kain (PrintZoneGuide) menempel 1:1
+ * walau user menggeser/zoom model. Rumus SAMA dengan semua *Model.tsx
+ * (story: pos tetap + scale 1; studio: modelPos + modelScale).
+ */
+const ModelTransformMirror: React.FC = () => {
+  const { viewMode, modelPosX, modelPosY, modelScale } = useConfiguratorStore(
+    useShallow((s) => ({
+      viewMode: s.viewMode,
+      modelPosX: s.modelPosX,
+      modelPosY: s.modelPosY,
+      modelScale: s.modelScale,
+    }))
+  );
+  const posX = viewMode === "story" ? 0 : modelPosX;
+  const posY = viewMode === "story" ? -0.05 : modelPosY - 0.05;
+  const scale = viewMode === "story" ? 1.0 : modelScale;
+  return (
+    <group position={[posX, posY, 0]} scale={[scale, scale, scale]}>
+      <PrintZoneGuide />
+    </group>
+  );
+};
 import { Preloader } from "@/components/ui/Preloader";
 import { disposeSceneHierarchy } from "@/lib/3d/disposeScene";
 import { useConfiguratorStore } from "@/store/useConfiguratorStore";
@@ -323,9 +348,10 @@ export const CanvasStage: React.FC<CanvasStageProps> = ({ camPos, lookAtPos }) =
         case "cap":
           return firstOf(CAP_MODEL_CANDIDATES);
         case "pants":
-          return "/models/pants.draco.glb?v=4";
+          // F2-fix: varian draco tak ada di disk (Draco soft-disable) — non-Draco.
+          return "/models/pants.glb";
         case "shorts":
-          return "/models/shorts.draco.glb?v=4";
+          return "/models/shorts.glb";
         case "tshirt":
         default:
           return firstOf(TSHIRT_MODEL_CANDIDATES);
@@ -457,6 +483,7 @@ export const CanvasStage: React.FC<CanvasStageProps> = ({ camPos, lookAtPos }) =
               <StudioLighting />
               <ApparelMeshRenderer />
               <TestLabOverlay3D />
+              <ModelTransformMirror />
               <CameraRig targetPosition={camPos} targetLookAt={lookAtPos} />
             </Suspense>
             {showEffects && <HighTierEffects />}

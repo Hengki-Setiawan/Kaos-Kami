@@ -5,6 +5,7 @@ import { db } from "@/lib/db";
 import { ExpeditionZone } from "@/lib/drizzle-schema";
 import { headers } from "next/headers";
 import { checkRateLimitAsync, getClientIp, rateLimitHeaders } from "@/lib/security/rateLimiter";
+import { DEFAULT_ZONE_ID } from "../_shared";
 
 async function requireAdmin(req: NextRequest) {
   const rl = await checkRateLimitAsync(`admin-zone:ip:${getClientIp(req)}`, 30, 60);
@@ -19,7 +20,10 @@ async function requireAdmin(req: NextRequest) {
     if (!["ADMIN", "SUPER_ADMIN"].includes(role)) {
       return { error: NextResponse.json({ error: "Forbidden: khusus admin" }, { status: 403 }) };
     }
-  } catch {
+  } catch (e) {
+    // Jangan telan sebab asli (insiden 2026-09-25: transient DB di getSession
+    // tampil sebagai 401 → runner kira sesi mati). Perilaku tetap 401.
+    console.warn("[zones] requireAdmin session-check gagal:", e instanceof Error ? e.message : e);
     return { error: NextResponse.json({ error: "Unauthorized" }, { status: 401 }) };
   }
   return {};
@@ -45,7 +49,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     return NextResponse.json({ error: "Tidak ada perubahan valid" }, { status: 400 });
   }
   // Zona default fallback tidak boleh dinonaktifkan (jaminan selalu ada tarif).
-  if (id === "zone_default_lainnya" && parsed.data.isActive === false) {
+  if (id === DEFAULT_ZONE_ID && parsed.data.isActive === false) {
     return NextResponse.json({ error: "Zona default tidak boleh dinonaktifkan" }, { status: 400 });
   }
   const [row] = await db.update(ExpeditionZone).set(parsed.data).where(eq(ExpeditionZone.id, id)).returning();
@@ -57,7 +61,7 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
   const gate = await requireAdmin(req);
   if (gate.error) return gate.error;
   const { id } = await params;
-  if (id === "zone_default_lainnya") {
+  if (id === DEFAULT_ZONE_ID) {
     return NextResponse.json({ error: "Zona default tidak boleh dihapus" }, { status: 400 });
   }
   const [row] = await db.delete(ExpeditionZone).where(eq(ExpeditionZone.id, id)).returning({ id: ExpeditionZone.id });

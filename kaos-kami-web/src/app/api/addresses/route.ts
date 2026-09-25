@@ -198,6 +198,14 @@ export async function DELETE(req: NextRequest) {
     if (!isStaff && addr.userId !== viewer.id) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
+    // U8: ingat apakah yg dihapus = default sebelum hilang.
+    const wasDefault =
+      (
+        await db.query.Address.findFirst({
+          where: (t, { eq }) => eq(t.id, id),
+          columns: { isDefault: true },
+        })
+      )?.isDefault === true;
     try {
       await db.delete(Address).where(and(eq(Address.id, id), eq(Address.userId, addr.userId)));
     } catch {
@@ -206,7 +214,24 @@ export async function DELETE(req: NextRequest) {
         { status: 400 }
       );
     }
-    return NextResponse.json({ success: true, message: "Alamat berhasil dihapus" });
+    // U8: hapus default → promosikan terbaru agar tak ada kondisi nol-default.
+    let promotedId: string | null = null;
+    if (wasDefault) {
+      const next = await db.query.Address.findFirst({
+        where: (t, { eq }) => eq(t.userId, addr.userId),
+        orderBy: (t, { desc }) => desc(t.createdAt),
+        columns: { id: true },
+      });
+      if (next) {
+        await db.update(Address).set({ isDefault: true }).where(eq(Address.id, next.id)).catch(() => {});
+        promotedId = next.id;
+      }
+    }
+    return NextResponse.json({
+      success: true,
+      message: promotedId ? "Alamat dihapus; alamat terbaru dijadikan UTAMA." : "Alamat berhasil dihapus",
+      promotedId,
+    });
   } catch (e: any) {
     return NextResponse.json({ error: e?.message || "Internal error" }, { status: 500 });
   }

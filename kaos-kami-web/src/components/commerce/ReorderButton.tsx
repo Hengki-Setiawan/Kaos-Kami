@@ -40,7 +40,11 @@ export function ReorderButton({ userId, items }: { userId: string; items: Reorde
       clearTimeout(t);
       const data = await res.json().catch(() => null);
       if (!res.ok || !data?.success) throw new Error(data?.error || "Gagal");
-      setDetail(data.skipped > 0 ? `${data.added} masuk, ${data.skipped} tak tersedia` : `${data.added} item masuk keranjang`);
+      // U4: pesan server (termasuk nama varian habis) diutamakan bila ada.
+      setDetail(
+        (data as any)?.message ||
+          (data.skipped > 0 ? `${data.added} masuk, ${data.skipped} tak tersedia` : `${data.added} item masuk keranjang`)
+      );
       setState("done");
     } catch (e: any) {
       setDetail(e?.message || "Gagal");

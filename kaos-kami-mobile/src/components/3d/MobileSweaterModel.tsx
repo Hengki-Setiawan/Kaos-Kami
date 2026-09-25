@@ -9,6 +9,8 @@ import { useMobileDeviceTier } from '@/hooks/useMobileDeviceTier';
 import { apparelToArchetype, createClothPhysicalMaterial } from '@/lib/materials/clothPhysicalMaterial';
 import { ClothInertiaSimulator } from '@/lib/3d/clothInertiaPhysics';
 import { applyMobileWind } from '@/lib/3d/windShader';
+import { getStretchFactors } from '@/lib/3d/stretchPhysics';
+import { registerMobileStretchGroup, unregisterMobileStretchGroup } from '@/lib/3d/mobileStretchRegistry';
 import { extractMobileApparelGeometry } from '@/lib/3d/extractMobileApparelGeometry';
 import { MobileDecalLayerRenderer } from './MobileDecalLayerRenderer';
 import { DecalGizmoMobile } from './DecalGizmoMobile';
@@ -61,7 +63,20 @@ import {
 export function MobileSweaterModel() {
   const groupRef = useRef<THREE.Group>(null);
   const color = useMobileStudioStore((s) => s.color);
+  // F0 Test Lab stretch — pola group-scale SEMENTARA cermin web ShirtModel.
+  const testLabMode = useMobileStudioStore((s) => s.testLabMode);
+  const stretchIntensity = useMobileStudioStore((s) => s.stretchIntensity);
+  const stretchDirection = useMobileStudioStore((s) => s.stretchDirection);
+  const stretchFactors = getStretchFactors(testLabMode, stretchIntensity, stretchDirection);
   const { tier } = useMobileDeviceTier();
+
+  useEffect(() => {
+    const g = groupRef.current;
+    registerMobileStretchGroup(g);
+    return () => {
+      unregisterMobileStretchGroup(g);
+    };
+  }, []);
 
   const clothPhysics = useMemo(() => new ClothInertiaSimulator({ stiffness: 38.0, damping: 7.2 }), []);
 
@@ -82,8 +97,10 @@ export function MobileSweaterModel() {
   const modelPath = resolvedPath ?? MOBILE_SWEATER_FALLBACK;
   const { scene } = useGLTF(modelPath);
 
+  // SWAP 20 Sep 2026 cermin web CrewneckModel: sweater Tristen —
+  // scale 0.1965/crown -0.093 (paritas hem 1:1, ruang terkalibrasi identik).
   const baseGeometry = useMemo(() => {
-    return extractMobileApparelGeometry(scene, { scaleMultiplier: 0.74, crownYOffset: -0.10 });
+    return extractMobileApparelGeometry(scene, { scaleMultiplier: 0.1965, crownYOffset: -0.093 });
   }, [scene]);
 
   const material = useMemo(() => {
@@ -132,7 +149,11 @@ export function MobileSweaterModel() {
   });
 
   return (
-    <group ref={groupRef} scale={[1.4, 1.4, 1.4]} position={[0, -0.15, 0]}>
+    <group
+      ref={groupRef}
+      scale={[1.4 * stretchFactors.stretchX, 1.4 * stretchFactors.stretchY, 1.4 * stretchFactors.stretchZ]}
+      position={[0, -0.15, 0]}
+    >
       <mesh castShadow receiveShadow geometry={baseGeometry ?? undefined} material={material}>
         <MobileDecalLayerRenderer />
       </mesh>

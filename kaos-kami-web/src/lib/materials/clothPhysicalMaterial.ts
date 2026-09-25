@@ -266,7 +266,7 @@ export function createClothPhysicalMaterial(options: ClothMaterialOptions): THRE
     });
     // M2.1: ikut tier — tanpa IBL nilai ini no-op, tapi siap bila tier naik.
     mat.envMapIntensity = envMapIntensityValue;
-    mat.customProgramCacheKey = () => "kaos-kami-cloth-" + archetype + (windStrength > 0 ? "-wind" : "");
+    mat.customProgramCacheKey = () => "kaos-kami-cloth-" + archetype + (windStrength > 0 ? "-windv2" : "");
     if (windStrength > 0) {
       try {
         applyWindToMaterial(mat as any, windStrength);
@@ -305,7 +305,7 @@ export function createClothPhysicalMaterial(options: ClothMaterialOptions): THRE
   });
   // M2.1: pantulan IBL per kain (kaos 0.35–0.55 / hitam 0.25 / jaket 0.6–0.7).
   mat.envMapIntensity = envMapIntensityValue;
-  mat.customProgramCacheKey = () => "kaos-kami-cloth-" + archetype + (windStrength > 0 ? "-wind" : "");
+  mat.customProgramCacheKey = () => "kaos-kami-cloth-" + archetype + (windStrength > 0 ? "-windv2" : "");
 
   if (windStrength > 0) {
     try {

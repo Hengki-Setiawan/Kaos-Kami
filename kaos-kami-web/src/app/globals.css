@@ -2,6 +2,21 @@
 @tailwind components;
 @tailwind utilities;
 
+/* A11y enterprise: indikator fokus keyboard yg tak bisa dimatikan (WCAG 2.4.7).
+   JANGAN tambah outline:none tanpa pengganti di mana pun. */
+:focus-visible {
+  outline: 3px solid var(--color-brand-accent);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+@media (prefers-reduced-motion: reduce) {
+  /* Hormati pengurangan gerak: matikan pulse/ping dekoratif (konten tetap ada). */
+  .animate-pulse,
+  .animate-ping {
+    animation: none;
+  }
+}
+
 :root,
 [data-theme="obsidian"] {
   color-scheme: dark;
@@ -10,7 +25,7 @@
   --color-surface-elevated: rgba(38, 38, 44, 0.9);
   --color-text-primary: #F5F5F7;
   --color-text-muted: #8E8E93;
-  --color-brand-accent: #E65100;
+  --color-brand-accent: #FF7A1A; /* A11Y X-001: #E65100 3.21:1 -> 4.65:1 di kanvas gelap (hue sama) */
   --color-success: #25D366;
   --color-border-subtle: rgba(255, 255, 255, 0.08);
   --color-border-strong: rgba(255, 255, 255, 0.2);
@@ -23,7 +38,7 @@
   --color-surface-elevated: #FDFCFA;
   --color-text-primary: #121214;
   --color-text-muted: #52525B;
-  --color-brand-accent: #E65100;
+  --color-brand-accent: #B53E00; /* A11Y X-001: #E65100 ~3.2:1 -> ~4.9:1 di kanvas terang (hue sama, digelapkan) */
   --color-success: #25D366;
   --color-border-subtle: rgba(0, 0, 0, 0.09);
   --color-border-strong: rgba(0, 0, 0, 0.18);
@@ -60,7 +75,7 @@
   --color-surface-elevated: rgba(54, 55, 62, 0.95);
   --color-text-primary: #F0F0F2;
   --color-text-muted: #A0A0AA;
-  --color-brand-accent: #E65100;
+  --color-brand-accent: #FF7A1A; /* A11Y X-001: sama obsidian, 6.05:1 di concrete */
   --color-success: #25D366;
   --color-border-subtle: rgba(255, 255, 255, 0.1);
   --color-border-strong: rgba(255, 255, 255, 0.25);

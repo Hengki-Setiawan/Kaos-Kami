@@ -7,12 +7,15 @@ android {
         applicationId "id.makassar.kaoskami"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        // versionCode statis tertanggal (aman di bawah batas Play 2100000000).
-        // CATATAN: pola dinamis (getenv ANDROID_VERSION_CODE ?: Date().format)
-        // DIBUANG 13 Sep 2026 — meledak saat evaluasi AGP ("Value is null").
-        // Naikkan manual +1 tanggal tiap rilis AAB ke Play bila perlu kode baru.
-        versionCode 20260913
-        versionName "1.0"
+        // N1 (21 Sep 2026): versionCode dari env ANDROID_VERSION_CODE (CI),
+        // fallback tanggal rilis. LAZY via providers.environmentVariable +
+        // getOrElse — pola getenv-langsung + Date() DIBUANG 13 Sep 2026 karena
+        // meledak saat evaluasi AGP ("Value is null"). Jangan ganti dengan
+        // System.getenv() null-unsafe di blok ini.
+        // Contoh CI: ANDROID_VERSION_CODE=20260921 gradlew bundleRelease
+        def versionCodeStr = providers.environmentVariable("ANDROID_VERSION_CODE").getOrElse("20260913")
+        versionCode versionCodeStr.toInteger()
+        versionName "1.0.0"
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         aaptOptions {
              // Files and dirs to omit from the packaged assets dir, modified to accommodate modern web apps.

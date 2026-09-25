@@ -69,8 +69,23 @@ export function NotificationGpsPrompt() {
       }
     }
 
-    // 2. Minta Izin Geolocation GPS Real-time
+    // 2. Minta Izin Geolocation GPS Real-time.
+    // Cek status izin dulu: bila "denied" di level browser, getCurrentPosition
+    // langsung gagal tanpa prompt — arahkan user reset via ikon gembok.
     if (navigator.geolocation) {
+      try {
+        const ps = (navigator as any).permissions;
+        if (ps?.query) {
+          const st = await ps.query({ name: "geolocation" });
+          if (st?.state === "denied") {
+            setGpsError(
+              "Lokasi diblokir di pengaturan browser situs ini. Klik ikon gembok di address bar → Location → Reset permissions, lalu coba lagi."
+            );
+            setIsDone(true);
+            return;
+          }
+        }
+      } catch {}
       setGpsLoading(true);
       setGpsError(null);
       navigator.geolocation.getCurrentPosition(

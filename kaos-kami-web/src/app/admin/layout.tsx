@@ -4,6 +4,7 @@ import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { AdminNav } from "@/components/admin/AdminNav";
+import { AdminBell } from "@/components/admin/AdminBell";
 
 export const dynamic = "force-dynamic";
 
@@ -20,12 +21,12 @@ export default async function AdminLayout({ children }: { children: React.ReactN
   try {
     const session = await auth.api.getSession({ headers: await headers() });
     role = (session?.user as any)?.role || null;
-    if (!session || !role || !["ADMIN", "SUPER_ADMIN", "PRODUCTION_STAFF"].includes(role)) {
-      redirect("/");
+    if (!session || !role || !["ADMIN", "SUPER_ADMIN", "PRODUCTION_STAFF", "COURIER"].includes(role)) {
+      redirect("/?denied=admin");
     }
   } catch (e) {
     console.error("AdminLayout auth check failed — akses ditolak:", (e as any)?.message);
-    redirect("/");
+    redirect("/?denied=admin");
   }
   return (
     <div className="min-h-screen bg-canvas text-text-primary flex flex-col md:flex-row">
@@ -33,7 +34,8 @@ export default async function AdminLayout({ children }: { children: React.ReactN
       <aside className="w-full md:w-64 bg-surface border-r border-border-subtle flex flex-col justify-between shrink-0">
         <div>
           {/* Brand Header */}
-          <div className="p-5 border-b border-border-subtle flex items-center justify-between">
+          <div className="p-5 border-b border-border-subtle flex items-center justify-between gap-2">
+            <AdminBell />
             <Link href="/admin" className="flex items-center space-x-2.5">
               {/* eslint-disable-next-line @next/next/no-img-element -- logo mungil lokal; images.unoptimized=true sehingga next/image tak menambah nilai */}
               <img src="/brand/logo-white-clean.png" alt="Kaos Kami" className="h-7 w-auto object-contain logo-dark-mode" />
@@ -41,10 +43,10 @@ export default async function AdminLayout({ children }: { children: React.ReactN
               <img src="/brand/logo-black-clean.png" alt="Kaos Kami" className="h-7 w-auto object-contain logo-light-mode" />
               <div className="border-l border-border-strong pl-2.5">
                 <span className="font-display font-black text-xs uppercase tracking-tight text-text-primary block leading-tight">
-                  WORKSHOP OPS
+                  PORTAL INTERNAL
                 </span>
                 <span className="font-mono text-[9px] text-brand-accent font-bold leading-tight">
-                  DTF MAKASSAR
+                  KAOS KAMI MAKASSAR
                 </span>
               </div>
             </Link>

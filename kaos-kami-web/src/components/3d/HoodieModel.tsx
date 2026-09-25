@@ -17,7 +17,7 @@ import { createClothPhysicalMaterial } from "@/lib/materials/clothPhysicalMateri
 import { useResourceTracker, useTrackedResource } from "@/lib/threeResourceTracker";
 import { surfaceZForApparel } from "@/lib/scaleCalibration";
 import { SilentModelFallback } from "@/components/ui/ModelErrorBoundary";
-import { getStretchFactors } from "@/lib/3d/stretchPhysics";
+import { applyStretchToMaterial, sharedStretchUniforms } from "@/lib/3d/stretchDeform";
 
 // FASE 13 & P0-4: hoodie default & fallback = hoodie-blue (lisensi CC-BY 4.0 Irevex11).
 // Model legacy hoodie.glb dipensiunkan ke backups/ demi keamanan lisensi.
@@ -162,19 +162,32 @@ const GltfHoodieNew: React.FC<{ path: string }> = ({ path }) => {
     }
   });
 
+  // Uji Tarik REAL + bleed X-ray: hooks WAJIB sebelum early-return (rules-of-hooks).
+  useEffect(() => {
+    if (!mergedGeometry) return;
+    applyStretchToMaterial(material, sharedStretchUniforms);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [material, mergedGeometry]);
+  // Mode inspeksi bleed X-ray: kain transparan, sablon tetap opak.
+  const bleedCheck = useConfiguratorStore((s) => s.inspectMode === "bleed");
+  useEffect(() => {
+    if (!mergedGeometry) return;
+    material.transparent = bleedCheck;
+    material.opacity = bleedCheck ? 0.15 : 1;
+    material.depthWrite = !bleedCheck;
+  }, [material, bleedCheck, mergedGeometry]);
+
   if (!mergedGeometry) return null;
 
   const posX = viewMode === "story" ? 0 : modelPosX;
   const posY = viewMode === "story" ? -0.05 : modelPosY - 0.05;
   const scale = viewMode === "story" ? 1.0 : modelScale;
 
-  const stretchFactors = getStretchFactors(testLabMode, stretchIntensity, stretchDirection);
-
   return (
     <group
       ref={meshRef}
       position={[posX, posY, 0]}
-      scale={[scale * stretchFactors.stretchX, scale * stretchFactors.stretchY, scale * stretchFactors.stretchZ]}
+      scale={[scale, scale, scale]}
       dispose={null}
     >
       <mesh

@@ -47,6 +47,46 @@ function isNative(): boolean {
   }
 }
 
+function getPlatformId(): string {
+  try {
+    return (window as any)?.Capacitor?.getPlatform?.() ?? 'web';
+  } catch {
+    return 'web';
+  }
+}
+
+/**
+ * N2 — Target rekaman per-platform. iOS (Safari/WebKit) TAK mendukung
+ * WebM/VP9 → pakai MP4 (H.264) agar hasil bisa diputar & dibagikan dari
+ * iPhone; Android/web tetap WebM VP9 (ukuran kecil, kualitas sama).
+ * isTypeSupported di-guard: bila keduanya tak didukung, MediaRecorder
+ * memakai default browser (extension mengikuti pilihan platform).
+ */
+function pickRecordingTarget(): { mime?: string; fileType: string; extension: string } {
+  const isIOS = getPlatformId() === 'ios';
+  const supported = (m: string): boolean => {
+    try {
+      return (window as any)?.MediaRecorder?.isTypeSupported?.(m) === true;
+    } catch {
+      return false;
+    }
+  };
+  if (isIOS) {
+    const mp4 = 'video/mp4';
+    return {
+      mime: supported(mp4) ? mp4 : undefined,
+      fileType: 'video/mp4',
+      extension: 'mp4',
+    };
+  }
+  const webm = 'video/webm;codecs=vp9';
+  return {
+    mime: supported(webm) ? webm : undefined,
+    fileType: 'video/webm',
+    extension: 'webm',
+  };
+}
+
 function findStudioCanvas(): HTMLCanvasElement | null {
   if (typeof document === 'undefined') return null;
   return document.querySelector('#kk-studio canvas');
@@ -54,6 +94,10 @@ function findStudioCanvas(): HTMLCanvasElement | null {
 
 async function persistAndShare(base64: string, fileName: string, mime: string): Promise<string> {
   if (isNative()) {
+    // N5 janitor: tiap kali menyimpan mockup baru, bersihkan file HD basi
+    // (>7 hari) agar folder Cache tak membengkak di HP low-storage.
+    // Fire-and-forget — kegagalan janitor JANGAN menggagalkan share.
+    void pruneStaleHdCache().catch(() => {});
     const saved = await Filesystem.writeFile({
       path: fileName,
       data: base64,
@@ -67,6 +111,41 @@ async function persistAndShare(base64: string, fileName: string, mime: string): 
   a.download = fileName;
   a.click();
   return fileName;
+}
+
+/**
+ * N5 — Janitor cache: hapus `kaoskami-hd-<epochMs>.png` yang berumur >7 hari
+ * di Directory.Cache (native saja; web = no-op). Timestamp dibaca dari nama
+ * file; file yang namanya tak terpola dilewati (JANGAN hapus buta).
+ *
+ * @param maxAgeMs umur maksimum file dipertahankan (default 7 hari).
+ * @returns jumlah file yang dihapus.
+ */
+export async function pruneStaleHdCache(
+  maxAgeMs: number = 7 * 24 * 60 * 60 * 1000
+): Promise<number> {
+  if (!isNative()) return 0;
+  try {
+    const listing = await Filesystem.readdir({ path: '', directory: Directory.Cache });
+    const now = Date.now();
+    let removed = 0;
+    const files = (listing as { files?: { name: string }[] }).files ?? [];
+    for (const f of files) {
+      const name = typeof f === 'string' ? f : f?.name;
+      if (typeof name !== 'string' || !name.startsWith('kaoskami-hd-')) continue;
+      const m = name.match(/^kaoskami-hd-(\d+)\.png$/);
+      if (!m) continue;
+      const born = Number(m[1]);
+      if (!Number.isFinite(born) || now - born <= maxAgeMs) continue;
+      try {
+        await Filesystem.deleteFile({ path: name, directory: Directory.Cache });
+        removed++;
+      } catch {}
+    }
+    return removed;
+  } catch {
+    return 0;
+  }
 }
 
 /**
@@ -93,7 +172,8 @@ export async function captureHDImage(): Promise<string> {
 }
 
 /**
- * M3 §6 — Rekam turntable 360° (putaran penuh ±4 detik, WebM) untuk TikTok/IG.
+ * M3 §6 — Rekam turntable 360° (putaran penuh ±4 detik) untuk TikTok/IG.
+ * Format per-platform (N2): iOS → MP4 (H.264), Android/web → WebM (VP9).
  * C4: selalu bitrate penuh 8 Mbps (tanpa tier Pro/free).
  * PERF: tier-low → 4 Mbps via opts (hemat encoder + ukuran file ~½, masih
  * tajam di layar HP). KeepAwake selama merekam agar layar tak sleep.
@@ -113,9 +193,9 @@ export async function recordTurntable360(
   void enableScreenKeepAwake();
 
   try {
-    const mime = 'video/webm;codecs=vp9';
+    const target = pickRecordingTarget();
     const rec = new MediaRecorder(stream, {
-      mimeType: (window as any).MediaRecorder?.isTypeSupported?.(mime) ? mime : undefined,
+      ...(target.mime ? { mimeType: target.mime } : {}),
       videoBitsPerSecond: opts?.videoBitsPerSecond ?? 8_000_000,
     });
     const chunks: Blob[] = [];
@@ -130,7 +210,7 @@ export async function recordTurntable360(
     rec.stop();
     await done;
 
-    const blob = new Blob(chunks, { type: 'video/webm' });
+    const blob = new Blob(chunks, { type: target.fileType });
     // FileReader native (audit: loop btoa manual O(n²) + boros memori untuk 4 detik video).
     const base64: string = await new Promise((resolve, reject) => {
       const fr = new FileReader();
@@ -142,7 +222,7 @@ export async function recordTurntable360(
       fr.readAsDataURL(blob);
     });
     onProgress?.('Menyimpan video…');
-    return persistAndShare(base64, `kaoskami-360-${Date.now()}.webm`, 'video/webm');
+    return persistAndShare(base64, `kaoskami-360-${Date.now()}.${target.extension}`, target.fileType);
   } finally {
     store.setActiveAnimation(prev);
     void disableScreenKeepAwake();

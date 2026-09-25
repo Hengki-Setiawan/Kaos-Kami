@@ -1,11 +1,17 @@
 import { auth } from "../kaos-kami-web/src/lib/auth.ts";
 
+// Secret WAJIB via env (JANGAN hardcode).
+function requireEnv(name: string): string {
+  const v = process.env[name];
+  if (!v) throw new Error('E2E butuh env ' + name + ' (JANGAN commit nilainya)');
+  return v;
+}
 async function main() {
   const userId = "6XBFRQCO5zsXOmdOFsBk0YJmU0lilEWn"; // hengki vibecoding1
   const ctx = await (auth as any).$context;
   
   // Set password using ctx.password.hash
-  const hashedPassword = await ctx.password.hash("KaosKami2026!");
+  const hashedPassword = await ctx.password.hash(requireEnv("E2E_TEST_PASSWORD"));
   console.log("Hashed password:", hashedPassword);
 
   // Update in Account table
@@ -22,7 +28,7 @@ async function main() {
   const res = await auth.api.signInEmail({
     body: {
       email: "hengkivibecoding@gmail.com",
-      password: "KaosKami2026!"
+      password: requireEnv("E2E_TEST_PASSWORD")
     },
     asResponse: true
   });

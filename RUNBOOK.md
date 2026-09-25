@@ -2,7 +2,7 @@
 
 ## 1. Duitku webhook tidak fire / payment stuck PENDING
 - **Gejala:** Order tetap `PENDING_PAYMENT` padahal customer sudah bayar, tidak ada `ProductionTask` terbuat.
-- **Cek:** Dashboard Duitku → Transactions → cari `orderNumber` → cek `resultCode=00`. Lalu cek secrets: `npx wrangler secret list` wajib ada `DUITKU_MERCHANT_CODE`, `DUITKU_API_KEY`, `DUITKU_ENV`.
+- **Cek:** Dashboard Duitku → Transactions → cari `orderNumber` → cek `resultCode=00`. Lalu cek vars `DUITKU_ENV` + secrets: `npx wrangler secret list` wajib ada `DUITKU_MERCHANT_CODE`, `DUITKU_API_KEY`.
 - **Fix manual:** kirim ulang callback ke `POST /api/webhooks/duitku` (verifikasi MD5 + cek nominal otomatis), atau manual `prisma.order.update status=PAYMENT_CONFIRMED` + buat `ProductionTask` rows + `OrderStatusEvent`.
 - **Pencegahan:** Sentry `onRequestError` + health `/api/health` setiap 1 menit.
 - **Catatan:** Proyek ini sepenuhnya Duitku. Route/kode Midtrans dihapus (Sep 2026); sisa enum DB historis MIDTRANS/XENDIT (schema.prisma:397-399, read-only order lama); jika masih ada secrets `MIDTRANS_*` di Cloudflare, hapus via `npx wrangler secret delete MIDTRANS_SERVER_KEY` (dst.) agar tidak membingungkan.
@@ -16,6 +16,10 @@
 ## 2b. Kill-switch checkout darurat (default aman, fail-closed)
 - `CHECKOUT_OTP_REQUIRED=false` → lewati gerbang OTP (darurat Fonnte mati); `TURNSTILE_ENFORCE=false` → lewati Turnstile. Hanya string persis `"false"` yang bypass — unset/kosong = WAJIB verifikasi.
 - Berlaku di `src/app/api/checkout/route.ts` + `src/app/api/mobile/orders/checkout/route.ts`. Set via `.env.local` (dev) / `wrangler secret put` (prod); JANGAN commit nilainya. Matikan lagi segera setelah darurat selesai.
+- **Vars opsional fail-closed (W3, 21 Sep 2026 — set sebagai `vars` di `wrangler.jsonc`, BUKAN secrets; default bila unset = mode produksi aman):**
+  - `WHATSAPP_FORCE_MOCK="true"` → paksa mock WA, pesan tidak dikirim (dev/QA saja; `whatsapp.ts:51`). Default unset = kirim live via Fonnte (nomor dummy/test selalu diblokir walau live).
+  - `AGENWEBSITE_SANDBOX="true"` → ongkir live hit base sandbox (key `awk_test_...`; `agenwebsite.ts:14`). Default unset = base LIVE produksi. Tanpa `AGENWEBSITE_RATE_API_KEY` → fallback tabel `ExpeditionZone` (fail-soft, checkout tidak mati).
+  - Lihat default + komentar di `.env.example` (§ AgenWebsite, Notifications, Kill-switch).
 
 ## 3. R2 upload gagal
 - **Gejala:** `r2.ts` `Missing token` atau `R2 upload failed 401`.
@@ -26,6 +30,7 @@
 - **Cek:** `TURSO_DATABASE_URL` + `TURSO_AUTH_TOKEN` di `.env` & `wrangler.jsonc` vars.
 
 ## 5. Ubah skema DB prod (Turso hanya support `db push`)- **Fakta (Sep 2026, Prisma 7.10.0):** `prisma migrate deploy/resolve` menolak `libsql://` (`P1013 scheme not recognized`). Turso = `db push` only.
+- **KOREKSI 21 Sep 2026 (terverifikasi 2x):** `npx prisma db push` dari `kaos-kami-web/` JUGA gagal `P1013` pada toolchain ini (engine schema tak kenal skema `libsql://`, walau `DATABASE_URL` benar). Jalur kerja: (1) backup via `GET /api/cron/backup` (Bearer CRON_SECRET) → file `backups/kaos-kami-*.sql` di R2; (2) migrasi SQL berversi via script Node `@libsql/client` (idempoten: cek PRAGMA dulu; ADD COLUMN/CREATE TABLE aman; **hindari rebuild tabel ber-FK** — `DROP TABLE` induk gagal `SQLITE_CONSTRAINT` karena batch autocommit per-statement); (3) verifikasi `PRAGMA table_info` + row count + `foreign_key_check` + `/api/health`. Default kolom yg tak bisa ALTER (mis. `Order.status`) biarkan drift selama SEMUA insert app set eksplisit — catat di sini.
 - **Prosedur aman:** (1) backup via Turso branch (`turso db create backup-YYYYMMDD --from kaos-kami-...` atau dashboard), (2) `npx prisma db push` dengan `DATABASE_URL` = Turso (CLI dari `kaos-kami-web/`, baca `prisma.config.ts`), (3) verifikasi `/api/health` + 1 query baca, (4) jika rusak → restore dari branch.
 - **File migrasi** `prisma/migrations/0001_init/` = referensi baseline yang cocok dengan skema prod saat ini (dibuat via `db push`); JANGAN fake `_prisma_migrations` manual.
 - **Script `db:migrate` (`prisma migrate deploy`) RUSAK untuk Turso** — jangan dipakai; pakai `db:push` + prosedur di atas.

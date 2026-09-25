@@ -9,6 +9,8 @@ import { useMobileDeviceTier } from '@/hooks/useMobileDeviceTier';
 import { apparelToArchetype, createClothPhysicalMaterial } from '@/lib/materials/clothPhysicalMaterial';
 import { ClothInertiaSimulator } from '@/lib/3d/clothInertiaPhysics';
 import { applyMobileWind, ensureWindWeights } from '@/lib/3d/windShader';
+import { getStretchFactors } from '@/lib/3d/stretchPhysics';
+import { registerMobileStretchGroup, unregisterMobileStretchGroup } from '@/lib/3d/mobileStretchRegistry';
 import { MobileDecalLayerRenderer } from './MobileDecalLayerRenderer';
 import { DecalGizmoMobile } from './DecalGizmoMobile';
 import { MobileSweaterModel } from './MobileSweaterModel';
@@ -26,12 +28,13 @@ import { extractMobileApparelGeometry, type ExtractMobileGeometryOptions } from 
 // scaleCalibration.web) agar klaim cm/DPI/jangkar decal lama tetap berlaku
 // sementara. Kalibrasi ulang penuh (multiplier/surfaceZ/kerah per mesh baru
 // + uji visual DPR/VRAM) = follow-up.
-// SINKRON ASET (12 Sep 2026 + Sweater/Cap follow-up):
-// crewneck TETAP dikunci di picker (mockupEnabled false) — file crewneck tak
-// ada (sweater.glb = mesh crewneck web; tipe crewneck memakai MobileSweaterModel
-// sebagai fallback render defensif, tapi picker mengarahkan ke Sweater Pack).
-// sweater/cap DIBUKA untuk mockup (mockupEnabled true, orderable FALSE cermin
-// web — order tetap diblokir client ≈400 + server wajib menolak ulang):
+// SINKRON ASET (12 Sep 2026 + quick-win 21 Sep 2026, SSOT = MOBILE_APPAREL_META):
+// crewneck = orderable TRUE cermin web APPAREL_CATALOG (mesh web crewneck
+// MEMANG sweater.glb → MobileSweaterModel, BUKAN fallback defensif).
+// sweater = ALIAS mockup-saja (orderable FALSE; slug tak ada di web →
+//   server 400 "tidak dikenal"; pesan lockedMessage di semua jalur).
+// cap/pants/shorts = mockup-saja (orderable FALSE cermin web — order tetap
+// diblokir client ≈400 + server wajib menolak ulang):
 // public/models/sweater.glb + cap.glb master non-Draco (varian draco
 // SOFT-DISABLE 14 Sep 2026 → diarsipkan ke backups/draco-archive/).
 // Harga mockup topi/sweater di HP (lihat MobileSweaterModel/MobileCapModel
@@ -83,8 +86,10 @@ export const MOBILE_MODEL_CANDIDATES: Record<string, Record<'high' | 'low', stri
     low: ['/models/hoodie-blue.glb'],
   },
   shirt: {
+    // SWAP 20 Sep 2026: hoodie Pieter Ferreira. jacket.lod1.glb = geometri fleece
+    // LAMA (mismatch) → dikeluarkan dari rantai; regen LOD1 menunggu owner.
     high: ['/models/jacket.glb'],
-    low: ['/models/jacket.lod1.glb', '/models/jacket.glb'],
+    low: ['/models/jacket.glb'],
   },
   longsleeve: {
     high: ['/models/longsleeve.glb'],
@@ -158,7 +163,7 @@ export function mobilePriorityFor(apparelType: string, tier: string): string | u
 function syncFallbackFor(apparelType: string, tier: string): string {
   const low = tier === 'low' || tier === 'no-webgl';
   if (apparelType === 'hoodie') return MOBILE_HOODIE_FALLBACK_HIGH;
-  if (apparelType === 'shirt') return low ? '/models/jacket.lod1.glb' : '/models/jacket.glb';
+  if (apparelType === 'shirt') return '/models/jacket.glb';
   if (apparelType === 'longsleeve') return '/models/longsleeve.glb';
   if (apparelType === 'pants') return MOBILE_PANTS_MODEL;
   if (apparelType === 'shorts') return MOBILE_SHORTS_MODEL;
@@ -217,8 +222,25 @@ function GenericApparelMeshRenderer({
   const groupRef = useRef<THREE.Group>(null);
   const apparelType = useMobileStudioStore((s) => s.apparelType);
   const color = useMobileStudioStore((s) => s.color);
+  // F0 Test Lab stretch — pola group-scale SEMENTARA cermin web ShirtModel
+  // (shader gelombang menyusul). Subscribe diskrit: slider/preset re-render,
+  // drag/spring via registry tulis-langsung (F3, tanpa set-store per-frame).
+  const testLabMode = useMobileStudioStore((s) => s.testLabMode);
+  const stretchIntensity = useMobileStudioStore((s) => s.stretchIntensity);
+  const stretchDirection = useMobileStudioStore((s) => s.stretchDirection);
+  const stretchFactors = getStretchFactors(testLabMode, stretchIntensity, stretchDirection);
   // Tier di sini SUDAH resolved (gate di komponen luar) — aman untuk probe.
   const { tier } = useMobileDeviceTier();
+
+  // F3: daftarkan grup ke registry agar MobileStretchController bisa tulis
+  // group.scale langsung saat drag/spring tanpa lewat store.
+  useEffect(() => {
+    const g = groupRef.current;
+    registerMobileStretchGroup(g);
+    return () => {
+      unregisterMobileStretchGroup(g);
+    };
+  }, []);
 
   // Initialize rotational cloth inertia simulator
   const clothPhysics = useMemo(() => new ClothInertiaSimulator({ stiffness: 38.0, damping: 7.2 }), []);
@@ -246,8 +268,10 @@ function GenericApparelMeshRenderer({
 
   // Kalibrasi geometri terstandarisasi untuk seluruh apparel mobile (selaras web & acuan emas Hoodie):
   // 1. T-Shirt & Longsleeve: scaleMultiplier 0.72, crownYOffset -0.12 (lebar 51.5cm = Size L, dada di Y=0).
+  //    Longsleeve SWAP 20 Sep 2026 = ex-sweater.glb (angka dipertahankan, torso parity 2.6%).
   // 2. Hoodie: scaleMultiplier 0.74 (acuan emas).
-  // 3. Coach Jacket: scaleMultiplier 0.52, crownYOffset -0.075 (bahu +0.110, dada Y=0).
+  // 3. Jacket SWAP 20 Sep 2026 (hoodie Pieter Ferreira): scaleMultiplier 0.2999,
+  //    crownYOffset -0.075 (tinggi ternormalisasi 0.55395 = fleece lama, body 74cm sama).
   // 4. Shorts: scaleMultiplier 0.0125 (Maya cm -> metric 0.406m, anti meledak 32.5m).
   // 5. Pants: scaleMultiplier 1.0 (0.328m).
   const apparelOptions = useMemo((): ExtractMobileGeometryOptions | undefined => {
@@ -258,7 +282,7 @@ function GenericApparelMeshRenderer({
       case 'hoodie':
         return { scaleMultiplier: 0.74 };
       case 'shirt':
-        return { scaleMultiplier: 0.52, crownYOffset: -0.075 };
+        return { scaleMultiplier: 0.2999, crownYOffset: -0.075 };
       case 'shorts':
         return { scaleMultiplier: 0.0125 };
       case 'pants':
@@ -307,7 +331,13 @@ function GenericApparelMeshRenderer({
       }
       if (externalTransform.scale) {
         const s = externalTransform.scale * 1.4;
-        groupRef.current.scale.set(s, s, s);
+        // F0: stretch ikut dikali di mode AR eksternal (biasanya 1.0 = no-op).
+        const st = getStretchFactors(
+          useMobileStudioStore.getState().testLabMode,
+          useMobileStudioStore.getState().stretchIntensity,
+          useMobileStudioStore.getState().stretchDirection
+        );
+        groupRef.current.scale.set(s * st.stretchX, s * st.stretchY, s * st.stretchZ);
       }
     } else {
       // Standard Studio 3D: Apply Rotational Spring Inertia
@@ -330,7 +360,11 @@ function GenericApparelMeshRenderer({
   });
 
   return (
-    <group ref={groupRef} scale={[1.4, 1.4, 1.4]} position={[0, -0.15, 0]}>
+    <group
+      ref={groupRef}
+      scale={[1.4 * stretchFactors.stretchX, 1.4 * stretchFactors.stretchY, 1.4 * stretchFactors.stretchZ]}
+      position={[0, -0.15, 0]}
+    >
       {extractedGeometry && material ? (
         <mesh castShadow receiveShadow geometry={extractedGeometry} material={material}>
           <MobileDecalLayerRenderer />

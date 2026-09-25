@@ -1,9 +1,19 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Backup: persist login/prefs, kecualikan cache & WebView (boros + basi). -->
+<!-- Backup: persist login/prefs, kecualikan cache & WebView (boros + basi).
+     N4 (Sep 2026): CapacitorStorage.xml DIKECUALIKAN dari Auto Backup.
+     Alasan: @capacitor/preferences menyimpan SEMUA kunci (user_id,
+     active_order, antrean sync, decal_px) di SharedPreferences grup default
+     "CapacitorStorage" (CapacitorStorage.xml). Restore backup lama ke
+     perangkat baru akan menghidupkan kembali user_id + order basi + antrean
+     yang sudah terkirim (risiko order ganda/DDOS replay). Identitas login
+     dibangun ulang via OTP/login, bukan via restore.
+     allowBackup TETAP true (bukan false): galeri draft & preferensi tema
+     tetap ikut backup; hanya file sensitif/basi yang di-exclude. -->
 <full-backup-content>
     <exclude domain="cache" path="." />
     <exclude domain="file" path="app_webview/" />
     <exclude domain="database" path="webview.db" />
     <exclude domain="database" path="webviewCookiesChromium.db" />
     <exclude domain="sharedpref" path="WebViewChromiumPrefs.xml" />
+    <exclude domain="sharedpref" path="CapacitorStorage.xml" />
 </full-backup-content>

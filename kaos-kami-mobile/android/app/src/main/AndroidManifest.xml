@@ -49,6 +49,19 @@
                 <data android:scheme="kaoskami" android:host="payment" />
             </intent-filter>
 
+            <!-- N5: Android App Links (https, autoVerify) — paritas Universal
+                 Links iOS. Setelah file
+                 https://kaoskami.biz.id/.well-known/assetlinks.json tayang
+                 (lihat docs/NATIVE-DISTRIBUSI.md §N5), link https dibuka
+                 langsung di aplikasi tanpa chooser. Verifikasi:
+                 adb shell pm get-app-links id.makassar.kaoskami -->
+            <intent-filter android:autoVerify="true">
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="https" android:host="kaoskami.biz.id" />
+            </intent-filter>
+
         </activity>
 
         <provider

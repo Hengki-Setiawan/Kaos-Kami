@@ -16,7 +16,7 @@ const CREDITS: Array<{ title: string; author: string; authorUrl: string; source:
     source: "https://sketchfab.com/3d-models/basic-t-shirt-71bdf5940b5d41b8b46628a615e9b0ed",
     license: "CC BY 4.0",
     licenseUrl: "http://creativecommons.org/licenses/by/4.0/",
-    note: "Dipakai sebagai mesh kaos (tee-basic.glb). Diubah: skala cm, kompresi Draco.",
+    note: "Dipakai sebagai mesh kaos (tee-basic.glb). Diubah: skala cm (non-Draco sejak Sep 2026).",
   },
   {
     title: "tshirt",
@@ -25,7 +25,7 @@ const CREDITS: Array<{ title: string; author: string; authorUrl: string; source:
     source: "https://sketchfab.com/3d-models/tshirt-8c59588602724f1d96ee60d2b43e11b0",
     license: "CC BY 4.0",
     licenseUrl: "http://creativecommons.org/licenses/by/4.0/",
-    note: "Dipakai sebagai cadangan kaos (tee-alt.glb).",
+    note: "Arsip cadangan (tidak dipakai aktif).",
   },
   {
     title: "Blue Hoodie",
@@ -34,7 +34,7 @@ const CREDITS: Array<{ title: string; author: string; authorUrl: string; source:
     source: "https://sketchfab.com/3d-models/blue-hoodie-7b78c56cd15e479b8ec9b18145ed0721",
     license: "CC BY 4.0",
     licenseUrl: "http://creativecommons.org/licenses/by/4.0/",
-    note: "Dipakai sebagai mesh hoodie (hoodie-blue.glb). Diubah: skala cm, kompresi Draco.",
+    note: "Dipakai sebagai mesh hoodie (hoodie-blue.glb). Diubah: skala cm (non-Draco sejak Sep 2026).",
   },
   {
     title: "Hoodie",
@@ -43,7 +43,16 @@ const CREDITS: Array<{ title: string; author: string; authorUrl: string; source:
     source: "https://sketchfab.com/3d-models/hoodie-5a59576dc695462786c7b48db45f3d97",
     license: "CC BY 4.0",
     licenseUrl: "http://creativecommons.org/licenses/by/4.0/",
-    note: "Dipakai sebagai cadangan hoodie (hoodie-flat.glb).",
+    note: "Arsip cadangan (tidak dipakai aktif).",
+  },
+  {
+    title: "Sweater",
+    author: "Tristen (@tristenkrause)",
+    authorUrl: "https://sketchfab.com/tristenkrause",
+    source: "https://sketchfab.com/3d-models/sweater-03ec2c29e4dc497080b32951f3168754",
+    license: "CC BY 4.0",
+    licenseUrl: "http://creativecommons.org/licenses/by/4.0/",
+    note: "Dipakai sebagai mesh sweater/crewneck (sweater.glb, 20 Sep 2026). Diubah: skala cm 1:1, strip tekstur.",
   },
   {
     title: "Sweater Pack",
@@ -52,7 +61,16 @@ const CREDITS: Array<{ title: string; author: string; authorUrl: string; source:
     source: "https://sketchfab.com/3d-models/sweater-pack-50fc69ff7a9a4f91ad721b44e898772d",
     license: "CC BY 4.0",
     licenseUrl: "http://creativecommons.org/licenses/by/4.0/",
-    note: "Dipakai sebagai mesh sweater/crewneck (sweater.glb).",
+    note: "Dipakai sebagai mesh lengan panjang (longsleeve.glb, ex-sweater, 20 Sep 2026). Diubah: skala cm, strip tekstur.",
+  },
+  {
+    title: "Hoodie",
+    author: "Pieter Ferreira (@Badboy17Aiden)",
+    authorUrl: "https://sketchfab.com/Badboy17Aiden",
+    source: "https://sketchfab.com/3d-models/hoodie-6dca9cd855a8441881f0b324236cf325",
+    license: "CC BY 4.0",
+    licenseUrl: "http://creativecommons.org/licenses/by/4.0/",
+    note: "Dipakai sebagai mesh jaket/slot shirt (jacket.glb, pullover tanpa resleting, 20 Sep 2026). Diubah: skala cm 1:1, strip tekstur.",
   },
   {
     title: "Fleece Jacket",
@@ -61,7 +79,7 @@ const CREDITS: Array<{ title: string; author: string; authorUrl: string; source:
     source: "https://sketchfab.com/3d-models/fleece-jacket-26e7c5710ca5471d9f5f977dd1499ea0",
     license: "CC BY 4.0",
     licenseUrl: "http://creativecommons.org/licenses/by/4.0/",
-    note: "Arsip cadangan (fleece-alt.glb).",
+    note: "Arsip cadangan (backups/models-archive/jacket-fleece-20260920.glb, diganti 20 Sep 2026).",
   },
   {
     title: "Baseball Cap",

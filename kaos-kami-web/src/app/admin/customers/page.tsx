@@ -1,10 +1,10 @@
-import { count } from "drizzle-orm";
+import { count, inArray, like, or } from "drizzle-orm";
 import Link from "next/link";
 import { headers } from "next/headers";
 import { db } from "@/lib/db";
 import { Design, Order, User } from "@/lib/drizzle-schema";
-import { and, desc, ilike, or } from "drizzle-orm";
 import { CustomerRoleSelect } from "@/components/admin/CustomerRoleSelect";
+import { maskPhone as maskPhoneLib, maskEmail as maskEmailLib } from "@/lib/mask"; // SSOT PII (S-045)
 
 export const dynamic = "force-dynamic";
 
@@ -12,13 +12,20 @@ const PER_PAGE = 25;
 
 function maskPhone(p?: string | null) {
   if (!p) return "-";
-  return `${p.slice(0, 4)}****${p.slice(-2)}`;
+  return maskPhoneLib(p) || "-";
 }
 
 function maskEmail(e?: string | null) {
   if (!e) return "-";
-  const [u, d] = e.split("@");
-  return `${(u || "").slice(0, 2)}***@${d || "***"}`;
+  return maskEmailLib(e) || "-";
+}
+
+function formatDate(v: unknown) {
+  if (!v) return "—";
+  const d = new Date(v as string);
+  return Number.isNaN(d.getTime())
+    ? "—"
+    : d.toLocaleDateString("id-ID", { day: "2-digit", month: "short", year: "numeric" });
 }
 
 export default async function AdminCustomersPage({
@@ -28,18 +35,36 @@ export default async function AdminCustomersPage({
 }) {
   const sp = await searchParams;
   const page = Math.max(1, Number(sp.page) || 1);
-  const q = (sp.q || "").trim().slice(0, 40);
+  // Sanitasi cermin API: buang wildcard LIKE (%_) + backslash, batasi 64 char.
+  const q = (sp.q || "").trim().replace(/[%_\\]/g, "").slice(0, 64);
 
   // Role pemanggil untuk filter opsi SUPER_ADMIN (server tetap guard final).
-  let myRole = "ADMIN";
+  // Fallback jujur: null bila sesi tak terbaca (bukan klaim "ADMIN").
+  let myRole: string | null = null;
   try {
     const { auth } = await import("@/lib/auth");
     const session = await auth.api.getSession({ headers: (await headers()) as any });
-    myRole = (session?.user as any)?.role || "ADMIN";
-  } catch {}
+    myRole = ((session?.user as any)?.role as string) || null;
+  } catch {
+    myRole = null;
+  }
 
+  if (myRole === "PRODUCTION_STAFF") {
+    const { redirect } = await import("next/navigation");
+    redirect("/admin/production");
+  }
+  if (myRole === "COURIER") {
+    const { redirect } = await import("next/navigation");
+    redirect("/admin/deliveries");
+  }
+  if (!myRole || !["ADMIN", "SUPER_ADMIN"].includes(myRole)) {
+    const { redirect } = await import("next/navigation");
+    redirect("/?denied=admin");
+  }
+
+  // Selaras API: `like` (libSQL/SQLite — `ilike` hanya Postgres, rawan gagal).
   const where = q
-    ? or(ilike(User.name, `%${q}%`), ilike(User.phoneNumber, `%${q}%`), ilike(User.email, `%${q}%`))
+    ? or(like(User.name, `%${q}%`), like(User.phoneNumber, `%${q}%`), like(User.email, `%${q}%`))
     : undefined;
 
   const [{ n = 0 } = { n: 0 }] = await db.select({ n: count() }).from(User).where(where as any);
@@ -51,9 +76,18 @@ export default async function AdminCustomersPage({
     orderBy: (t, { desc: d }) => d(t.createdAt),
     limit: PER_PAGE,
     offset: (safePage - 1) * PER_PAGE,
+    // Eksplisit tanpa passwordHash — jangan pernah tarik hash ke halaman daftar.
+    columns: { id: true, name: true, email: true, phoneNumber: true, role: true, emailVerified: true, createdAt: true },
   });
-  const orderCounts = await db.select({ userId: Order.userId, n: count() }).from(Order).groupBy(Order.userId);
-  const designCounts = await db.select({ userId: Design.userId, n: count() }).from(Design).groupBy(Design.userId);
+  // Agregasi dibatasi ke userId satu halaman (bukan seluruh tabel).
+  const pageIds = users.map((u) => u.id);
+  const [orderCounts, designCounts] =
+    pageIds.length > 0
+      ? await Promise.all([
+          db.select({ userId: Order.userId, n: count() }).from(Order).where(inArray(Order.userId, pageIds)).groupBy(Order.userId),
+          db.select({ userId: Design.userId, n: count() }).from(Design).where(inArray(Design.userId, pageIds)).groupBy(Design.userId),
+        ])
+      : [[], []];
   const orderMap = new Map(orderCounts.map((r) => [r.userId, r.n]));
   const designMap = new Map(designCounts.map((r) => [r.userId, r.n]));
   const usersWithCounts = users.map((u: any) => ({
@@ -70,10 +104,11 @@ export default async function AdminCustomersPage({
 
   return (
     <div className="p-5 sm:p-8 space-y-6 max-w-7xl mx-auto font-mono text-xs">
-      <div className="pb-4 border-b border-white/5">
-        <h1 className="font-display text-2xl sm:text-3xl font-black uppercase text-white">CUSTOMER DATABASE</h1>
+      <div className="pb-4 border-b border-border-subtle">
+        <h1 className="font-display text-2xl sm:text-3xl font-black uppercase text-text-primary">CUSTOMER DATABASE</h1>
         <p className="text-text-muted">
           {Number(n)} akun (hal. {safePage}/{totalPages}) • kontak dimask — klik baris untuk detail • UU PDP: gunakan seperlunya
+          {myRole ? "" : " • sesi tak terbaca (mode baca, opsi role dibatasi)"}
         </p>
       </div>
 
@@ -82,20 +117,20 @@ export default async function AdminCustomersPage({
           name="q"
           defaultValue={q}
           placeholder="Cari nama / WA / email…"
-          maxLength={40}
-          className="flex-1 px-3 py-2.5 rounded-xl bg-surface border border-white/10 text-white placeholder:text-text-muted focus:outline-none focus:border-brand-accent"
+          maxLength={64}
+          className="flex-1 px-3 py-2.5 rounded-xl bg-surface border border-border-subtle text-text-primary placeholder:text-text-muted focus:outline-none focus:border-brand-accent"
         />
         <button type="submit" className="px-5 py-2.5 rounded-xl bg-brand-accent text-canvas font-bold">
           CARI
         </button>
       </form>
 
-      <div className="bg-[#141416] border border-white/5 rounded-2xl overflow-hidden divide-y divide-white/5">
+      <div className="bg-surface border border-border-subtle rounded-2xl overflow-hidden divide-y divide-border-subtle">
         {usersWithCounts.map((u: any) => (
           <div key={u.id} className="p-4 flex justify-between items-center gap-3">
             <div className="min-w-0">
-              <span className="font-bold text-white block truncate">
-                {u.name || "-"} <CustomerRoleSelect userId={u.id} role={u.role} myRole={myRole} />
+              <span className="font-bold text-text-primary block truncate">
+                {u.name || "-"} <CustomerRoleSelect userId={u.id} role={u.role} myRole={myRole ?? ""} />
               </span>
               {/* Mask PII di daftar (audit H16); full hanya di invoice/detail order. */}
               <span className="text-text-muted">
@@ -103,8 +138,8 @@ export default async function AdminCustomersPage({
               </span>
             </div>
             <div className="text-right shrink-0">
-              <span className="text-white block">{u._count.orders} orders • {u._count.designs} designs</span>
-              <span className="text-text-muted text-[11px]">{new Date(u.createdAt).toLocaleDateString("id-ID", { day: "2-digit", month: "short", year: "numeric" })}</span>
+              <span className="text-text-primary block">{u._count.orders} orders • {u._count.designs} designs</span>
+              <span className="text-text-muted text-[11px]">{formatDate(u.createdAt)}</span>
             </div>
           </div>
         ))}
@@ -118,7 +153,7 @@ export default async function AdminCustomersPage({
       {totalPages > 1 && (
         <div className="flex items-center justify-between">
           {safePage > 1 ? (
-            <Link href={pageLink(safePage - 1)} className="px-4 py-2 rounded-lg bg-surface border border-white/10 text-white font-bold">
+            <Link href={pageLink(safePage - 1)} className="px-4 py-2 rounded-lg bg-surface border border-border-subtle text-text-primary font-bold">
               ← SEBELUM
             </Link>
           ) : (
@@ -128,7 +163,7 @@ export default async function AdminCustomersPage({
             {safePage} / {totalPages}
           </span>
           {safePage < totalPages ? (
-            <Link href={pageLink(safePage + 1)} className="px-4 py-2 rounded-lg bg-surface border border-white/10 text-white font-bold">
+            <Link href={pageLink(safePage + 1)} className="px-4 py-2 rounded-lg bg-surface border border-border-subtle text-text-primary font-bold">
               LANJUT →
             </Link>
           ) : (

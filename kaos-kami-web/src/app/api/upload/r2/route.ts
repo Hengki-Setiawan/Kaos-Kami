@@ -74,8 +74,11 @@ export async function POST(req: NextRequest) {
       const overQuota = await checkUploadQuota(user.id, byteLen);
       if (overQuota) return overQuota;
       // Key SELALU dari server (user-scoped) — client tidak boleh menentukan path.
-      // kind "master" (ekspor 300 DPI studio) → prefix masters/, selain itu uploads/.
-      const prefix = kind === "master" ? `masters/${user.id}` : `uploads/${user.id}`;
+      // kind "master" (ekspor 300 DPI studio) DIKUNCI staf produksi/admin:
+      // CUSTOMER yang meminta kind=master DIPAKSA ke uploads/ (fail-safe
+      // downgrade, bukan 403 — upload tetap jalan, aset tak masuk area master).
+      const canWriteMaster = ["ADMIN", "SUPER_ADMIN", "PRODUCTION_STAFF"].includes(user.role);
+      const prefix = kind === "master" && canWriteMaster ? `masters/${user.id}` : `uploads/${user.id}`;
       const r2Key = `${prefix}/${Date.now()}-${Math.random().toString(36).slice(2, 6)}.${safeExt(mime)}`;
       const result = await uploadBase64ToR2(imageBase64, r2Key);
       if (!result.success) {

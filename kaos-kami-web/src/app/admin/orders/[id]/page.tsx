@@ -72,12 +72,27 @@ export default async function AdminOrderDetailPage({ params }: AdminOrderDetailP
     }
   } catch {}
 
-  // wa.me/undefined guard: nomor kosong/invalid = tanpa link WA (audit H12).
-  const waDigits = (order.user?.phoneNumber || order.shippingAddress?.phoneNumber || "").replace(/[^0-9]/g, "");
+  // Mask WA konsisten dengan daftar (/admin/orders + /admin/customers, UU PDP).
+  function maskPhone(p?: string | null) {
+    if (!p) return "-";
+    return `${p.slice(0, 4)}****${p.slice(-2)}`;
+  }
+
+  // wa.me guard + normalisasi prefix Indonesia 62: 08… → 628…, 8… → 628…,
+  // 62… tetap. Nomor kosong/invalid = tanpa link WA.
+  const rawWa = order.user?.phoneNumber || order.shippingAddress?.phoneNumber || "";
+  const waDigits = rawWa.replace(/[^0-9]/g, "");
+  const waNormalized = waDigits.startsWith("62")
+    ? waDigits
+    : waDigits.startsWith("0")
+      ? `62${waDigits.slice(1)}`
+      : waDigits.length >= 9
+        ? `62${waDigits}`
+        : waDigits;
   const waMessage = encodeURIComponent(
     `*Halo ${order.user?.name || "Pelanggan"}*, update dari Workshop Kaos Kami mengenai pesanan Anda *${order.orderNumber}*:`
   );
-  const waLink = waDigits.length >= 10 ? `https://wa.me/${waDigits}?text=${waMessage}` : null;
+  const waLink = waNormalized.length >= 11 ? `https://wa.me/${waNormalized}?text=${waMessage}` : null;
 
   // Rekap kebutuhan bahan polos (Blank Garment Pull Matrix) untuk tim workshop
   const blankSummary = order.items.reduce<Record<string, number>>((acc, it) => {
@@ -91,11 +106,11 @@ export default async function AdminOrderDetailPage({ params }: AdminOrderDetailP
     <div className="p-5 sm:p-8 space-y-6 max-w-6xl mx-auto font-mono text-xs">
       {/* Back Link */}
       <Link
-        href="/admin/production"
+        href="/admin/orders"
         className="inline-flex items-center gap-2 text-text-muted hover:text-brand-accent transition-colors"
       >
         <ArrowLeft size={14} />
-        <span>KEMBALI KE KANBAN PRODUKSI</span>
+        <span>KEMBALI KE DAFTAR PESANAN</span>
       </Link>
 
       {/* Header */}
@@ -346,9 +361,118 @@ export default async function AdminOrderDetailPage({ params }: AdminOrderDetailP
               ))}
             </div>
           </div>
-        </div>
+          {/* Komplain customer (event bertanda [KOMPLAIN:KATEGORI] — POST /api/complaints) */}
+          <div className="p-5 rounded-2xl bg-[#141416] border border-white/5 space-y-3">
+            <h2 className="text-xs font-bold uppercase tracking-wider text-text-muted flex items-center gap-2">
+              <MessageCircle size={14} className="text-amber-400" />
+              <span>KOMPLAIN CUSTOMER</span>
+            </h2>
 
-        {/* Right Col: Customer & Payment Details */}
+            {(() => {
+              const complaints = order.statusHistory.filter((h: any) =>
+                typeof h.note === "string" && h.note.startsWith("[KOMPLAIN")
+              );
+              if (complaints.length === 0) {
+                return (
+                  <p className="text-[11px] font-mono text-text-muted">
+                    Belum ada komplain untuk order ini.
+                  </p>
+                );
+              }
+              return (
+                <div className="divide-y divide-white/5 border border-amber-500/20 rounded-xl bg-amber-500/[0.04]">
+                  {complaints.map((c: any) => {
+                    const m = String(c.note || "").match(/^\[KOMPLAIN:?([^\]]*)\]\s*([\s\S]*)$/);
+                    const category = (m?.[1] || "LAINNYA").trim() || "LAINNYA";
+                    const rest = (m?.[2] || String(c.note || "")).trim();
+                    const photoIdx = rest.indexOf("| Foto: ");
+                    const message = photoIdx >= 0 ? rest.slice(0, photoIdx).trim() : rest;
+                    const photo = photoIdx >= 0 ? rest.slice(photoIdx + "| Foto: ".length).trim() : null;
+                    return (
+                      <div key={c.id} className="p-3 space-y-1.5 text-[11px]">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span className="px-2 py-0.5 rounded-full text-[10px] font-bold uppercase bg-amber-500/20 text-amber-300 border border-amber-500/40">
+                            {category}
+                          </span>
+                          <span className="text-text-muted">
+                            status saat lapor: <strong className="text-white">{c.status}</strong>
+                          </span>
+                          <span className="text-text-muted ml-auto whitespace-nowrap">
+                            {new Date(c.createdAt).toLocaleString("id-ID", {
+                              day: "2-digit",
+                              month: "short",
+                              hour: "2-digit",
+                              minute: "2-digit",
+                            })}
+                          </span>
+                        </div>
+                        <p className="text-white leading-relaxed">{message || "(tanpa pesan)"}</p>
+                        {photo && (
+                          <a
+                            href={photo}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center gap-1 text-brand-accent hover:underline font-bold"
+                          >
+                            <Eye size={12} />
+                            <span>LIHAT FOTO BUKTI</span>
+                          </a>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              );
+            })()}
+          </div>
+
+          {/* Catatan review desain (marker [REVIEW...]/[DITOLAK...] dari /api/admin/orders/[id]/review) */}
+          <div className="p-5 rounded-2xl bg-[#141416] border border-white/5 space-y-3">
+            <h2 className="text-xs font-bold uppercase tracking-wider text-text-muted flex items-center gap-2">
+              <FileText size={14} className="text-brand-accent" />
+              <span>CATATAN REVIEW DESAIN</span>
+            </h2>
+
+            {(() => {
+              const RE_REVIEW_NOTE = /(\[REVIEW|REVIEW:|DITOLAK|DISETUJUI|ditolak|disetujui|REJECT|templateId|resolusi-kurang|luar-area-cetak|warna-tak-cetak|font-tipis)/i;
+              const notes = order.statusHistory.filter(
+                (h: any) =>
+                  !String(h.note || "").startsWith("[KOMPLAIN") && RE_REVIEW_NOTE.test(String(h.note || ""))
+              );
+              if (notes.length === 0) {
+                return (
+                  <p className="text-[11px] font-mono text-text-muted">
+                    Belum ada catatan review — putuskan via{" "}
+                    <Link href="/admin/review" className="text-brand-accent hover:underline font-bold">
+                      ANTREAN REVIEW
+                    </Link>
+                    .
+                  </p>
+                );
+              }
+              return (
+                <div className="divide-y divide-white/5 border border-white/5 rounded-xl bg-surface/30">
+                  {notes.map((h: any) => (
+                    <div key={h.id} className="p-3 flex justify-between items-start gap-3 text-[11px]">
+                      <div className="min-w-0">
+                        <span className="font-bold text-white block">{h.status}</span>
+                        <span className="text-text-muted break-words">{h.note || "Catatan review"}</span>
+                      </div>
+                      <span className="text-text-muted whitespace-nowrap shrink-0">
+                        {new Date(h.createdAt).toLocaleString("id-ID", {
+                          day: "2-digit",
+                          month: "short",
+                          hour: "2-digit",
+                          minute: "2-digit",
+                        })}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              );
+            })()}
+          </div>
+        </div>
         <div className="space-y-6">
           {/* Quick WhatsApp Dispatch Module */}
           <AdminWhatsAppDispatch
@@ -379,7 +503,7 @@ export default async function AdminOrderDetailPage({ params }: AdminOrderDetailP
               <div>
                 <span className="block text-text-muted text-[10px]">WHATSAPP:</span>
                 <span className="font-bold text-brand-accent">
-                  {order.user?.phoneNumber || order.shippingAddress?.phoneNumber || "-"}
+                  {maskPhone(order.user?.phoneNumber || order.shippingAddress?.phoneNumber)}
                 </span>
               </div>
               <div>

@@ -218,7 +218,7 @@ export function CatalogClient() {
           </div>
         )}
         {isLoading ? (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6" aria-busy="true" aria-label="Memuat koleksi produk">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6" role="status" aria-busy="true" aria-label="Memuat koleksi produk">
             {[0, 1, 2, 3, 4, 5].map((i) => (
               <div key={i} className="rounded-2xl bg-surface/60 border border-border-subtle overflow-hidden animate-pulse">
                 <div className="aspect-[4/5] bg-black/10 dark:bg-white/10" />

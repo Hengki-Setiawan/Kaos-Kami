@@ -124,11 +124,13 @@ export const APPAREL_PHYSICAL_SPECS: Record<string, ApparelSpec> = {
     meshMultiplier: 145.5,
     measuredMeshWidthUnits: 0.385,
     sleeveAnchorX: 0.17,
-    outerSleeveX: 0.44,
+    // SWAP 20 Sep 2026: mesh = ex-sweater (lengan panjang + rib cuff, torso parity
+    // 2.6% vs longsleeve lama) — scale 0.72/crown -0.12 dipertahankan.
+    outerSleeveX: 0.43,
     sleeveCenterY: -0.12,
     sleeveSlope: 0.35,
     armShoulder: [-0.180, 0.180, -0.020],
-    armCuff: [-0.440, -0.320, -0.010],
+    armCuff: [-0.425, -0.285, -0.010],
     armEulerLeft: [1.5708, -1.2305, 1.5708],
     armEulerRight: [-1.5708, 1.2305, -1.5708],
     sideAnchorX: 0.185,
@@ -190,10 +192,15 @@ export const APPAREL_PHYSICAL_SPECS: Record<string, ApparelSpec> = {
     hoodAnchorZ: 0.095,
   },
   shirt: {
+    // SWAP 20 Sep 2026 (perintah owner): mesh = pullover hoodie Pieter Ferreira
+    // (CC-BY 4.0, "Jacket new.glb") — TANPA resleting depan. Kalibrasi height-based
+    // dipertahankan: tinggi baked 1.8473 × 0.2999 = 0.55395 = jacket lama
+    // (1.06522 × 0.52), jadi meshMultiplier 69.5 + body 74cm tetap valid 1:1.
+    // Konsekuensi produk: depan kini FULL (28cm, cermin hoodie), bukan split 14cm.
     name: "Streetwear Coach Jacket",
     chestWidthCm: 58.0,
     bodyLengthCm: 74.0,
-    maxFrontWidthCm: 14.0, // Terpisah oleh Resleting Depan
+    maxFrontWidthCm: 28.0, // Pullover hoodie tanpa resleting (dulu 14.0 split resleting)
     maxFrontHeightCm: 26.0,
     maxBackWidthCm: 30.0,
     maxBackHeightCm: 42.0,
@@ -202,16 +209,19 @@ export const APPAREL_PHYSICAL_SPECS: Record<string, ApparelSpec> = {
     maxSideWidthCm: 14.0,
     maxSideHeightCm: 32.0,
     meshMultiplier: 69.5,
-    measuredMeshWidthUnits: 1.040,
-    sleeveAnchorX: 0.18,
-    outerSleeveX: 0.95,
+    // Bentang ternormalisasi A-pose 2.0584 × 0.2999 = 0.617 (dulu 1.040 T-pose).
+    // Height-based: angka ini dokumentasi, bukan pembagi meshMultiplier.
+    measuredMeshWidthUnits: 0.617,
+    sleeveAnchorX: 0.12,
+    outerSleeveX: 0.31,
     sleeveCenterY: -0.06,
     sleeveSlope: 0.55,
-    armShoulder: [-0.400, 0.240, -0.030],
-    armCuff: [-0.950, -0.240, 0.040],
+    armShoulder: [-0.120, 0.035, -0.020],
+    armCuff: [-0.300, -0.255, 0.030],
     armEulerLeft: [1.5708, -0.9076, 1.5708],
     armEulerRight: [-1.5708, 0.9076, -1.5708],
-    sideAnchorX: 0.22,
+    // Setengah hem baked 0.65078 × 0.2999 = 0.195/2 ≈ 0.098 + EPS proyektor.
+    sideAnchorX: 0.105,
     collarBaselineY: 0.155,
   },
   pants: {
@@ -308,7 +318,9 @@ export const REAL_WORLD_PRINT_LIMITS = {
  * - 0.120 → shorts (shorts.glb TERUKUR 12 Sep 2026: depth lokal
  *   0.23954/2 = 0.1198; muka depan world maxZ 0.11834 − centerZ −0.00143
  *   = 0.1198 — depan/belakang hampir simetris seperti pants).
- * - 0.176 → longsleeve (warisan, tak diganti) & 0.24 → shirt (warisan).
+ * - 0.176 → longsleeve (warisan, tak diganti).
+ * - 0.070 → shirt (TERUKUR 20 Sep 2026: hoodie Pieter Ferreira, half-depth pita
+ *   dada baked 0.46748/2 × 0.2999 = 0.0701 — ganti warisan 0.185/0.24).
  * Ukur ulang (bbox-Z dada/2 setelah center()) bila mesh GLB diganti.
  * JANGAN ubah tanpa ukur ulang — semua pemakai (renderer, gizmo, guide)
  * WAJIB import dari sini, bukan angka literal.
@@ -323,7 +335,7 @@ export const SURFACE_Z_PER_APPAREL: Record<string, number> = {
   longsleeve: 0.151,
   crewneck: 0.151,
   hoodie: 0.177,
-  shirt: 0.185,
+  shirt: 0.070,
   cap: 0.091,
   pants: 0.145,
   shorts: 0.145,
@@ -342,7 +354,9 @@ export function surfaceZForApparel(apparelType: string = "tshirt"): number {
 export const CROWN_Y_OFFSETS: Record<string, number> = {
   tshirt: -0.12,
   longsleeve: -0.12,
-  crewneck: -0.10,
+  // SWAP 20 Sep 2026: sweater Tristen — kerah di 0.160 =
+  // half-height 1.287769 × 0.1965 − 0.093 (dulu −0.10 untuk mesh lama).
+  crewneck: -0.093,
   shirt: -0.075,
   hoodie: 0,
   cap: -0.11,
@@ -579,14 +593,19 @@ export const APPAREL_SLEEVE_SPECS: Record<
     bow: 0.015,
   },
   longsleeve: {
+    // SWAP 20 Sep 2026: mesh = ex-sweater.glb. Cuff TERUKUR (dual-method:
+    // bin-slope −0.43 + band-avg −0.394 → −0.425; y −0.28/−0.297 → −0.285).
+    // Lengan lebih panjang → bow 0.025 → 0.035 (sepanjang hoodie).
     shoulder: { x: -0.180, y: 0.100, z: -0.019, nx: -0.80, ny: 0.61 },
-    cuff: { x: -0.317, y: -0.340, z: -0.017, nx: -1.00, ny: 0.07 },
+    cuff: { x: -0.425, y: -0.285, z: -0.017, nx: -1.00, ny: 0.07 },
     depth: 0.075,
-    bow: 0.025,
+    bow: 0.035,
   },
   crewneck: {
+    // SWAP 20 Sep 2026: mesh = sweater Tristen (CC-BY 4.0). Shoulder valid tetap
+    // (x 0.180 persis). Cuff TERUKUR: band-avg x 0.501 → tip −0.525, y −0.244 → −0.250.
     shoulder: { x: -0.180, y: 0.100, z: -0.015, nx: -0.81, ny: 0.59 },
-    cuff: { x: -0.440, y: -0.250, z: 0.030, nx: -0.84, ny: 0.53 },
+    cuff: { x: -0.525, y: -0.250, z: 0.030, nx: -0.84, ny: 0.53 },
     depth: 0.080,
     bow: 0.040,
   },
@@ -597,8 +616,12 @@ export const APPAREL_SLEEVE_SPECS: Record<
     bow: 0.035,
   },
   shirt: {
-    shoulder: { x: -0.188, y: 0.100, z: -0.040, nx: -0.63, ny: 0.78 },
-    cuff: { x: -0.520, y: -0.200, z: 0.040, nx: -0.87, ny: -0.40 },
+    // SWAP 20 Sep 2026: mesh = hoodie Pieter Ferreira (A-pose lengan menggantung,
+    // bukan T-pose). Shoulder/cuff TERUKUR di ruang ternormalisasi
+    // (scale 0.2999): shoulder x 0.118/y 0.008+bias → (−0.120, 0.035);
+    // cuff (0.286, −0.260) → (−0.300, −0.255). Normal + depth + bow dipertahankan.
+    shoulder: { x: -0.120, y: 0.035, z: -0.020, nx: -0.63, ny: 0.78 },
+    cuff: { x: -0.300, y: -0.255, z: 0.030, nx: -0.87, ny: -0.40 },
     depth: 0.085,
     bow: 0.040,
   },

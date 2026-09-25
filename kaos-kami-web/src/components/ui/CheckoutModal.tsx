@@ -40,6 +40,25 @@ import { fetchJson } from "@/lib/fetchJson";
 import { fetchServerPriceMap, formatIdr } from "@/lib/cartPriceRefresh";
 import { getMasterDataUrl, isHttpsMasterUrl } from "@/lib/imageEditPipeline";
 import { normalizePhoneId } from "@/lib/phone";
+import { getClosedQueueNotice } from "@/lib/shopHours";
+
+/** Notice antrean saat workshop tutup (09.00–21.00 WITA) — tak blokir checkout. */
+const ShopClosedNotice: React.FC = () => {
+  const [msg, setMsg] = useState<string | null>(null);
+  useEffect(() => {
+    try {
+      setMsg(getClosedQueueNotice(new Date()));
+    } catch {
+      setMsg(null);
+    }
+  }, []);
+  if (!msg) return null;
+  return (
+    <p className="text-center font-mono text-[10px] text-amber-400">
+      {msg}
+    </p>
+  );
+};
 
 interface CheckoutModalProps {
   isOpen: boolean;
@@ -89,9 +108,15 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
 
   const isCartCheckout = checkoutMode === "cart" && cartItems.length > 0;
 
-  // Session & Auth Gate
+  // Sesi akun pelanggan & modal autentikasi opsional
   const { data: session } = useSession();
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
+
+  useEffect(() => {
+    if (session?.user) {
+      setIsAuthModalOpen(false);
+    }
+  }, [session?.user]);
 
   const [quantity, setQuantity] = useState(1);
   const [useCustomSizeBreakdown, setUseCustomSizeBreakdown] = useState(false);
@@ -262,11 +287,15 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
     setIsSendingOtp(true);
     setOtpMsg(null);
     try {
-      const data = await fetchJson<{ success?: boolean; mock?: boolean; code?: string }>("/api/auth/send-otp", {
+      const data = await fetchJson<{ success?: boolean; mock?: boolean; code?: string; alreadyVerified?: boolean }>("/api/auth/send-otp", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ phoneNumber: norm }),
       });
+      if (data.alreadyVerified) {
+        setOtpMsg("✅ Nomor ini sudah terverifikasi permanen — langsung klik BAYAR tanpa kode.");
+        return;
+      }
       setOtpSent(true);
       setResendCooldown(60);
       const showMock = data.mock && data.code && process.env.NODE_ENV !== "production";
@@ -435,12 +464,6 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
     e.preventDefault();
     setErrorMessage(null);
 
-    // Wajib Login Gate
-    if (!session?.user) {
-      setIsAuthModalOpen(true);
-      return;
-    }
-
     const normPhone = normalizePhoneId(phoneNumber);
     if (normPhone) setPhoneNumber(normPhone);
 
@@ -484,7 +507,8 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
       Boolean(normPhone) &&
       cleanPhone(normPhone) === cleanPhone(sessionUser?.phoneNumber);
 
-    if (!isAccountPhoneVerified && !/^\d{6}$/.test(otpCode.trim())) {
+    const isSandboxBypass = process.env.NODE_ENV !== "production";
+    if (!isAccountPhoneVerified && !isSandboxBypass && !/^\d{6}$/.test(otpCode.trim())) {
       setErrorMessage("Kode OTP 6 digit wajib diisi. Klik KIRIM OTP untuk menerima kode via WhatsApp.");
       return;
     }
@@ -583,8 +607,8 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
       const payload = {
         recipientName,
         phoneNumber: normPhone,
-        email: email || session.user.email || undefined,
-        otpCode: isAccountPhoneVerified ? undefined : otpCode.trim(),
+        email: email || session?.user?.email || undefined,
+        otpCode: isAccountPhoneVerified || isSandboxBypass ? undefined : otpCode.trim(),
         deliveryMethod,
         turnaroundTier,
         district: deliveryMethod === "EXPEDITION_MANUAL" ? destQuery.trim() || undefined : deliveryMethod !== "PICKUP" ? district : undefined,
@@ -606,11 +630,22 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
         paymentUrl?: string;
         invoiceUrl?: string;
         orderNumber?: string;
+        status?: string;
+        message?: string;
       }>("/api/checkout", {
         method: "POST",
         headers: { "Content-Type": "application/json", "Idempotency-Key": newIdempotencyKey() },
         body: JSON.stringify(payload),
       }, 30000);
+
+      // ALUR REVIEW (owner Sep 2026): checkout = antre review, TANPA charge.
+      // Sukses = order DESIGN_REVIEW → kosongkan cart, arahkan ke dashboard
+      // (bayar hanya setelah admin ACC via tombol di sana).
+      if ((data as any)?.status === "DESIGN_REVIEW" || (!(data as any)?.paymentUrl && data.orderId)) {
+        if (isCartCheckout) clearCart();
+        window.location.href = "/dashboard/orders";
+        return;
+      }
 
       const clearCartOnConfirmed = () => {
         if (isCartCheckout) clearCart();
@@ -641,7 +676,8 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
           }
         }
 
-        clearCartOnConfirmed();
+        // A7: fallback samakan Pop — cart HANYA kosong setelah lunas (invoice
+        // ?status=success yg memicu clear di sana); pending/close = cart utuh.
         if (data.paymentUrl && !data.paymentUrl.includes("mock")) {
           window.location.href = data.paymentUrl;
         } else {
@@ -704,46 +740,44 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
         </div>
 
         {/* BODY CONTAINER */}
-        {!session?.user ? (
-          /* AUTH REQUIRED GATE */
-          <div className="p-8 sm:p-14 text-center flex flex-col items-center justify-center space-y-4 my-auto overflow-y-auto">
-            <div className="w-16 h-16 rounded-2xl bg-brand-accent/15 border border-brand-accent/30 text-brand-accent flex items-center justify-center shadow-[0_0_24px_rgba(230,81,0,0.25)]">
-              <User size={30} />
-            </div>
-            <div className="space-y-1.5 max-w-md">
-              <h3 className="font-display text-xl sm:text-2xl font-bold uppercase tracking-tight text-text-primary">
-                Login Diperlukan untuk Checkout
-              </h3>
-              <p className="font-sans text-xs sm:text-sm text-text-muted leading-relaxed">
-                Masuk atau daftar akun terlebih dahulu agar pesanan sablon otomatis tersimpan di portal akun Anda dan status produksi dapat dipantau langsung.
-              </p>
-            </div>
-            <button
-              type="button"
-              onClick={() => setIsAuthModalOpen(true)}
-              className="mt-2 px-8 py-3.5 rounded-xl bg-brand-accent text-canvas font-mono font-bold text-xs uppercase tracking-wider hover:brightness-110 active:scale-95 transition-all shadow-[0_0_20px_rgba(230,81,0,0.4)] flex items-center space-x-2 cursor-pointer"
-            >
-              <User size={15} />
-              <span>MASUK / DAFTAR AKUN</span>
-            </button>
-            <AuthModal isOpen={isAuthModalOpen} onClose={() => setIsAuthModalOpen(false)} />
-          </div>
-        ) : (
-          /* FULL 2-COLUMN CHECKOUT FORM */
-          <form
-            onSubmit={handleCheckoutSubmit}
-            className="flex-1 min-h-0 overflow-y-auto p-4 sm:p-6 lg:p-7 space-y-6 md:space-y-0 md:grid md:grid-cols-12 md:gap-7 scrollbar-thin scrollbar-thumb-white/10 hover:scrollbar-thumb-brand-accent/30"
-          >
-            {/* LEFT COLUMN: Data Pemesan, WhatsApp & Pengiriman (7 Cols) */}
-            <div className="md:col-span-7 space-y-5">
-              {errorMessage && (
-                <div className="p-3.5 rounded-xl bg-red-500/10 border border-red-500/30 text-red-400 text-xs flex items-center gap-2">
-                  <AlertCircle size={16} className="shrink-0" />
-                  <span>{errorMessage}</span>
-                </div>
-              )}
+        <form
+          onSubmit={handleCheckoutSubmit}
+          className="flex-1 min-h-0 overflow-y-auto p-4 sm:p-6 lg:p-7 space-y-6 md:space-y-0 md:grid md:grid-cols-12 md:gap-7 scrollbar-thin scrollbar-thumb-white/10 hover:scrollbar-thumb-brand-accent/30"
+        >
+          {/* LEFT COLUMN: Data Pemesan, WhatsApp & Pengiriman (7 Cols) */}
+          <div className="md:col-span-7 space-y-5">
+            {errorMessage && (
+              <div className="p-3.5 rounded-xl bg-red-500/10 border border-red-500/30 text-red-400 text-xs flex items-center gap-2">
+                <AlertCircle size={16} className="shrink-0" />
+                <span>{errorMessage}</span>
+              </div>
+            )}
 
-              {/* Connected User Account Banner */}
+            {/* Account Status Banner (Guest or Logged In) */}
+            {!session?.user ? (
+              <div className="p-3 rounded-xl bg-surface-elevated/70 border border-border-subtle flex items-center justify-between">
+                <div className="flex items-center space-x-2.5 min-w-0">
+                  <div className="w-8 h-8 rounded-full bg-brand-accent/20 border border-brand-accent/40 text-brand-accent flex items-center justify-center font-bold text-xs shrink-0">
+                    <User size={14} />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="font-mono text-xs font-bold text-text-primary">
+                      Checkout Cepat (Tamu)
+                    </p>
+                    <p className="font-mono text-[10px] text-text-muted">
+                      Bisa langsung pesan tanpa akun. Punya akun?
+                    </p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setIsAuthModalOpen(true)}
+                  className="shrink-0 px-3 py-1 rounded-lg text-[10px] font-mono font-bold bg-brand-accent/15 text-brand-accent border border-brand-accent/30 hover:bg-brand-accent hover:text-canvas transition-all"
+                >
+                  Masuk Akun
+                </button>
+              </div>
+            ) : (
               <div className="p-3 rounded-xl bg-surface-elevated/70 border border-border-subtle flex items-center justify-between">
                 <div className="flex items-center space-x-2.5 min-w-0">
                   <div className="w-8 h-8 rounded-full bg-brand-accent/20 border border-brand-accent/40 text-brand-accent flex items-center justify-center font-bold text-xs shrink-0">
@@ -763,6 +797,7 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
                   <span>Akun Terhubung</span>
                 </span>
               </div>
+            )}
 
               {/* Section 1: Customer Contact & WhatsApp OTP */}
               <div className="space-y-3">
@@ -1354,19 +1389,20 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
                     {isLoading ? (
                       <>
                         <Loader2 size={16} className="animate-spin" />
-                        <span>MEMPROSES PEMBAYARAN...</span>
+                        <span>MENGIRIM...</span>
                       </>
                     ) : (
                       <>
                         <CreditCard size={15} />
-                        <span>BAYAR VIA QRIS</span>
+                        <span>BAYAR SEKARANG (DUITKU)</span>
                         <ArrowRight size={14} />
                       </>
                     )}
                   </button>
+                  <ShopClosedNotice />
                   <p className="text-center font-mono text-[10px] text-text-muted flex items-center justify-center gap-1">
                     <Lock size={11} className="text-emerald-400" />
-                    <span>Pembayaran Instan & Aman via QRIS / Duitku</span>
+                    <span>Pembayaran resmi & aman didukung Sandbox Duitku Gateway (QRIS & VA)</span>
                   </p>
                 </div>
               </div>
@@ -1399,9 +1435,11 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
               </button>
             </div>
           </form>
-        )}
-      </div>
-    </div>,
-    document.body
-  );
-};
+
+          {/* Modal Autentikasi jika user memilih login */}
+          <AuthModal isOpen={isAuthModalOpen} onClose={() => setIsAuthModalOpen(false)} />
+        </div>
+      </div>,
+      document.body
+    );
+  };

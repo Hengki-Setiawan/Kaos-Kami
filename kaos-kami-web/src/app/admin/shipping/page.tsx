@@ -1,6 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
+import { DEFAULT_ZONE_ID } from "@/app/api/admin/zones/_shared";
 
 interface Zone {
   id: string;
@@ -24,6 +26,14 @@ interface Usage {
 
 const EMPTY = { city: "", province: "", courier: "", service: "REG", costIdr: 25000, etdLabel: "2-3 hari", sortOrder: 0 };
 
+// Pesan error dibedakan per status agar admin tahu aksi lanjutan.
+function statusMessage(status: number, fallback: string) {
+  if (status === 401) return "Sesi berakhir — muat ulang & login kembali.";
+  if (status === 403) return "Khusus admin — akun ini tak punya akses zona.";
+  if (status === 429) return "Terlalu sering — tunggu ±1 menit lalu coba lagi.";
+  return fallback;
+}
+
 export default function AdminShippingPage() {
   const [zones, setZones] = useState<Zone[]>([]);
   const [usage, setUsage] = useState<Usage | null>(null);
@@ -31,18 +41,19 @@ export default function AdminShippingPage() {
   const [loading, setLoading] = useState(true);
   const [msg, setMsg] = useState<string | null>(null);
   const [form, setForm] = useState(EMPTY);
-  // Edit inline per baris: { [id]: { costIdr, etdLabel } }
-  const [edits, setEdits] = useState<Record<string, { costIdr: number; etdLabel: string }>>({});
+  // Edit inline per baris: { [id]: { costIdr, etdLabel, sortOrder } }
+  const [edits, setEdits] = useState<Record<string, { costIdr: number; etdLabel: string; sortOrder: number }>>({});
+  const [askingDelete, setAskingDelete] = useState<Zone | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
     try {
       const [zr, ur] = await Promise.all([
-        fetch("/api/admin/zones").then((r) => r.json()),
+        fetch("/api/admin/zones").then(async (r) => ({ status: r.status, body: await r.json().catch(() => ({})) })),
         fetch("/api/admin/shipping/usage").then((r) => r.json()),
       ]);
-      if (Array.isArray(zr.zones)) setZones(zr.zones);
-      else setMsg(zr.error || "Gagal muat zona");
+      if (Array.isArray(zr.body.zones)) setZones(zr.body.zones);
+      else setMsg(statusMessage(zr.status, zr.body.error || "Gagal muat zona"));
       if (ur.configured) {
         setUsageConfigured(true);
         setUsage(ur.usage);
@@ -72,7 +83,7 @@ export default function AdminShippingPage() {
       clearTimeout(t);
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
-        setMsg(data.error || "Gagal simpan");
+        setMsg(statusMessage(res.status, data.error || "Gagal simpan"));
         return null;
       }
       return data;
@@ -84,7 +95,7 @@ export default function AdminShippingPage() {
 
   const handleAdd = async (e: React.FormEvent) => {
     e.preventDefault();
-    const data = await post("/api/admin/zones", "POST", { ...form, costIdr: Number(form.costIdr) });
+    const data = await post("/api/admin/zones", "POST", { ...form, costIdr: Number(form.costIdr), sortOrder: Number(form.sortOrder) || 0 });
     if (data?.zone) {
       setZones((z) => [...z, data.zone]);
       setForm(EMPTY);
@@ -98,6 +109,7 @@ export default function AdminShippingPage() {
     const data = await post(`/api/admin/zones/${zone.id}`, "PATCH", {
       costIdr: Number(ed.costIdr),
       etdLabel: ed.etdLabel,
+      sortOrder: Math.max(0, Math.min(9999, Number(ed.sortOrder) || 0)),
     });
     if (data?.zone) {
       setZones((zs) => zs.map((z) => (z.id === zone.id ? data.zone : z)));
@@ -116,9 +128,9 @@ export default function AdminShippingPage() {
   };
 
   const handleDelete = async (zone: Zone) => {
-    if (!confirm(`Hapus zona ${zone.city} – ${zone.courier} ${zone.service}?`)) return;
     const data = await post(`/api/admin/zones/${zone.id}`, "DELETE");
     if (data?.ok) setZones((zs) => zs.filter((z) => z.id !== zone.id));
+    setAskingDelete(null);
   };
 
   const pct = usage && usage.limit > 0 ? Math.round((usage.used / usage.limit) * 100) : 0;
@@ -172,7 +184,8 @@ export default function AdminShippingPage() {
         <input value={form.service} onChange={(e) => setForm({ ...form, service: e.target.value })} placeholder="Layanan (REG) *" required aria-label="Layanan kurir" className="px-2 py-2 rounded-lg bg-surface border border-border-subtle text-text-primary placeholder:text-text-muted" />
         <input type="number" value={form.costIdr} onChange={(e) => setForm({ ...form, costIdr: Number(e.target.value) })} placeholder="Ongkir Rp *" required min={0} aria-label="Ongkir rupiah" className="px-2 py-2 rounded-lg bg-surface border border-border-subtle text-text-primary placeholder:text-text-muted" />
         <input value={form.etdLabel} onChange={(e) => setForm({ ...form, etdLabel: e.target.value })} placeholder="Estimasi (2-3 hari) *" required aria-label="Estimasi tiba" className="px-2 py-2 rounded-lg bg-surface border border-border-subtle text-text-primary placeholder:text-text-muted" />
-        <button type="submit" className="col-span-2 sm:col-span-2 px-3 py-2 rounded-lg bg-brand-accent text-canvas font-bold">
+        <input type="number" value={form.sortOrder} onChange={(e) => setForm({ ...form, sortOrder: Number(e.target.value) })} placeholder="Urutan (0)" min={0} max={9999} aria-label="Urutan tampil" title="Urutan tampil (kecil = atas)" className="px-2 py-2 rounded-lg bg-surface border border-border-subtle text-text-primary placeholder:text-text-muted" />
+        <button type="submit" className="col-span-2 sm:col-span-1 px-3 py-2 rounded-lg bg-brand-accent text-canvas font-bold">
           + TAMBAH ZONA
         </button>
       </form>
@@ -187,6 +200,7 @@ export default function AdminShippingPage() {
                 <th className="p-2">Kurir</th>
                 <th className="p-2">Ongkir</th>
                 <th className="p-2">Estimasi</th>
+                <th className="p-2">Urutan</th>
                 <th className="p-2">Aktif</th>
                 <th className="p-2">Aksi</th>
               </tr>
@@ -194,14 +208,14 @@ export default function AdminShippingPage() {
             <tbody className="divide-y divide-border-subtle">
               {loading && (
                 <tr>
-                  <td colSpan={6} className="p-4 text-text-muted">
+                  <td colSpan={7} className="p-4 text-text-muted">
                     Memuat...
                   </td>
                 </tr>
               )}
               {zones.map((z) => {
                 const ed = edits[z.id];
-                const isDefault = z.id === "zone_default_lainnya";
+                const isDefault = z.id === DEFAULT_ZONE_ID;
                 return (
                   <tr key={z.id} className={!z.isActive ? "opacity-50" : ""}>
                     <td className="p-2 text-text-primary">
@@ -241,6 +255,23 @@ export default function AdminShippingPage() {
                       )}
                     </td>
                     <td className="p-2">
+                      {ed ? (
+                        <input
+                          type="number"
+                          value={ed.sortOrder}
+                          min={0}
+                          max={9999}
+                          aria-label={`Urutan ${z.city} ${z.courier}`}
+                          onChange={(e) =>
+                            setEdits({ ...edits, [z.id]: { ...ed, sortOrder: Number(e.target.value) } })
+                          }
+                          className="w-16 px-1 py-1 rounded bg-surface border border-border-subtle text-text-primary"
+                        />
+                      ) : (
+                        <span className="text-text-muted">{z.sortOrder ?? 0}</span>
+                      )}
+                    </td>
+                    <td className="p-2">
                       <button
                         onClick={() => handleToggle(z)}
                         disabled={isDefault}
@@ -256,14 +287,14 @@ export default function AdminShippingPage() {
                         </button>
                       ) : (
                         <button
-                          onClick={() => setEdits({ ...edits, [z.id]: { costIdr: z.costIdr, etdLabel: z.etdLabel } })}
+                          onClick={() => setEdits({ ...edits, [z.id]: { costIdr: z.costIdr, etdLabel: z.etdLabel, sortOrder: z.sortOrder ?? 0 } })}
                           className="px-2 py-1 rounded bg-black/5 dark:bg-white/10 text-text-primary text-[10px]"
                         >
                           EDIT
                         </button>
                       )}
                       {!isDefault && (
-                        <button onClick={() => handleDelete(z)} className="px-2 py-1 rounded bg-rose-500/20 text-rose-700 dark:text-rose-300 text-[10px]">
+                        <button onClick={() => setAskingDelete(z)} className="px-2 py-1 rounded bg-rose-500/20 text-rose-700 dark:text-rose-300 text-[10px]">
                           HAPUS
                         </button>
                       )}
@@ -275,6 +306,16 @@ export default function AdminShippingPage() {
           </table>
         </div>
       </div>
+
+      <ConfirmDialog
+        open={askingDelete !== null}
+        title="Hapus zona?"
+        message={askingDelete ? `Hapus zona ${askingDelete.city} – ${askingDelete.courier} ${askingDelete.service}? Tarif fallback ikut hilang untuk rute ini.` : ""}
+        confirmLabel="YA, HAPUS"
+        danger
+        onConfirm={() => askingDelete && void handleDelete(askingDelete)}
+        onCancel={() => setAskingDelete(null)}
+      />
     </div>
   );
 }

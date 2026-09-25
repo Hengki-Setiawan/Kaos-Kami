@@ -24,14 +24,18 @@ interface RateLimitRecord {
 
 const rateLimitStore = new Map<string, RateLimitRecord>();
 
-// Cleanup stale entries every 10 minutes to prevent memory leak.
-// Prune memakai windowMs TERPANJANG per key (audit: janitor 600000 tetap
-// menghapus histori window 3600s = kuota ~6x untuk repay/order).
+// Cleanup stale entries — memakai windowMs PER-ENTRY (bukan angka tetap):
+// entri diprune tepat saat keluar dari window-nya sendiri. Entri tanpa
+// windowMs tercatat (tak seharusnya terjadi) fallback 10 mnt agar tak bocor
+// memori. Over-retain (keep > window) aman untuk correctness karena
+// checkRateLimit selalu memfilter ulang sesuai window, tapi boros memori —
+// jadi janitor memakai window persis per key.
+
 if (typeof setInterval !== "undefined") {
   setInterval(() => {
     const now = Date.now();
     for (const [key, record] of rateLimitStore.entries()) {
-      const keep = Math.max(600000, record.windowMs || 0);
+      const keep = record.windowMs > 0 ? record.windowMs : 600000;
       record.timestamps = record.timestamps.filter((ts) => now - ts < keep);
       if (record.timestamps.length === 0) {
         rateLimitStore.delete(key);
@@ -93,7 +97,19 @@ export function checkRateLimit(
 }
 
 /**
- * Helper to extract client IP from NextRequest
+ * Helper to extract client IP from NextRequest.
+ *
+ * PERINGATAN XFF SPOOF (riset Sep 2026 — logika SENGAJA tak diubah):
+ * `x-forwarded-for` / `x-real-ip` adalah header yang bisa dipalsukan client
+ * bila request langsung ke origin tanpa melewati proxy tepercaya. Urutan di
+ * bawah memprioritaskan `cf-connecting-ip` (ditulis Cloudflare, otoritatif
+ * saat traffic lewat Cloudflare) dan hanya memakai XFF sebagai fallback.
+ * Karena itu key limiter berbasis IP TIDAK boleh jadi satu-satunya tameng
+ * untuk rute sensitif terautentikasi — rute yang sudah disentuh hardening
+ * memakai key `userId` (kuota upload, dsb.) di samping limiter IP awal.
+ * Fail-closed global (menolak semua request saat KV down) SENGAJA tidak
+ * diterapkan — risiko outage lebih besar dari manfaatnya; lihat rekomendasi
+ * di checkRateLimitAsync.
  */
 export function getClientIp(req: Request): string {
   const headers = req.headers;
@@ -173,6 +189,13 @@ function getRateLimitKV(): KVLike | null {
 /**
  * Versi async hybrid: memory sliding-window + KV fixed-window (jika binding ada).
  * Selalu fail-OPEN saat KV error agar API tidak down karena infra limiter.
+ *
+ * REKOMENDASI (dicatat, tidak diterapkan global — Sep 2026): untuk rute
+ * auth-sensitif (OTP, reset password) pertimbangkan fail-CLOSED per-rute —
+ * mis. bila KV tak tersedia DAN hasil memory sudah isLimited, tetap tolak —
+ * karena fail-open memberi penyerang jendela bypass saat KV down. Jangan
+ * jadikan fail-closed default global: satu insiden KV akan menjadi outage
+ * seluruh API. Keputusan per-rute ada di pemilik rute masing-masing.
  */
 export async function checkRateLimitAsync(
   key: string,

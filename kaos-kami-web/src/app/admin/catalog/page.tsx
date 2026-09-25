@@ -1,5 +1,6 @@
 import React from "react";
 import Link from "next/link";
+import { unstable_cache } from "next/cache";
 import { count } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { ProductVariant } from "@/lib/drizzle-schema";
@@ -10,6 +11,15 @@ export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
 const PER_PAGE = 20;
+
+// Agregasi count per kategori di-cache 60 detik: groupBy memindai seluruh
+// varian tiap request — cukup segar per menit untuk halaman admin.
+const getVariantCounts = unstable_cache(
+  async () =>
+    db.select({ categoryId: ProductVariant.categoryId, n: count() }).from(ProductVariant).groupBy(ProductVariant.categoryId),
+  ["admin-catalog-variant-counts"],
+  { revalidate: 60 }
+);
 
 const idr = (v: number | null | undefined) =>
   v == null ? "—" : `Rp ${Number(v).toLocaleString("id-ID")}`;
@@ -36,10 +46,7 @@ export default async function AdminCatalogPage({
     orderBy: (t, { desc }) => desc(t.createdAt),
     with: { category: true },
   });
-  const variantCounts = await db
-    .select({ categoryId: ProductVariant.categoryId, n: count() })
-    .from(ProductVariant)
-    .groupBy(ProductVariant.categoryId);
+  const variantCounts = await getVariantCounts();
   const countMap = new Map(variantCounts.map((r) => [r.categoryId, r.n]));
   const categoriesWithCounts = categories.map((c: any) => ({
     ...c,

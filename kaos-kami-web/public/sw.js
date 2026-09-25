@@ -1,18 +1,14 @@
-const CACHE_NAME = "kaos-kami-cache-v10";
+const CACHE_NAME = "kaos-kami-cache-v11";
 
 // Precache ONLY immutable 3D models and runtime assets (NEVER HTML pages!)
+// F1-fix 21 Sep 2026: 7 varian mannequin-* FIKTIF dihapus (tak ada di disk /
+// tak direferensikan kode mana pun — cache.addAll gagal ATOMIK bila 1 404).
+// Hanya file yg TERBUKTI ada di public/ yg masuk daftar.
 const STATIC_ASSETS = [
   "/manifest.json",
   "/favicon.ico",
   "/models/mannequin.glb",
-  "/models/mannequin-tee.glb",
-  "/models/mannequin-hoodie.glb",
-  "/models/mannequin-longsleeve.glb",
-  "/models/mannequin-sweater.glb",
   "/models/mannequin-pants.glb",
-  "/models/mannequin-shorts.glb",
-  "/models/mannequin-cap.glb",
-  "/models/mannequin-jacket.glb",
   "/models/tee-basic.glb",
   "/models/tshirt-heavyweight.glb",
   "/models/longsleeve.glb",
@@ -26,11 +22,13 @@ const STATIC_ASSETS = [
   "/textures/cotton-jersey-rough_512.jpg",
 ];
 
-// Install event: cache 3D assets only
+// Install event: cache 3D assets only (per-file, 1 gagal tak gugurkan lain).
 self.addEventListener("install", (event) => {
   event.waitUntil(
     caches.open(CACHE_NAME).then((cache) => {
-      return cache.addAll(STATIC_ASSETS);
+      return Promise.all(
+        STATIC_ASSETS.map((url) => cache.add(url).catch(() => null))
+      );
     })
   );
   self.skipWaiting();

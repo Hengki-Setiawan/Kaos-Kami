@@ -121,5 +121,34 @@ describe("Gizmo and 360 Orbit Interaction Verification", () => {
     expect(none.stretchY).toBe(1.0);
     expect(none.stretchZ).toBe(1.0);
   });
+
+  it("verifies stretch SSOT labels (U_MAX_ELONG / recoveryEstimate / elongationPercent)", async () => {
+    // Bukti P0: telemetri TestLabControls wajib ambil dari SSOT stretchPhysics
+    // (horizontal 30% / vertical 18% / biaxial 20%, recovery 96 - 14*intensity).
+    const {
+      U_MAX_ELONG,
+      POISSON_EFF,
+      recoveryEstimate,
+      elongationPercent,
+    } = await import("./3d/stretchPhysics");
+
+    expect(U_MAX_ELONG.horizontal).toBe(0.3);
+    expect(U_MAX_ELONG.vertical).toBe(0.18);
+    expect(U_MAX_ELONG.biaxial).toBe(0.2);
+    expect(POISSON_EFF).toBe(0.4);
+
+    expect(recoveryEstimate(0)).toBeCloseTo(96, 4);
+    expect(recoveryEstimate(0.5)).toBeCloseTo(89, 4);
+    expect(recoveryEstimate(1)).toBeCloseTo(82, 4);
+    // Clamp di luar 0–1 agar slider liar tidak merusak label
+    expect(recoveryEstimate(-1)).toBeCloseTo(96, 4);
+    expect(recoveryEstimate(2)).toBeCloseTo(82, 4);
+
+    expect(elongationPercent("horizontal", 1)).toBeCloseTo(30, 4);
+    expect(elongationPercent("vertical", 1)).toBeCloseTo(18, 4);
+    expect(elongationPercent("biaxial", 1)).toBeCloseTo(20, 4);
+    expect(elongationPercent("horizontal", 0.5)).toBeCloseTo(15, 4);
+    expect(elongationPercent("vertical", 0)).toBeCloseTo(0, 4);
+  });
 });
 

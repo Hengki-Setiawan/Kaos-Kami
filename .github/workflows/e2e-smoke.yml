@@ -1,0 +1,44 @@
+name: E2E Smoke (per-PR)
+
+# R4 smoke per-PR — DRAF (belum proof-hijau; butuh push = blokir).
+# Acuan: Blueprint/e2e/E2E-MASTER-PLAN.md Bab 8 R4.1.
+# Scope: vitest + Playwright api + c-01-golden + S-033-044 + K-001, 1 shard.
+# TIDAK menyentuh workflow existing (ci.yml).
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      TURSO_CI_URL: ${{ secrets.TURSO_CI_URL }}
+      TURSO_CI_TOKEN: ${{ secrets.TURSO_CI_TOKEN }}
+      DUITKU_SBX_MERCHANT_CODE: ${{ secrets.DUITKU_SBX_MERCHANT_CODE }}
+      DUITKU_SBX_API_KEY: ${{ secrets.DUITKU_SBX_API_KEY }}
+      DUITKU_ENV: sandbox
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - name: Unit (vitest)
+        run: npm run test --workspace=kaos-kami-web
+      - name: Playwright api project
+        run: npx playwright test --project=api
+      - name: Smoke chain + guards (c-01, S-033-044, K-001)
+        run: npx playwright test c-01-golden webhookGuards health --project=api
+      - name: Upload artefak smoke
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-smoke-${{ github.sha }}
+          path: |
+            playwright-report/
+            test-results/

@@ -1,0 +1,74 @@
+{
+  "_note": "SSOT paritas mobile — SNAPSHOT angka web (bukan sumber kebenaran). Sumber kebenaran = scaleCalibration.ts, shipping/deliveryOptions.ts, assetManifest.ts. Test mobileParity.test.ts gagal bila file ini drift dari kode. Sinkron manual ke mobile lihat _syncGuide.",
+  "_version": "2026-09-21",
+  "surfaceZ": {
+    "tshirt": 0.151,
+    "longsleeve": 0.151,
+    "crewneck": 0.151,
+    "hoodie": 0.177,
+    "shirt": 0.07,
+    "cap": 0.091,
+    "pants": 0.145,
+    "shorts": 0.145,
+    "_fallbackUnknownApparel": 0.176
+  },
+  "unitsToCm": {
+    "tshirt": 145.5,
+    "longsleeve": 145.5,
+    "crewneck": 163.7,
+    "hoodie": 105.6,
+    "shirt": 69.5,
+    "cap": 100.0,
+    "pants": 103.7,
+    "shorts": 131.9
+  },
+  "maxWidthCm": {
+    "_globalPrintheadMax": 30.0,
+    "_globalMaxHeight": 42.0,
+    "_minDecalScaleUnits": 0.04,
+    "tshirt": { "front": 30.0, "back": 30.0, "sleeve": 8.5 },
+    "longsleeve": { "front": 30.0, "back": 30.0, "sleeve": 9.0 },
+    "crewneck": { "front": 30.0, "back": 30.0, "sleeve": 9.0 },
+    "hoodie": { "front": 28.0, "back": 30.0, "sleeve": 9.0 },
+    "shirt": { "front": 28.0, "back": 30.0, "sleeve": 8.5 },
+    "cap": { "front": 10.0, "back": 8.0, "sleeve": 0 },
+    "pants": { "front": 25.0, "back": 25.0, "sleeve": 0 },
+    "shorts": { "front": 22.0, "back": 22.0, "sleeve": 0 }
+  },
+  "makassarSubdistricts": [
+    "Tamalanrea",
+    "Biringkanaya",
+    "Panakkukang",
+    "Rappocini",
+    "Makassar",
+    "Manggala",
+    "Mariso",
+    "Mamajang",
+    "Ujung Pandang",
+    "Wajo",
+    "Bontoala",
+    "Tallo",
+    "Tamalate",
+    "Kepulauan Sangkarrang"
+  ],
+  "models": {
+    "tshirt": { "file": "tee-basic.glb", "bytes": 1315068, "tris": 7202, "manifest": "STAGED_FILES" },
+    "hoodie": { "file": "hoodie-blue.glb", "bytes": 3004384, "tris": 13802, "manifest": "STAGED_FILES" },
+    "longsleeve": { "file": "longsleeve.glb", "bytes": 1204412, "tris": 20861, "manifest": "ACTIVE_FILES" },
+    "crewneck": { "file": "sweater.glb", "bytes": 2626444, "tris": 7424, "manifest": "STAGED_FILES" },
+    "sweater": { "file": "sweater.glb", "bytes": 2626444, "tris": 7424, "manifest": "STAGED_FILES", "_alias": "crewneck" },
+    "shirt": { "file": "jacket.glb", "bytes": 27956, "tris": 6392, "manifest": "ACTIVE_FILES" },
+    "cap": { "file": "cap.glb", "bytes": 2982976, "tris": 93200, "manifest": "STAGED_FILES" },
+    "pants": { "file": "pants.glb", "bytes": null, "tris": null, "manifest": null, "_note": "Belum masuk assetManifest (menunggu owner) — byte/tris jujur null, bukan 0." },
+    "shorts": { "file": "shorts.glb", "bytes": null, "tris": null, "manifest": null, "_note": "Belum masuk assetManifest (menunggu owner) — byte/tris jujur null, bukan 0." }
+  },
+  "_syncGuide": {
+    "prinsip": "TIDAK ada import cross-workspace (web alias @/ + deps R3F mobile tak resolvable satu sama lain). Selalu salin manual + jalankan npm test di kaos-kami-web.",
+    "surfaceZ": "kaos-kami-mobile/src/components/3d/DecalGizmoMobile.tsx → MOBILE_SURFACE_Z (sweater ikut crewneck)",
+    "unitsToCm": "kaos-kami-mobile/src/store/useMobileStudioStore.ts → MOBILE_UNITS_TO_CM",
+    "maxWidth": "kaos-kami-mobile/src/store/useMobileStudioStore.ts → MOBILE_MAX_WIDTH_CM (front saja; hoodie/shirt 28 khusus)",
+    "kecamatan": "kaos-kami-mobile/src/lib/shipping/deliveryOptionsMobile.ts → MAKASSAR_SUBDISTRICTS",
+    "model": "kaos-kami-mobile/src/components/3d/MobileApparelMeshRenderer.tsx → MOBILE_MODEL_CANDIDATES (primer = file di atas)",
+    "diketahuiDrift": "mobile cap unitsToCm 50.0 vs SSOT 100.0 & maxWidth 12 vs SSOT 10 (ASUMSI+TODO lama di mobile) — samakan manual bila web sudah final"
+  }
+}

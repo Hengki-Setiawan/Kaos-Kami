@@ -2,8 +2,13 @@
 
 import React, { useState } from "react";
 import { useRouter } from "next/navigation";
+import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 
-/** Kelola varian: stok +/-, harga, aktif/nonaktif (admin only). */
+// Batas harga selaras API (POST = PATCH): floor Rp 1.000, cap Rp 100 jt.
+const PRICE_FLOOR_IDR = 1000;
+const PRICE_CAP_IDR = 100_000_000;
+
+/** Kelola varian: stok +/- (delta server-side), harga, aktif/nonaktif, hapus (soft-off). */
 export function VariantRowActions({
   id,
   stockQty,
@@ -19,6 +24,7 @@ export function VariantRowActions({
   const [busy, setBusy] = useState(false);
   const [price, setPrice] = useState(String(priceIdr));
   const [msg, setMsg] = useState<string | null>(null);
+  const [askingDelete, setAskingDelete] = useState(false);
 
   const patch = async (body: object) => {
     if (busy) return;
@@ -46,31 +52,51 @@ export function VariantRowActions({
     }
   };
 
+  const remove = async () => {
+    if (busy) return;
+    setBusy(true);
+    setMsg(null);
+    try {
+      const res = await fetch(`/api/admin/catalog?id=${encodeURIComponent(id)}`, { method: "DELETE" });
+      const data = await res.json().catch(() => null);
+      if (!res.ok || !data || (data as any).error) throw new Error((data as any)?.error || "Gagal hapus");
+      router.refresh();
+    } catch (e: any) {
+      setMsg(e?.message || "Gagal hapus");
+    } finally {
+      setBusy(false);
+      setAskingDelete(false);
+    }
+  };
+
   const commitPrice = () => {
-    const n = Number(price);
-    if (!n || n <= 0) {
+    // Clamp client selaras API: floor 1.000, cap 100 jt.
+    const n = Math.max(0, Math.min(PRICE_CAP_IDR, Number(price) || 0));
+    if (n < PRICE_FLOOR_IDR) {
+      setMsg(`Harga minimal Rp ${PRICE_FLOOR_IDR.toLocaleString("id-ID")}`);
       setPrice(String(priceIdr));
       return;
     }
     if (n !== priceIdr) void patch({ priceIdr: n });
+    else if (String(n) !== price) setPrice(String(priceIdr));
   };
 
   return (
     <div className="flex items-center gap-2 flex-wrap justify-end">
       <div className="flex items-center gap-1">
         <button
-          onClick={() => void patch({ stockQty: Math.max(0, stockQty - 1) })}
+          onClick={() => void patch({ delta: -1 })}
           disabled={busy}
-          className="w-7 h-7 rounded-lg bg-surface border border-white/10 text-white font-bold disabled:opacity-50"
+          className="w-7 h-7 rounded-lg bg-surface border border-border-subtle text-text-primary font-bold disabled:opacity-50"
           aria-label="Kurangi stok"
         >
           −
         </button>
         <span className="min-w-[3rem] text-center text-brand-accent font-bold">{stockQty} pcs</span>
         <button
-          onClick={() => void patch({ stockQty: stockQty + 1 })}
+          onClick={() => void patch({ delta: 1 })}
           disabled={busy}
-          className="w-7 h-7 rounded-lg bg-surface border border-white/10 text-white font-bold disabled:opacity-50"
+          className="w-7 h-7 rounded-lg bg-surface border border-border-subtle text-text-primary font-bold disabled:opacity-50"
           aria-label="Tambah stok"
         >
           +
@@ -87,7 +113,7 @@ export function VariantRowActions({
             if (e.key === "Escape") setPrice(String(priceIdr));
           }}
           inputMode="numeric"
-          className="w-24 px-2 py-1 rounded-lg bg-surface border border-white/10 text-white text-right"
+          className="w-24 px-2 py-1 rounded-lg bg-surface border border-border-subtle text-text-primary text-right"
           aria-label="Harga, Enter untuk simpan"
         />
       </div>
@@ -97,12 +123,30 @@ export function VariantRowActions({
         className={`px-2.5 py-1 rounded-lg text-[11px] font-bold border disabled:opacity-50 ${
           isActive
             ? "bg-emerald-500/10 border-emerald-500/40 text-emerald-300"
-            : "bg-surface border-white/10 text-text-muted"
+            : "bg-surface border-border-subtle text-text-muted"
         }`}
       >
         {isActive ? "AKTIF" : "MATI"}
       </button>
+      <button
+        onClick={() => setAskingDelete(true)}
+        disabled={busy}
+        className="px-2.5 py-1 rounded-lg text-[11px] font-bold border border-red-500/40 bg-red-500/10 text-red-300 disabled:opacity-50"
+        aria-label="Hapus produk dari katalog"
+      >
+        HAPUS
+      </button>
       {msg && <span className="text-[11px] text-amber-300 w-full text-right">{msg}</span>}
+      <ConfirmDialog
+        open={askingDelete}
+        title="Hapus produk?"
+        message="Produk dinonaktifkan dari katalog (soft-off) dan hilang dari etalase. Data order lama tidak terpengaruh."
+        confirmLabel="YA, HAPUS"
+        danger
+        busy={busy}
+        onConfirm={() => void remove()}
+        onCancel={() => setAskingDelete(false)}
+      />
     </div>
   );
 }

@@ -8,11 +8,17 @@ import fs from "fs";
 import path from "path";
 
 const BASE = "http://localhost:3000";
-const TURSO_URL = "libsql://kaos-kami-hengki164.aws-ap-northeast-1.turso.io";
-const TURSO_AUTH_TOKEN = "eyJhbGciOiJFZERTQSIsInR5cCI6IkpXVCJ9.eyJhIjoicnciLCJpYXQiOjE3ODgxNDg0MDEsImlkIjoiMDFhMDU1ZjItMjcwMS03NGM2LTliMGUtMzg2ODhlN2UwYTE2Iiwia2lkIjoiVHcwS3NHSzQwZXl5MFVad3JDTV9XcUg4VzJaVHlTWlY0cVJaNzIycUxHWSIsInJpZCI6ImQ3ZTNiMjkzLTkzNjktNDE1Ny04MjM3LWI0MjFjNmNmODJhYyJ9.FZo5YdVyvFPNyOo0eNRSpsGaHmxxfsULaEQhvm61pL7qhQzEeCuBFGhdzjdYcSEg4bHnMRkufnmhC4FqgxzFAQ";
-const BETTER_AUTH_SECRET = "kaos-kami-secret-dev-2026-key-32-chars-minimum-security-better-auth";
-const DUITKU_MERCHANT_CODE = "DS28521";
-const DUITKU_API_KEY = "ea279c7a1381333794d265d70b55693a";
+// Secret WAJIB via env (JANGAN hardcode — insiden Sep 2026, nilai lama bocor di git).
+function requireEnv(name) {
+  const v = process.env[name];
+  if (!v) throw new Error("E2E butuh env " + name + " (isi dari kaos-kami-web/.env.local, JANGAN commit)");
+  return v;
+}
+const TURSO_URL = requireEnv("TURSO_DATABASE_URL");
+const TURSO_AUTH_TOKEN = requireEnv("TURSO_AUTH_TOKEN");
+const BETTER_AUTH_SECRET = requireEnv("BETTER_AUTH_SECRET");
+const DUITKU_MERCHANT_CODE = requireEnv("DUITKU_MERCHANT_CODE");
+const DUITKU_API_KEY = requireEnv("DUITKU_API_KEY");
 
 const BLUEPRINT_DIR = path.resolve("..", "Blueprint", "hasil-pengujian-e2e");
 const ORDERS_DIR = path.join(BLUEPRINT_DIR, "orders-invoices");

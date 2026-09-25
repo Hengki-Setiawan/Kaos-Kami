@@ -3,6 +3,7 @@ import {
   classifyPrintTierByCm,
   classifyPrintTierByScale,
   printTierCost,
+  PRINT_TIER_LABEL,
 } from "@/lib/printTiers";
 import { maxDecalScaleUnits } from "@/lib/scaleCalibration";
 
@@ -36,6 +37,32 @@ describe("printTiers SSOT", () => {
     // tshirt 30/145.5 ≈ 0.2062; hoodie 28/105.6 ≈ 0.2652
     expect(maxDecalScaleUnits("tshirt", "front")).toBeCloseTo(30 / 145.5, 4);
     expect(maxDecalScaleUnits("hoodie", "front")).toBeCloseTo(28 / 105.6, 4);
-    expect(maxDecalScaleUnits("shirt", "front")).toBeCloseTo(14 / 69.5, 4);
+    // SWAP 20 Sep 2026: shirt = pullover tanpa resleting → depan full 28 (dulu 14 split).
+    expect(maxDecalScaleUnits("shirt", "front")).toBeCloseTo(28 / 69.5, 4);
+  });
+});
+
+describe("printTiers batas R5", () => {
+  it("di atas 30cm tetap A3 (clamp hilir, bukan dead-code)", () => {
+    expect(classifyPrintTierByCm(30.1)).toBe("A3");
+    expect(classifyPrintTierByCm(35)).toBe("A3");
+    expect(classifyPrintTierByCm(100)).toBe("A3");
+  });
+  it("nol/negatif -> A6; batas presisi 10.01/25.01", () => {
+    expect(classifyPrintTierByCm(0)).toBe("A6");
+    expect(classifyPrintTierByCm(-5)).toBe("A6");
+    expect(classifyPrintTierByCm(10.01)).toBe("A5");
+    expect(classifyPrintTierByCm(25.01)).toBe("A3");
+  });
+  it("apparel asing fallback tshirt; hoodie konsisten by-cm", () => {
+    expect(classifyPrintTierByScale(0.11, "topi-asing")).toBe(classifyPrintTierByScale(0.11, "tshirt"));
+    expect(classifyPrintTierByScale(0.2, "hoodie")).toBe(classifyPrintTierByCm(0.2 * 105.6));
+  });
+  it("label tier Bahasa Indonesia", () => {
+    expect(PRINT_TIER_LABEL).toEqual({ A6: "A6 Pocket", A5: "A5 Sedang", A4: "A4 Chest", A3: "A3 Big Print" });
+  });
+  it("by-scale nol/negatif -> A6", () => {
+    expect(classifyPrintTierByScale(0, "tshirt")).toBe("A6");
+    expect(classifyPrintTierByScale(-0.1, "tshirt")).toBe("A6");
   });
 });

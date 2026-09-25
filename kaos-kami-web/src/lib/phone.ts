@@ -14,6 +14,20 @@
  * - "8…" tanpa prefix → "0…" (kebiasaan user memotong 0 depan).
  * - Non-string / kosong → "" (validasi hilir yang menolak jujur).
  */
+/**
+ * Bentuk kanonis untuk kunci OTP / owner-match / lookup DB: digit + prefix 62.
+ * "0812…", "62812…", "+62812…" → "62812…". I3: SEMUA jalur OTP wajib pakai ini
+ * agar format yg diketik tak memecah kunci maupun pencocokan pemilik.
+ */
+export function canonicalPhone(raw: unknown): string {
+  const digits = typeof raw === "string" ? raw.replace(/[^0-9]/g, "") : "";
+  if (!digits) return "";
+  if (digits.startsWith("0")) return `62${digits.slice(1)}`;
+  if (digits.startsWith("62")) return digits;
+  if (digits.startsWith("8")) return `62${digits}`;
+  return digits;
+}
+
 export function normalizePhoneId(raw: unknown): string {
   if (typeof raw !== "string") return "";
   const trimmed = raw.trim();

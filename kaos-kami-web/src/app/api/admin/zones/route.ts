@@ -6,6 +6,7 @@ import { db } from "@/lib/db";
 import { ExpeditionZone } from "@/lib/drizzle-schema";
 import { headers } from "next/headers";
 import { checkRateLimitAsync, getClientIp, rateLimitHeaders } from "@/lib/security/rateLimiter";
+// Zona default fallback: lihat DEFAULT_ZONE_ID di ./_shared (dijaga di [id]/route.ts + UI).
 
 async function requireAdmin(req: NextRequest) {
   const rl = await checkRateLimitAsync(`admin-zone:ip:${getClientIp(req)}`, 30, 60);
@@ -20,7 +21,9 @@ async function requireAdmin(req: NextRequest) {
     if (!["ADMIN", "SUPER_ADMIN"].includes(role)) {
       return { error: NextResponse.json({ error: "Forbidden: khusus admin" }, { status: 403 }) };
     }
-  } catch {
+  } catch (e) {
+    // Lihat [id]/route.ts: jangan telan sebab asli (transient DB ≠ sesi mati).
+    console.warn("[zones] requireAdmin session-check gagal:", e instanceof Error ? e.message : e);
     return { error: NextResponse.json({ error: "Unauthorized" }, { status: 401 }) };
   }
   return {};
@@ -58,9 +61,11 @@ export async function POST(req: NextRequest) {
     const [row] = await db.insert(ExpeditionZone).values({ id: nanoid(), ...parsed.data }).returning();
     return NextResponse.json({ zone: row }, { status: 201 });
   } catch (e: any) {
+    // Selalu JSON (bukan 500 mentah): bedakan konflik duplikat vs gagal simpan.
     if (String(e?.message || "").includes("UNIQUE")) {
       return NextResponse.json({ error: "Zona kota+kurir+layanan ini sudah ada" }, { status: 409 });
     }
-    throw e;
+    console.error("POST /api/admin/zones gagal:", e?.message || e);
+    return NextResponse.json({ error: "Gagal simpan zona, coba lagi" }, { status: 500 });
   }
 }

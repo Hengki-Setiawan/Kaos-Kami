@@ -58,9 +58,11 @@ describe("Side and Sleeve 3D Decal Placement & Anti-Bleed", () => {
       expect(sideLeft.projectionDepth).toBeLessThanOrEqual(0.20);
       expect(sideRight.projectionDepth).toBeLessThanOrEqual(0.20);
 
-      // X position is at waist edge
-      expect(sideLeft.position[0]).toBeLessThan(-0.15);
-      expect(sideRight.position[0]).toBeGreaterThan(0.15);
+      // X position is at waist edge: persis SSOT sideAnchorX + EPS per apparel
+      // (shirt 0.105 pasca-SWAP 20 Sep 2026 — torso hoodie lebih ramping dari fleece T-pose).
+      const expectedEdge = (APPAREL_PHYSICAL_SPECS[app]?.sideAnchorX ?? 0.185) + 0.004;
+      expect(sideLeft.position[0]).toBeCloseTo(-expectedEdge, 4);
+      expect(sideRight.position[0]).toBeCloseTo(expectedEdge, 4);
     }
   });
 

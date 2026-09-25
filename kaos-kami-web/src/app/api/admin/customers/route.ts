@@ -8,7 +8,7 @@ import { checkRateLimitAsync, getClientIp, rateLimitHeaders } from "@/lib/securi
 
 const PatchSchema = z.object({
   userId: z.string().min(1),
-  role: z.enum(["CUSTOMER", "ADMIN", "PRODUCTION_STAFF", "SUPER_ADMIN"]),
+  role: z.enum(["CUSTOMER", "ADMIN", "PRODUCTION_STAFF", "COURIER", "SUPER_ADMIN"]),
 });
 
 /** GET /api/admin/customers — daftar user paginated (admin only). */
@@ -27,7 +27,8 @@ export async function GET(req: NextRequest) {
     const sp = new URL(req.url).searchParams;
     const page = Math.max(1, Number(sp.get("page")) || 1);
     const limit = Math.max(1, Math.min(100, Number(sp.get("limit")) || 20));
-    const q = (sp.get("q") || "").trim().replace(/[%_]/g, "").slice(0, 64);
+    // Sanitasi wildcard LIKE + backslash (selaras halaman admin).
+    const q = (sp.get("q") || "").trim().replace(/[%_\\]/g, "").slice(0, 64);
     // limit+1: deteksi hasMore tanpa query COUNT tambahan.
     const rows = await db.query.User.findMany({
       where: q

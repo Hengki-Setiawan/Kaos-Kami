@@ -123,8 +123,9 @@ export const HOODIE_MODEL_CANDIDATES: Record<"high" | "low", string[]> = {
 };
 
 export const JACKET_MODEL_CANDIDATES: Record<"high" | "low", string[]> = {
-  high: ["/models/jacket.glb?v=15"],
-  low: ["/models/jacket.glb?v=15"],
+  // SWAP 20 Sep 2026: hoodie Pieter Ferreira (v16). lod1 lama (fleece) mismatch → tak dirantai.
+  high: ["/models/jacket.glb?v=16"],
+  low: ["/models/jacket.glb?v=16"],
 };
 
 export const TSHIRT_MODEL_CANDIDATES: Record<"high" | "low", string[]> = {
@@ -133,13 +134,15 @@ export const TSHIRT_MODEL_CANDIDATES: Record<"high" | "low", string[]> = {
 };
 
 export const LONGSLEEVE_MODEL_CANDIDATES: Record<"high" | "low", string[]> = {
-  high: ["/models/longsleeve.glb?v=15"],
-  low: ["/models/longsleeve.glb?v=15"],
+  // SWAP 20 Sep 2026: mesh = ex-sweater.glb (v16).
+  high: ["/models/longsleeve.glb?v=16"],
+  low: ["/models/longsleeve.glb?v=16"],
 };
 
 export const CREWNECK_MODEL_CANDIDATES: Record<"high" | "low", string[]> = {
-  high: ["/models/sweater.glb?v=7"],
-  low: ["/models/sweater.glb?v=7"],
+  // SWAP 20 Sep 2026: sweater Tristen (v16).
+  high: ["/models/sweater.glb?v=16"],
+  low: ["/models/sweater.glb?v=16"],
 };
 
 export const CAP_MODEL_CANDIDATES: Record<"high" | "low", string[]> = {

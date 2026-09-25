@@ -1,10 +1,16 @@
 import { auth } from "../kaos-kami-web/src/lib/auth.ts";
 
+// Secret WAJIB via env (JANGAN hardcode).
+function requireEnv(name: string): string {
+  const v = process.env[name];
+  if (!v) throw new Error('E2E butuh env ' + name + ' (JANGAN commit nilainya)');
+  return v;
+}
 async function main() {
   const loginRes = await auth.api.signInEmail({
     body: {
       email: "hengkivibecoding@gmail.com",
-      password: "KaosKami2026!"
+      password: requireEnv("E2E_TEST_PASSWORD")
     },
     asResponse: true
   });

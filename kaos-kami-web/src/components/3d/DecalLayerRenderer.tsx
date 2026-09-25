@@ -17,7 +17,8 @@ import {
 } from "@/lib/scaleCalibration";
 import { isSafeImageUrl } from "@/lib/safeUrl";
 import { getFabricNormalMapForArchetype } from "@/lib/proceduralTextures";
-import { getStretchFactors } from "@/lib/3d/stretchPhysics";
+import { applyStretchToMaterial, sharedStretchUniforms } from "@/lib/3d/stretchDeform";
+import { windDirectionToVec } from "@/lib/3d/windDirection";
 import type { DecalLayer } from "@/lib/constants";
 
 const SingleDecalItem: React.FC<{
@@ -32,23 +33,31 @@ const SingleDecalItem: React.FC<{
   // Cache drei + unmount GC sudah cukup untuk sesi studio.
 
   const apparel = useConfiguratorStore.getState().activeApparel;
-  const { animationPreset, animationSpeed, specialInkEffect, testLabMode, stretchIntensity, stretchDirection } =
+  const { animationPreset, animationSpeed, specialInkEffect, testLabMode, windTunnelSpeed, windDirection } =
     useConfiguratorStore(
       useShallow((s) => ({
         animationPreset: s.animationPreset,
         animationSpeed: s.animationSpeed,
         specialInkEffect: s.specialInkEffect,
         testLabMode: s.testLabMode,
-        stretchIntensity: s.stretchIntensity,
-        stretchDirection: s.stretchDirection,
+        windTunnelSpeed: s.windTunnelSpeed,
+        windDirection: s.windDirection,
       }))
     );
 
   // Parameter penempatan 3D terkalibrasi presisi (anti-tembus torso, anti-shearing samping)
   const placement = getDecal3DPlacement(apparel, decal.targetSide, decal.x, decal.y, surfaceZ);
-  const posX = placement.position[0];
-  const posY = placement.position[1];
+  let posX = placement.position[0];
+  let posY = placement.position[1];
   const posZ = placement.position[2];
+  // 🌪️ Decal flop: sablon ikut bergoyang sefase kain saat mode angin (statis per
+  // kecepatan — murah, tanpa frame-loop; shader kain yg membawa gerak detail).
+  if (testLabMode === "windtunnel" && windTunnelSpeed > 0) {
+    const wdir = windDirectionToVec(windDirection);
+    const g = (windTunnelSpeed / 100) * 0.02;
+    posX += wdir.x * g;
+    posY += wdir.y * g;
+  }
   // Depth terkalibrasi: CleanDecal secara geometris memfilter segitiga yang tidak menghadap proyektor
   const depthZ = placement.projectionDepth;
 
@@ -116,13 +125,10 @@ const SingleDecalItem: React.FC<{
     scaleX = normalizedScale * aspect;
   }
 
-  // 🧲 FISIKA ELASTISITAS DTF (Pull & Stretch Test):
-  // Deformasi sablon mengikuti arah regangan kain (horizontal, vertical, biaxial)
-  if (testLabMode === "stretch" && stretchIntensity > 0) {
-    const factors = getStretchFactors(testLabMode, stretchIntensity, stretchDirection);
-    scaleX *= factors.stretchX;
-    scaleY *= factors.stretchY;
-  }
+  // 🧲 FISIKA ELASTISITAS DTF (Pull & Stretch Test REAL):
+  // Sablon ikut deformasi via SHADER yg sama dengan kain (uniforms bersama di
+  // bawah) — bukan lagi diskala terpisah (= double-transform dengan group-scale).
+  // scaleX/scaleY di sini murni skala desain (1:1 produksi).
 
   // PERF #6: downscale artwork >1024 ke sisi-panjang 1024 untuk PREVIEW 3D
   // saja (master cetak 300 DPI tak tersentuh — tersimpan terpisah untuk
@@ -208,6 +214,8 @@ const SingleDecalItem: React.FC<{
       polygonOffsetUnits: -6,
       alphaTest: 0.01,
     });
+    // Stretch shader BERSAMA kain (sinkron per-frame, tanpa recompile).
+    applyStretchToMaterial(m, sharedStretchUniforms);
     m.envMapIntensity = is3M ? 2.5 : isGold ? 2.2 : isHolo ? 2.8 : 0.3;
 
     // M2.3: alpha-feather tepi ±1–2px via shader — menghaluskan tangga piksel

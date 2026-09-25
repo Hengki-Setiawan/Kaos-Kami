@@ -51,8 +51,8 @@ export function CmsHeroForm() {
   };
 
   return (
-    <div className="bg-[#141416] border border-white/5 rounded-2xl p-5 space-y-3">
-      <h3 className="font-bold text-white">HERO & SEO (tersimpan ke R2, tanpa deploy)</h3>
+    <div className="bg-surface border border-border-subtle rounded-2xl p-5 space-y-3">
+      <h3 className="font-bold text-text-primary">HERO & SEO (tersimpan ke R2, tanpa deploy)</h3>
       <div className="space-y-2">
         <label className="block text-[11px] text-text-muted">
           Judul Hero (baris baru = Enter)
@@ -62,7 +62,7 @@ export function CmsHeroForm() {
             rows={2}
             maxLength={80}
             placeholder={"BIKIN KAOS IMPIANMU\nDENGAN MOCKUP 3D"}
-            className="mt-1 w-full px-3 py-2 rounded-xl bg-surface border border-white/10 text-white"
+            className="mt-1 w-full px-3 py-2 rounded-xl bg-surface border border-border-subtle text-text-primary"
           />
         </label>
         <label className="block text-[11px] text-text-muted">
@@ -73,7 +73,7 @@ export function CmsHeroForm() {
             rows={2}
             maxLength={200}
             placeholder="Platform sablon DTF kustom satuan & kaos polos katun combed berkualitas di Makassar…"
-            className="mt-1 w-full px-3 py-2 rounded-xl bg-surface border border-white/10 text-white"
+            className="mt-1 w-full px-3 py-2 rounded-xl bg-surface border border-border-subtle text-text-primary"
           />
         </label>
         <button

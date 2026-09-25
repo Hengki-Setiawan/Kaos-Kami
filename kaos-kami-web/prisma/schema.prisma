@@ -44,6 +44,7 @@ model User {
   devices       UserDevice[]
   sessions      Session[]     // Better Auth session table
   accounts      Account[]     // Better Auth OAuth / credentials linking
+  qcInspections QcInspection[] // Jejak QC per order (dibuat staf workshop)
 
   @@index([phoneNumber])
 }
@@ -306,6 +307,8 @@ model CartItem {
 // ------------------------------------------------------------------
 
 enum OrderStatus {
+  DESIGN_REVIEW       // Alur baru (owner Sep 2026): checkout masuk sini TANPA charge,
+                      // menunggu ACC admin sebelum user boleh bayar via dashboard.
   PENDING_PAYMENT
   PAYMENT_CONFIRMED
   IN_PRODUCTION_QUEUE   // Menunggu antrean sablon DTF
@@ -317,6 +320,7 @@ enum OrderStatus {
   COMPLETED
   CANCELLED
   REFUNDED
+  REJECTED              // Terminal: desain DITOLAK admin saat review (+ alasan wajib)
 }
 
 model Order {
@@ -324,7 +328,7 @@ model Order {
   orderNumber       String             @unique  // Format: KK-YYYYMMDD-XXXX (e.g. KK-20260831-0001)
   userId            String
   user              User               @relation(fields: [userId], references: [id])
-  status            OrderStatus        @default(PENDING_PAYMENT)
+  status            OrderStatus        @default(DESIGN_REVIEW)
   deliveryMethod    DeliveryMethod     @default(PICKUP)
 
   items             OrderItem[]
@@ -342,8 +346,16 @@ model Order {
   payment           Payment?
   productionTasks   ProductionTask[]
   statusHistory     OrderStatusEvent[]
+  qcInspections     QcInspection[]
 
   notes             String?
+  // REVIEW DESAIN (alur baru owner Sep 2026 — BUTUH `db push` sebelum dipakai;
+  // TANPA migrasi di sesi ini. Kolom mirror di src/lib/drizzle-schema.ts):
+  // checkout → DESIGN_REVIEW (tanpa charge) → admin approve → PENDING_PAYMENT
+  // (user bayar via dashboard) / admin reject → REJECTED (terminal + alasan).
+  reviewNote        String?            // Alasan tolak (wajib min 5 char) / catatan ACC
+  reviewedBy        String?            // userId admin yang ACC/TOLAK
+  reviewedAt        DateTime?          // Waktu keputusan review
   createdAt         DateTime           @default(now())
   updatedAt         DateTime           @updatedAt
 
@@ -452,12 +464,48 @@ model ProductionTask {
   mockupPreviewUrl   String?         // Gambar panduan visual operator press
   printFileUrl       String?
 
+  // TEAMWEAR (UX workshop Sep 2026 — cermin drizzle-schema.ts; TANPA migrasi
+  // di sesi ini. Jalankan `npm run db:push` (Turso) saat owner mengizinkan —
+  // sampai saat itu UI baca defensif + label jujur "MULTI-ITEM").
+  teamName           String?
+  teamwearFlag       Boolean?
+
   completedAt        DateTime?
   createdAt          DateTime        @default(now())
   updatedAt          DateTime        @updatedAt
 
   @@index([stage])
   @@index([assignedToUserId])
+  @@index([orderId])
+}
+
+// ------------------------------------------------------------------
+// JEJAK QC PER ORDER (enterprise: fail-closed, RBAC, rate-limit)
+// ------------------------------------------------------------------
+
+enum QcDefect {
+  LUBANG
+  NODA
+  MISPRINT
+  CRACKING
+}
+
+model QcInspection {
+  id               String    @id @default(cuid())
+  orderId          String
+  order            Order     @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  productionTaskId String?
+  photoUrl         String    // URL R2 (https) foto mockup QC + overlay 2D
+  grazingDeg       Int?      // Sudut cahaya grazing: 15 | 30 | 45 | 90
+  luxEstimate      Int?      // Estimasi iluminansi (lux)
+  side             String?   // "front" | "back" | sisi panel
+  checksJson       String    // JSON array subset QcDefect, mis. '["NODA"]' / '[]' = lolos
+  note             String?   // Catatan operator, maks 500 char (ditegakkan di API via zod)
+  createdByUserId  String?
+  createdBy        User?     @relation(fields: [createdByUserId], references: [id])
+  createdAt        DateTime  @default(now())
+
+  @@index([orderId])
 }
 
 // ------------------------------------------------------------------

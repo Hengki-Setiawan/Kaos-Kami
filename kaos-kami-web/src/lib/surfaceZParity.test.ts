@@ -5,9 +5,11 @@ import { SURFACE_Z_PER_APPAREL } from "@/lib/scaleCalibration";
 
 // Lokasi cermin mobile relatif terhadap CWD workspace web (npm test dijalankan
 // dari kaos-kami-web): ../kaos-kami-mobile/...
+// Pindah ke lib/3d/mobileScaleCalibration.ts sejak refactor SSOT mobile
+// (dulu di DecalGizmoMobile.tsx); parser blok tak berubah.
 const MOBILE_FILE = resolve(
   process.cwd(),
-  "../kaos-kami-mobile/src/components/3d/DecalGizmoMobile.tsx"
+  "../kaos-kami-mobile/src/lib/3d/mobileScaleCalibration.ts"
 );
 
 /**

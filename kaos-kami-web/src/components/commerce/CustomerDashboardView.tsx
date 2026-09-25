@@ -24,6 +24,11 @@ import { ReorderButton } from "@/components/commerce/ReorderButton";
 import { DesignCardActions } from "@/components/commerce/DesignCardActions";
 import { AddressBook } from "@/components/commerce/AddressBook";
 import { UserProfileCard } from "@/components/commerce/UserProfileCard";
+import { RepayButton } from "@/components/commerce/RepayButton";
+import { OrderDetailModal } from "@/components/commerce/OrderDetailModal";
+import { CancelOrderButton } from "@/components/commerce/CancelOrderButton";
+import { NotificationList } from "@/components/commerce/NotificationList";
+import { VoucherShelf } from "@/components/commerce/VoucherShelf";
 
 interface OrderItemData {
   id: string;
@@ -91,6 +96,15 @@ interface CustomerDashboardViewProps {
     phoneNumber?: string | null;
     role?: string;
   } | null;
+  /** U3 paginasi: cursor halaman berikut (null = habis). */
+  ordersNextCursor?: string | null;
+  designsNextCursor?: string | null;
+  addressesNextCursor?: string | null;
+  currentCursors?: {
+    ordersCursor?: string | null;
+    designsCursor?: string | null;
+    addressesCursor?: string | null;
+  };
 }
 
 // Tahapan pesanan untuk visual stepper
@@ -123,7 +137,8 @@ function getStepIndex(status: string): number {
     case "COMPLETED":
       return 5;
     default:
-      return 1;
+      // U6: status tak dikenal JANGAN default "Lunas" — kembalikan -1 (netral).
+      return -1;
   }
 }
 
@@ -142,13 +157,21 @@ function getSizeBreakdown(items: OrderItemData[]): string {
     .join(", ");
 }
 
+/** U5: marker kanonis [TIER:EXPRESS_24H] dulu (fallback substring lama). */
+export function isExpressOrder(order: { courierNotes?: string | null }): boolean {
+  const n = order.courierNotes || "";
+  return n.includes("[TIER:EXPRESS_24H]") || n.includes("EXPRESS");
+}
+
 function getOrderEta(order: OrderData): { badge: string; isExpress: boolean } {
-  if (order.courierNotes?.includes("EXPRESS")) {
+  if (isExpressOrder(order)) {
     return { badge: "Prioritas Express: Siap dalam 24 Jam", isExpress: true };
   }
   const orderDate = new Date(order.createdAt);
   const targetDate = new Date(orderDate);
   targetDate.setDate(targetDate.getDate() + 2);
+  // Lewati hari Minggu (workshop tutup) agar estimasi jujur.
+  if (targetDate.getDay() === 0) targetDate.setDate(targetDate.getDate() + 1);
   const dateStr = targetDate.toLocaleDateString("id-ID", {
     weekday: "short",
     day: "numeric",
@@ -162,14 +185,55 @@ export function CustomerDashboardView({
   designs,
   addresses,
   user,
+  ordersNextCursor,
+  designsNextCursor,
+  currentCursors,
 }: CustomerDashboardViewProps) {
+  // U3: link muat-lagi mempertahankan cursor lain yg aktif.
+  const moreHref = (key: "ordersCursor" | "designsCursor" | "addressesCursor", val: string | null | undefined) => {
+    if (!val) return null;
+    const params = new URLSearchParams();
+    if (currentCursors?.ordersCursor) params.set("ordersCursor", currentCursors.ordersCursor);
+    if (currentCursors?.designsCursor) params.set("designsCursor", currentCursors.designsCursor);
+    if (currentCursors?.addressesCursor) params.set("addressesCursor", currentCursors.addressesCursor);
+    params.set(key, val);
+    return `/dashboard/orders?${params.toString()}`;
+  };
   const [currentUser, setCurrentUser] = useState(user);
-  const [activeTab, setActiveTab] = useState<"orders" | "designs" | "addresses">("orders");
+  const [activeTab, setActiveTab] = useState<"orders" | "designs" | "addresses" | "notifs" | "vouchers">("orders");
   const [orderFilter, setOrderFilter] = useState<"ALL" | "ACTIVE" | "SHIPPED" | "COMPLETED" | "CANCELLED">("ALL");
   const [copiedResi, setCopiedResi] = useState<string | null>(null);
+  // Modal detail order (klik kartu → jendela status review/alasan/bayar).
+  const [selectedOrderId, setSelectedOrderId] = useState<string | null>(null);
+  const selectedOrder = selectedOrderId ? orders.find((o) => o.id === selectedOrderId) || null : null;
 
-  const copyResi = (resi: string) => {
-    navigator.clipboard.writeText(resi);
+  const [copyError, setCopyError] = useState<string | null>(null);
+
+  // U7: fallback salin untuk HTTP / permission ditolak + pesan jujur.
+  const copyResi = async (resi: string) => {
+    setCopyError(null);
+    try {
+      if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(resi);
+      } else {
+        throw new Error("no-clipboard");
+      }
+    } catch {
+      try {
+        const ta = document.createElement("textarea");
+        ta.value = resi;
+        ta.style.position = "fixed";
+        ta.style.opacity = "0";
+        document.body.appendChild(ta);
+        ta.select();
+        const ok = document.execCommand("copy");
+        document.body.removeChild(ta);
+        if (!ok) throw new Error("copy-failed");
+      } catch {
+        setCopyError("Gagal menyalin otomatis — salin manual nomor di atas.");
+        return;
+      }
+    }
     setCopiedResi(resi);
     setTimeout(() => setCopiedResi(null), 2500);
   };
@@ -285,6 +349,29 @@ export function CustomerDashboardView({
           <MapPin size={15} />
           <span>Profil & Alamat ({addresses.length})</span>
         </button>
+
+        <button
+          onClick={() => setActiveTab("notifs")}
+          className={`pb-3 px-4 flex items-center gap-2 font-bold uppercase tracking-wider transition-all border-b-2 -mb-[1px] ${
+            activeTab === "notifs"
+              ? "border-brand-accent text-brand-accent"
+              : "border-transparent text-text-muted hover:text-text-primary"
+          }`}
+        >
+          <span>Notifikasi</span>
+        </button>
+
+
+        <button
+          onClick={() => setActiveTab("vouchers")}
+          className={`pb-3 px-4 flex items-center gap-2 font-bold uppercase tracking-wider transition-all border-b-2 -mb-[1px] ${
+            activeTab === "vouchers"
+              ? "border-brand-accent text-brand-accent"
+              : "border-transparent text-text-muted hover:text-text-primary"
+          }`}
+        >
+          <span>Voucher</span>
+        </button>
       </div>
 
       {/* TAB 1: DAFTAR PESANAN + VISUAL STEPPER */}
@@ -364,7 +451,15 @@ export function CustomerDashboardView({
               return (
                 <div
                   key={order.id}
-                  className="rounded-2xl bg-surface border border-border-subtle p-5 sm:p-6 space-y-5 shadow-sm hover:border-border-strong transition-all"
+                  onClick={(e) => {
+                    // Klik kartu → modal; abaikan klik dari tombol/aksi existing
+                    // agar Repay/Cancel/Reorder/Invoice tetap berfungsi langsung.
+                    const t = e.target as HTMLElement | null;
+                    if (t?.closest?.("button, a, input, textarea, select")) return;
+                    setSelectedOrderId(order.id);
+                  }}
+                  className="rounded-2xl bg-surface border border-border-subtle p-5 sm:p-6 space-y-5 shadow-sm hover:border-border-strong transition-all cursor-pointer"
+                  title="Klik untuk detail status review"
                 >
                   {/* Order Top Summary */}
                   <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-border-subtle">
@@ -384,7 +479,7 @@ export function CustomerDashboardView({
                         >
                           {order.status.replace(/_/g, " ")}
                         </span>
-                        {order.courierNotes?.includes("EXPRESS") && (
+                        {isExpressOrder(order) && (
                           <span className="px-2 py-0.5 rounded-full text-[9px] font-bold bg-amber-500/20 text-amber-500 border border-amber-500/30">
                             ⚡ EXPRESS 24H
                           </span>
@@ -427,6 +522,12 @@ export function CustomerDashboardView({
 
                   {/* Visual Stepper Tracker (Hanya tampil jika tidak dibatalkan) */}
                   {!isCancelled ? (
+                    currentStepIdx < 0 ? (
+                      <div className="p-3 rounded-xl bg-surface border border-border-subtle text-text-muted text-xs flex items-center gap-2">
+                        <AlertCircle size={15} />
+                        <span>Status: {order.status.replace(/_/g, " ")} — hubungi CS bila perlu.</span>
+                      </div>
+                    ) : (
                     <div className="py-2">
                       <div className="grid grid-cols-3 sm:grid-cols-6 gap-2">
                         {ORDER_STEPS.map((step, idx) => {
@@ -467,6 +568,7 @@ export function CustomerDashboardView({
                         })}
                       </div>
                     </div>
+                    )
                   ) : (
                     <div className="p-3 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-400 text-xs flex items-center gap-2">
                       <AlertCircle size={15} />
@@ -486,13 +588,16 @@ export function CustomerDashboardView({
                           </span>
                         </div>
                       </div>
-                      <button
-                        onClick={() => copyResi(order.trackingNumber!)}
-                        className="py-1.5 px-3 rounded-lg bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-400 font-bold text-[11px] flex items-center gap-1.5 w-fit transition-all"
-                      >
-                        {copiedResi === order.trackingNumber ? <Check size={13} /> : <Copy size={13} />}
-                        <span>{copiedResi === order.trackingNumber ? "Tersalin!" : "Salin Resi"}</span>
-                      </button>
+                      <div className="flex flex-col gap-1 w-fit">
+                        <button
+                          onClick={() => copyResi(order.trackingNumber!)}
+                          className="py-1.5 px-3 rounded-lg bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-400 font-bold text-[11px] flex items-center gap-1.5 w-fit transition-all"
+                        >
+                          {copiedResi === order.trackingNumber ? <Check size={13} /> : <Copy size={13} />}
+                          <span>{copiedResi === order.trackingNumber ? "Tersalin!" : "Salin Resi"}</span>
+                        </button>
+                        {copyError && <span className="text-[10px] text-amber-400">{copyError}</span>}
+                      </div>
                     </div>
                   )}
 
@@ -536,7 +641,30 @@ export function CustomerDashboardView({
                       ID: {order.id.slice(0, 8)}…
                     </span>
 
+                    {/* U10: order PENDING bisa bayar-ulang & batal langsung dari sini. */}
+                    {order.status === "PENDING_PAYMENT" && (
+                      <div className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/30 space-y-2">
+                        <p className="text-[11px] font-bold text-amber-400">
+                          Menunggu pembayaran — selesaikan di sini atau batalkan:
+                        </p>
+                        <div className="flex flex-wrap gap-2">
+                          <RepayButton orderId={order.id} />
+                          <CancelOrderButton orderId={order.id} />
+                        </div>
+                      </div>
+                    )}
+
                     <div className="flex flex-wrap items-center gap-2">
+                      {/* Aksesibel: tombol detail eksplisit (selain klik kartu). */}
+                      <button
+                        type="button"
+                        onClick={() => setSelectedOrderId(order.id)}
+                        className="px-3.5 py-1.5 rounded-xl bg-brand-accent/15 border border-brand-accent/40 text-brand-accent font-bold transition-all flex items-center gap-1.5 text-xs hover:brightness-110"
+                        title="Detail status review & alasan"
+                      >
+                        <span>DETAIL</span>
+                        <ChevronRight size={12} />
+                      </button>
                       <ReorderButton
                         userId={order.userId || user?.id || ""}
                         items={order.items.map((it) => ({
@@ -547,20 +675,14 @@ export function CustomerDashboardView({
                         }))}
                       />
 
+                      {/* U11: satu CTA invoice (dulu dua href identik). */}
                       <Link
                         href={`/orders/${order.id}`}
                         className="px-3.5 py-1.5 rounded-xl bg-surface border border-border-subtle hover:border-brand-accent text-text-primary font-bold hover:text-brand-accent transition-all flex items-center gap-1.5 text-xs"
-                        title="Buka atau Cetak Nota Resmi"
+                        title="Buka invoice / cetak nota resmi"
                       >
                         <Printer size={13} className="text-brand-accent" />
-                        <span>CETAK NOTA RESMI</span>
-                      </Link>
-
-                      <Link
-                        href={`/orders/${order.id}`}
-                        className="px-3.5 py-1.5 rounded-xl bg-surface border border-border-subtle hover:border-brand-accent text-text-primary font-bold hover:text-brand-accent transition-all flex items-center gap-1.5 text-xs"
-                      >
-                        <span>INVOICE</span>
+                        <span>LIHAT INVOICE</span>
                         <ExternalLink size={12} />
                       </Link>
                     </div>
@@ -568,6 +690,25 @@ export function CustomerDashboardView({
                 </div>
               );
             })
+          )}
+          {/* U3: muat 25 berikutnya (server cursor). */}
+          {(() => {
+            const href = moreHref("ordersCursor", ordersNextCursor);
+            if (!href) return null;
+            return (
+              <div className="pt-1 text-center">
+                <Link
+                  href={href}
+                  className="inline-block px-4 py-2 rounded-xl bg-surface border border-border-subtle hover:border-brand-accent text-brand-accent text-xs font-bold"
+                >
+                  Muat 25 Pesanan Berikutnya
+                </Link>
+              </div>
+            );
+          })()}
+          {/* Modal detail (klik kartu / tombol DETAIL): review + alasan + bayar. */}
+          {selectedOrder && (
+            <OrderDetailModal order={selectedOrder} onClose={() => setSelectedOrderId(null)} />
           )}
         </div>
       )}
@@ -579,10 +720,13 @@ export function CustomerDashboardView({
           <div className="p-4 rounded-xl bg-surface border border-border-subtle flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
             <div>
               <span className="font-bold text-text-primary block">
-                Kapasitas Cloud Storage Akun: {designs.length} / 5 Slot Terpakai
+                Kapasitas Cloud Storage Akun: {Math.min(designs.length, 5)} / 5 Slot Terpakai
               </span>
               <p className="text-text-muted text-[11px] mt-0.5">
-                Setiap akun pelanggan dialokasikan 5 slot penyimpanan desain cloud untuk menjaga kecepatan load 3D.
+                Setiap akun dialokasikan 5 slot desain cloud. Server menolak simpanan ke-6+.
+                {designs.length > 5 && (
+                  <span className="text-amber-400 font-bold"> Ada {designs.length - 5} arsip lama di bawah (dibuat sebelum kuota).</span>
+                )}
               </p>
             </div>
             <span
@@ -620,11 +764,13 @@ export function CustomerDashboardView({
                   <div className="space-y-3">
                     {/* Visual 3D Preview Image Thumbnail */}
                     <div className="w-full h-48 rounded-xl bg-black/20 border border-border-subtle overflow-hidden flex items-center justify-center relative group">
-                      {design.previewImageFrontUrl ? (
+                      {design.previewImageFrontUrl &&
+                      /^(https?:\/\/|data:image\/)/.test(design.previewImageFrontUrl) ? (
                         // eslint-disable-next-line @next/next/no-img-element
                         <img
                           src={design.previewImageFrontUrl}
                           alt={design.title}
+                          loading="lazy"
                           className="w-full h-full object-contain p-2 group-hover:scale-105 transition-transform duration-300"
                         />
                       ) : (
@@ -677,6 +823,21 @@ export function CustomerDashboardView({
               ))}
             </div>
           )}
+          {/* U3: muat 5 desain berikutnya (server cursor). */}
+          {(() => {
+            const href = moreHref("designsCursor", designsNextCursor);
+            if (!href) return null;
+            return (
+              <div className="pt-1 text-center">
+                <Link
+                  href={href}
+                  className="inline-block px-4 py-2 rounded-xl bg-surface border border-border-subtle hover:border-brand-accent text-brand-accent text-xs font-bold"
+                >
+                  Muat 5 Desain Berikutnya
+                </Link>
+              </div>
+            );
+          })()}
         </div>
       )}
 
@@ -695,6 +856,20 @@ export function CustomerDashboardView({
             defaultRecipientName={currentUser?.name || ""}
             defaultPhoneNumber={currentUser?.phoneNumber || ""}
           />
+        </div>
+      )}
+
+      {/* TAB 4: NOTIFIKASI STATUS PESANAN */}
+      {activeTab === "notifs" && (
+        <div className="rounded-2xl bg-surface border border-border-subtle p-5 sm:p-6">
+          <NotificationList />
+        </div>
+      )}
+
+      {/* TAB 5: VOUCHER SAYA */}
+      {activeTab === "vouchers" && (
+        <div className="space-y-4">
+          <VoucherShelf />
         </div>
       )}
     </div>

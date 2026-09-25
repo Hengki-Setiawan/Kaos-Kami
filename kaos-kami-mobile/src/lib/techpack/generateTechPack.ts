@@ -139,7 +139,7 @@ export function generateTechPackHtml(data: TechPackData): string {
             <p>Lebar Sablon: <span class="value highlight">${data.printWidthCm} cm</span></p>
             <p>Tinggi Sablon: <span class="value highlight">${data.printHeightCm} cm</span></p>
             <p>Jarak dari Kerah: <span class="value">${data.offsetFromCollarCm} cm</span></p>
-            <p>Estimasi Film DTF: <span class="value">Rp ${data.estimatedFilmCostIdr.toLocaleString('id-ID')}</span></p>
+            <p>Estimasi Film DTF: <span class="value">${data.estimatedFilmCostIdr > 0 ? `Rp ${data.estimatedFilmCostIdr.toLocaleString('id-ID')}` : 'dihitung server saat checkout'}</span></p>
           </div>
         </div>
 

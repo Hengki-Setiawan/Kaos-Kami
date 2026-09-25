@@ -11,6 +11,13 @@ import { Order } from "../kaos-kami-web/src/lib/drizzle-schema.ts";
 import { eq } from "drizzle-orm";
 
 const BASE_URL = "http://localhost:3000";
+// Secret WAJIB via env (JANGAN hardcode — insiden Sep 2026).
+function requireEnv(name) {
+  const v = process.env[name];
+  if (!v) throw new Error("E2E butuh env " + name + " (isi dari kaos-kami-web/.env.local, JANGAN commit)");
+  return v;
+}
+
 const OUTPUT_FILE = "d:/Vibe coding Semester 7/Kaos Kami/Blueprint/hasil-pengujian-e2e/orders-invoices/KASUS-5-sad-cases-security-audit.json";
 
 interface AuditResult {
@@ -38,7 +45,7 @@ async function runKasus5() {
   const custLoginRes = await auth.api.signInEmail({
     body: {
       email: "hengkivibecoding@gmail.com",
-      password: "KaosKami2026!"
+      password: requireEnv("E2E_TEST_PASSWORD")
     },
     asResponse: true
   });
@@ -136,7 +143,7 @@ async function runKasus5() {
   // -------------------------------------------------------------
   console.log("\n[TEST 2] Menguji Webhook MD5 Tampering Protection...");
   const fakeWebhookPayload = {
-    merchantCode: "DS28521",
+    merchantCode: requireEnv("DUITKU_MERCHANT_CODE"),
     amount: "149000",
     merchantOrderId: "KK-20260919-6521",
     productDetail: "Tampered Webhook Simulation",
@@ -238,8 +245,8 @@ async function runKasus5() {
   // -------------------------------------------------------------
   console.log("\n[TEST 5] Menguji Underpayment Attack (Nominal Kurang)...");
   // Order KK-20260919-6521 bernilai Rp 149.000, penyerang mengirim amount Rp 1.000 dengan signature MD5 valid untuk 1.000
-  const merchantCode = process.env.DUITKU_MERCHANT_CODE || "DS28521";
-  const apiKey = process.env.DUITKU_API_KEY || "ea279c7a1381333794d265d70b55693a";
+  const merchantCode = requireEnv("DUITKU_MERCHANT_CODE");
+  const apiKey = requireEnv("DUITKU_API_KEY");
   const underpayAmount = "1000";
   const underpayOrderId = "KK-20260919-6521";
   const crypto = await import("crypto");
@@ -320,7 +327,7 @@ async function runKasus5() {
   // -------------------------------------------------------------
   console.log("\n[TEST 7] Menguji Penolakan Oversized Payload Bomb (>16KB)...");
   const hugePayload = JSON.stringify({
-    merchantCode: "DS28521",
+    merchantCode: requireEnv("DUITKU_MERCHANT_CODE"),
     amount: "149000",
     merchantOrderId: "KK-20260919-6521",
     junk: "A".repeat(25 * 1024) // 25 KB

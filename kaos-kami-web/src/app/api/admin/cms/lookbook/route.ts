@@ -12,7 +12,8 @@ const PREFIX = "lookbook/";
 const MAX_BYTES = 5 * 1024 * 1024;
 
 async function requireAdmin(req: NextRequest) {
-  const rl = await checkRateLimitAsync(`admin-cms:ip:${getClientIp(req)}`, 30, 60);
+  // Bucket rate-limit sendiri (terpisah dari GET/POST hero).
+  const rl = await checkRateLimitAsync(`admin-cms-lookbook:ip:${getClientIp(req)}`, 30, 60);
   if (rl.isLimited)
     return { error: NextResponse.json({ error: "Rate limited" }, { status: 429, headers: rateLimitHeaders(rl, 30) }) };
   try {

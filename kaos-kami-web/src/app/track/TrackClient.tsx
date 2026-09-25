@@ -19,6 +19,16 @@ const OTP_VALID_SECONDS = 5 * 60;
 
 /** Lacak pesanan tanpa daftar: WA → OTP → daftar order. */
 export function TrackClient() {
+  // ?needLogin=1 (redirect dashboard tamu): jelaskan kenapa mendarat di sini.
+  useEffect(() => {
+    try {
+      const q = new URLSearchParams(window.location.search);
+      if (q.get("needLogin") === "1") {
+        say("ok", "Riwayat pesanan butuh login. Masuk dulu, atau lacak via WA+OTP di bawah.");
+      }
+    } catch {}
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   const [step, setStep] = useState<1 | 2 | 3>(1);
   const [phone, setPhone] = useState("");
   const [code, setCode] = useState("");
@@ -218,8 +228,8 @@ export function TrackClient() {
           role={msgKind === "err" ? "alert" : "status"}
           className={`font-mono text-xs rounded-xl p-3 border ${
             msgKind === "ok"
-              ? "text-emerald-300 bg-emerald-500/10 border-emerald-500/30"
-              : "text-amber-300 bg-amber-500/10 border-amber-500/30"
+              ? "text-emerald-800 dark:text-emerald-200 bg-emerald-500/10 border-emerald-500/30"
+              : "text-amber-800 dark:text-amber-200 bg-amber-500/10 border-amber-500/30"
           }`}
         >
           {msg}

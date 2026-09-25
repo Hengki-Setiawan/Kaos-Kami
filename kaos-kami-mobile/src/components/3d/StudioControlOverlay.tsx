@@ -1,13 +1,15 @@
 "use client";
 
 import React, { useState } from 'react';
-import { Eye, RotateCcw, Wind, Activity, Compass, Footprints, Camera, Video, Wand2, AlertTriangle } from 'lucide-react';
+import { Eye, RotateCcw, Wind, Activity, Compass, Footprints, Camera, Video, Wand2, AlertTriangle, FlaskConical } from 'lucide-react';
 import { useMobileStudioStore, AnimationPreset, CameraAngle } from '@/store/useMobileStudioStore';
 import { useMobileDeviceTier } from '@/hooks/useMobileDeviceTier';
 import { useShallow } from 'zustand/shallow';
 import { captureHDImage, recordTurntable360 } from '@/lib/3d/exportStudio';
 import { haptic } from '@/lib/bridge/haptics';
 import { removeSolidBackground } from '@/lib/enhancers/removeSolidBackground';
+import { BottomSheet } from '@/components/ui/BottomSheet';
+import { MobileTestLabControls } from './MobileTestLabControls';
 
 // C4 (owner, Sep 2026): paywall Pro dicabut total — ekspor HD/360° selalu
 // terbuka, tanpa unlock, tanpa watermark, tanpa jatah kredit.
@@ -18,6 +20,8 @@ export function StudioControlOverlay({
 }) {
   const [exporting, setExporting] = useState<string | null>(null);
   const [removingBg, setRemovingBg] = useState<'white' | 'black' | null>(null);
+  // F3 Test Lab BottomSheet (tab 4 mode + slider + telemetri).
+  const [testLabOpen, setTestLabOpen] = useState(false);
 
   const {
     cameraAngle,
@@ -31,6 +35,7 @@ export function StudioControlOverlay({
     decalUrl,
     setDecalUrl,
     decalDpi,
+    testLabMode,
   } = useMobileStudioStore(
     useShallow((s) => ({
       cameraAngle: s.cameraAngle,
@@ -44,6 +49,7 @@ export function StudioControlOverlay({
       decalUrl: s.decalUrl,
       setDecalUrl: s.setDecalUrl,
       decalDpi: s.decalDpi,
+      testLabMode: s.testLabMode,
     }))
   );
 
@@ -220,6 +226,21 @@ export function StudioControlOverlay({
           );
         })}
         <div className="h-px bg-white/10 my-0.5" />
+        {/* F3 Test Lab: BottomSheet uji tarik/senter/angin */}
+        <button
+          title="3D Test Lab (tarik/senter/angin)"
+          onClick={() => {
+            haptic.tap();
+            setTestLabOpen(true);
+          }}
+          className={`p-2 rounded-xl text-xs flex items-center justify-center transition-colors ${
+            testLabMode !== 'none'
+              ? 'bg-[#FF6B35]/25 text-[#FF6B35]'
+              : 'text-zinc-400 hover:text-white active:bg-white/10'
+          }`}
+        >
+          <FlaskConical className="w-4 h-4" />
+        </button>
         <button
           title="Ekspor HD 1080p"
           disabled={exporting !== null}
@@ -259,6 +280,16 @@ export function StudioControlOverlay({
           <Video className="w-4 h-4" />
         </button>
       </div>
+
+      {/* F3 Test Lab BottomSheet */}
+      <BottomSheet
+        open={testLabOpen}
+        onOpenChange={setTestLabOpen}
+        title="3D Test Lab"
+        description="Uji tarik kain, senter inspeksi & terowongan angin."
+      >
+        <MobileTestLabControls />
+      </BottomSheet>
     </div>
   );
 }

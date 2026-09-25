@@ -19,10 +19,17 @@ async function assertAdminSession() {
   return session.user;
 }
 
+// Floor harga disamakan dengan POST: Rp 1.000 (batas bawah DTF/sablon).
+// `delta` = penyesuaian stok server-side (+1/-1) anti lost-update:
+// UI kirim delta, server baca stok terkini lalu jumlahkan — bukan stok absolut dari client.
+const PRICE_FLOOR_IDR = 1000;
+const PRICE_CAP_IDR = 100_000_000;
+
 const PatchSchema = z.object({
   variantId: z.string().min(1),
   stockQty: z.number().int().min(0).max(100000).optional(),
-  priceIdr: z.number().int().min(0).max(100_000_000).optional(),
+  delta: z.number().int().min(-100000).max(100000).optional(),
+  priceIdr: z.number().int().min(PRICE_FLOOR_IDR).max(PRICE_CAP_IDR).optional(),
   isActive: z.boolean().optional(),
 });
 
@@ -54,11 +61,21 @@ export async function PATCH(req: NextRequest) {
 
   const parsed = PatchSchema.safeParse(await req.json().catch(() => ({})));
   if (!parsed.success) return NextResponse.json({ error: "Invalid payload" }, { status: 400 });
-  const { variantId, stockQty, priceIdr, isActive } = parsed.data;
+  const { variantId, stockQty, delta, priceIdr, isActive } = parsed.data;
   const set: Record<string, unknown> = {};
-  if (stockQty !== undefined) set.stockQty = stockQty;
   if (priceIdr !== undefined) set.priceIdr = priceIdr;
   if (isActive !== undefined) set.isActive = isActive;
+  if (stockQty !== undefined && delta === undefined) set.stockQty = stockQty;
+  // Jalur delta (disukai): hitung dari stok DB terkini agar dua admin
+  // yang menekan +/- bersamaan tidak saling menimpa (anti lost-update).
+  if (delta !== undefined) {
+    const current = await db.query.ProductVariant.findFirst({
+      where: (t, { eq: eqq }) => eqq(t.id, variantId),
+      columns: { stockQty: true },
+    });
+    if (!current) return NextResponse.json({ error: "Varian tidak ditemukan" }, { status: 404 });
+    set.stockQty = Math.max(0, Math.min(100000, (current.stockQty ?? 0) + delta));
+  }
   if (Object.keys(set).length === 0) return NextResponse.json({ error: "Tidak ada perubahan" }, { status: 400 });
   await db.update(ProductVariant).set(set).where(eq(ProductVariant.id, variantId));
   return NextResponse.json({ success: true });
@@ -144,6 +161,9 @@ export async function POST(req: NextRequest) {
 
 /** DELETE /api/admin/catalog — nonaktifkan varian produk (admin only). */
 export async function DELETE(req: NextRequest) {
+  // Limiter khusus DELETE (aksi destruktif) — sejajar POST 30/mnt.
+  const rl = await checkRateLimitAsync(`admin-cat-del:ip:${getClientIp(req)}`, 30, 60);
+  if (rl.isLimited) return NextResponse.json({ error: "Rate limited" }, { status: 429, headers: rateLimitHeaders(rl, 30) });
   try {
     await assertAdminSession();
   } catch (e: any) {
@@ -155,6 +175,13 @@ export async function DELETE(req: NextRequest) {
   const id = searchParams.get("id");
   if (!id) return NextResponse.json({ error: "ID varian diperlukan" }, { status: 400 });
 
+  // 404 bila row hilang — tanpa ini client tak bisa bedakan "sudah
+  // nonaktif/tak ada" dari sukses (silent-noop menutupi ID salah/enumerasi).
+  const existing = await db.query.ProductVariant.findFirst({
+    where: (t, { eq }) => eq(t.id, id),
+    columns: { id: true },
+  });
+  if (!existing) return NextResponse.json({ error: "Varian tidak ditemukan" }, { status: 404 });
   await db.update(ProductVariant).set({ isActive: false }).where(eq(ProductVariant.id, id));
   return NextResponse.json({ success: true, message: "Produk berhasil dinonaktifkan dari katalog" });
 }

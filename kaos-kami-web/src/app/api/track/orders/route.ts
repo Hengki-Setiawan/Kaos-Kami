@@ -26,7 +26,10 @@ export async function POST(req: NextRequest) {
     }
     const parsed = TrackSchema.safeParse(await req.json().catch(() => ({})));
     if (!parsed.success) return NextResponse.json({ error: "WA & kode wajib" }, { status: 400 });
-    const clean = parsed.data.phoneNumber.replace(/[^0-9]/g, "");
+    // I3: kunci OTP + lookup user kanonis (anti gagal lintas format 08/62).
+    const { canonicalPhone } = await import("@/lib/phone");
+    const clean = canonicalPhone(parsed.data.phoneNumber);
+    if (!clean) return NextResponse.json({ error: "WA & kode wajib" }, { status: 400 });
     const phoneRl = await checkRateLimitAsync(`track:phone:${clean}`, 5, 300);
     if (phoneRl.isLimited) {
       return NextResponse.json({ error: "Terlalu banyak percobaan." }, { status: 429, headers: rateLimitHeaders(phoneRl, 5) });
@@ -41,8 +44,10 @@ export async function POST(req: NextRequest) {
     }
     await db.delete(Verification).where(eq(Verification.identifier, `otp:${clean}`)).catch(() => {});
 
+    // DB menyimpan 0.../62... campur — cocokkan semua varian kanonis.
+    const alt0 = clean.startsWith("62") ? `0${clean.slice(2)}` : clean;
     const user = await db.query.User.findFirst({
-      where: (t, { eq }) => eq(t.phoneNumber, clean),
+      where: (t, { or, eq }) => or(eq(t.phoneNumber, clean), eq(t.phoneNumber, alt0)),
       columns: { id: true },
     });
     if (!user) return NextResponse.json({ success: true, orders: [] });

@@ -9,6 +9,8 @@ import { useMobileDeviceTier } from '@/hooks/useMobileDeviceTier';
 import { apparelToArchetype, createClothPhysicalMaterial } from '@/lib/materials/clothPhysicalMaterial';
 import { ClothInertiaSimulator } from '@/lib/3d/clothInertiaPhysics';
 import { applyMobileWind, ensureWindWeights } from '@/lib/3d/windShader';
+import { getStretchFactors } from '@/lib/3d/stretchPhysics';
+import { registerMobileStretchGroup, unregisterMobileStretchGroup } from '@/lib/3d/mobileStretchRegistry';
 import { MobileDecalLayerRenderer } from './MobileDecalLayerRenderer';
 import { DecalGizmoMobile } from './DecalGizmoMobile';
 import {
@@ -65,7 +67,20 @@ const CAP_CROWN_Y_OFFSET = -0.11;
 export function MobileCapModel() {
   const groupRef = useRef<THREE.Group>(null);
   const color = useMobileStudioStore((s) => s.color);
+  // F0 Test Lab stretch — pola group-scale SEMENTARA cermin web ShirtModel.
+  const testLabMode = useMobileStudioStore((s) => s.testLabMode);
+  const stretchIntensity = useMobileStudioStore((s) => s.stretchIntensity);
+  const stretchDirection = useMobileStudioStore((s) => s.stretchDirection);
+  const stretchFactors = getStretchFactors(testLabMode, stretchIntensity, stretchDirection);
   const { tier } = useMobileDeviceTier();
+
+  useEffect(() => {
+    const g = groupRef.current;
+    registerMobileStretchGroup(g);
+    return () => {
+      unregisterMobileStretchGroup(g);
+    };
+  }, []);
 
   const clothPhysics = useMemo(() => new ClothInertiaSimulator({ stiffness: 38.0, damping: 7.2 }), []);
 
@@ -163,7 +178,7 @@ export function MobileCapModel() {
   return (
     <group
       ref={groupRef}
-      scale={[1.4, 1.4, 1.4]}
+      scale={[1.4 * stretchFactors.stretchX, 1.4 * stretchFactors.stretchY, 1.4 * stretchFactors.stretchZ]}
       position={[0, -0.15 + CAP_CROWN_Y_OFFSET * 1.4, 0]}
     >
       <mesh castShadow receiveShadow geometry={baseGeometry ?? undefined} material={material}>

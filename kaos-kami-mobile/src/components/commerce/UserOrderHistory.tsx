@@ -13,6 +13,37 @@ export interface LocalOrderEntry {
   deliveryMethod: string;
   status: string;
   createdAt: string;
+  /**
+   * Fallback review (kolom reviewNote BELUM ADA di server 21 Sep 2026):
+   * diisi bila pemanggil punya note string-match [REVIEW...]/[DITOLAK...]
+   * dari OrderStatusEvent; null = tak ada info tambahan.
+   */
+  reviewNote?: string | null;
+  reviewKind?: 'REVIEW' | 'APPROVED' | 'REJECTED' | null;
+}
+
+/**
+ * Label manusiawi status riwayat incl. REVIEW/ditolak/disetujui.
+ * Polling tak ada di file ini (render-only) — murni label.
+ */
+export function humanizeHistoryStatus(entry: Pick<LocalOrderEntry, 'status' | 'reviewKind' | 'reviewNote'>): { label: string; variant: 'success' | 'warning' | 'production' | 'neutral' } {
+  const note = entry.reviewNote || '';
+  if (entry.reviewKind === 'REJECTED' || /(\[DITOLAK|ditolak|REJECTED)/i.test(note) || entry.status === 'REJECTED') {
+    return { label: 'Ditolak', variant: 'neutral' };
+  }
+  if (entry.reviewKind === 'REVIEW' || /(\[REVIEW|REVIEW:|OVERSELL|triase)/i.test(note)) {
+    return { label: 'Review Admin', variant: 'warning' };
+  }
+  if (
+    entry.reviewKind === 'APPROVED' ||
+    entry.status === 'PENDING_PAYMENT' ||
+    /(disetujui|diterima|siap dibayar)/i.test(note)
+  ) {
+    return { label: 'Siap Dibayar', variant: 'warning' };
+  }
+  if (entry.status === 'COMPLETED') return { label: 'Selesai', variant: 'success' };
+  if (entry.status === 'CANCELLED' || entry.status === 'REFUNDED') return { label: 'Dibatalkan', variant: 'neutral' };
+  return { label: 'Diproses', variant: 'production' };
 }
 
 export function UserOrderHistory({
@@ -36,20 +67,21 @@ export function UserOrderHistory({
       }
     } catch {}
 
-    // Fallback: jika ada order aktif tunggal yang belum masuk history
+    // Fallback jujur: order aktif yg belum masuk history ditandai LOKAL
+    // (total/status tak dikarang — diklik untuk muat status server).
     try {
       const activeOid = localStorage.getItem('kaoskami_active_order');
       if (activeOid) {
         setOrders([
           {
             id: activeOid,
-            orderNumber: `#${activeOid.slice(-8).toUpperCase()}`,
+            orderNumber: `#${activeOid.slice(-8).toUpperCase()} (lokal)`,
             totalIdr: 0,
             itemCount: 1,
-            deliveryMethod: 'Antar Makassar',
-            status: 'IN_PRODUCTION_QUEUE',
+            deliveryMethod: '-',
+            status: 'MENUNGGU_STATUS_SERVER',
             createdAt: new Date().toISOString(),
-          },
+          } as any,
         ]);
       }
     } catch {}
@@ -127,10 +159,38 @@ export function UserOrderHistory({
             >
               <div className="flex items-center justify-between border-b border-zinc-800/80 pb-2">
                 <span className="text-xs font-extrabold text-white font-mono">{ord.orderNumber}</span>
-                <Badge variant={ord.status === 'COMPLETED' ? 'success' : 'production'}>
-                  {ord.status === 'COMPLETED' ? 'Selesai' : 'Diproses'}
-                </Badge>
+                {(() => {
+                  const h = humanizeHistoryStatus(ord);
+                  return <Badge variant={h.variant}>{h.label}</Badge>;
+                })()}
               </div>
+
+              {/* Alasan tolak / catatan review (teks admin, fallback string-match). */}
+              {(() => {
+                const h = humanizeHistoryStatus(ord);
+                if ((h.label === 'Ditolak' || h.label === 'Review Admin') && ord.reviewNote) {
+                  return (
+                    <p className={`text-[11px] leading-snug rounded-xl px-2.5 py-2 border ${h.label === 'Ditolak' ? 'bg-red-500/10 border-red-500/25 text-red-300' : 'bg-amber-500/10 border-amber-500/25 text-amber-300'}`}>
+                      {h.label === 'Ditolak' ? 'Alasan admin: ' : 'Catatan: '}{ord.reviewNote}
+                    </p>
+                  );
+                }
+                return null;
+              })()}
+
+              {/* Tombol bayar bila approved (PENDING_PAYMENT ter-ACC) → tracker. */}
+              {humanizeHistoryStatus(ord).label === 'Siap Dibayar' && (
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    haptic.tapHeavy();
+                    onSelectOrder(ord.id);
+                  }}
+                  className="w-full py-2 rounded-xl bg-emerald-500 text-white text-xs font-bold"
+                >
+                  Bayar Sekarang
+                </button>
+              )}
 
               <div className="flex items-center justify-between text-xs">
                 <div>

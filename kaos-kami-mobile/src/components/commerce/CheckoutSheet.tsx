@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Check, MapPin, QrCode, Truck, ChevronRight, CheckCircle2 } from 'lucide-react';
 import { BottomSheet, HapticButton, Badge } from '@/components/ui';
 import { useMobileCartStore } from '@/store/useMobileCartStore';
@@ -76,6 +76,27 @@ export function CheckoutSheet({ open, onOpenChange, onOrderSuccess, onNotify }: 
   const [customerAddress, setCustomerAddress] = useState('');
   const [couponCode, setCouponCode] = useState('');
   const [turnaroundTier, setTurnaroundTier] = useState<TurnaroundTier>('REGULER');
+  // P-checkout parity: email + catatan kurir opsional + notice harga server.
+  const [email, setEmail] = useState('');
+  const [courierNotes, setCourierNotes] = useState('');
+  const [priceNotice, setPriceNotice] = useState<string | null>(null);
+
+  // LANGKAH 1: re-quote harga server saat sheet dibuka (cermin web syncPrices).
+  useEffect(() => {
+    if (!open || items.length === 0) return;
+    let alive = true;
+    (async () => {
+      try {
+        const { requoteAndSyncCart } = await import('@/lib/checkoutParity');
+        const r = await requoteAndSyncCart(10000);
+        if (alive && r.notice) setPriceNotice(r.notice.message);
+      } catch {}
+    })();
+    return () => {
+      alive = false;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open]);
   const [selectedDelivery, setSelectedDelivery] = useState<DeliveryOption>(MAKASSAR_DELIVERY_OPTIONS[0]);
   // P0-3: kecamatan FREE_MAKASSAR — WAJIB dari MAKASSAR_SUBDISTRICTS (cerminan
   // whitelist web; server 400 bila di luar daftar). Default = 'Tallo' (workshop).
@@ -87,6 +108,8 @@ export function CheckoutSheet({ open, onOpenChange, onOrderSuccess, onNotify }: 
   const [otpSent, setOtpSent] = useState(false);
   const [isSendingOtp, setIsSendingOtp] = useState(false);
   const [otpMsg, setOtpMsg] = useState<string | null>(null);
+  // OTP sekali seumur hidup: nomor terverifikasi permanen → lewati kode.
+  const [otpLifetimeOk, setOtpLifetimeOk] = useState(false);
   // Ekspedisi luar kota: kota + kode pos + daftar tarif server + opsi terpilih.
   // Harga final tetap di-resolve server (tampilan di sini hanya estimasi).
   interface ShipOption { key: string; courier: string; service: string; cost: number; etd: string; zoneId?: string; courierCode?: string; serviceCode?: string; }
@@ -121,6 +144,34 @@ export function CheckoutSheet({ open, onOpenChange, onOrderSuccess, onNotify }: 
   // Upload R2 dulu: progres kompres+unggah + peringatan fallback base64.
   const [uploadProgress, setUploadProgress] = useState<string | null>(null);
   const [r2Warning, setR2Warning] = useState<string | null>(null);
+
+  // GATE LOGIN (keputusan owner Sep 2026: tamu DILARANG checkout — wajib login).
+  // Pola auth yg tersedia di file ini = userId persisten (localStorage
+  // 'kaoskami_user_id' + Preferences via setStoredUserId). Mobile tak punya
+  // sesi web better-auth di file ini — server tetap sumber kebenaran (401 bila
+  // tanpa sesi). Tanpa userId → JANGAN render form, tampilkan prompt login.
+  const [storedUserId, setStoredUserId] = useState<string | null>(null);
+  const [loginChecked, setLoginChecked] = useState(false);
+  useEffect(() => {
+    if (!open) return;
+    setLoginChecked(false);
+    try {
+      const id = localStorage.getItem('kaoskami_user_id');
+      setStoredUserId(id && id.trim() ? id : null);
+      // N3: sheet dibuka + user sudah login → pastikan binding token push
+      // memakai userId ini (mis. login Google di sesi sebelumnya).
+      if (id && id.trim()) {
+        import('@/lib/bridge/push')
+          .then((m) => void m.refreshPushTokenBinding(id.trim()))
+          .catch(() => {});
+      }
+    } catch {
+      setStoredUserId(null);
+    } finally {
+      setLoginChecked(true);
+    }
+  }, [open ]);
+  const isLoggedIn = !!storedUserId;
 
   const subtotal = getSubtotal();
   const selectedZone = zones.find((z) => z.key === selectedZoneId) || null;
@@ -204,6 +255,14 @@ export function CheckoutSheet({ open, onOpenChange, onOrderSuccess, onNotify }: 
         setOtpMsg(r.error || 'Gagal kirim OTP');
         return;
       }
+      // Nomor terverifikasi permanen (OTP sekali seumur hidup): nol WA, langsung pesan.
+      if ((r as any).alreadyVerified) {
+        setOtpLifetimeOk(true);
+        setOtpSent(false);
+        setOtpCode('');
+        setOtpMsg('✅ Nomor sudah terverifikasi permanen — langsung PESAN tanpa kode.');
+        return;
+      }
       setOtpSent(true);
       // Kode mock HANYA ada di dev lokal; server prod tak pernah kirim code.
       const showMock = r.mock && r.code && process.env.NODE_ENV !== 'production';
@@ -217,6 +276,21 @@ export function CheckoutSheet({ open, onOpenChange, onOrderSuccess, onNotify }: 
 
   const handlePlaceOrder = async () => {
     setFormError(null);
+    // Gate login client-side (server 401 bila tanpa sesi — sumber kebenaran).
+    try {
+      const id = localStorage.getItem('kaoskami_user_id');
+      if (!id || !id.trim()) {
+        const msg = 'Login dulu untuk memesan (tamu tidak bisa order).';
+        setFormError(msg);
+        onNotify?.(msg);
+        return;
+      }
+    } catch {
+      const msg = 'Login dulu untuk memesan (tamu tidak bisa order).';
+      setFormError(msg);
+      onNotify?.(msg);
+      return;
+    }
     if (customerName.trim().length < 2) return setFormError('Nama penerima minimal 2 karakter.');
     const normalizedPhone = normalizeMobilePhone(customerPhone);
     if (!isValidMobilePhone(normalizedPhone))
@@ -243,12 +317,36 @@ export function CheckoutSheet({ open, onOpenChange, onOrderSuccess, onNotify }: 
     }
     // P0-3: server WAJIBKAN otpCode 6-digit (401 bila tanpa/salah/kadaluarsa,
     // 403 bila OTP milik nomor lain). Minta kode dulu via KIRIM OTP.
-    if (!/^\d{6}$/.test(otpCode.trim())) {
+    // KECUALI nomor terverifikasi permanen (OTP sekali seumur hidup) → lewati.
+    if (!otpLifetimeOk && !/^\d{6}$/.test(otpCode.trim())) {
       return setFormError('Kode OTP 6 digit wajib — klik KIRIM OTP, cek WA, lalu isi kodenya sebelum pesan.');
     }
     // Guard FREE_MAKASSAR (paritas server): kecamatan wajib dari whitelist.
     if (selectedDelivery.id === 'FREE_MAKASSAR' && !MAKASSAR_SUBDISTRICTS.includes(district)) {
       return setFormError('Pilih kecamatan se-Kota Makassar untuk antar gratis.');
+    }
+    // LANGKAH 2: validasi varian+ukuran vs katalog segar (server tetap final).
+    try {
+      const { validateCartAgainstCatalog } = await import('@/lib/checkoutParity');
+      const cats = await mobileApiClient.getCatalog().then((r) => r.data?.categories ?? []);
+      const v = validateCartAgainstCatalog(
+        items.map((it) => ({
+          apparelType: it.apparelType,
+          size: it.size,
+          quantity: it.quantity,
+          basePrice: (it as any).basePrice ?? 0,
+          sablonPrice: (it as any).sablonPrice ?? 0,
+        })),
+        cats as any
+      );
+      if (!v.ok) return setFormError(v.issues[0].message);
+      if (v.notice) {
+        setPriceNotice(v.notice.message);
+        return setFormError(v.notice.message + ' Klik PESAN lagi.');
+      }
+    } catch {}
+    if (email.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) {
+      return setFormError('Email tidak valid (opsional — kosongkan bila tak perlu).');
     }
 
     setIsSubmitting(true);
@@ -270,16 +368,19 @@ export function CheckoutSheet({ open, onOpenChange, onOrderSuccess, onNotify }: 
         const rs = (it as { decalScale?: unknown }).decalScale;
         const rr = (it as { decalRotation?: unknown }).decalRotation;
         const rt = (it as { decalTargetSide?: unknown }).decalTargetSide;
+        const ro = (it as { decalOpacity?: unknown }).decalOpacity;
         return {
           x: clampDecal(typeof rx === 'number' && Number.isFinite(rx) ? rx : 0, -0.75, 0.75),
           y: clampDecal(typeof ry === 'number' && Number.isFinite(ry) ? ry : 0.04, -0.75, 0.75),
           scale: clampDecal(typeof rs === 'number' && Number.isFinite(rs) ? rs : 0.22, 0.02, 1.5),
           rotation: clampDecal(typeof rr === 'number' && Number.isFinite(rr) ? rr : 0, -180, 180),
           targetSide: (rt === 'back' ? 'back' : 'front') as 'front' | 'back',
+          // Q8: opasitas dasar dari sheet (0.2–1, default 1) — bukan hardcode.
+          opacity: clampDecal(typeof ro === 'number' && Number.isFinite(ro) ? ro : 1, 0.2, 1),
         };
       };
       // UPLOAD R2 DULU (audit HIGH): base64 mentah 5–8MB JANGAN dikirim
-      // langsung — buat DRAFT via POST /api/designs (guest boleh, server
+      // langsung — buat DRAFT via POST /api/designs (akun login, server
       // hosting decal → R2) lalu pakai URL R2 di payload checkout.
       // Gagal → fallback base64 lama + peringatan (checkout tetap jalan).
       setUploadProgress('Menyiapkan gambar sablon…');
@@ -319,7 +420,7 @@ export function CheckoutSheet({ open, onOpenChange, onOrderSuccess, onNotify }: 
                     y: per.y,
                     scale: per.scale,
                     rotation: per.rotation,
-                    opacity: 1,
+                    opacity: per.opacity,
                   };
                 })(),
               ],
@@ -341,13 +442,13 @@ export function CheckoutSheet({ open, onOpenChange, onOrderSuccess, onNotify }: 
       }
       setUploadProgress(null);
       if (r2Failed) {
-        // GUEST draft-R2: JANGAN diam — jelaskan alur di UI + toast.
-        // Normal: guest → POST /api/designs → decal di-hosting server ke R2,
-        // checkout memakai URL R2. Gagal → fallback gambar asli (base64) agar
-        // checkout tetap jalan (mungkin lambat); desain tetap tersimpan.
+        // Draft-R2: JANGAN diam — jelaskan alur di UI + toast.
+        // Normal: akun login → POST /api/designs → decal di-hosting server ke
+        // R2, checkout memakai URL R2. Gagal → fallback gambar asli (base64)
+        // agar checkout tetap jalan (mungkin lambat); desain tetap tersimpan.
         const reason = lastDraftError ? ` (${lastDraftError})` : '';
         const warn =
-          `Mode tamu: simpan draft gambar ke server (R2) gagal${reason} — ` +
+          `Simpan draft gambar ke server (R2) gagal${reason} — ` +
           'memakai gambar asli agar checkout tetap jalan (mungkin lambat). ' +
           'Pesanan tetap tersimpan; ulangi saat sinyal kuat bila gagal.';
         setR2Warning(warn);
@@ -356,6 +457,8 @@ export function CheckoutSheet({ open, onOpenChange, onOrderSuccess, onNotify }: 
       const res = await mobileApiClient.checkout({
         recipientName: customerName.trim(),
         phoneNumber: normalizedPhone,
+        email: email.trim().slice(0, 254) || undefined,
+        courierNotes: courierNotes.trim().slice(0, 500) || undefined,
         // P0-3: bukti kepemilikan WA — server 401 tanpa ini (6 digit).
         otpCode: otpCode.trim(),
         deliveryMethod: DELIVERY_TO_SERVER[selectedDelivery.id],
@@ -391,7 +494,7 @@ export function CheckoutSheet({ open, onOpenChange, onOrderSuccess, onNotify }: 
                   y: per.y,
                   scale: per.scale,
                   rotation: per.rotation,
-                  opacity: 1,
+                  opacity: per.opacity,
                 }]
               : [],
           };
@@ -415,15 +518,18 @@ export function CheckoutSheet({ open, onOpenChange, onOrderSuccess, onNotify }: 
               : 'Gagal buat link bayar otomatis. Buka invoice untuk bayar manual via WA.'
           );
         } else {
-          // 401 (OTP wajib/salah/kadaluarsa) / 403 (OTP milik nomor lain) /
-          // 503 (layanan belum dikonfigurasi) / 409-tanpa-order: tampilkan
-          // pesan server apa adanya + petunjuk OTP bila relevan.
+          // 401 sesi-hilang ("Login dulu...") / 401 OTP (wajib/salah/kadaluarsa)
+          // / 403 (OTP milik nomor lain) / 503 / 409-tanpa-order: tampilkan
+          // pesan server apa adanya. Hint OTP HANYA untuk 401 OTP, JANGAN untuk
+          // 401 sesi-hilang (tamu dilarang — wajib login, bukan minta OTP).
           const suffix =
             res.status === 409 && (res.orderNumber || res.invoiceUrl)
               ? `${res.orderNumber ? ` Order: ${res.orderNumber}.` : ''}${res.invoiceUrl ? ` Buka: ${res.invoiceUrl}` : ''}`
               : '';
-          const otpHint = res.status === 401 ? ' Minta kode baru via KIRIM OTP lalu coba lagi.' : '';
-          setFormError(`${res.error || 'Checkout gagal. Periksa koneksi lalu coba lagi.'}${suffix}${otpHint}`);
+          const serverMsg = res.error || 'Checkout gagal. Periksa koneksi lalu coba lagi.';
+          const isLoginGate = serverMsg.includes('Login dulu untuk memesan');
+          const otpHint = res.status === 401 && !isLoginGate ? ' Minta kode baru via KIRIM OTP lalu coba lagi.' : '';
+          setFormError(`${serverMsg}${suffix}${otpHint}`);
         }
         return;
       }
@@ -432,6 +538,12 @@ export function CheckoutSheet({ open, onOpenChange, onOrderSuccess, onNotify }: 
         // Persisten via Preferences (native) + cermin localStorage.
         void setStoredUserId(res.userId);
         try { localStorage.setItem('kaoskami_user_id', res.userId); } catch {}
+        // N3: identitas (baru/berubah) → ikat ulang token push ke userId ini.
+        // Fire-and-forget: gagal = push tanpa user (checkout tetap sukses).
+        try {
+          const { refreshPushTokenBinding } = await import('@/lib/bridge/push');
+          void refreshPushTokenBinding(res.userId);
+        } catch {}
       }
       if (res.orderId) {
         try {
@@ -450,14 +562,30 @@ export function CheckoutSheet({ open, onOpenChange, onOrderSuccess, onNotify }: 
           localStorage.setItem('kaoskami_order_history', JSON.stringify(updated));
         } catch {}
       }
-      clearCart();
+      // A7: cart DIPERTAHANKAN saat PENDING (ditandai dipakai order ini) —
+      // dikosongkan HANYA setelah server konfirmasi lunas.
+      try {
+        localStorage.setItem('kaoskami_cart_pending_order', res.orderId!);
+      } catch {}
       haptic.success();
       onOpenChange(false);
-      onOrderSuccess(res.orderId!, { paymentUrl: res.paymentUrl, invoiceUrl: res.invoiceUrl });
+      // ALUR REVIEW: tanpa charge — cart dikosongkan (item pindah ke order),
+      // bayar nanti via tombol di tracker setelah admin ACC.
+      clearCart();
+      try { localStorage.removeItem('kaoskami_cart_pending_order'); } catch {}
+      onOrderSuccess(
+        res.orderId!,
+        {
+          paymentUrl: res.paymentUrl,
+          invoiceUrl: res.invoiceUrl,
+        } as any
+      );
       if (res.paymentUrl) {
         openDuitkuPaymentModal(res.paymentUrl, () => {
           onNotify?.('Browser pembayaran ditutup. Status pesanan diperbarui otomatis.');
         });
+      } else {
+        onNotify?.('Desain terkirim — menunggu ACC admin, lalu bayar dari tab Pesanan.');
       }
     } catch (e: any) {
       setFormError(e?.message || 'Checkout gagal. Coba lagi.');
@@ -471,11 +599,39 @@ export function CheckoutSheet({ open, onOpenChange, onOrderSuccess, onNotify }: 
     <BottomSheet
       open={open}
       onOpenChange={onOpenChange}
-       title={step === 1 ? 'Data Penerima' : step === 2 ? 'Pengiriman' : 'Metode Pembayaran'}
-      description="Harga dihitung ulang di server. Bayar QRIS, lunas dulu baru produksi."
+       title={!isLoggedIn ? 'Login Diperlukan' : step === 1 ? 'Data Penerima' : step === 2 ? 'Pengiriman' : 'Metode Pembayaran'}
+      description={!isLoggedIn ? 'Login dulu untuk memesan (tamu tidak bisa order).' : 'Harga dihitung ulang di server. Bayar QRIS, lunas dulu baru produksi.'}
     >
       <div className="space-y-4 py-2 pb-6">
-        {/* Step Indicator Tabs */}
+        {/* GATE LOGIN — tamu DILARANG checkout (keputusan owner). Tanpa userId/
+            sesi: JANGAN render form, tampilkan prompt login. Pola auth di file
+            ini = userId persisten; sesi web true diverifikasi server (401). */}
+        {loginChecked && !isLoggedIn && (
+          <div className="space-y-3 p-4 rounded-2xl bg-zinc-900 border border-[#FF6B35]/40 text-center">
+            <p className="text-sm font-bold text-white">Login dulu untuk memesan (tamu tidak bisa order).</p>
+            <p className="text-[11px] text-zinc-400 leading-relaxed">
+              Checkout hanya untuk akun login. Verifikasi nomor WA via KIRIM OTP untuk membuat akun,
+              atau login via web agar sesi terbaca — server menolak pesanan tamu (401).
+            </p>
+            <button
+              type="button"
+              onClick={() => {
+                onNotify?.('Login dulu untuk memesan (tamu tidak bisa order).');
+                onOpenChange(false);
+              }}
+              className="w-full py-3 rounded-xl bg-[#FF6B35] text-white text-xs font-bold min-h-[44px]"
+            >
+              Tutup &amp; Login Dulu
+            </button>
+            {formError && (
+              <div className="p-3 rounded-xl bg-rose-500/10 border border-rose-500/30 text-[11px] text-rose-300">
+                {formError}
+              </div>
+            )}
+          </div>
+        )}
+        {/* Step Indicator Tabs — hanya untuk akun login */}
+        {isLoggedIn && (
         <div className="flex items-center justify-between px-2 pb-2 border-b border-zinc-800">
           {[
             { num: 1, label: 'Alamat' },
@@ -506,11 +662,12 @@ export function CheckoutSheet({ open, onOpenChange, onOrderSuccess, onNotify }: 
             </button>
           ))}
         </div>
+        )}
 
         {/* ========================================================= */}
-        {/* STEP 1: ALAMAT MAKASSAR */}
+        {/* STEP 1: ALAMAT MAKASSAR — hanya akun login (tamu = prompt di atas) */}
         {/* ========================================================= */}
-        {step === 1 && (
+        {isLoggedIn && step === 1 && (
           <div className="space-y-3">
             <div>
               <label className="text-xs font-semibold text-zinc-300 block mb-1">Nama Lengkap:</label>
@@ -535,6 +692,7 @@ export function CheckoutSheet({ open, onOpenChange, onOrderSuccess, onNotify }: 
                     // owner-match) — buang agar tak terkirim basi.
                     setOtpSent(false);
                     setOtpCode('');
+                    setOtpLifetimeOk(false);
                   }}
                   placeholder="08xx / 628xx / +62…"
                   aria-label="Nomor WhatsApp untuk OTP"
@@ -563,6 +721,18 @@ export function CheckoutSheet({ open, onOpenChange, onOrderSuccess, onNotify }: 
                 />
               )}
               {otpMsg && <p className="text-[11px] text-amber-400 mt-1">{otpMsg}</p>}
+            </div>
+
+            <div>
+              <label className="text-xs font-semibold text-zinc-300 block mb-1">Email (opsional, utk invoice)</label>
+              <input
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="nama@email.com"
+                aria-label="Email opsional"
+                className="w-full px-3.5 py-3 rounded-xl bg-zinc-900 border border-zinc-700/80 text-white text-base outline-none focus:border-[#FF6B35]"
+              />
             </div>
 
             <div>
@@ -612,9 +782,9 @@ export function CheckoutSheet({ open, onOpenChange, onOrderSuccess, onNotify }: 
         )}
 
         {/* ========================================================= */}
-        {/* STEP 2: OPSI KURIR MAKASSAR */}
+        {/* STEP 2: OPSI KURIR MAKASSAR — hanya akun login */}
         {/* ========================================================= */}
-        {step === 2 && (
+        {isLoggedIn && step === 2 && (
           <div className="space-y-2.5">
             {MAKASSAR_DELIVERY_OPTIONS.map((opt) => {
               const isSelected = selectedDelivery.id === opt.id;
@@ -817,6 +987,18 @@ export function CheckoutSheet({ open, onOpenChange, onOrderSuccess, onNotify }: 
               </div>
             </div>
 
+            <div>
+              <label className="text-xs font-semibold text-zinc-300 block mb-1">Catatan kurir (opsional, maks 500)</label>
+              <textarea
+                rows={2}
+                value={courierNotes}
+                onChange={(e) => setCourierNotes(e.target.value.slice(0, 500))}
+                placeholder="Patokan, jam terima, titip satpam…"
+                aria-label="Catatan kurir opsional"
+                className="w-full px-3.5 py-2.5 rounded-xl bg-zinc-900 border border-zinc-700/80 text-white text-base outline-none focus:border-[#FF6B35]"
+              />
+            </div>
+
             <div className="flex gap-2 pt-2">
               <HapticButton
                 variant="secondary"
@@ -849,9 +1031,9 @@ export function CheckoutSheet({ open, onOpenChange, onOrderSuccess, onNotify }: 
         )}
 
         {/* ========================================================= */}
-        {/* STEP 3: PEMBAYARAN & ORDER SUBMISSION */}
+        {/* STEP 3: PEMBAYARAN & ORDER SUBMISSION — hanya akun login */}
         {/* ========================================================= */}
-        {step === 3 && (
+        {isLoggedIn && step === 3 && (
           <div className="space-y-3">
             {/* QRIS ONLY (lunas-dulu, fee 0,7%) — QR generatif sesuai total. */}
             <div className="p-3.5 rounded-2xl border bg-[#FF6B35]/15 border-[#FF6B35] ring-1 ring-orange-500/30 flex items-center justify-between">
@@ -911,6 +1093,11 @@ export function CheckoutSheet({ open, onOpenChange, onOrderSuccess, onNotify }: 
             </div>
 
             {/* Submit Button */}
+            {priceNotice && (
+              <div className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/30 text-[11px] leading-relaxed text-amber-300">
+                {priceNotice}
+              </div>
+            )}
             {formError && (
               <div className="p-3 rounded-xl bg-rose-500/10 border border-rose-500/30 text-[11px] text-rose-300">
                 {formError}

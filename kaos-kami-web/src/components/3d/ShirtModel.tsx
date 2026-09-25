@@ -13,9 +13,11 @@ import { easing } from "maath";
 import { createClothPhysicalMaterial } from "@/lib/materials/clothPhysicalMaterial";
 import { useResourceTracker, useTrackedResource } from "@/lib/threeResourceTracker";
 import { surfaceZForApparel } from "@/lib/scaleCalibration";
-import { getStretchFactors } from "@/lib/3d/stretchPhysics";
+import { applyStretchToMaterial, sharedStretchUniforms } from "@/lib/3d/stretchDeform";
 
-const MODEL_PATH = "/models/jacket.glb?v=15";
+// SWAP 20 Sep 2026: hoodie Pieter Ferreira (CC-BY 4.0, pullover TANPA resleting,
+// A-pose, 49.8k tris). Node-scale baked: tinggi 1.8473 (bukan 998 mentah).
+const MODEL_PATH = "/models/jacket.glb?v=16";
 
 // PERF 14 Sep 2026: top-level useGLTF.preload DIHAPUS — preload terpusat
 // HANYA via idle-preload di CanvasStage (aktif + tetangga katalog) agar tak
@@ -75,10 +77,12 @@ const GltfJacket: React.FC<{ path: string }> = ({ path }) => {
     });
   }, [selectedColor, isWireframe, activeColorMode, materialFinish, windStrength, tier]);
 
-  // Ekstrak geometri jaket terkalibrasi proporsional (selaras Hoodie acuan emas):
-  // scaleMultiplier 0.52 & crownYOffset -0.075 agar bahu tepat di Y=0.110 dan area dada atas di Y=0.05 (logo KK pas di dada).
+  // Ekstrak geometri terkalibrasi 1:1 vs jacket lama (height-based):
+  // tinggi baked 1.8473 × 0.2999 = 0.55395 = lama 1.06522 × 0.52 → body 74cm sama.
+  // crownYOffset -0.075 dipertahankan (puncak di Y=0.202 = lama persis).
+  // Threshold multi-part tetap valid: puncak 0.202, torso-half ~0.10, lengan s/d 0.31.
   const baseGeometry = useMemo(() => {
-    return extractApparelGeometry(scene, { scaleMultiplier: 0.52, crownYOffset: -0.075 });
+    return extractApparelGeometry(scene, { scaleMultiplier: 0.2999, crownYOffset: -0.075 });
   }, [scene, path]);
 
   useEffect(() => {
@@ -144,19 +148,32 @@ const GltfJacket: React.FC<{ path: string }> = ({ path }) => {
     }
   });
 
+  // Uji Tarik REAL + bleed X-ray: hooks WAJIB sebelum early-return (rules-of-hooks).
+  useEffect(() => {
+    if (!mergedGeometry) return;
+    applyStretchToMaterial(material, sharedStretchUniforms);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [material, mergedGeometry]);
+  // Mode inspeksi bleed X-ray: kain transparan, sablon tetap opak.
+  const bleedCheck = useConfiguratorStore((s) => s.inspectMode === "bleed");
+  useEffect(() => {
+    if (!mergedGeometry) return;
+    material.transparent = bleedCheck;
+    material.opacity = bleedCheck ? 0.15 : 1;
+    material.depthWrite = !bleedCheck;
+  }, [material, bleedCheck, mergedGeometry]);
+
   if (!mergedGeometry) return null;
 
   const posX = viewMode === "story" ? 0 : modelPosX;
   const posY = viewMode === "story" ? -0.05 : modelPosY - 0.05;
   const scale = viewMode === "story" ? 1.0 : modelScale;
 
-  const stretchFactors = getStretchFactors(testLabMode, stretchIntensity, stretchDirection);
-
   return (
     <group
       ref={meshRef}
       position={[posX, posY, 0]}
-      scale={[scale * stretchFactors.stretchX, scale * stretchFactors.stretchY, scale * stretchFactors.stretchZ]}
+      scale={[scale, scale, scale]}
       dispose={null}
     >
       <mesh

@@ -20,6 +20,13 @@ export function TouchOrbitControls() {
   const { camera } = useThree();
   const cameraAngle = useMobileStudioStore((s) => s.cameraAngle);
   const isGizmoDragging = useMobileStudioStore((s) => s.isGizmoDragging);
+  // F3 Test Lab arbitrasi sentuh: mode stretch = orbit MATI (drag = tarik
+  // kain via MobileStretchController); isStretchDragging = kunci tambahan
+  // saat jari menempel. Mode senter = gyro parallax MATI (sorotan milik pointer).
+  const testLabMode = useMobileStudioStore((s) => s.testLabMode);
+  const isStretchDragging = useMobileStudioStore((s) => s.isStretchDragging);
+  const isStretchMode = testLabMode === 'stretch';
+  const isFlashlightMode = testLabMode === 'flashlight';
   const targetPosRef = useRef<THREE.Vector3 | null>(null);
   const gyroOffsetRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
 
@@ -33,7 +40,8 @@ export function TouchOrbitControls() {
   // Sensor DeviceOrientation: Parallax kemiringan HP halus saat memegang perangkat
   useEffect(() => {
     const handleOrientation = (e: DeviceOrientationEvent) => {
-      if (isGizmoDragging || targetPosRef.current) return;
+      // F3: gyro off saat senter (sorotan milik pointer) & stretch (milik drag).
+      if (isGizmoDragging || isStretchDragging || isStretchMode || isFlashlightMode || targetPosRef.current) return;
       // gamma: kiri/kanan (-90 ke 90), beta: depan/belakang (-180 ke 180)
       const gamma = e.gamma ?? 0;
       const beta = (e.beta ?? 45) - 45; // normalisasi posisi pegang ~45 deg
@@ -53,7 +61,7 @@ export function TouchOrbitControls() {
         window.removeEventListener('deviceorientation', handleOrientation);
       }
     };
-  }, [isGizmoDragging]);
+  }, [isGizmoDragging, isStretchDragging, isStretchMode, isFlashlightMode]);
 
   useFrame((_, delta) => {
     if (targetPosRef.current && controlsRef.current) {
@@ -64,7 +72,7 @@ export function TouchOrbitControls() {
       if (camera.position.distanceTo(targetPosRef.current) < 0.01) {
         targetPosRef.current = null;
       }
-    } else if (controlsRef.current && !isGizmoDragging) {
+    } else if (controlsRef.current && !isGizmoDragging && !isStretchDragging && !isStretchMode) {
       // Subtle gyro parallax response
       const targetX = gyroOffsetRef.current.x;
       const targetY = gyroOffsetRef.current.y;
@@ -76,7 +84,7 @@ export function TouchOrbitControls() {
   return (
     <DreiOrbitControls
       ref={controlsRef}
-      enabled={!isGizmoDragging}
+      enabled={!isGizmoDragging && !isStretchDragging && !isStretchMode}
       enablePan={false}
       enableZoom={true}
       rotateSpeed={0.75}

@@ -48,7 +48,7 @@ export function CancelOrderButton({ orderId }: { orderId: string }) {
       <ConfirmDialog
         open={asking}
         title="Batalkan pesanan?"
-        message="Pesanan PENDING ini akan dibatalkan. Kupon yang dipakai ikut hangus. Lanjutkan?"
+        message="Pesanan PENDING ini akan dibatalkan. Kuota kupon yang dipakai dikembalikan otomatis. Lanjutkan?"
         confirmLabel="YA, BATALKAN"
         danger
         busy={state === "busy"}

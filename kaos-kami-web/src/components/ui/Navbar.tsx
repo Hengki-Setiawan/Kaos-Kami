@@ -5,10 +5,11 @@ import Link from "next/link";
 import { useConfiguratorStore } from "@/store/useConfiguratorStore";
 import { useCartStore } from "@/store/useCartStore";
 import { useShallow } from "zustand/shallow";
-import { Sun, Moon, Menu, X, User as UserIcon, ShoppingBag, ShieldCheck, Smartphone } from "lucide-react";
+import { Sun, Moon, Menu, X, User as UserIcon, ShoppingBag, ShieldCheck, Smartphone, Bell } from "lucide-react";
 import { AuthModal } from "@/components/ui/AuthModal";
 import { CartDrawer } from "@/components/ui/CartDrawer";
 import { useSession } from "@/lib/auth-client";
+import { APK_DOWNLOAD_URL } from "@/lib/shop";
 
 export const Navbar: React.FC = () => {
   const [mounted, setMounted] = React.useState(false);
@@ -20,6 +21,40 @@ export const Navbar: React.FC = () => {
   }, []);
 
   const { data: session } = useSession();
+  // Lonceng user (TAMBAHAN SATU-SATUNYA di file ini selain badge jam toko):
+  // badge unread dari GET /api/notifications (existing), poll 60 dtk, HANYA bila login.
+  const [notifUnread, setNotifUnread] = React.useState(0);
+
+  React.useEffect(() => {
+    if (!session?.user) {
+      setNotifUnread(0);
+      return;
+    }
+    let alive = true;
+    const load = async () => {
+      try {
+        const res = await fetch("/api/notifications", { cache: "no-store" });
+        const data = await res.json().catch(() => null);
+        if (!alive || !res.ok || !data?.success || !Array.isArray(data.items)) return;
+        let seenAt = 0;
+        try {
+          seenAt = Number(localStorage.getItem("kaoskami_notif_seen") || 0);
+        } catch {}
+        const n = (data.items as any[]).filter(
+          (i) => new Date(i.createdAt).getTime() > seenAt
+        ).length;
+        setNotifUnread(n);
+      } catch {
+        /* defensif: badge diam bila fetch gagal */
+      }
+    };
+    void load();
+    const t = setInterval(() => void load(), 60000);
+    return () => {
+      alive = false;
+      clearInterval(t);
+    };
+  }, [session?.user]);
   const userRole = (session?.user as any)?.role || "CUSTOMER";
   const isAdmin =
     ["ADMIN", "SUPER_ADMIN", "PRODUCTION_STAFF"].includes(userRole) ||
@@ -111,7 +146,7 @@ export const Navbar: React.FC = () => {
             </Link>
           )}
           <a
-            href="https://pub-5746f36a46904edc8425ecd721b0bfdc.r2.dev/aplikasi/kaos-kami.apk"
+            href={APK_DOWNLOAD_URL}
             target="_blank"
             rel="noopener noreferrer"
             download="kaos-kami.apk"
@@ -126,6 +161,23 @@ export const Navbar: React.FC = () => {
 
       {/* Right Control Bar (Clean, Minimal, Non-Cluttered) */}
       <div className="flex items-center space-x-2 sm:space-x-3">
+        {/* Badge BUKA/TUTUP dihapus keputusan owner (website tak perlu). */}
+        {/* Lonceng user: HANYA bila login; badge dari /api/notifications. */}
+        {session?.user && (
+          <Link
+            href="/dashboard/orders"
+            className="relative p-2.5 rounded-full bg-surface border border-border-subtle text-text-muted hover:text-brand-accent hover:border-brand-accent/40 transition-all flex items-center justify-center"
+            title="Notifikasi pesanan"
+            aria-label={`Notifikasi pesanan${notifUnread > 0 ? ` (${notifUnread} belum dibaca)` : ""}`}
+          >
+            <Bell size={16} />
+            {notifUnread > 0 && (
+              <span className="absolute -top-1 -right-1 min-w-4 h-4 px-0.5 rounded-full bg-rose-500 text-white text-[9px] font-mono font-bold flex items-center justify-center">
+                {notifUnread > 99 ? "99+" : notifUnread}
+              </span>
+            )}
+          </Link>
+        )}
         {/* Shopping Cart Button */}
         <button
           onClick={openCart}
@@ -246,7 +298,7 @@ export const Navbar: React.FC = () => {
             </Link>
           ))}
           <a
-            href="https://pub-5746f36a46904edc8425ecd721b0bfdc.r2.dev/aplikasi/kaos-kami.apk"
+            href={APK_DOWNLOAD_URL}
             target="_blank"
             rel="noopener noreferrer"
             download="kaos-kami.apk"

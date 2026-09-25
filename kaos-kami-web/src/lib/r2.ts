@@ -23,7 +23,9 @@ export async function uploadToR2(
   bucketOverride?: string
 ): Promise<{ success: boolean; url: string; key: string; error?: string }> {
   if (!CF_TOKEN || !CF_ACCOUNT_ID) {
-    return { success: false, url: "", key, error: "Missing CLOUDFLARE_API_TOKEN/ACCOUNT_ID" };
+    // Jangan bocorkan detail misconfig ke client — log rinci server-side saja.
+    console.error("[r2] misconfig: CLOUDFLARE_API_TOKEN/ACCOUNT_ID hilang");
+    return { success: false, url: "", key, error: "Layanan upload gangguan" };
   }
 
   // B1-3: backup (PII) WAJIB ke bucket privat terpisah, JANGAN ke bucket aset publik.
@@ -77,7 +79,10 @@ export async function uploadBase64ToR2(
   }
 }
 
-export async function deleteFromR2(key: string) {  if (!CF_TOKEN || !CF_ACCOUNT_ID) return { success: false, error: "Missing token" };
+export async function deleteFromR2(key: string) {  if (!CF_TOKEN || !CF_ACCOUNT_ID) {
+    console.error("[r2] misconfig: token/account hilang (delete)");
+    return { success: false, error: "Layanan upload gangguan" };
+  }
   const cleanKey = key.replace(/^\/+/, "");
   const url = `https://api.cloudflare.com/client/v4/accounts/${CF_ACCOUNT_ID}/r2/buckets/${R2_BUCKET}/objects/${encodeURIComponent(cleanKey).replace(/%2F/g, "/")}`;
   try {
@@ -98,7 +103,10 @@ export async function deleteFromR2(key: string) {  if (!CF_TOKEN || !CF_ACCOUNT_
 export async function listR2Objects(
   prefix: string
 ): Promise<{ success: boolean; keys: string[]; error?: string }> {
-  if (!CF_TOKEN || !CF_ACCOUNT_ID) return { success: false, keys: [], error: "Missing token" };
+  if (!CF_TOKEN || !CF_ACCOUNT_ID) {
+    console.error("[r2] misconfig: token/account hilang (list)");
+    return { success: false, keys: [], error: "Layanan upload gangguan" };
+  }
   try {
     const url = `https://api.cloudflare.com/client/v4/accounts/${CF_ACCOUNT_ID}/r2/buckets/${R2_BUCKET}/objects?prefix=${encodeURIComponent(prefix)}&per_page=100`;
     const res = await fetch(url, { headers: { Authorization: `Bearer ${CF_TOKEN}` } });

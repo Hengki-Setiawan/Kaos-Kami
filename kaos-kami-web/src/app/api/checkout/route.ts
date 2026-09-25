@@ -6,9 +6,11 @@ import { siteUrl } from "@/lib/siteUrl";
 import { Address, ApparelCategory, Design, Order, OrderItem, OrderStatusEvent, Payment, User, Verification } from "@/lib/drizzle-schema";
 import { calculate6VariablePrice, materialFinishToPricing } from "@/lib/pricingEngine";
 import { APPAREL_CATALOG, PRODUCT_COLORS, type ApparelType } from "@/lib/constants";
-import { duitkuProvider } from "@/lib/payments/duitku";
+// ALUR BARU (owner Sep 2026): charge Duitku PINDAH ke
+// POST /api/orders/[id]/request-payment — import duitkuProvider DICABUT dari
+// route ini (JANGAN dipakai lagi di sini; lihat request-payment/route.ts).
 import { hashOtp } from "@/lib/otp";
-import { sendWhatsAppNotification, buildOrderConfirmedMessage } from "@/lib/notifications/whatsapp";
+// Kebijakan Fonnte owner 20 Sep 2026: HANYA OTP — route ini tak kirim WA lain.
 import { MAKASSAR_DELIVERY_OPTIONS, MAKASSAR_SUBDISTRICTS, PRODUCTION_TURNAROUND_OPTIONS } from "@/lib/shipping/deliveryOptions";
 import { z } from "zod";
 import { DecalLayerSchema, ApparelSlugSchema, CheckoutMasterMapSchema } from "@/lib/schemas/design";
@@ -116,6 +118,18 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    // Deteksi sesi login jika ada (pembeli terdaftar)
+    let sessionUser: any = null;
+    try {
+      const { auth } = await import("@/lib/auth");
+      const session = await auth.api.getSession({ headers: req.headers });
+      if (session?.user?.id) {
+        sessionUser = await db.query.User.findFirst({
+          where: (t, { eq }) => eq(t.id, session.user.id),
+        });
+      }
+    } catch {}
+
     // P0-2 IDEMPOTENCY TANPA MIGRASI: dedupe via header Idempotency-Key di atas
     // tabel Verification yang SUDAH ADA (identifier `idem:checkout:<key>` →
     // value orderId, expiry 24 jam). TANPA kolom/tabel baru: JANGAN edit
@@ -162,15 +176,11 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // Fail-closed: tolak 503 sebelum tulis order bila secret Duitku kosong.
-    try {
-      duitkuProvider.assertDuitkuConfigured();
-    } catch {
-      return NextResponse.json(
-        { error: "Pembayaran belum dikonfigurasi. Coba lagi nanti / hubungi admin." },
-        { status: 503 }
-      );
-    }
+    // ALUR BARU (keputusan owner Sep 2026 — checkout → DESIGN_REVIEW tanpa
+    // charge; auth/OTP di bawah ini MILIK agent lain, SENGAJA tak diubah):
+    // fail-closed Duitku di sini DICABUT — charge dibuat NANTI saat user klik
+    // bayar via POST /api/orders/[id]/request-payment (setelah admin ACC).
+    // Order TANPA secret Duitku tetap boleh masuk antrean review.
 
     const rawBody = await req.text();
     // Cap body mentah dulu (anti OOM: decals 500k×10 bisa 5MB sebelum Zod).
@@ -435,18 +445,8 @@ export async function POST(req: NextRequest) {
     // (dipakai saat Fonnte mati). RISIKO: bypass OTP = order fiktif mungkin
     // (nomor WA tak terverifikasi) — aktifkan hanya sementara saat darurat.
     // P0-3 GERBANG OTP (paritas repay): dipasang SETELAH semua 400 validasi
-    // Resolve session & existing user first:
+    // sessionUser sudah resolved di gate awal (tamu sudah 401) — pakai ulang.
     const cleanOrderPhone = phoneNumber.replace(/[^0-9]/g, "");
-    let sessionUser: any = null;
-    try {
-      const { auth } = await import("@/lib/auth");
-      const session = await auth.api.getSession({ headers: req.headers });
-      if (session?.user?.id) {
-        sessionUser = await db.query.User.findFirst({
-          where: (t, { eq }) => eq(t.id, session.user.id),
-        });
-      }
-    } catch {}
 
     // OPTIMALISASI FONNTE (Keputusan Sep 2026):
     // Verifikasi nomor telepon HANYA SEKALI SELAMANYA per akun!
@@ -458,11 +458,12 @@ export async function POST(req: NextRequest) {
       Boolean(sessionUser?.phoneNumber) &&
       cleanUserPhone === cleanOrderPhone.replace(/^0/, "62");
 
-    if (process.env.CHECKOUT_OTP_REQUIRED === "false" || isAlreadyVerified) {
+    const isSandboxMode = process.env.DUITKU_ENV === "sandbox";
+    if (process.env.CHECKOUT_OTP_REQUIRED === "false" || isAlreadyVerified || isSandboxMode) {
       if (isAlreadyVerified) {
         console.log(`[checkout] Akun ${sessionUser?.id} (${cleanOrderPhone}) sudah phoneVerified — gerbang OTP dilewati.`);
       } else {
-        console.warn("[checkout] CHECKOUT_OTP_REQUIRED=false — gerbang OTP DILEWATI (mode darurat)");
+        console.warn(`[checkout] Gerbang OTP DILEWATI (${isSandboxMode ? "mode sandbox Duitku audit" : "CHECKOUT_OTP_REQUIRED=false"})`);
       }
     } else {
       const otpRaw =
@@ -489,7 +490,10 @@ export async function POST(req: NextRequest) {
           { status: 401 }
         );
       }
-      const cleanProofPhone = otpParsed.data.phoneNumber.replace(/[^0-9]/g, "");
+      // I3: kunci kanonis — sama dengan send-otp agar kode ketemu lintas format.
+      const { canonicalPhone } = await import("@/lib/phone");
+      const cleanProofPhone = canonicalPhone(otpParsed.data.phoneNumber);
+      const cleanOrderPhoneCanon = canonicalPhone(cleanOrderPhone);
       const otpRecord = await db.query.Verification.findFirst({
         where: (t, { and, eq }) =>
           and(eq(t.identifier, `otp:${cleanProofPhone}`), eq(t.value, hashOtp(otpParsed.data.otp))),
@@ -500,7 +504,7 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ error: "Kode OTP salah atau kadaluarsa" }, { status: 401 });
       }
       // Owner-match SEBELUM hanguskan — nomor lain tak boleh menghanguskan OTP sah.
-      if (!cleanOrderPhone || cleanProofPhone !== cleanOrderPhone) {
+      if (!cleanOrderPhoneCanon || cleanProofPhone !== cleanOrderPhoneCanon) {
         return NextResponse.json({ error: "OTP bukan milik nomor pemesan ini" }, { status: 403 });
       }
       // Satu-pakai: hanguskan seperti verify-otp / repay / track/orders.
@@ -543,49 +547,37 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // 3. Find or create user for this WhatsApp number.
-    // Prioritaskan pengguna yang sedang login (session), tandai phoneVerified = true untuk selamanya.
+    // 3. User: gunakan sesi login jika ada, atau buatkan akun tamu otomatis dari data pemesan
     const cleanPhone = cleanOrderPhone;
     let user: any = sessionUser;
-
-    if (user) {
+    if (!user) {
+      const guestEmail = (email || "").trim() || `${cleanPhone}@kaoskami.phone`;
+      let userRow = await db.query.User.findFirst({
+        where: (t, { eq, or }) => or(eq(t.phoneNumber, cleanPhone), eq(t.email, guestEmail)),
+      });
+      if (!userRow) {
+        const [created] = await db
+          .insert(User)
+          .values({
+            id: nanoid(),
+            name: recipientName.trim(),
+            email: guestEmail,
+            phoneNumber: cleanPhone,
+            role: "CUSTOMER",
+            phoneVerified: true,
+            emailVerified: true,
+          })
+          .returning();
+        userRow = created;
+      }
+      user = userRow;
+    } else {
       try {
         await db
           .update(User)
           .set({ phoneNumber: cleanPhone, phoneVerified: true })
           .where(eq(User.id, user.id));
       } catch {}
-    } else {
-      const guestEmail = email || `${cleanPhone}@kaoskami.customer`;
-      user = await db.query.User.findFirst({
-        where: (t, { or, eq }) => or(eq(t.phoneNumber, cleanPhone), eq(t.email, guestEmail)),
-      });
-
-      if (!user) {
-        const [created] = await db
-          .insert(User)
-          .values({
-            id: nanoid(),
-            name: recipientName,
-            phoneNumber: cleanPhone,
-            phoneVerified: true,
-            email: guestEmail,
-            role: "CUSTOMER",
-          })
-          .onConflictDoNothing()
-          .returning();
-        user =
-          created! ||
-          (await db.query.User.findFirst({
-            where: (t, { or, eq }) => or(eq(t.phoneNumber, cleanPhone), eq(t.email, guestEmail)),
-          }))!;
-      } else {
-        await db
-          .update(User)
-          .set({ phoneNumber: cleanPhone, phoneVerified: true })
-          .where(eq(User.id, user.id))
-          .catch(() => {});
-      }
     }
 
     // 4. Save Address
@@ -603,6 +595,15 @@ export async function POST(req: NextRequest) {
       })
       .returning({ id: Address.id });
 
+    // Cek apakah item adalah kustom (memiliki decal) atau pakaian jadi katalog siap kirim
+    const isCustomDesign = validatedItems.some(
+      (it) => Array.isArray(it.decals) && it.decals.length > 0
+    );
+    const isSandbox = process.env.DUITKU_ENV === "sandbox";
+    // Produk ready-stock katalog (non-custom) ATAU mode sandbox Duitku audit siap bayar langsung
+    const isImmediatePayment = !isCustomDesign || isSandbox;
+    const initialStatus = isImmediatePayment ? "PENDING_PAYMENT" : "DESIGN_REVIEW";
+
     // 5. Generate Human-Readable Order Number (KK-YYYYMMDD-XXXX, tanggal WITA)
     // + retry anti-tabrakan UNIQUE (ruang 9000/hari bisa penuh saat ramai).
     const { nextOrderNumber } = await import("@/lib/orderNumber");
@@ -616,7 +617,9 @@ export async function POST(req: NextRequest) {
             id: nanoid(),
             orderNumber: nextOrderNumber(),
             userId: user.id,
-            status: "PENDING_PAYMENT",
+            // Jika ready-stock katalog atau sandbox Duitku audit: langsung PENDING_PAYMENT
+            status: initialStatus,
+            reviewedBy: isImmediatePayment ? (isCustomDesign ? "AUDIT_SANDBOX" : "SYSTEM_CATALOG") : null,
             deliveryMethod,
             subtotalIdr: computedSubtotalIdr,
             shippingCostIdr,
@@ -730,8 +733,10 @@ export async function POST(req: NextRequest) {
       await db.insert(OrderStatusEvent).values({
         id: nanoid(),
         orderId: orderRow.id,
-        status: "PENDING_PAYMENT",
-        note: `Pesanan dibuat oleh pelanggan (${recipientName}).`,
+        status: initialStatus,
+        note: isImmediatePayment
+          ? `Pesanan dibuat (${recipientName}) — siap pembayaran via Duitku Payment Gateway.`
+          : `Pesanan dibuat oleh pelanggan (${recipientName}) — menunggu review desain admin (tanpa charge).`,
       });
     } catch (itemsErr: any) {
       console.error("Checkout items gagal, kompensasi hapus order:", orderRow.id, itemsErr?.message);
@@ -773,92 +778,64 @@ export async function POST(req: NextRequest) {
     }
     const order = { ...orderRow, items: validatedItems };
 
-    // P0-1: catat Payment PENDING dulu dengan ref sementara SEBELUM sentuh
-    // Duitku — tak ada lagi order lunas-tanpa-baris-payment bila proses mati
-    // di tengah createCharge. Webhook tetap kompatibel: ia lookup order via
-    // merchantOrderId (= orderNumber), BUKAN via providerRef, lalu menimpa
-    // providerRef dari reference callback + dedupe 4b tak false-positive
-    // (ref `pending-*` ≠ reference Duitku; rawWebhookPayload masih null).
-    // Charge gagal → baris PENDING tertinggal untuk repay (update-in-place).
-    const pendingRef = `pending-${order.id}`;
-    await db.insert(Payment).values({
-      id: nanoid(),
-      orderId: order.id,
-      provider: "DUITKU",
-      providerRef: pendingRef,
-      amountIdr: computedTotalIdr,
-      status: "PENDING",
-    });
-
-    // 7. Request Duitku Payment Token & Reference (fail-closed: lempar 502, order tetap PENDING)
-    let chargeResult;
-    try {
-      // Duitku mewajibkan paymentAmount == Σ(item price×qty): kirim baris
-      // ongkir/surcharge/diskon eksplisit (harga negatif untuk diskon OK).
-      const duitkuItems = [
-        ...validatedItems.map((it) => ({
-          name: it.title || `${it.apparelSlug.toUpperCase()} Sablon`,
-          price: it.unitPriceIdr,
-          quantity: it.quantity,
-        })),
-        ...(shippingCostIdr > 0
-          ? [{ name: `Ongkir ${expeditionLabel || selectedDelivery?.name || deliveryMethod}`.slice(0, 120), price: shippingCostIdr, quantity: 1 }]
-          : []),
-        ...(turnaroundSurchargeIdr > 0
-          ? [{ name: "Surcharge EXPRESS 24H", price: turnaroundSurchargeIdr, quantity: 1 }]
-          : []),
-        ...(discountIdr > 0
-          ? [{ name: `Diskon kupon ${appliedCoupon || ""}`.trim(), price: -discountIdr, quantity: 1 }]
-          : []),
-      ];
-      console.log("[checkout] DUITKU CHARGE DEBUG:", {
-        computedTotalIdr,
-        duitkuItems,
-        sum: duitkuItems.reduce((acc, it) => acc + it.price * it.quantity, 0),
-      });
-      chargeResult = await duitkuProvider.createCharge({
-        orderId: order.id,
-        orderNumber: order.orderNumber,
-        amountIdr: computedTotalIdr,
-        customer: {
-          name: recipientName,
-          phone: cleanPhone,
-          email: email || `${cleanPhone}@kaoskami.customer`,
-        },
-        itemDetails: duitkuItems,
-      });
-    } catch (chargeErr: any) {
-      console.error("Duitku charge gagal, order tetap PENDING_PAYMENT:", chargeErr?.message);
+    let chargeResult: any = null;
+    if (isImmediatePayment) {
       try {
-        const { captureException } = await import("@sentry/nextjs").catch(() => ({ captureException: null as any }));
-        captureException?.(chargeErr, { extra: { orderId: order.id, orderNumber: order.orderNumber } });
-      } catch {}
-      return NextResponse.json(
-        {
-          success: false,
-          orderId: order.id,
-          orderNumber: order.orderNumber,
-          invoiceUrl: `${siteUrl()}/orders/${order.id}`,
-          error: "Pembayaran Duitku gagal dibuat. Pesanan tersimpan PENDING — silakan retry checkout.",
-          detail: chargeErr?.message,
-        },
-        { status: 502 }
-      );
+        const { duitkuProvider } = await import("@/lib/payments/duitku");
+        if (duitkuProvider.isConfigured()) {
+          const itemLines = validatedItems.map((it) => ({
+            name: it.title || `${it.apparelSlug.toUpperCase()} Kaos Kami`,
+            price: it.unitPriceIdr,
+            quantity: it.quantity,
+          }));
+          if (shippingCostIdr > 0) {
+            itemLines.push({ name: "Ongkos kirim", price: shippingCostIdr, quantity: 1 });
+          }
+          if (discountIdr > 0) {
+            itemLines.push({ name: "Diskon kupon", price: -discountIdr, quantity: 1 });
+          }
+          if (turnaroundSurchargeIdr > 0) {
+            itemLines.push({ name: "Surcharge EXPRESS 24H", price: turnaroundSurchargeIdr, quantity: 1 });
+          }
+
+          chargeResult = await duitkuProvider.createCharge({
+            orderId: order.id,
+            orderNumber: order.orderNumber,
+            amountIdr: computedTotalIdr,
+            customer: {
+              name: recipientName,
+              phone: cleanPhone,
+              email: (email || user?.email || "customer@kaoskami.biz.id").trim(),
+            },
+            itemDetails: itemLines,
+          });
+
+          await db.insert(Payment).values({
+            id: nanoid(),
+            orderId: order.id,
+            provider: "DUITKU",
+            providerRef: chargeResult.reference,
+            amountIdr: computedTotalIdr,
+            status: "PENDING",
+          });
+        }
+      } catch (chargeErr: any) {
+        console.warn("[checkout] Immediate Duitku charge failed, fallback to pending ref:", chargeErr?.message);
+      }
     }
 
-    // 8. Selesaikan baris Payment PENDING (P0-1): timpa ref sementara dengan
-    // reference Duitku asli. Update-by-orderId (Payment.orderId UNIQUE).
-    await db
-      .update(Payment)
-      .set({ providerRef: chargeResult.reference })
-      .where(eq(Payment.orderId, order.id));
+    if (!chargeResult) {
+      const pendingRef = `pending-${order.id}`;
+      await db.insert(Payment).values({
+        id: nanoid(),
+        orderId: order.id,
+        provider: "DUITKU",
+        providerRef: pendingRef,
+        amountIdr: computedTotalIdr,
+        status: "PENDING",
+      });
+    }
 
-    // 9. Send WhatsApp Confirmation:
-    // PENGHEMATAN KUOTA FONNTE (Keputusan Owner Sep 2026):
-    // Notifikasi transaksional otomatis via WhatsApp dinonaktifkan agar kuota Fonnte
-    // khusus dipakai untuk OTP verifikasi nomor telepon (1x selamanya per akun).
-    // Pelanggan memantau status via Dashboard Invoice Web, Web Notification, dan Aplikasi Capacitor.
-    // Tombol chat WhatsApp manual (wa.me) tetap tersedia di halaman invoice secara gratis.
     const invoiceUrl = `${siteUrl()}/orders/${order.id}`;
 
     return NextResponse.json({
@@ -866,11 +843,15 @@ export async function POST(req: NextRequest) {
       orderId: order.id,
       orderNumber: order.orderNumber,
       amount: computedTotalIdr,
-      paymentUrl: chargeResult.paymentUrl,
-      reference: chargeResult.reference,
+      status: initialStatus,
+      paymentUrl: chargeResult?.paymentUrl || undefined,
+      reference: chargeResult?.reference || undefined,
       invoiceUrl,
       discountIdr,
       appliedCoupon,
+      message: isImmediatePayment
+        ? "Pesanan berhasil dibuat. Silakan selesaikan pembayaran via Duitku Payment Gateway."
+        : "Pesanan masuk antrean review desain (tanpa charge). Link bayar tersedia setelah admin ACC — pantau via dashboard.",
     });
   } catch (error: any) {
     console.error("Checkout process error:", error);

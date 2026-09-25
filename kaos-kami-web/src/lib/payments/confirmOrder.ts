@@ -8,7 +8,7 @@ import { db } from "@/lib/db";
 import { siteUrl } from "@/lib/siteUrl";
 import { Order, OrderStatusEvent, ProductionTask, ProductVariant } from "@/lib/drizzle-schema";
 import { computePhysicalPrintDimensions } from "@/lib/scaleCalibration";
-import { sendWhatsAppNotification, buildProductionStatusMessage } from "@/lib/notifications/whatsapp";
+// Kebijakan Fonnte owner 20 Sep 2026: HANYA OTP — import WA dihapus (oversell via kanban).
 
 export type ConfirmResult = "confirmed" | "already" | "not-pending";
 
@@ -220,22 +220,15 @@ export async function confirmOrderPaid(
     } catch (e: any) {
       console.warn("Gagal tandai order REVIEW oversell:", e?.message);
     }
-    try {
-      const { SHOP_WHATSAPP } = await import("@/lib/shop");
-      const invoiceUrl = `${siteUrl()}/orders/${order.id}`;
-      await sendWhatsAppNotification(
-        SHOP_WHATSAPP,
-        [
-          `*OVERSELL REVIEW — Kaos Kami* ⚠️`,
-          `Order *${order.orderNumber}* lunas tapi stok kurang:`,
-          `• ${detail}`,
-          `Segera triase (restock / hubungi pelanggan).`,
-          `${invoiceUrl}`,
-        ].join("\n")
-      ).catch((err) => console.warn("WA admin oversell gagal:", err?.message || err));
-    } catch (e: any) {
-      console.warn("WA admin oversell error:", e?.message);
-    }
+    // KEBIJAKAN FONNTE (owner 20 Sep 2026): Fonnte HANYA untuk OTP.
+    // Alert oversell via WA DINONAKTIFKAN — flag [REVIEW:OVERSELL] di
+    // courierNotes + OrderStatusEvent tetap jadi sinyal triase di kanban.
+    // Kode lama dipertahankan di bawah (komentar) bila keputusan berubah.
+    // try {
+    //   const { SHOP_WHATSAPP } = await import("@/lib/shop");
+    //   const invoiceUrl = `${siteUrl()}/orders/${order.id}`;
+    //   await sendWhatsAppNotification(SHOP_WHATSAPP, [...].join("\n")).catch(...);
+    // } catch {}
   }
 
   // PENGHEMATAN KUOTA FONNTE: Notifikasi status lunas otomatis via WhatsApp dinonaktifkan.

@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useCallback, useEffect, useState } from "react";
+import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 
 interface LookItem {
   key: string;
@@ -13,6 +14,7 @@ export function LookbookManager() {
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
+  const [askingDelete, setAskingDelete] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -64,7 +66,6 @@ export function LookbookManager() {
   };
 
   const remove = async (key: string) => {
-    if (!confirm(`Hapus ${key} dari R2?`)) return;
     setBusy(true);
     try {
       const res = await fetch(`/api/admin/cms/lookbook?key=${encodeURIComponent(key)}`, { method: "DELETE" });
@@ -75,12 +76,13 @@ export function LookbookManager() {
       setMsg(e?.message || "Hapus gagal");
     } finally {
       setBusy(false);
+      setAskingDelete(null);
     }
   };
 
   return (
-    <div className="bg-[#141416] border border-white/5 rounded-2xl p-5 space-y-3">
-      <h3 className="font-bold text-white">LOOKBOOK (R2 live — {items.length} foto)</h3>
+    <div className="bg-surface border border-border-subtle rounded-2xl p-5 space-y-3">
+      <h3 className="font-bold text-text-primary">LOOKBOOK (R2 live — {items.length} foto)</h3>
       {loading ? (
         <p className="text-text-muted">Memuat…</p>
       ) : items.length === 0 ? (
@@ -88,11 +90,11 @@ export function LookbookManager() {
       ) : (
         <div className="grid grid-cols-3 gap-2">
           {items.map((it) => (
-            <div key={it.key} className="relative aspect-[4/5] bg-black/40 border border-white/10 rounded-xl overflow-hidden group">
+            <div key={it.key} className="relative aspect-[4/5] bg-black/40 border border-border-subtle rounded-xl overflow-hidden group">
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img src={it.url} alt={it.key} className="w-full h-full object-cover" loading="lazy" />
               <button
-                onClick={() => remove(it.key)}
+                onClick={() => setAskingDelete(it.key)}
                 disabled={busy}
                 aria-label={`Hapus ${it.key}`}
                 className="absolute top-1 right-1 px-2 py-1 rounded-lg bg-rose-600/90 text-white text-[10px] font-bold opacity-0 group-hover:opacity-100 focus:opacity-100 transition-opacity disabled:opacity-50"
@@ -117,6 +119,16 @@ export function LookbookManager() {
         />
       </label>
       {msg && <p className="font-mono text-[11px] text-amber-300">{msg}</p>}
+      <ConfirmDialog
+        open={askingDelete !== null}
+        title="Hapus foto?"
+        message={askingDelete ? `Hapus ${askingDelete} dari R2? Foto hilang dari lookbook publik.` : ""}
+        confirmLabel="YA, HAPUS"
+        danger
+        busy={busy}
+        onConfirm={() => askingDelete && void remove(askingDelete)}
+        onCancel={() => setAskingDelete(null)}
+      />
     </div>
   );
 }

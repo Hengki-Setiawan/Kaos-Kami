@@ -288,11 +288,21 @@ export function AddressBook({
     setActionMsg(null);
 
     try {
+      // U8: kirim field eksplisit (tanpa spread — tahan bila skema diketatkan).
       const res = await fetch("/api/addresses", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          ...addr,
+          id: addr.id,
+          label: addr.label,
+          recipientName: addr.recipientName,
+          phoneNumber: addr.phoneNumber,
+          province: (addr as any).province,
+          city: (addr as any).city,
+          district: (addr as any).district,
+          postalCode: (addr as any).postalCode,
+          fullAddress: addr.fullAddress,
+          notes: (addr as any).notes,
           isDefault: true,
         }),
       });
@@ -340,8 +350,24 @@ export function AddressBook({
         return;
       }
 
-      setAddresses((prev) => prev.filter((a) => a.id !== id));
-      setActionMsg({ text: "Alamat berhasil dihapus dari buku alamat", type: "success" });
+      const deletedWasDefault = addresses.find((a) => a.id === id)?.isDefault === true;
+      setAddresses((prev) => {
+        const rest = prev.filter((a) => a.id !== id);
+        // U8: cerminkan promosi server (terbaru jadi UTAMA) secara optimistis.
+        if (deletedWasDefault && rest.length > 0 && !rest.some((a) => a.isDefault)) {
+          const newest = [...rest].sort(
+            (a, b) => new Date((b as any).createdAt || 0).getTime() - new Date((a as any).createdAt || 0).getTime()
+          )[0];
+          return rest.map((a) => ({ ...a, isDefault: a.id === newest?.id }));
+        }
+        return rest;
+      });
+      setActionMsg({
+        text: (data as any)?.promotedId
+          ? "Alamat dihapus; alamat terbaru dijadikan UTAMA."
+          : "Alamat berhasil dihapus dari buku alamat",
+        type: "success",
+      });
       setTimeout(() => setActionMsg(null), 3000);
       router.refresh();
     } catch (e: any) {

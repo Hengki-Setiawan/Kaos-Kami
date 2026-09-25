@@ -112,6 +112,13 @@ export default function GangSheetBuilderPage() {
   const [centang, setCentang] = useState<Record<string, boolean>>({});
   const [qtyEdit, setQtyEdit] = useState<Record<string, number>>({});
   const [hargaPerMeter, setHargaPerMeter] = useState(35000);
+  // Qty 0/>99 = ERROR jujur (bukan clamp diam) — kunci auto-susun sampai dibetulkan.
+  const [qtyError, setQtyError] = useState<Record<string, string>>({});
+  // Draft localStorage: centang + qty + kotak review + field ekspor.
+  const [draftPulih, setDraftPulih] = useState(false);
+  // Undo hapus/reset (satu level, jujur).
+  const [undoHapus, setUndoHapus] = useState<{ bin: number; idx: number; item: GangPlacement } | null>(null);
+  const [undoReset, setUndoReset] = useState<{ bin: number; snapshot: GangPlacement[] } | null>(null);
 
   // (2) HASIL SUSUN
   const [hasil, setHasil] = useState<GangPackResult | null>(null);
@@ -145,6 +152,10 @@ export default function GangSheetBuilderPage() {
   const [peringatanEkspor, setPeringatanEkspor] = useState<string[]>([]);
   const [disalin, setDisalin] = useState(false);
   const [rollOrientation, setRollOrientation] = useState<"vertical" | "horizontal">("vertical");
+  // Meter yg sudah diekspor OK (pesan jujur per-bin: meter lain yg tertinggal ditandai).
+  const [meterDiekspor, setMeterDiekspor] = useState<number[]>([]);
+  // SPK fallback: bila popup diblokir, render SPK di tab yg sama (modal + print).
+  const [spkFallbackHtml, setSpkFallbackHtml] = useState<string | null>(null);
 
   // ── Muat task ──
   const muatTask = useCallback(async () => {
@@ -187,6 +198,72 @@ export default function GangSheetBuilderPage() {
     };
   }, [unduhUrl]);
 
+  // ── DRAFT localStorage (centang/qty/kotak + field ekspor) ──
+  const DRAFT_KEY = "kaoskami_gang_draft_v1";
+  // Pulihkan sekali saat mount (defensif: JSON rusak = abaikan jujur).
+  useEffect(() => {
+    try {
+      const raw = window.localStorage.getItem(DRAFT_KEY);
+      if (!raw) return;
+      const d = JSON.parse(raw) as {
+        centang?: Record<string, boolean>;
+        qtyEdit?: Record<string, number>;
+        kotakEdit?: GangPlacement[][];
+        binAktif?: number;
+        gangId?: string;
+        dpi?: 150 | 300;
+        hargaPerMeter?: number;
+      };
+      if (d.centang && typeof d.centang === "object") setCentang(d.centang);
+      if (d.qtyEdit && typeof d.qtyEdit === "object") setQtyEdit(d.qtyEdit);
+      if (Array.isArray(d.kotakEdit) && d.kotakEdit.length > 0) {
+        setKotakEdit(d.kotakEdit);
+        // `hasil` packer tak disimpan utuh (fungsi) — bangun ulang cangkang
+        // minimal agar review tetap render; susun ulang bila perlu akurat.
+        setHasil((prev) =>
+          prev ?? {
+            bins: d.kotakEdit as GangPlacement[][],
+            unplaced: [],
+            utilizationPct: 0,
+            binWmm: 580,
+            binHmm: 1000,
+            strategyName: "Draft tersimpan (susun ulang untuk angka akurat)",
+            maxReachMm: undefined,
+          } as GangPackResult,
+        );
+      }
+      if (Number.isInteger(d.binAktif)) setBinAktif(Math.max(0, d.binAktif as number));
+      if (typeof d.gangId === "string" && d.gangId) setGangId(d.gangId);
+      if (d.dpi === 150 || d.dpi === 300) setDpi(d.dpi);
+      if (Number.isFinite(d.hargaPerMeter)) setHargaPerMeter(Math.max(0, Math.round(d.hargaPerMeter as number)));
+      setDraftPulih(true);
+    } catch {
+      /* draft rusak = mulai bersih, tanpa crash */
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  // Simpan otomatis (debounce 500ms) setiap draft berubah.
+  useEffect(() => {
+    const t = window.setTimeout(() => {
+      try {
+        window.localStorage.setItem(
+          DRAFT_KEY,
+          JSON.stringify({ centang, qtyEdit, kotakEdit, binAktif, gangId, dpi, hargaPerMeter }),
+        );
+      } catch {
+        /* kuota penuh = abaikan, draft memori tetap jalan */
+      }
+    }, 500);
+    return () => window.clearTimeout(t);
+  }, [centang, qtyEdit, kotakEdit, binAktif, gangId, dpi, hargaPerMeter]);
+
+  function hapusDraft() {
+    try {
+      window.localStorage.removeItem(DRAFT_KEY);
+    } catch { /* abaikan */ }
+    setDraftPulih(false);
+  }
+
   // ── Turunan kolektor ──
   const tersaring = useMemo(() => {
     const q = cari.trim().toLowerCase();
@@ -204,6 +281,40 @@ export default function GangSheetBuilderPage() {
     [qtyEdit],
   );
 
+  /** Validasi qty mentah: 0 / >99 / non-angka = ERROR (bukan clamp diam). */
+  function validasiQty(taskId: string, mentah: string): void {
+    const teks = mentah.trim();
+    if (teks === "") {
+      setQtyError((prev) => ({ ...prev, [taskId]: "Qty wajib diisi (1–99)." }));
+      return;
+    }
+    const v = Number(teks);
+    if (!Number.isFinite(v) || !Number.isInteger(v)) {
+      setQtyError((prev) => ({ ...prev, [taskId]: `Qty "${teks}" tidak valid — isi bilangan bulat 1–99.` }));
+      return;
+    }
+    if (v < 1) {
+      setQtyError((prev) => ({ ...prev, [taskId]: "Qty 0 tidak valid — minimal 1. Hapus centang bila tak dicetak." }));
+      return;
+    }
+    if (v > 99) {
+      setQtyError((prev) => ({ ...prev, [taskId]: "Qty >99 tidak valid — maksimal 99 per baris. Pecah jadi 2 baris bila perlu." }));
+      return;
+    }
+    setQtyError((prev) => {
+      if (!(taskId in prev)) return prev;
+      const next = { ...prev };
+      delete next[taskId];
+      return next;
+    });
+    setQtyEdit((prev) => ({ ...prev, [taskId]: v }));
+  }
+
+  const jumlahQtyError = useMemo(
+    () => Object.keys(qtyError).filter((id) => centang[id]).length,
+    [qtyError, centang],
+  );
+
   const idSiap = useMemo(() => tasks.filter((t) => siapCetak(t).ok).map((t) => t.id), [tasks]);
 
   const dipilihValid = useMemo(
@@ -217,7 +328,15 @@ export default function GangSheetBuilderPage() {
   );
 
   // ── (2) AUTO-SUSUN ──
+  const [galatSusun, setGalatSusun] = useState<string | null>(null);
   function susunOtomatis() {
+    setGalatSusun(null);
+    if (jumlahQtyError > 0) {
+      setGalatSusun(
+        `Ada ${jumlahQtyError} qty tak valid (0 / >99 / bukan angka) — betulkan dulu sebelum susun. Tak ada clamp diam-diam.`,
+      );
+      return;
+    }
     const rects: GangRect[] = dipilihValid.map((t) => ({
       id: t.id,
       wMm: cmToMm(t.printWidthCm as number),
@@ -236,6 +355,10 @@ export default function GangSheetBuilderPage() {
     setKotakEdit(r.bins.map((b) => b.map((p) => ({ ...p }))));
     setBinAktif(0);
     setTerpilih(null);
+    setMeterDiekspor([]);
+    setPesanSukses(null);
+    setUndoHapus(null);
+    setUndoReset(null);
   }
 
   function pilihSemuaSiap() {
@@ -302,6 +425,10 @@ export default function GangSheetBuilderPage() {
 
   function hapusTerpilih() {
     if (terpilih === null) return;
+    const korban = isiBinAktif[terpilih];
+    if (!korban) return;
+    // Simpan untuk UNDO hapus (satu level).
+    setUndoHapus({ bin: binAktif, idx: terpilih, item: { ...korban } });
     setKotakEdit((prev) => {
       if (!prev) return prev;
       const cur = prev[binAktif];
@@ -313,8 +440,26 @@ export default function GangSheetBuilderPage() {
     setTerpilih(null);
   }
 
+  function undoHapusTerakhir() {
+    if (!undoHapus) return;
+    const { bin, idx, item } = undoHapus;
+    setUndoHapus(null);
+    setKotakEdit((prev) => {
+      if (!prev || !prev[bin]) return prev;
+      const next = prev.map((b) => [...b]);
+      const cur = [...next[bin]!];
+      cur.splice(Math.min(idx, cur.length), 0, { ...item });
+      next[bin] = cur;
+      return next;
+    });
+    setBinAktif(bin);
+  }
+
   function resetBinAktif() {
     if (!hasil) return;
+    // Simpan snapshot untuk UNDO reset (satu level).
+    const cur = kotakEdit?.[binAktif];
+    if (cur) setUndoReset({ bin: binAktif, snapshot: cur.map((p) => ({ ...p })) });
     setKotakEdit((prev) => {
       if (!prev) return prev;
       const next = prev.map((b) => [...b]);
@@ -322,15 +467,25 @@ export default function GangSheetBuilderPage() {
       return next;
     });
     setTerpilih(null);
+    setUndoHapus(null);
   }
 
-  function cetakSPK() {
-    if (!hasil || isiBinAktif.length === 0) return;
-    const printWindow = window.open("", "_blank", "width=850,height=1100");
-    if (!printWindow) {
-      alert("Izinkan pop-up di browser untuk mencetak SPK Job Ticket");
-      return;
-    }
+  function undoResetTerakhir() {
+    if (!undoReset) return;
+    const { bin, snapshot } = undoReset;
+    setUndoReset(null);
+    setKotakEdit((prev) => {
+      if (!prev || !prev[bin]) return prev;
+      const next = prev.map((b) => [...b]);
+      next[bin] = snapshot.map((p) => ({ ...p }));
+      return next;
+    });
+    setBinAktif(bin);
+  }
+
+  /** Rakit HTML SPK Job Ticket (dipakai popup + fallback tab-sama). */
+  function rakitSpkHtml(): string {
+    if (!hasil || isiBinAktif.length === 0) return "";
     const barisHtml = isiBinAktif.map((p, idx) => `
       <tr>
         <td style="border: 1px solid #ccc; padding: 6px; text-align: center;">${idx + 1}</td>
@@ -342,7 +497,7 @@ export default function GangSheetBuilderPage() {
       </tr>
     `).join("");
 
-    printWindow.document.write(`
+    return `
       <!DOCTYPE html>
       <html>
       <head>
@@ -419,14 +574,66 @@ export default function GangSheetBuilderPage() {
             <div style="margin-top: 4px; font-size: 10px; color: #666;">(Nama & Tanda Tangan)</div>
           </div>
         </div>
-
-        <script>
-          window.onload = function() { window.print(); }
-        </script>
       </body>
       </html>
-    `);
-    printWindow.document.close();
+    `;
+  }
+
+  function cetakSPK() {
+    if (!hasil || isiBinAktif.length === 0) return;
+    const html = rakitSpkHtml();
+    let printWindow: Window | null = null;
+    try {
+      printWindow = window.open("", "_blank", "width=850,height=1100");
+    } catch {
+      printWindow = null;
+    }
+    if (!printWindow) {
+      // Fallback TANPA popup-blocker: render SPK di tab yg sama (modal + tombol print).
+      setSpkFallbackHtml(html);
+      return;
+    }
+    try {
+      printWindow.document.write(html);
+      printWindow.document.close();
+      // Print otomatis setelah render (best-effort).
+      printWindow.onload = () => {
+        try {
+          printWindow?.print();
+        } catch { /* abaikan */ }
+      };
+    } catch {
+      setSpkFallbackHtml(html);
+    }
+  }
+
+  /** Cetak SPK fallback (tab sama) via iframe tersembunyi — halaman draft tetap utuh. */
+  function cetakSpkFallback() {
+    if (!spkFallbackHtml) return;
+    try {
+      const frame = document.createElement("iframe");
+      frame.style.position = "fixed";
+      frame.style.right = "0";
+      frame.style.bottom = "0";
+      frame.style.width = "0";
+      frame.style.height = "0";
+      frame.style.border = "0";
+      document.body.appendChild(frame);
+      const doc = frame.contentDocument || frame.contentWindow?.document;
+      if (!doc) throw new Error("iframe tak tersedia");
+      doc.open();
+      doc.write(spkFallbackHtml);
+      doc.close();
+      window.setTimeout(() => {
+        try {
+          frame.contentWindow?.focus();
+          frame.contentWindow?.print();
+        } catch { /* abaikan */ }
+        window.setTimeout(() => frame.remove(), 1000);
+      }, 300);
+    } catch {
+      setGalatEkspor("Gagal mencetak SPK fallback — salin manual isi SPK dari pratinjau.");
+    }
   }
 
   // Drag pointer → geser kotak, snap 1 mm, jepit di dalam lembar.
@@ -468,6 +675,7 @@ export default function GangSheetBuilderPage() {
     if (!hasil || isiBinAktif.length === 0 || mengekspor) return;
     setMengekspor(true);
     setGalatEkspor(null);
+    setPesanSukses(null);
     setDisalin(false);
     try {
       const out = await exportGangSheetPNG({
@@ -492,8 +700,15 @@ export default function GangSheetBuilderPage() {
       a.click();
       a.remove();
 
-      // AUTO-ADVANCE STAGE:
-      // Ambil ID task yang ada di bin yang baru saja diekspor
+      // WARNINGS = TAHAN AUTO-ADVANCE (jujur: PNG timpang / ada yg dilewati).
+      if (out.warnings.length > 0) {
+        setPesanSukses(
+          `Meter ${binAktif + 1} diekspor ke "${out.filename}" TAPI auto-advance DITAHAN — ada ${out.warnings.length} peringatan (mis. gambar dilewati/CORS). Periksa daftar peringatan di bawah, betulkan, lalu ekspor ulang. Status task BELUM dimajukan agar tak tercetak dobel/salah.`,
+        );
+        return;
+      }
+
+      // AUTO-ADVANCE STAGE (defensif: API paralel mendukung appendNotes + failed[]).
       const taskIdsInBin = Array.from(new Set(isiBinAktif.map((p) => p.id)));
       if (taskIdsInBin.length > 0) {
         try {
@@ -505,23 +720,48 @@ export default function GangSheetBuilderPage() {
               taskIds: taskIdsInBin,
               stage: "PRINTING",
               notes: `Dicetak via Gang Sheet: ${out.filename}`,
+              // Server baru: append (tak menimpa catatan lama). Server lama:
+              // kunci tak dikenal diabaikan zod → notes menimpa (tetap jalan).
+              appendNotes: true,
             }),
           });
-          if (patchRes.ok) {
+          const patchJson = await patchRes.json().catch(() => null);
+          if (!patchRes.ok) {
+            throw new Error(patchJson?.error || `Server ${patchRes.status}`);
+          }
+          // Server baru mengembalikan failed[] — tampilkan jujur per task.
+          const gagal: string[] = Array.isArray(patchJson?.failed) ? patchJson.failed : [];
+          const okCount = taskIdsInBin.length - gagal.length;
+          const meterLain = hasil.bins.length - 1;
+          const sisaDiminta = meterDiekspor.length + 1 < hasil.bins.length;
+          if (gagal.length > 0) {
             setPesanSukses(
-              `✓ ${taskIdsInBin.length} desain berhasil diekspor ke "${out.filename}" dan statusnya otomatis dimajukan ke PRINTING. Desain ini telah dibersihkan dari antrean susun agar tidak tercetak dobel.`
+              `Meter ${binAktif + 1}: ${okCount} desain maju ke PRINTING, ${gagal.length} GAGAL (${gagal.slice(0, 5).join(", ")}${gagal.length > 5 ? "…" : ""}). Centang task gagal TIDAK dibersihkan — periksa lalu ulangi.${meterLain > 0 && sisaDiminta ? ` Meter lain (${hasil.bins.length - 1} meter) BELUM diekspor — masih di antrean.` : ""}`,
             );
-            // Bersihkan centang task yang sudah diproses
+            setCentang((prev) => {
+              const next = { ...prev };
+              for (const id of taskIdsInBin) {
+                if (!gagal.includes(id)) delete next[id];
+              }
+              return next;
+            });
+          } else {
+            setMeterDiekspor((prev) => (prev.includes(binAktif) ? prev : [...prev, binAktif]));
+            setPesanSukses(
+              `✓ Meter ${binAktif + 1} OK: ${taskIdsInBin.length} desain diekspor ke "${out.filename}" dan maju ke PRINTING.${hasil.bins.length > 1 ? (meterDiekspor.length + 1 >= hasil.bins.length ? " Semua meter selesai." : ` Meter lain BELUM diekspor (${hasil.bins.length - meterDiekspor.length - 1} meter tertinggal) — masih di antrean, ekspor satu per satu.`) : " Desain ini dibersihkan dari antrean susun agar tidak tercetak dobel."}`,
+            );
             setCentang((prev) => {
               const next = { ...prev };
               for (const id of taskIdsInBin) delete next[id];
               return next;
             });
-            // Segarkan antrean sehingga task yang sudah dicetak LANGSUNG HILANG dari antrean susun
-            await muatTask();
           }
+          await muatTask();
         } catch (updateErr) {
           console.error("Gagal auto-advance stage task:", updateErr);
+          setPesanSukses(
+            `Meter ${binAktif + 1} diekspor ke "${out.filename}" TAPI status task GAGAL dimajukan (${updateErr instanceof Error ? updateErr.message : "koneksi"}). PNG tetap terunduh — majukan manual dari kanban bila perlu.`,
+          );
         }
       }
     } catch (e) {
@@ -682,20 +922,20 @@ export default function GangSheetBuilderPage() {
                         <input
                           type="number"
                           aria-label={`Qty ${orderNo}`}
+                          aria-invalid={qtyError[t.id] ? true : undefined}
                           min={1}
                           max={99}
-                          value={qtyEfektif(t)}
+                          value={qtyEdit[t.id] ?? qtyDariItemInduk(t)}
                           disabled={!st.ok}
-                          onChange={(e) => {
-                            const v = Math.round(Number(e.target.value));
-                            setQtyEdit((prev) => ({
-                              ...prev,
-                              [t.id]: Number.isFinite(v) ? Math.min(99, Math.max(1, v)) : 1,
-                            }));
-                          }}
+                          onChange={(e) => validasiQty(t.id, e.target.value)}
                           title={`Bawaan dari item induk: ${qtyDariItemInduk(t)}`}
-                          className="w-20 px-2 py-1.5 rounded-lg bg-surface border border-border-subtle text-text-primary text-sm disabled:opacity-50 placeholder:text-text-muted"
+                          className={`w-20 px-2 py-1.5 rounded-lg bg-surface border text-text-primary text-sm disabled:opacity-50 placeholder:text-text-muted ${qtyError[t.id] ? "border-red-500" : "border-border-subtle"}`}
                         />
+                        {qtyError[t.id] && (
+                          <p className="text-[11px] text-red-700 dark:text-red-300 font-mono mt-1 max-w-[180px]" role="alert">
+                            {qtyError[t.id]}
+                          </p>
+                        )}
                       </td>
                       <td className="py-2">
                         {st.ok ? (
@@ -719,6 +959,26 @@ export default function GangSheetBuilderPage() {
           </div>
         )}
 
+        {/* Banner jujur: N task × Q pcs + status draft */}
+        {dipilihValid.length > 0 && (
+          <div className="px-3 py-2 rounded-xl bg-sky-500/10 border border-sky-500/30 text-sky-800 dark:text-sky-200 font-mono text-xs font-bold" role="status">
+            🧾 {dipilihValid.length} task × {totalKopiDiminta} pcs siap disusun
+            {jumlahQtyError > 0 && <span className="text-red-700 dark:text-red-300"> · ⚠️ {jumlahQtyError} qty error — betulkan dulu</span>}
+          </div>
+        )}
+        {draftPulih && (
+          <div className="px-3 py-2 rounded-xl bg-black/5 dark:bg-white/5 border border-border-subtle font-mono text-[11px] text-text-muted flex flex-wrap items-center justify-between gap-2">
+            <span>💾 Draft sebelumnya dipulihkan dari perangkat ini (centang/qty/kotak).</span>
+            <button onClick={hapusDraft} className="underline font-bold text-text-primary">
+              Hapus draft
+            </button>
+          </div>
+        )}
+        {galatSusun && (
+          <p className="text-sm text-red-700 dark:text-red-300 font-mono" role="alert">
+            ⚠️ {galatSusun}
+          </p>
+        )}
         <div className="flex flex-col lg:flex-row gap-3 lg:items-end justify-between pt-1">
           <div className="flex flex-wrap gap-2">
             <button
@@ -843,13 +1103,14 @@ export default function GangSheetBuilderPage() {
                       setBinAktif(i);
                       setTerpilih(null);
                     }}
+                    title={meterDiekspor.includes(i) ? `Meter ${i + 1} sudah diekspor OK` : `Meter ${i + 1} belum diekspor`}
                     className={`px-3 py-1.5 rounded-lg text-sm font-bold border ${
                       i === binAktif
                         ? "bg-amber-400 text-black border-amber-400"
                         : "bg-black/5 dark:bg-white/5 text-text-primary border-border-subtle"
                     }`}
                   >
-                    Meter {i + 1}
+                    {meterDiekspor.includes(i) ? `✓ Meter ${i + 1}` : `Meter ${i + 1}`}
                   </button>
                 ))}
               </div>
@@ -922,12 +1183,30 @@ export default function GangSheetBuilderPage() {
               >
                 Hapus
               </button>
+              {undoHapus && (
+                <button
+                  onClick={undoHapusTerakhir}
+                  className="px-3 py-1.5 rounded-lg bg-sky-500/15 border border-sky-500/40 text-sky-800 dark:text-sky-200 font-bold"
+                  title="Kembalikan kotak yg baru dihapus"
+                >
+                  ↩ Undo hapus
+                </button>
+              )}
               <button
                 onClick={resetBinAktif}
                 className="px-3 py-1.5 rounded-lg bg-black/5 dark:bg-white/5 border border-border-subtle text-text-muted"
               >
                 Reset
               </button>
+              {undoReset && (
+                <button
+                  onClick={undoResetTerakhir}
+                  className="px-3 py-1.5 rounded-lg bg-sky-500/15 border border-sky-500/40 text-sky-800 dark:text-sky-200 font-bold"
+                  title="Kembalikan susunan sebelum reset"
+                >
+                  ↩ Undo reset
+                </button>
+              )}
             </div>
           </div>
 
@@ -1173,6 +1452,36 @@ export default function GangSheetBuilderPage() {
             </div>
           )}
         </section>
+      )}
+      {/* SPK fallback: popup diblokir → render di tab yg sama (draft tetap utuh) */}
+      {spkFallbackHtml && (
+        <div className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4" role="dialog" aria-label="SPK Job Ticket">
+          <div className="bg-white text-black rounded-2xl max-w-3xl w-full max-h-[85vh] flex flex-col overflow-hidden">
+            <div className="p-4 border-b border-neutral-200 flex flex-wrap items-center justify-between gap-2">
+              <p className="font-bold text-sm">🖨️ SPK Job Ticket — popup diblokir, tampil di tab ini</p>
+              <div className="flex gap-2">
+                <button
+                  onClick={cetakSpkFallback}
+                  className="px-4 py-2 rounded-xl bg-amber-400 text-black text-sm font-bold"
+                >
+                  Cetak
+                </button>
+                <button
+                  onClick={() => setSpkFallbackHtml(null)}
+                  className="px-4 py-2 rounded-xl bg-neutral-100 border border-neutral-300 text-sm font-bold"
+                >
+                  Kembali (draft aman)
+                </button>
+              </div>
+            </div>
+            <iframe
+              title="Pratinjau SPK"
+              srcDoc={spkFallbackHtml}
+              className="w-full flex-1 bg-white"
+              style={{ minHeight: "60vh" }}
+            />
+          </div>
+        </div>
       )}
     </div>
   );

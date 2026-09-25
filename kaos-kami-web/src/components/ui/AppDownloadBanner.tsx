@@ -2,10 +2,8 @@
 
 import { useEffect, useState } from "react";
 
-// URL unduhan APK rilis (di-host di R2 publik, diunggah tiap rilis via
-// `npm run cap:build:apk` + upload ke kaos-kami-assets/aplikasi/).
-const APK_URL =
-  "https://pub-5746f36a46904edc8425ecd721b0bfdc.r2.dev/aplikasi/kaos-kami.apk";
+// URL unduhan APK rilis (SSOT lib/shop.ts — JANGAN hardcode ganda).
+import { APK_DOWNLOAD_URL as APK_URL } from "@/lib/shop";
 const DISMISS_KEY = "kk-app-banner-dismissed";
 
 /**

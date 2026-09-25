@@ -12,6 +12,13 @@ import { inArray, eq } from "drizzle-orm";
 import { nanoid } from "nanoid";
 
 const BASE_URL = "http://localhost:3000";
+// Secret WAJIB via env (JANGAN hardcode).
+function requireEnv(name: string): string {
+  const v = process.env[name];
+  if (!v) throw new Error('E2E butuh env ' + name + ' (JANGAN commit nilainya)');
+  return v;
+}
+
 const OUTPUT_FILE = "d:/Vibe coding Semester 7/Kaos Kami/Blueprint/hasil-pengujian-e2e/orders-invoices/KASUS-6-kanban-fulfillment-audit.json";
 
 const PHYSICAL_KANBAN_STAGES = [
@@ -35,7 +42,7 @@ async function runKasus6() {
   const adminLoginRes = await auth.api.signInEmail({
     body: {
       email: "hengkishadow@gmail.com",
-      password: "KaosKamiAdmin2026!"
+      password: requireEnv("E2E_ADMIN_PASSWORD")
     },
     asResponse: true
   });
@@ -227,7 +234,7 @@ async function runKasus6() {
   const custLoginRes = await auth.api.signInEmail({
     body: {
       email: "hengkivibecoding@gmail.com",
-      password: "KaosKami2026!"
+      password: requireEnv("E2E_TEST_PASSWORD")
     },
     asResponse: true
   });

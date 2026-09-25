@@ -312,7 +312,7 @@ export const Order = sqliteTable(
     id: text("id").primaryKey(),
     orderNumber: text("orderNumber").notNull().unique(),
     userId: text("userId").notNull(),
-    status: text("status").notNull().default("PENDING_PAYMENT"),
+    status: text("status").notNull().default("DESIGN_REVIEW"),
     deliveryMethod: text("deliveryMethod").notNull().default("PICKUP"),
     subtotalIdr: integer("subtotalIdr").notNull(),
     shippingCostIdr: integer("shippingCostIdr").notNull().default(0),
@@ -322,6 +322,13 @@ export const Order = sqliteTable(
     courierNotes: text("courierNotes"),
     trackingNumber: text("trackingNumber"),
     notes: text("notes"),
+    // REVIEW DESAIN (alur baru owner Sep 2026 — cermin prisma Order.reviewNote /
+    // reviewedBy / reviewedAt; BUTUH `db push` (Turso) sebelum dipakai —
+    // TANPA migrasi di sesi ini; sampai saat itu baca defensif via
+    // (order as any).reviewedBy agar select lama tetap jalan).
+    reviewNote: text("reviewNote"),
+    reviewedBy: text("reviewedBy"),
+    reviewedAt: isoDateTime("reviewedAt"),
     createdAt: isoDateTime("createdAt").notNull().$defaultFn(() => new Date()),
     updatedAt: isoDateTime("updatedAt")
       .notNull()
@@ -404,11 +411,42 @@ export const ProductionTask = sqliteTable(
       .notNull()
       .$defaultFn(() => new Date())
       .$onUpdate(() => new Date()),
+    // TEAMWEAR (UX workshop Sep 2026 — APPEND ONLY, nullable agar select lama
+    // tetap jalan; BUTUH `db push` sebelum dipakai — sampai saat itu UI baca
+    // defensif + label jujur "MULTI-ITEM", JANGAN andalkan kolom ini).
+    teamName: text("teamName"),
+    teamwearFlag: integer("teamwearFlag", { mode: "boolean" }),
   },
   (t) => [
     index("ProductionTask_stage_idx").on(t.stage),
     index("ProductionTask_assignedToUserId_idx").on(t.assignedToUserId),
+    // Percepat group-by orderId (>1 task = multi-item) di kanban/gang-sheet.
+    // BUTUH `db push` (Turso) — TANPA migrasi di sesi ini.
+    index("ProductionTask_orderId_idx").on(t.orderId),
   ],
+);
+
+// ------------------------------------------------------------------
+// JEJAK QC PER ORDER (cermin 1:1 dari prisma QcInspection — JANGAN migrasi
+// via file ini; Prisma tetap source-of-truth + db push)
+// ------------------------------------------------------------------
+
+export const QcInspection = sqliteTable(
+  "QcInspection",
+  {
+    id: text("id").primaryKey(),
+    orderId: text("orderId").notNull(),
+    productionTaskId: text("productionTaskId"),
+    photoUrl: text("photoUrl").notNull(),
+    grazingDeg: integer("grazingDeg"),
+    luxEstimate: integer("luxEstimate"),
+    side: text("side"),
+    checksJson: text("checksJson").notNull(),
+    note: text("note"),
+    createdByUserId: text("createdByUserId"),
+    createdAt: isoDateTime("createdAt").notNull().$defaultFn(() => new Date()),
+  },
+  (t) => [index("QcInspection_orderId_idx").on(t.orderId)],
 );
 
 // ------------------------------------------------------------------
@@ -524,6 +562,7 @@ export const OrderRelations = relations(Order, ({ one, many }) => ({
   payment: one(Payment, { fields: [Order.id], references: [Payment.orderId] }),
   productionTasks: many(ProductionTask),
   statusHistory: many(OrderStatusEvent),
+  qcInspections: many(QcInspection),
 }));
 
 export const OrderItemRelations = relations(OrderItem, ({ one }) => ({
@@ -545,6 +584,14 @@ export const PaymentRelations = relations(Payment, ({ one }) => ({
 
 export const ProductionTaskRelations = relations(ProductionTask, ({ one }) => ({
   order: one(Order, { fields: [ProductionTask.orderId], references: [Order.id] }),
+}));
+
+export const QcInspectionRelations = relations(QcInspection, ({ one }) => ({
+  order: one(Order, { fields: [QcInspection.orderId], references: [Order.id] }),
+  createdBy: one(User, {
+    fields: [QcInspection.createdByUserId],
+    references: [User.id],
+  }),
 }));
 
 export const UserDeviceRelations = relations(UserDevice, ({ one }) => ({
@@ -570,6 +617,7 @@ export const schema = {
   OrderStatusEvent,
   Payment,
   ProductionTask,
+  QcInspection,
   Coupon,
   ExpeditionZone,
   UserDevice,
@@ -587,6 +635,7 @@ export const schema = {
   OrderStatusEventRelations,
   PaymentRelations,
   ProductionTaskRelations,
+  QcInspectionRelations,
   UserDeviceRelations,
 };
 

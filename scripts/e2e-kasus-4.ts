@@ -21,6 +21,13 @@ import {
 } from "../kaos-kami-web/src/lib/gangPacker.ts";
 
 const BASE_URL = "http://localhost:3000";
+// Secret WAJIB via env (JANGAN hardcode).
+function requireEnv(name: string): string {
+  const v = process.env[name];
+  if (!v) throw new Error('E2E butuh env ' + name + ' (JANGAN commit nilainya)');
+  return v;
+}
+
 const OUTPUT_DIR = "d:/Vibe coding Semester 7/Kaos Kami/Blueprint/hasil-pengujian-e2e/gang-sheets";
 
 async function runKasus4() {
@@ -34,7 +41,7 @@ async function runKasus4() {
   const adminLoginRes = await auth.api.signInEmail({
     body: {
       email: "hengkishadow@gmail.com",
-      password: "KaosKamiAdmin2026!"
+      password: requireEnv("E2E_ADMIN_PASSWORD")
     },
     asResponse: true
   });

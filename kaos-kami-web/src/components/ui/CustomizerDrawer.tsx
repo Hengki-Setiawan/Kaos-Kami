@@ -47,6 +47,7 @@ import {
   type DecalTargetSide,
 } from "@/lib/constants";
 import { TestLabControls } from "./TestLabControls";
+import { InspectControls } from "./InspectControls";
 import { calculate6VariablePrice, materialFinishToPricing } from "@/lib/pricingEngine";
 import { useConfiguratorStore } from "@/store/useConfiguratorStore";
 import { useShallow } from "zustand/shallow";
@@ -441,6 +442,7 @@ export const CustomizerDrawer: React.FC = () => {
     removeDecal,
     savedDesigns,
     saveCurrentDesign,
+    syncDesignToServer,
     loadSavedDesign,
     duplicateSavedDesign,
     deleteSavedDesign,
@@ -506,6 +508,7 @@ export const CustomizerDrawer: React.FC = () => {
       removeDecal: s.removeDecal,
       savedDesigns: s.savedDesigns,
       saveCurrentDesign: s.saveCurrentDesign,
+      syncDesignToServer: s.syncDesignToServer,
       loadSavedDesign: s.loadSavedDesign,
       duplicateSavedDesign: s.duplicateSavedDesign,
       deleteSavedDesign: s.deleteSavedDesign,
@@ -964,7 +967,7 @@ export const CustomizerDrawer: React.FC = () => {
 
   // Opsi Ekspor Gambar HD & Transparan
   const [exportBgMode, setExportBgMode] = useState<"studio" | "transparent">("studio");
-  const [exportResolution, setExportResolution] = useState<"standard" | "2k">("2k");
+  const [exportResolution, setExportResolution] = useState<"standard" | "hd" | "2k">("2k");
   const [isExportingImage, setIsExportingImage] = useState(false);
 
   // Ekspor 360° tangguh: mediabunny dengan auto-fallback ke native MediaRecorder
@@ -1119,16 +1122,18 @@ export const CustomizerDrawer: React.FC = () => {
     void doExportMockupImage(viewName);
   };
 
-  const waitForCameraPresetSettled = async (timeoutMs = 2000): Promise<void> => {
+  // true = kamera settle; false = timeout (panggil tetap ekspor + peringatan jujur).
+  const waitForCameraPresetSettled = async (timeoutMs = 2000): Promise<boolean> => {
     const start = Date.now();
     while (Date.now() - start < timeoutMs) {
       try {
-        if (useConfiguratorStore.getState().cameraPreset === null) return;
+        if (useConfiguratorStore.getState().cameraPreset === null) return true;
       } catch {
-        return;
+        return true;
       }
       await new Promise((r) => setTimeout(r, 50));
     }
+    return false;
   };
 
   const handleExportFrontPNG = async (viewName: string = "front-view") => {
@@ -1137,8 +1142,12 @@ export const CustomizerDrawer: React.FC = () => {
       return;
     }
     setCameraPreset("front");
-    await waitForCameraPresetSettled(2000);
+    const settled = await waitForCameraPresetSettled(2000);
     await new Promise<void>((r) => requestAnimationFrame(() => requestAnimationFrame(() => r())));
+    if (!settled) {
+      setEnhancementMessage("⚠️ Kamera belum settle — hasil mungkin dari sudut lama.");
+      setTimeout(() => setEnhancementMessage(null), 3000);
+    }
     await doExportMockupImage(viewName);
   };
 
@@ -1148,8 +1157,12 @@ export const CustomizerDrawer: React.FC = () => {
       return;
     }
     setCameraPreset("back");
-    await waitForCameraPresetSettled(2000);
+    const settled = await waitForCameraPresetSettled(2000);
     await new Promise<void>((r) => requestAnimationFrame(() => requestAnimationFrame(() => r())));
+    if (!settled) {
+      setEnhancementMessage("⚠️ Kamera belum settle — hasil mungkin dari sudut lama.");
+      setTimeout(() => setEnhancementMessage(null), 3000);
+    }
     await doExportMockupImage(viewName);
   };
 
@@ -1247,21 +1260,41 @@ export const CustomizerDrawer: React.FC = () => {
     }
     setIsSharing(true);
     try {
-      const mockupUrl = canvas.toDataURL("image/png");
+      // Sumber 2K tajam (bukan screenshot layar): exportMockup render ulang 2048px.
+      let mockupUrl = "";
+      try {
+        if (typeof (canvas as any).exportMockup === "function") {
+          mockupUrl = await (canvas as any).exportMockup({ resolution: "2k" });
+        } else {
+          mockupUrl = canvas.toDataURL("image/png");
+        }
+      } catch {
+        mockupUrl = canvas.toDataURL("image/png");
+      }
       const blob = await buildBrandedShareCard(mockupUrl, {
         apparel: currentApparelInfo.name,
         warna: activeColorName,
         harga: pricing.formattedTotal,
       });
+      // Deep-link: pastikan desain tersimpan di server agar tautan membuka karya yg sama.
+      let deepLink = "";
+      try {
+        const localId = saveCurrentDesign(undefined, undefined);
+        const sync = await syncDesignToServer(localId);
+        if (sync.serverId) {
+          deepLink = `${window.location.origin}/studio?designId=${encodeURIComponent(sync.serverId)}`;
+        }
+      } catch {}
       const file = new File([blob], `kaos-kami-${activeApparel}-1080x1350.png`, { type: "image/png" });
-      const nav = navigator as Navigator & { canShare?: (d: { files: File[] }) => boolean; share?: (d: { files: File[]; title: string; text: string }) => Promise<void> };
+      const nav = navigator as Navigator & { canShare?: (d: { files: File[] }) => boolean; share?: (d: { files: File[]; title: string; text: string; url?: string }) => Promise<void> };
+      const shareText = `Mockup ${APPAREL_CATALOG[activeApparel]?.name ?? activeApparel} — ${activeColorName} (Kaos Kami Makassar)${deepLink ? ` ${deepLink}` : ""}`;
       if (typeof nav.canShare === "function" && nav.canShare({ files: [file] }) && typeof nav.share === "function") {
         await nav.share({
           files: [file],
           title: "Mockup Kaos Kami",
-          text: `Mockup ${APPAREL_CATALOG[activeApparel]?.name ?? activeApparel} — ${activeColorName} (Kaos Kami Makassar)`,
+          text: shareText,
         });
-        setEnhancementMessage("✅ Mockup dibagikan. Sampai jumpa di lapangan!");
+        setEnhancementMessage(deepLink ? "✅ Mockup + tautan desain dibagikan." : "✅ Mockup dibagikan (tautan desain tak tersedia — offline/tamu).");
       } else {
         // Fallback: unduh PNG (perilaku lama, tetap berguna di desktop).
         handleExportPNG("bagikan");
@@ -1284,19 +1317,44 @@ export const CustomizerDrawer: React.FC = () => {
   };
 
   const handleCopyShareLink = () => {
-    const url = window.location.href;
-    if (navigator.clipboard?.writeText) {
-      navigator.clipboard.writeText(url).then(() => {
-        setCopiedLink(true);
-        setTimeout(() => setCopiedLink(false), 2000);
-      }).catch(() => {
-        setEnhancementMessage("Gagal salin link. Salin manual dari address bar.");
+    // Tautan berisi ?designId= agar penerima membuka DESAIN yg sama (bukan studio kosong).
+    // guestId lokal ikut didukung loader (perangkat yg sama); serverId untuk lintas perangkat.
+    const copyText = async (text: string, okMsg: string) => {
+      try {
+        if (navigator.clipboard?.writeText) {
+          await navigator.clipboard.writeText(text);
+          setCopiedLink(true);
+          setTimeout(() => setCopiedLink(false), 2000);
+        } else {
+          throw new Error("no-clipboard");
+        }
+      } catch {
+        setEnhancementMessage(okMsg);
+        setTimeout(() => setEnhancementMessage(null), 4000);
+      }
+    };
+    // Tamu tetap bisa: simpanan tamu tersimpan di server (userId null) + lokal.
+    setEnhancementMessage("⏳ Menyiapkan tautan desain…");
+    void (async () => {
+      try {
+        const localId = saveCurrentDesign(undefined, undefined);
+        const sync = await syncDesignToServer(localId);
+        const st = useConfiguratorStore.getState();
+        const entry = st.savedDesigns.find((d) => d.id === localId);
+        const did = sync.serverId || entry?.id || "";
+        if (!did) {
+          await copyText(window.location.href, "Gagal siapkan tautan — salin manual dari address bar.");
+          return;
+        }
+        const link = `${window.location.origin}/studio?designId=${encodeURIComponent(did)}`;
+        await copyText(link, `Tautan: ${link}`);
+        setEnhancementMessage(sync.serverId ? "✅ Tautan desain disalin — penerima membuka karya yg sama." : "✅ Tautan disalin (berlaku di perangkat ini; login untuk lintas perangkat).");
+        setTimeout(() => setEnhancementMessage(null), 4000);
+      } catch {
+        setEnhancementMessage("Gagal siapkan tautan. Salin manual dari address bar.");
         setTimeout(() => setEnhancementMessage(null), 3000);
-      });
-    } else {
-      setEnhancementMessage("Browser tak mendukung salin otomatis. Salin manual dari address bar.");
-      setTimeout(() => setEnhancementMessage(null), 3000);
-    }
+      }
+    })();
   };
 
   const handleSendToWhatsApp = () => {
@@ -1329,12 +1387,22 @@ export const CustomizerDrawer: React.FC = () => {
         previewUrl = canvas.toDataURL("image/webp", 0.7);
       }
     } catch {}
-    saveCurrentDesign(designTitleInput.trim() ? designTitleInput.trim() : undefined, previewUrl);
+    const localId = saveCurrentDesign(designTitleInput.trim() ? designTitleInput.trim() : undefined, previewUrl);
     setDesignTitleInput("");
     setActiveTab("options");
     setOptionSubMode("saved");
-    setEnhancementMessage("✅ Desain berhasil disimpan ke koleksi Anda.");
-    setTimeout(() => setEnhancementMessage(null), 3000);
+    // Sinkron server: tampilkan status KUOTA jujur (server maks 5/akun).
+    setEnhancementMessage("⏳ Menyimpan ke server…");
+    void syncDesignToServer(localId).then((r) => {
+      if (r.quotaExceeded) {
+        setEnhancementMessage("⛔ KUOTA 5 PENUH — tersimpan lokal saja. Hapus desain lama di dashboard untuk simpan ke server.");
+      } else if (r.error) {
+        setEnhancementMessage("⚠️ Tersimpan lokal; sinkron server gagal — coba lagi nanti.");
+      } else {
+        setEnhancementMessage("✅ Desain berhasil disimpan ke koleksi Anda.");
+      }
+      setTimeout(() => setEnhancementMessage(null), 4000);
+    });
   };
 
   // Hapus decal + master + original produksinya (anti yatim di registry).
@@ -2567,6 +2635,9 @@ export const CustomizerDrawer: React.FC = () => {
                     {/* GRUP 3: 3D TEST LAB & SIMULASI FISIKA */}
                     <TestLabControls />
 
+                    {/* GRUP 3B: INSPEKSI DESAIN 3D (toggle murni, tak ubah data) */}
+                    <InspectControls />
+
                     {/* GRUP 4: PENCAHAYAAN & TEKSTUR BAHAN */}
                     <div className="p-4 rounded-2xl glass-panel border border-border-subtle space-y-3.5 shadow-sm">
                       <div className="flex justify-between items-center pb-2 border-b border-border-subtle/60">
@@ -2743,8 +2814,10 @@ export const CustomizerDrawer: React.FC = () => {
                             <span className="text-xs font-mono font-bold text-text-primary">
                               SIMPAN DESAIN SAAT INI:
                             </span>
-                            <span className="text-[10px] font-mono text-text-muted">
-                              {savedDesigns.length}/20 tersimpan
+                            <span className="text-[10px] font-mono text-text-muted text-right leading-tight">
+                              {savedDesigns.length}/20 lokal
+                              <br />
+                              <span className="opacity-75">server: maks 5/akun</span>
                             </span>
                           </div>
                           <div className="flex gap-2">
@@ -2876,10 +2949,11 @@ export const CustomizerDrawer: React.FC = () => {
                               ✂️ Transparan (PNG)
                             </button>
                           </div>
-                          <div className="grid grid-cols-2 gap-1.5">
+                          <div className="grid grid-cols-3 gap-1.5">
                             <button
                               type="button"
                               onClick={() => setExportResolution("standard")}
+                              aria-pressed={exportResolution === "standard"}
                               className={`py-1.5 px-2 rounded-lg text-[10px] font-mono font-bold transition-all border text-center ${
                                 exportResolution === "standard"
                                   ? "bg-brand-accent/15 border-brand-accent text-brand-accent"
@@ -2890,7 +2964,20 @@ export const CustomizerDrawer: React.FC = () => {
                             </button>
                             <button
                               type="button"
+                              onClick={() => setExportResolution("hd")}
+                              aria-pressed={exportResolution === "hd"}
+                              className={`py-1.5 px-2 rounded-lg text-[10px] font-mono font-bold transition-all border text-center ${
+                                exportResolution === "hd"
+                                  ? "bg-brand-accent/15 border-brand-accent text-brand-accent"
+                                  : "bg-surface border-border-subtle text-text-muted hover:text-text-primary"
+                              }`}
+                            >
+                              HD (1920)
+                            </button>
+                            <button
+                              type="button"
                               onClick={() => setExportResolution("2k")}
+                              aria-pressed={exportResolution === "2k"}
                               className={`py-1.5 px-2 rounded-lg text-[10px] font-mono font-bold transition-all border text-center ${
                                 exportResolution === "2k"
                                   ? "bg-brand-accent/15 border-brand-accent text-brand-accent"
@@ -3472,6 +3559,9 @@ export const CustomizerDrawer: React.FC = () => {
 
                     {/* KARTU 3: 3D TEST LAB & SIMULASI FISIKA */}
                     <TestLabControls />
+
+                    {/* KARTU 3B: INSPEKSI DESAIN 3D */}
+                    <InspectControls />
 
                     {/* KARTU 4: PENCAHAYAAN & BAHAN KAIN */}
                     <div className="p-3 rounded-xl bg-surface/50 border border-border-subtle space-y-2.5">

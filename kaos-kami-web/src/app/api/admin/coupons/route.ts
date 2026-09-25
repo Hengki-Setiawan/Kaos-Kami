@@ -32,27 +32,54 @@ const CreateSchema = z.object({
   minSpendIdr: z.number().int().nonnegative().default(0),
   maxUses: z.number().int().positive().nullable().optional(),
   expiresAt: z.string().datetime().nullable().optional(),
+  isActive: z.boolean().optional(),
 }).refine(
   (v) => (v.discountType === "PERCENT" ? v.discountValue <= 100 : v.discountValue <= 50_000_000),
   { message: "Nilai diskon di luar batas (persen ≤100, tetap ≤Rp50jt)" }
 );
 
-/** GET /api/admin/coupons — daftar kupon (admin only, urut kode, cap 200). */
+// Sortir yang didukung halaman admin — selaras dengan page.tsx.
+const SORTS = ["code_asc", "code_desc", "used_desc", "used_asc"] as const;
+
+/** GET /api/admin/coupons — daftar kupon (admin only, paginasi + sortir). */
 export async function GET(req: NextRequest) {
   const gate = await requireAdmin(req);
   if (gate.error) return gate.error;
   const sp = new URL(req.url).searchParams;
-  const limit = Math.max(1, Math.min(200, Number(sp.get("limit")) || 100));
+  const page = Math.max(1, Number(sp.get("page")) || 1);
+  const limit = Math.max(1, Math.min(200, Number(sp.get("limit")) || 50));
+  const sort = SORTS.includes(sp.get("sort") as (typeof SORTS)[number])
+    ? (sp.get("sort") as (typeof SORTS)[number])
+    : "code_desc";
   const rows = await db.query.Coupon.findMany({
-    orderBy: (t, { desc }) => [desc(t.code)],
-    limit,
+    orderBy: (t, { asc, desc }) =>
+      sort === "code_asc"
+        ? [asc(t.code)]
+        : sort === "used_desc"
+          ? [desc(t.usedCount)]
+          : sort === "used_asc"
+            ? [asc(t.usedCount)]
+            : [desc(t.code)],
+    limit: limit + 1,
+    offset: (page - 1) * limit,
   });
-  return NextResponse.json({ success: true, coupons: rows });
+  const hasMore = rows.length > limit;
+  return NextResponse.json({
+    success: true,
+    page,
+    limit,
+    sort,
+    hasMore,
+    coupons: hasMore ? rows.slice(0, limit) : rows,
+  });
 }
 
 const DeleteSchema = z.object({ id: z.string().min(1) });
 
-/** DELETE /api/admin/coupons — hapus permanen via body { id } atau ?id=. */
+/**
+ * DELETE /api/admin/coupons — SATU-SATUNYA jalur hapus (permanen via body { id } atau ?id=).
+ * Mengembalikan 404 bila kupon tidak ada. Jangan tambah jalur hapus lain (mis. PATCH delete:true).
+ */
 export async function DELETE(req: NextRequest) {
   const gate = await requireAdmin(req);
   if (gate.error) return gate.error;
@@ -86,6 +113,7 @@ export async function POST(req: NextRequest) {
         minSpendIdr: v.minSpendIdr,
         maxUses: v.maxUses ?? null,
         expiresAt: v.expiresAt ? new Date(v.expiresAt) : null,
+        isActive: v.isActive ?? true,
       })
       .returning();
     return NextResponse.json({ success: true, coupon: row });
@@ -94,10 +122,13 @@ export async function POST(req: NextRequest) {
   }
 }
 
+// PATCH hanya untuk edit field (tanpa cabang hapus — hapus HANYA via DELETE).
 const PatchSchema = z.object({
   id: z.string().min(1),
   isActive: z.boolean().optional(),
-  delete: z.boolean().optional(),
+  maxUses: z.number().int().positive().nullable().optional(),
+  expiresAt: z.string().datetime().nullable().optional(),
+  resetUsage: z.boolean().optional(),
 });
 
 export async function PATCH(req: NextRequest) {
@@ -105,14 +136,14 @@ export async function PATCH(req: NextRequest) {
   if (gate.error) return gate.error;
   const parsed = PatchSchema.safeParse(await req.json().catch(() => ({})));
   if (!parsed.success) return NextResponse.json({ error: "Invalid" }, { status: 400 });
-  const { id, isActive, delete: del } = parsed.data;
-  if (del) {
-    await db.delete(Coupon).where(eq(Coupon.id, id));
-    return NextResponse.json({ success: true, deleted: true });
-  }
-  if (isActive !== undefined) {
-    await db.update(Coupon).set({ isActive }).where(eq(Coupon.id, id));
-    return NextResponse.json({ success: true });
-  }
-  return NextResponse.json({ error: "Tidak ada aksi" }, { status: 400 });
+  const { id, isActive, maxUses, expiresAt, resetUsage } = parsed.data;
+  const set: Record<string, unknown> = {};
+  if (isActive !== undefined) set.isActive = isActive;
+  if (maxUses !== undefined) set.maxUses = maxUses;
+  if (expiresAt !== undefined) set.expiresAt = expiresAt ? new Date(expiresAt) : null;
+  if (resetUsage) set.usedCount = 0;
+  if (Object.keys(set).length === 0) return NextResponse.json({ error: "Tidak ada aksi" }, { status: 400 });
+  const [row] = await db.update(Coupon).set(set).where(eq(Coupon.id, id)).returning({ id: Coupon.id });
+  if (!row) return NextResponse.json({ error: "Kupon tidak ditemukan" }, { status: 404 });
+  return NextResponse.json({ success: true });
 }

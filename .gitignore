@@ -96,8 +96,15 @@ Asset 3D/
 *.blend
 
 *.tmp.mjs
+*-tmp.mjs
+run-*.ps1
+kaos-kami-web/blob-report/
+kaos-kami-web/test-results/
 __pycache__/
 *.pyc
+
+# Playwright storageState = kredensial sesi (JANGAN commit!)
+kaos-kami-web/tests/e2e/.auth/
 
 # heavy raw artwork & gangsheet rendering cache
 kaos-kami-web/public/mascot/

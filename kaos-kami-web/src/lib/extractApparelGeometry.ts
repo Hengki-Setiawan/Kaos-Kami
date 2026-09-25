@@ -1,6 +1,6 @@
 import * as THREE from "three";
 import * as BufferGeometryUtils from "three/examples/jsm/utils/BufferGeometryUtils.js";
-import { ensureWindWeights, ensureBoxUV } from "./geometryPrep";
+import { ensureWindAndStretchWeights, ensureBoxUV } from "./geometryPrep";
 
 export interface ExtractGeometryOptions {
   scaleMultiplier?: number;
@@ -65,7 +65,8 @@ export function extractApparelGeometry(
     }
 
     merged.computeVertexNormals();
-    ensureWindWeights(merged);
+    // SATU pass: bobot wind + bobot stretch uji-tarik (geometryPrep).
+    ensureWindAndStretchWeights(merged);
     ensureBoxUV(merged);
 
     return merged;

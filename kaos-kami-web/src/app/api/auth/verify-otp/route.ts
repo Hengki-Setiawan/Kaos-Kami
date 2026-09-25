@@ -14,7 +14,10 @@ export async function POST(req: NextRequest) {
       .safeParse(await req.json().catch(() => null));
     if (!parsed.success) return NextResponse.json({ error: "WA & kode 6 digit wajib" }, { status: 400 });
     const { phoneNumber, code } = parsed.data;
-    const clean = phoneNumber.replace(/[^0-9]/g, "");
+    // I3: kunci kanonis — harus SAMA dengan send-otp agar kode ketemu.
+    const { canonicalPhone } = await import("@/lib/phone");
+    const clean = canonicalPhone(phoneNumber);
+    if (!clean) return NextResponse.json({ error: "WA & kode 6 digit wajib" }, { status: 400 });
     const ip = getClientIp(req);
 
     // Anti brute-force 6-digit: maks 5x tebak / 5 menit per nomor & per IP.

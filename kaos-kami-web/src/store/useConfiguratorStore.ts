@@ -8,6 +8,7 @@ import {
   type LightingPreset,
   type CameraViewPreset,
   type DecalLayer,
+  type DecalTargetSide,
   type SavedMockupDesign,
 } from "@/lib/constants";
 import { calculate6VariablePrice, materialFinishToPricing } from "@/lib/pricingEngine";
@@ -120,6 +121,12 @@ interface ConfiguratorState {
 
   // Saved Designs Actions
   saveCurrentDesign: (title?: string, previewUrl?: string) => string;
+  /** Sinkron 1 entri lokal ke server; kembalikan serverId / status kuota jujur. */
+  syncDesignToServer: (localId: string) => Promise<{
+    serverId?: string;
+    quotaExceeded?: boolean;
+    error?: string;
+  }>;
   loadSavedDesign: (id: string) => void;
   duplicateSavedDesign: (id: string) => string;
   deleteSavedDesign: (id: string) => void;
@@ -171,6 +178,22 @@ interface ConfiguratorState {
   setStretchDirection: (dir: StretchDirection) => void;
   flashlightFocus: number;
   setFlashlightFocus: (focus: number) => void;
+  // Titik grip tarikan di ruang lokal garmen (ditulis raycast controller, dibaca shader).
+  stretchCenterXY: [number, number];
+  setStretchCenterXY: (xy: [number, number]) => void;
+  // QC senter: sudut grazing dari permukaan (15/30/45/90), sisi inspeksi, azimuth, lux estimasi.
+  qcGrazingDeg: number;
+  setQcGrazingDeg: (d: number) => void;
+  qcSide: DecalTargetSide;
+  setQcSide: (s: DecalTargetSide) => void;
+  qcAzimuth: number;
+  setQcAzimuth: (a: number) => void;
+  qcLux: number;
+  setQcLux: (v: number) => void;
+  // Mode inspeksi desain (toggle murni, tak ubah data): turntable | bleed X-ray |
+  // macro | mood lintas-cahaya | bounds batas cetak.
+  inspectMode: "none" | "turntable" | "bleed" | "macro" | "mood" | "bounds";
+  setInspectMode: (m: "none" | "turntable" | "bleed" | "macro" | "mood" | "bounds") => void;
   showMannequin: boolean;
   setShowMannequin: (v: boolean) => void;
   toggleShowMannequin: () => void;
@@ -488,69 +511,93 @@ export const useConfiguratorStore = create<ConfiguratorState>((set, get) => ({
     const updated = [newDesign, ...state.savedDesigns].slice(0, MAX_LOCAL_DESIGNS);
     set({ savedDesigns: updated });
     writeStoredDesigns(updated.map((d) => ({ ...d, decals: d.decals.map((l) => (l.url.startsWith("blob:") ? { ...l, url: "" } : l)) })) as SavedMockupDesign[]);
-    // Backend sync: POST /api/designs (fire-and-forget, non-blocking)
+    // Backend sync: POST /api/designs (fire-and-forget, non-blocking).
+    // Hasil sinkron (serverId/kuota) tersedia via syncDesignToServer().
     try {
-      const cat = state.activeApparel;
-      // KONTRAK KUNCI masterAssetUrl (SATU sumber — B-03, baca ini saja):
-      // JSON map gabungan DUA sumber, kunci tak pernah tabrakan:
-      // - "<side>" (front/back/left_sleeve/right_sleeve/hood) = { url, at } —
-      //   panel-master 300 DPI dari Pola 2D (PatternStudio exportPanelMaster,
-      //   prefix LS "<apparel>:<panel>", sudah berupa URL R2 https, kecil).
-      // - "decal:<id>" = { url, at } — master per-decal dari registry
-      //   imageEditPipeline.collectDecalMasters() (upload CustomizerDrawer /
-      //   PatternStudio / ImageEditorModal; hanya yang sudah URL https yang
-      //   ikut — base64 dataUrl tetap lokal agar payload <3MB, bukan di-DB).
-      // Konsumen: confirmOrder baca "<side>" (kompatibel legacy); wiring
-      // per-decal masa depan baca "decal:<id>" (fidelitas penuh per artwork).
-      let masterAssetUrl: string | undefined;
+      void get().syncDesignToServer(id).catch(() => {});
+    } catch {}
+    return id;
+  },
+
+  syncDesignToServer: async (localId) => {
+    const st = get();
+    const entry = st.savedDesigns.find((d) => d.id === localId);
+    if (!entry) return { error: "Desain tidak ditemukan di koleksi lokal." };
+    if (entry.serverId) return { serverId: entry.serverId };
+    // Harga dihitung ulang SSOT 6-variabel (cermin saveCurrentDesign).
+    const matched = PRODUCT_COLORS.find(
+      (c) => c.hex.toLowerCase() === entry.colorHex.toLowerCase()
+    );
+    const matPricing = materialFinishToPricing(entry.materialFinish);
+    const pricing = calculate6VariablePrice({
+      apparelSlug: entry.apparel,
+      fabricThicknessSlug: matPricing.fabricThicknessSlug,
+      size: entry.size,
+      colorHex: entry.colorHex,
+      isSpecialPigment: !!matched?.isSpecialPigment,
+      decals: entry.decals,
+      quantity: 1,
+    });
+    // KONTRAK masterAssetUrl B-03 (cermin saveCurrentDesign): https-only.
+    let masterAssetUrl: string | undefined;
+    try {
+      const raw = localStorage.getItem("kaoskami_master_assets") || "{}";
+      const all = JSON.parse(raw) as Record<string, unknown>;
+      const mine: Record<string, unknown> = {};
+      for (const [k, v] of Object.entries(all)) {
+        if (k.startsWith(`${entry.apparel}:`)) mine[k.slice(entry.apparel.length + 1)] = v;
+      }
       try {
-        const raw = localStorage.getItem("kaoskami_master_assets") || "{}";
-        const all = JSON.parse(raw);
-        const mine: Record<string, unknown> = {};
-        for (const [k, v] of Object.entries(all)) {
-          if (k.startsWith(`${cat}:`)) mine[k.slice(cat.length + 1)] = v;
-        }
-        // B-03: collectDecalMasters() sync via static import (store tetap sync;
-        // import dinamis + await di sini ILEGAL — fungsi ini sync return string).
-        // Fallback baca LS langsung bila registry throw (SSR / modul belum init).
-        try {
-          const decalMasters: Record<string, string> = collectDecalMasters();
-          const now = new Date().toISOString();
-          for (const [id, url] of Object.entries(decalMasters)) {
-            if (typeof url === "string" && /^https?:\/\//.test(url)) {
-              mine[`decal:${id}`] = { url, at: now };
-            }
+        const decalMasters: Record<string, string> = collectDecalMasters();
+        const now = new Date().toISOString();
+        for (const [id, url] of Object.entries(decalMasters)) {
+          if (typeof url === "string" && /^https?:\/\//.test(url)) {
+            mine[`decal:${id}`] = { url, at: now };
           }
-        } catch {
-          try {
-            for (const [k, v] of Object.entries(all as Record<string, any>)) {
-              if (k.startsWith("decal:") && (v as any)?.url && typeof (v as any).url === "string" && /^https?:\/\//.test((v as any).url)) {
-                mine[k] = v;
-              }
-            }
-          } catch {}
         }
-        if (Object.keys(mine).length > 0) masterAssetUrl = JSON.stringify(mine);
       } catch {}
-      fetch("/api/designs", {
+      if (Object.keys(mine).length > 0) masterAssetUrl = JSON.stringify(mine);
+    } catch {}
+    try {
+      const res = await fetch("/api/designs", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          title: newDesign.title,
-          apparelSlug: cat,
-          colorHex: newDesign.colorHex,
-          colorName: newDesign.colorName,
-          size: newDesign.size,
-          materialFinishSlug: newDesign.materialFinish,
-          decals: newDesign.decals,
-          studioTheme: newDesign.theme,
-          calculatedPriceIdr: newDesign.calculatedPriceIdr,
+          title: entry.title,
+          apparelSlug: entry.apparel,
+          colorHex: entry.colorHex,
+          colorName: entry.colorName,
+          size: entry.size,
+          materialFinishSlug: entry.materialFinish,
+          decals: entry.decals,
+          studioTheme: entry.theme,
+          calculatedPriceIdr: entry.calculatedPriceIdr,
           priceBreakdown: pricing,
           masterAssetUrl,
         }),
-      }).catch(() => {});
-    } catch {}
-    return id;
+      });
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        return {
+          quotaExceeded: (body as any)?.quotaExceeded === true,
+          error: String((body as any)?.error || `Server menolak (${res.status}).`),
+        };
+      }
+      const serverId = String((body as any)?.design?.id || "");
+      if (serverId) {
+        const updated = get().savedDesigns.map((d) =>
+          d.id === localId ? { ...d, serverId } : d
+        );
+        set({ savedDesigns: updated });
+        try {
+          writeStoredDesigns(updated);
+        } catch {}
+        return { serverId };
+      }
+      return { error: "Respons server tak dikenal." };
+    } catch (e) {
+      return { error: e instanceof Error ? e.message : "Jaringan gagal." };
+    }
   },
 
   loadSavedDesign: (id) => {
@@ -637,6 +684,18 @@ export const useConfiguratorStore = create<ConfiguratorState>((set, get) => ({
   setStretchIntensity: (intensity) => set({ stretchIntensity: Math.max(0, Math.min(1, intensity)) }),
   setStretchDirection: (dir) => set({ stretchDirection: dir }),
   setFlashlightFocus: (focus) => set({ flashlightFocus: Math.max(0.15, Math.min(0.85, focus)) }),
+  stretchCenterXY: [0, 0],
+  setStretchCenterXY: (xy) => set({ stretchCenterXY: xy }),
+  qcGrazingDeg: 30,
+  setQcGrazingDeg: (d) => set({ qcGrazingDeg: [15, 30, 45, 90].includes(d) ? d : 30 }),
+  qcSide: "front" as DecalTargetSide,
+  setQcSide: (s) => set({ qcSide: s }),
+  qcAzimuth: 90,
+  setQcAzimuth: (a) => set({ qcAzimuth: Number.isFinite(a) ? Math.max(0, Math.min(360, a)) : 90 }),
+  qcLux: 0,
+  setQcLux: (v) => set({ qcLux: Number.isFinite(v) ? Math.max(0, Math.round(v)) : 0 }),
+  inspectMode: "none" as "none" | "turntable" | "bleed" | "macro" | "mood" | "bounds",
+  setInspectMode: (m) => set({ inspectMode: m }),
   setShowMannequin: (v) => set({ showMannequin: v }),
   toggleShowMannequin: () => set((state) => ({ showMannequin: !state.showMannequin })),
 

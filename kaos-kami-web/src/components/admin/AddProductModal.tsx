@@ -56,10 +56,14 @@ export function AddProductModal({ categories }: { categories: CategoryOption[] }
       setErrorMsg("Nama produk wajib diisi");
       return;
     }
-    const price = Number(priceIdr);
+    const price = Math.min(100_000_000, Number(priceIdr) || 0);
     const stock = Number(stockQty);
     if (!price || price < 1000) {
       setErrorMsg("Harga produk minimal Rp 1.000");
+      return;
+    }
+    if (Number(priceIdr) > 100_000_000) {
+      setErrorMsg("Harga maksimal Rp 100.000.000");
       return;
     }
 

@@ -4,13 +4,17 @@ import React, { Suspense, useEffect, useState } from 'react';
 import { Canvas, useThree } from '@react-three/fiber';
 import { AdaptiveDpr, PerformanceMonitor, useGLTF } from '@react-three/drei';
 import { useMobileDeviceTier } from '@/hooks/useMobileDeviceTier';
-import { useMobileStudioStore } from '@/store/useMobileStudioStore';
+import {
+  useMobileStudioStore,
+} from '@/store/useMobileStudioStore';
 import { disposeSceneHierarchy } from '@/lib/3d/disposeScene';
 import { registerStudioSnapshot } from '@/lib/3d/exportStudio';
 import { TouchOrbitControls } from './TouchOrbitControls';
 import { AnimationController } from './AnimationController';
 import { MobileApparelMeshRenderer, mobilePriorityFor } from './MobileApparelMeshRenderer';
 import { MobileStudioLighting, MobileStudioTheme } from './MobileStudioLighting';
+import { MobileTestLabOverlay3D } from './MobileTestLabOverlay3D';
+import { PrintZoneGuideMobile } from './PrintZoneGuideMobile';
 
 // SOFT-DISABLE DRACO 14 Sep 2026 (keputusan owner, paritas web non-Draco):
 // setDecoderPath dibiarkan (harmless bila tak ada mesh Draco) — nonaktif
@@ -67,9 +71,15 @@ export function CanvasStageMobile({ theme = 'obsidian' }: { theme?: MobileStudio
   const color = useMobileStudioStore((s) => s.color);
   const sleeveColor = useMobileStudioStore((s) => s.sleeveColor);
   const collarColor = useMobileStudioStore((s) => s.collarColor);
-  const decalUrl = useMobileStudioStore((s) => s.decalUrl);
+  // P1: tanda tangan lapis (tambah/hapus/ganti sisi memicu transien walau
+  // URL cermin tak berubah). Kompat decalUrl dipertahankan untuk pembaca lain.
+  const decalSig = useMobileStudioStore((s) => s.decals.map((d) => `${d.id}:${d.targetSide}:${d.url}`).join('|'));
   const cameraAngle = useMobileStudioStore((s) => s.cameraAngle);
   const isGizmoDragging = useMobileStudioStore((s) => s.isGizmoDragging);
+  // F0 Test Lab: overlay angin/senter/stretch butuh frame kontinu (partikel,
+  // damping senter, spring). Idle standar tetap demand = 0fps hemat baterai.
+  const testLabMode = useMobileStudioStore((s) => s.testLabMode);
+  const isStretchDragging = useMobileStudioStore((s) => s.isStretchDragging);
   const [contextLost, setContextLost] = useState(false);
 
   // Transien 800ms tiru web transientMotion (CanvasStage.tsx): 'always' hanya
@@ -83,8 +93,16 @@ export function CanvasStageMobile({ theme = 'obsidian' }: { theme?: MobileStudio
     setTransientMotion(true);
     const t = setTimeout(() => setTransientMotion(false), 800);
     return () => clearTimeout(t);
-  }, [color, sleeveColor, collarColor, apparelType, decalUrl, cameraAngle, activeAnimation]);
-  const needsContinuous = activeAnimation !== 'none' || transientMotion || isGizmoDragging;
+  }, [color, sleeveColor, collarColor, apparelType, decalSig, cameraAngle, activeAnimation]);
+  const needsContinuous =
+    activeAnimation !== 'none' ||
+    transientMotion ||
+    isGizmoDragging ||
+    isStretchDragging ||
+    testLabMode !== 'none';
+
+  // F2 Test Lab: darkroom QC 0.05 saat senter (cermin web StudioLighting testLabDim).
+  const studioDimFactor = testLabMode === 'flashlight' ? 0.05 : 1.0;
 
   // PERF (tiru web CanvasStage): preload PRIORITAS non-Draco (kandidat
   // pertama = master non-Draco paritas web, tanpa HEAD probe = hemat
@@ -171,8 +189,12 @@ export function CanvasStageMobile({ theme = 'obsidian' }: { theme?: MobileStudio
   // cermin web CanvasStage themeBgHex.
   const themeBgHex = theme === 'gallery' ? '#EFECE6' : theme === 'concrete' ? '#222326' : '#0E0E10';
 
+  // Q7: PrintZoneGuide ringan — overlay HTML (nol biaya WebGL), batas cetak
+  // SSOT dari lib mobileScaleCalibration + toggle via store. Komponen:
+  // ./PrintZoneGuideMobile (mount di file ini SAJA).
   return (
     <div id="kk-studio" className="relative w-full h-full select-none touch-none overflow-hidden rounded-3xl bg-canvas transition-colors" style={{ backgroundColor: themeBgHex }}>
+      <PrintZoneGuideMobile />
       <Suspense fallback={<StudioLoader />}>
         <Canvas
           camera={{ position: [0, 0, 2.5], fov: 45 }}
@@ -206,11 +228,12 @@ export function CanvasStageMobile({ theme = 'obsidian' }: { theme?: MobileStudio
         >
           <SceneDisposer />
           <PerfAdaptive />
-          <MobileStudioLighting theme={theme} />
+          <MobileStudioLighting theme={theme} dimFactor={studioDimFactor} />
           <TouchOrbitControls />
           <AnimationController>
             <MobileApparelMeshRenderer />
           </AnimationController>
+          <MobileTestLabOverlay3D />
         </Canvas>
       </Suspense>
     </div>

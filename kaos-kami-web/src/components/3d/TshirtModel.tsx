@@ -8,14 +8,14 @@ import { easing } from "maath";
 import { useConfiguratorStore } from "@/store/useConfiguratorStore";
 import { useShallow } from "zustand/shallow";
 import { DecalLayerRenderer } from "./DecalLayerRenderer";
-import { ensureWindWeights } from "@/lib/geometryPrep";
+import { ensureWindAndStretchWeights } from "@/lib/geometryPrep";
 import { createClothPhysicalMaterial } from "@/lib/materials/clothPhysicalMaterial";
 import { useDeviceTier } from "@/hooks/useDeviceTier";
 import { useResourceTracker, useTrackedResource } from "@/lib/threeResourceTracker";
 import { surfaceZForApparel } from "@/lib/scaleCalibration";
 import { SilentModelFallback } from "@/components/ui/ModelErrorBoundary";
 import { extractApparelGeometry } from "@/lib/extractApparelGeometry";
-import { getStretchFactors } from "@/lib/3d/stretchPhysics";
+import { applyStretchToMaterial, sharedStretchUniforms } from "@/lib/3d/stretchDeform";
 
 // FASE 13 (keputusan owner: mesh aktif DIGANTI): kaos → tee-basic.glb
 // (basic_t-shirt Sketchfab; draco -18% bila decoder ada). Rantai fallback
@@ -201,13 +201,25 @@ const GltfTeeNew: React.FC<{ path: string }> = ({ path }) => {
   const scale = viewMode === "story" ? 1.0 : modelScale;
 
   // 🧲 Skala Elastisitas Kain Uji Tarik (Pull & Stretch Test)
-  const stretchFactors = getStretchFactors(testLabMode, stretchIntensity, stretchDirection);
+  // Uji Tarik REAL: deformasi per-vertex via shader (bukan group-scale affine).
+  // Inject sekali per material; uniforms BERSAMA ditulis StretchPhysicsController.
+  useEffect(() => {
+    applyStretchToMaterial(material, sharedStretchUniforms);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [material]);
+  // Mode inspeksi bleed X-ray: kain transparan, sablon tetap opak.
+  const bleedCheck = useConfiguratorStore((s) => s.inspectMode === "bleed");
+  useEffect(() => {
+    material.transparent = bleedCheck;
+    material.opacity = bleedCheck ? 0.15 : 1;
+    material.depthWrite = !bleedCheck;
+  }, [material, bleedCheck]);
 
   return (
     <group
       ref={meshRef}
       position={[posX, posY, 0]}
-      scale={[scale * stretchFactors.stretchX, scale * stretchFactors.stretchY, scale * stretchFactors.stretchZ]}
+      scale={[scale, scale, scale]}
       dispose={null}
     >
       <mesh
@@ -269,7 +281,7 @@ const GltfTeeLegacy: React.FC = () => {
     const base = nodes?.T_Shirt_male?.geometry as THREE.BufferGeometry | undefined;
     if (!base) return null;
     const geo = base.clone();
-    ensureWindWeights(geo);
+    ensureWindAndStretchWeights(geo);
     return geo;
   }, [nodes]);
 
@@ -360,13 +372,25 @@ const GltfTeeLegacy: React.FC = () => {
   const posY = viewMode === "story" ? -0.05 : modelPosY - 0.05;
   const scale = viewMode === "story" ? 1.0 : modelScale;
 
-  const stretchFactors = getStretchFactors(testLabMode, stretchIntensity, stretchDirection);
+  // Uji Tarik REAL: deformasi per-vertex via shader (bukan group-scale affine).
+  // Inject sekali per material; uniforms BERSAMA ditulis StretchPhysicsController.
+  useEffect(() => {
+    applyStretchToMaterial(material, sharedStretchUniforms);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [material]);
+  // Mode inspeksi bleed X-ray: kain transparan, sablon tetap opak.
+  const bleedCheck = useConfiguratorStore((s) => s.inspectMode === "bleed");
+  useEffect(() => {
+    material.transparent = bleedCheck;
+    material.opacity = bleedCheck ? 0.15 : 1;
+    material.depthWrite = !bleedCheck;
+  }, [material, bleedCheck]);
 
   return (
     <group
       ref={meshRef}
       position={[posX, posY, 0]}
-      scale={[scale * stretchFactors.stretchX, scale * stretchFactors.stretchY, scale * stretchFactors.stretchZ]}
+      scale={[scale, scale, scale]}
       dispose={null}
     >
       <mesh

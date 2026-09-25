@@ -58,6 +58,7 @@ import { App as CapacitorApp } from '@capacitor/app';
 import { Keyboard, KeyboardResize } from '@capacitor/keyboard';
 import { useMobileStudioStore, ApparelType, MOBILE_APPAREL_META } from '@/store/useMobileStudioStore';
 import { useMobileCartStore } from '@/store/useMobileCartStore';
+import { MOBILE_DECAL_SIDE_LABELS, SERVER_ACCEPTED_SIDES, validSidesForMobile, type MobileDecalSide } from '@/lib/3d/mobileScaleCalibration';
 import { useShallow } from 'zustand/shallow';
 import {
   CheckoutSheet,
@@ -98,6 +99,32 @@ const ARPreviewStage = dynamic(
   { ssr: false }
 );
 
+/** A9: badge biometrik jujur — render dari kemampuan perangkat aktual. */
+function BiometricBadge() {
+  const [state, setState] = useState<'loading' | 'on' | 'off'>('loading');
+  useEffect(() => {
+    let alive = true;
+    (async () => {
+      try {
+        const { isBiometricsAvailable } = await import('@/lib/bridge/biometrics');
+        const ok = await isBiometricsAvailable();
+        if (alive) setState(ok ? 'on' : 'off');
+      } catch {
+        if (alive) setState('off');
+      }
+    })();
+    return () => {
+      alive = false;
+    };
+  }, []);
+  if (state === 'loading') return <Badge variant="neutral">Cek Biometrik…</Badge>;
+  return state === 'on' ? (
+    <Badge variant="success">Biometrik Tersedia</Badge>
+  ) : (
+    <Badge variant="neutral">Biometrik Tak Tersedia</Badge>
+  );
+}
+
 export default function MobileApp() {
   const [activeTab, setActiveTab] = useState<TabKey>('home');
   const [sheetOpen, setSheetOpen] = useState(false);
@@ -109,6 +136,12 @@ export default function MobileApp() {
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [isOnline, setIsOnline] = useState(true);
   const [ordersViewMode, setOrdersViewMode] = useState<'live' | 'history'>('live');
+  // Q2+Q8: size picker (S–XL) + material/teks/opasitas dasar — dikirim ke cart
+  // & checkout (server hitung ulang harga; label estimasi di UI).
+  const [pickedSize, setPickedSize] = useState<'S' | 'M' | 'L' | 'XL'>('L');
+  const [pickedMaterial, setPickedMaterial] = useState<string>('combed-24s');
+  const [artworkText, setArtworkText] = useState('');
+  const [decalOpacity, setDecalOpacity] = useState(1);
 
   // Cart & Offline Stores
   const { items, addItem, getItemCount, getSubtotal } = useMobileCartStore(
@@ -176,8 +209,16 @@ export default function MobileApp() {
     setApparelType,
     color,
     setColor,
+    sleeveColor,
+    setSleeveColor,
+    collarColor,
+    setCollarColor,
     decalUrl,
-    setDecalUrl,
+    decals,
+    pendingSide,
+    setPendingSide,
+    setSelectedDecalId,
+    removeDecal,
     printWidthCm,
     printHeightCm,
     offsetFromCollarCm,
@@ -189,8 +230,16 @@ export default function MobileApp() {
       setApparelType: s.setApparelType,
       color: s.color,
       setColor: s.setColor,
+      sleeveColor: s.sleeveColor,
+      setSleeveColor: s.setSleeveColor,
+      collarColor: s.collarColor,
+      setCollarColor: s.setCollarColor,
       decalUrl: s.decalUrl,
-      setDecalUrl: s.setDecalUrl,
+      decals: s.decals,
+      pendingSide: s.pendingSide,
+      setPendingSide: s.setPendingSide,
+      setSelectedDecalId: s.setSelectedDecalId,
+      removeDecal: s.removeDecal,
       printWidthCm: s.printWidthCm,
       printHeightCm: s.printHeightCm,
       offsetFromCollarCm: s.offsetFromCollarCm,
@@ -233,7 +282,9 @@ export default function MobileApp() {
         },
       }
     );
-    // Registrasi token push → UserDevice server (M10).
+    // Registrasi token push → UserDevice server (M10 + N3 lengkap:
+    // registration disimpan bridge untuk re-register; foreground → toast;
+    // registrationError → log diam; tap → tab Pesanan).
     registerPushNotificationHandlers(
       async (token) => {
         const userId = (await getStoredUserId()) || (typeof window !== 'undefined' ? localStorage.getItem('kaoskami_user_id') || undefined : undefined);
@@ -243,6 +294,17 @@ export default function MobileApp() {
       // langsung lihat tracker, bukan diam di tab aktif.
       () => {
         setActiveTab('orders');
+      },
+      {
+        // N3: foreground — tampilkan judul/body sebagai toast, tanpa navigasi.
+        onForeground: (n) => {
+          const title = (n as { title?: string }).title || 'Kaos Kami';
+          const body = (n as { body?: string }).body || 'Ada update pesanan sablon.';
+          setToastMessage(`${title}: ${body}`);
+        },
+        onRegistrationError: (e) => {
+          console.warn('[Push] registrasi token gagal:', e);
+        },
       }
     );
     // Deep link kaoskami:// (M9): tile QS & return pembayaran.
@@ -284,13 +346,28 @@ export default function MobileApp() {
         if (host === 'studio' && (path === '/' || path === '')) {
           setActiveTab('studio');
         } else if (host === 'auth' && path === '/callback') {
-          // Kembali dari login Google: tutup browser + segarkan status login.
+          // A10 jujur: cookie InAppBrowser BELUM tentu terbaca WebView utama.
+          // Buktikan sesi via /api/auth/get-session SEBELUM klaim login.
           try {
             const { closeInAppBrowser } = await import('@/lib/bridge/browser');
             await closeInAppBrowser();
           } catch {}
-          setToastMessage('Login berhasil. Memuat akun…');
+          setToastMessage('Memeriksa sesi login…');
           setActiveTab('profile');
+          try {
+            const r = await fetch(`${API_BASE_URL}/api/auth/get-session`, {
+              credentials: 'include',
+            });
+            const d = await r.json().catch(() => null);
+            const who = (d as any)?.user?.name || (d as any)?.user?.email;
+            setToastMessage(
+              who
+                ? `Login berhasil sebagai ${who}.`
+                : 'Browser login ditutup. Bila akun belum masuk, gunakan OTP WA saat checkout (mode tamu+OTP).'
+            );
+          } catch {
+            setToastMessage('Kembali dari login. Gunakan OTP WA saat checkout bila akun belum masuk.');
+          }
         } else if (host === 'payment' && (path === '/' || path === '/callback')) {
           try {
             // parseDuitkuReturnUrl: orderId|merchantOrderId + status|resultCode
@@ -299,17 +376,36 @@ export default function MobileApp() {
             if (oid) {
               persistActiveOrder(oid);
               setActiveTab('orders');
-              if (st === 'COMPLETED' || st === 'CANCELLED') {
-                persistPendingPaymentUrl(null).catch(() => {});
-                try { localStorage.removeItem('kaoskami_pending_payment'); } catch {}
-                setPendingPaymentUrl(null);
+              // A8: status URL TAK dipercaya buta — verifikasi ke server dulu.
+              // Deep-link palsu ?status=COMPLETED hanya dapat toast netral.
+              if (st === 'COMPLETED') {
+                setToastMessage('Memeriksa status pembayaran ke server…');
+                try {
+                  const s = await mobileApiClient.pollOrderStatus(oid);
+                  const paid = !!s && String((s as any).status || "") !== "PENDING_PAYMENT";
+                  if (paid) {
+                    persistPendingPaymentUrl(null).catch(() => {});
+                    try { localStorage.removeItem('kaoskami_pending_payment'); } catch {}
+                    setPendingPaymentUrl(null);
+                    setToastMessage('Pembayaran sukses. Pesanan masuk produksi.');
+                  } else {
+                    setToastMessage('Kembali dari pembayaran. Menunggu konfirmasi server…');
+                  }
+                } catch {
+                  setToastMessage('Kembali dari pembayaran. Status diperbarui otomatis.');
+                }
+              } else {
+                if (st === 'CANCELLED') {
+                  persistPendingPaymentUrl(null).catch(() => {});
+                  try { localStorage.removeItem('kaoskami_pending_payment'); } catch {}
+                  setPendingPaymentUrl(null);
+                }
+                setToastMessage(
+                  st === 'CANCELLED' ? 'Pembayaran dibatalkan.' :
+                  st === 'PENDING' ? 'Pembayaran menunggu konfirmasi. Status diperbarui otomatis.' :
+                  'Kembali dari pembayaran. Status diperbarui otomatis.'
+                );
               }
-              setToastMessage(
-                st === 'COMPLETED' ? 'Pembayaran sukses. Pesanan masuk produksi.' :
-                st === 'CANCELLED' ? 'Pembayaran dibatalkan.' :
-                st === 'PENDING' ? 'Pembayaran menunggu konfirmasi. Status diperbarui otomatis.' :
-                'Kembali dari pembayaran. Status diperbarui otomatis.'
-              );
             } else {
               setActiveTab('orders');
               setToastMessage('Kembali dari pembayaran. Status diperbarui otomatis.');
@@ -409,19 +505,64 @@ export default function MobileApp() {
     setToastMessage(msg);
   };
 
+  /** A9: keluar — hapus identitas + order aktif di perangkat (konfirmasi dulu). */
+  const handleMobileLogout = async () => {
+    try {
+      const { confirmAction } = await import('@/lib/bridge/dialogs');
+      const ok = await confirmAction(
+        'Keluar & hapus identitas?',
+        'ID pengguna + order aktif di HP ini dihapus. Riwayat lokal tetap tersimpan di perangkat.'
+      );
+      if (!ok) return;
+    } catch {}
+    try {
+      const { prefRemove } = await import('@/lib/offline/preferencesStorage');
+      const { KK_USER_ID, KK_ACTIVE_ORDER, KK_PENDING_PAYMENT } = await import(
+        '@/lib/offline/persistentKeys'
+      );
+      await prefRemove(KK_USER_ID).catch(() => {});
+      await prefRemove(KK_ACTIVE_ORDER).catch(() => {});
+      await prefRemove(KK_PENDING_PAYMENT).catch(() => {});
+    } catch {}
+    try {
+      for (const k of [
+        'kaoskami_user_id',
+        'kaoskami_active_order',
+        'kaoskami_pending_payment',
+        'kaoskami_cart_pending_order',
+      ]) {
+        localStorage.removeItem(k);
+      }
+    } catch {}
+    setActiveOrderId(null);
+    setPendingPaymentUrl(null);
+    setToastMessage('Keluar. Identitas perangkat dihapus.');
+  };
+
   const handleUploadDecal = async () => {
     haptic.tapMedium();
     const rawDataUrl = await pickOrCaptureDecalImage();
     if (rawDataUrl) {
       try {
         const st = useMobileStudioStore.getState();
+        // P1 parity: upload = TAMBAH lapis baru (tak menimpa lapis lain —
+        // uji 2 desain). Sisi = pendingSide pilihan user di sheet Kustomisasi.
+        const sideLabel = MOBILE_DECAL_SIDE_LABELS[st.pendingSide] ?? st.pendingSide;
         // Floor 512: tier no-webgl (maxTextureSize 0) tak boleh jadi cap 0px.
         const { optimizedUrl, dpi, width } = await optimizeDecalImageForMobile(
           rawDataUrl,
           Math.max(512, decalTierCap),
           st.printWidthCm
         );
-        setDecalUrl(optimizedUrl);
+        const newId = st.addDecal({
+          url: optimizedUrl,
+          targetSide: st.pendingSide,
+          opacity: Math.min(1, Math.max(0.2, decalOpacity)),
+        });
+        if (!newId) {
+          triggerToast('Maks 10 lapis sablon — hapus salah satu dulu untuk tambah baru.');
+          return;
+        }
         st.setDecalDpi(dpi);
         // decal_px PER-DESAIN (audit HIGH): kunci = apparel+warna aktif saat
         // upload; disalin ke ID desain final saat Simpan (handleSaveToCart).
@@ -436,11 +577,20 @@ export default function MobileApp() {
         haptic.success();
         triggerToast(
           dpi > 0
-            ? `Logo siap (${dpi} DPI pada ${st.printWidthCm.toFixed(1)}cm)!`
-            : 'Logo siap (DPI menyusul setelah skala dikunci).'
+            ? `Logo siap di ${sideLabel} (${dpi} DPI pada ${st.printWidthCm.toFixed(1)}cm)!`
+            : `Logo siap di ${sideLabel} (DPI menyusul setelah skala dikunci).`
         );
       } catch {
-        setDecalUrl(rawDataUrl);
+        const st2 = useMobileStudioStore.getState();
+        const newId2 = st2.addDecal({
+          url: rawDataUrl,
+          targetSide: st2.pendingSide,
+          opacity: Math.min(1, Math.max(0.2, decalOpacity)),
+        });
+        if (!newId2) {
+          triggerToast('Maks 10 lapis sablon — hapus salah satu dulu untuk tambah baru.');
+          return;
+        }
         useMobileStudioStore.getState().setDecalDpi(null);
         triggerToast('Logo sablon berhasil diproyeksikan!');
       }
@@ -479,23 +629,25 @@ export default function MobileApp() {
   // `crewneck: 'tshirt'` = mesh salah (tak jujur); kini slug dikenal dipakai
   // apa adanya + picker mengunci !mockupEnabled.
 
-  // Harga fallback = harga web APPAREL_CATALOG (server tetap sumber kebenaran).
-  // Kunci jujur (orderable false) vs mockup (mockupEnabled):
-  // - crewneck: picker TERKUNCI (mockupEnabled false) — pilih Sweater Pack
-  //   (mesh & jahitan sama); order ikut terkunci.
-  // - sweater/cap: MOCKUP 3D AKTIF di studio HP (MobileSweaterModel/
-  //   MobileCapModel), order TETAP diblokir (orderable false cermin web;
-  //   save-to-cart & checkout menolak, server validasi ulang).
-  // - pants/shorts: mockup 3D AKTIF di studio HP, order TETAP diblokir.
+  // Harga fallback = harga web APPAREL_CATALOG (server tetap sumber kebenaran;
+  // harga live dipakai bila katalog server ada — lihat handleSaveToCart).
+  // SSOT kunci = MOBILE_APPAREL_META (orderable vs mockupEnabled):
+  // - crewneck: ORDERABLE (cermin web) — mesh = sweater.glb via MobileSweaterModel.
+  // - sweater: ALIAS mockup-saja (orderable false; slug tak dikenal server) —
+  //   lockedMessage di semua jalur (picker toast + katalog + save + checkout).
+  // - cap/pants/shorts: MOCKUP 3D AKTIF di studio HP, order TETAP diblokir
+  //   (orderable false cermin web; save-to-cart & checkout menolak ≈400,
+  //   server validasi ulang).
   const apparelOptions: { key: ApparelType; label: string; gsm: string; price: number }[] = [
     { key: 'tshirt', label: 'Kaos Polos & Custom Kaos Kami', gsm: 'Combed 24s / 30s', price: 79000 },
-    { key: 'longsleeve', label: 'Kaos Lengan Panjang', gsm: 'Combed 24s', price: 89000 },
-    { key: 'crewneck', label: 'Crewneck Sweater', gsm: 'Baby Terry / Fleece', price: 139000 },
-    { key: 'hoodie', label: 'Hoodie Jumper Kaos Kami', gsm: 'Fleece 280 GSM', price: 159000 },
-    { key: 'shirt', label: 'Coach Jacket Kaos Kami', gsm: 'Taslan Premium', price: 189000 },
-    { key: 'cap', label: 'Topi Kaos Kami', gsm: 'Twill / Kanvas', price: 45000 },
-    { key: 'pants', label: 'Celana Panjang Cargo', gsm: 'Katun Twill', price: 0 },
-    { key: 'shorts', label: 'Celana Pendek Chino', gsm: 'Katun Twill / Denim', price: 0 },
+    { key: 'longsleeve', label: 'Kaos Lengan Panjang Kaos Kami', gsm: 'Combed 24s', price: 99000 },
+    { key: 'crewneck', label: 'Sweater Crewneck Kaos Kami', gsm: 'Fleece 280 GSM', price: 149000 },
+    { key: 'sweater', label: 'Sweater Pack Kaos Kami (Mockup)', gsm: 'Fleece 280 GSM', price: 0 },
+    { key: 'hoodie', label: 'Hoodie Jumper Kaos Kami', gsm: 'Fleece 330 GSM', price: 179000 },
+    { key: 'shirt', label: 'Coach Jacket Kaos Kami', gsm: 'Micro Ripstop', price: 189000 },
+    { key: 'cap', label: 'Topi Baseball Kaos Kami (Mockup)', gsm: 'Cotton Twill', price: 0 },
+    { key: 'pants', label: 'Celana Cargo Kaos Kami (Mockup)', gsm: 'Twill Ripstop', price: 0 },
+    { key: 'shorts', label: 'Celana Pendek Denim Kaos Kami (Mockup)', gsm: 'Denim Ringan', price: 0 },
   ];
 
   const handleSaveToCart = () => {
@@ -507,45 +659,47 @@ export default function MobileApp() {
       return;
     }
     const selected = apparelOptions.find((a) => a.key === apparelType) || apparelOptions[0];
-    // Harga SERVER otoritatif: katalog live bila ada, else fallback statis.
-    // Sablon dihitung ulang engine server (calculate6VariablePrice) — JANGAN
-    // +35000 hardcode di HP (35000 = tier A3 maks; cetakan kecil jadi kemahalan
-    // di payload sync sebelum server menimpa).
+    // Harga SERVER otoritatif: katalog live bila ada, else fallback statis
+    // (cermin web APPAREL_CATALOG). Sablon dihitung ulang engine server
+    // (calculate6VariablePrice) — sablonPrice HP = 0 + label estimasi
+    // (JANGAN hardcode 35000 = tier A3 maks; cetakan kecil jadi kemahalan).
     const serverBasePrice =
       serverCatalog?.find((c) => c.slug === apparelType)?.basePriceIdr ??
       (apparelType === 'sweater'
         ? serverCatalog?.find((c) => c.slug === 'crewneck')?.basePriceIdr
         : undefined) ??
       selected.price;
-    // Snapshot gizmo per-item (K-A lanjutan): bekukan transform studio SAAT
-    // INI ke item cart (kontrak DecalLayerSchema: x/y/scale/rotation/
-    // targetSide, clamp batas Zod ±0.75 / 0.02–1.5 / ±180). Checkout memakai
-    // snapshot per-item, BUKAN transform global studio yang sedang tampil.
-    const gizmo = useMobileStudioStore.getState();
-    const clampN = (v: number, lo: number, hi: number) =>
-      Number.isFinite(v) ? Math.min(hi, Math.max(lo, v)) : lo;
-    const snapX = clampN(gizmo.decalPosition?.[0] ?? 0, -0.75, 0.75);
-    const snapY = clampN(gizmo.decalPosition?.[1] ?? 0.04, -0.75, 0.75);
-    const snapScale = clampN(gizmo.decalScale?.[0] ?? 0.22, 0.02, 1.5);
-    const snapRot = clampN(gizmo.decalRotation ?? 0, -180, 180);
-    const snapSide = (gizmo.activeFace === 'back' ? 'back' : 'front') as 'front' | 'back';
+    // Snapshot N-decal per-item (P1 parity): bekukan SEMUA lapis studio SAAT
+    // INI ke item cart (kontrak DecalLayerSchema: id/url/targetSide/x/y/
+    // scale/rotation/opacity, 7 sisi, clamp batas SSOT). Checkout memakai
+    // snapshot per-item, BUKAN transform global studio yang sedang tampil —
+    // 2 desain beda sisi/posisi tak saling timpa. Opasitas = slider sheet.
+    const studio = useMobileStudioStore.getState();
+    const effOpacity = Math.min(1, Math.max(0.2, decalOpacity));
+    const itemDecals = studio.decals
+      .filter((d) => typeof d.url === 'string' && d.url.length > 0)
+      .slice(0, 10)
+      .map((d) => ({ ...d, opacity: effOpacity }));
+    const firstDecalUrl = itemDecals[0]?.url ?? decalUrl;
     addItem({
       apparelType,
       apparelTitle: selected.label,
       colorHex: color,
       colorName: 'Custom Color',
-      size: 'L',
+      sleeveColorHex: sleeveColor,
+      collarColorHex: collarColor,
+      size: pickedSize,
       quantity: 1,
-      basePrice: selected.price,
-      sablonPrice: 35000,
-      decalUrl,
+      // Estimasi — dihitung ulang server saat checkout (sablon = 0 di HP).
+      basePrice: serverBasePrice,
+      sablonPrice: 0,
+      materialSlug: pickedMaterial,
+      artworkText: artworkText.trim() || undefined,
+      decalOpacity: effOpacity,
+      decals: itemDecals,
+      decalUrl: firstDecalUrl,
       printWidthCm,
       printHeightCm,
-      decalX: snapX,
-      decalY: snapY,
-      decalScale: snapScale,
-      decalRotation: snapRot,
-      decalTargetSide: snapSide,
     });
 
     saveDesign({
@@ -553,7 +707,8 @@ export default function MobileApp() {
       apparelType,
       colorHex: color,
       colorName: 'Custom Color',
-      decalDataUrl: decalUrl,
+      decalDataUrl: firstDecalUrl,
+      decals: itemDecals,
       printWidthCm,
       printHeightCm,
     });
@@ -572,6 +727,9 @@ export default function MobileApp() {
     } catch {}
 
     // Antrekan sync offline → terkirim otomatis saat online (butuh userId pasca-checkout).
+    // decals sync = subset sisi yang diterima server (sisi rusuk mockup-saja
+    // ditahan di HP; server DecalLayerSchema menolaknya 400 — JANGAN racuni
+    // antrean). Server tetap hitung ulang harga saat checkout.
     try {
       enqueueOfflineMutation({
         type: 'SAVE_DESIGN',
@@ -583,8 +741,20 @@ export default function MobileApp() {
               apparelSlug: apparelType,
               colorHex: color,
               colorName: 'Custom Color',
-              size: 'L',
-              decals: [],
+              size: pickedSize,
+              decals: itemDecals
+                .filter((d) => SERVER_ACCEPTED_SIDES.has(d.targetSide))
+                .map((d) => ({
+                  id: d.id,
+                  url: d.url,
+                  name: MOBILE_DECAL_SIDE_LABELS[d.targetSide] ?? d.targetSide,
+                  targetSide: d.targetSide,
+                  x: d.x,
+                  y: d.y,
+                  scale: d.scale,
+                  rotation: d.rotation,
+                  opacity: d.opacity,
+                })),
               calculatedPriceIdr: serverBasePrice,
               updatedAt: new Date().toISOString(),
             },
@@ -837,7 +1007,6 @@ export default function MobileApp() {
               ).map((item) => {
                 const m = MOBILE_APPAREL_META[item.key];
                 const locked = !m?.orderable;
-                const isCap = item.key === 'cap';
                 return (
                 <GlassCard
                   key={item.slug + item.label}
@@ -856,35 +1025,21 @@ export default function MobileApp() {
                   <div className="w-full aspect-square rounded-2xl bg-zinc-800/80 mb-2.5 flex items-center justify-center text-zinc-500 relative">
                     <ApparelVectorIcon type={item.key} className="w-10 h-10 opacity-70 text-zinc-300" />
                     {locked && (
-                      <span className={`absolute top-2 right-2 px-2 py-0.5 rounded-full text-[9px] font-extrabold tracking-wide border ${
-                        isCap
-                          ? 'bg-amber-500/15 text-amber-300 border-amber-500/40'
-                          : 'bg-zinc-900/90 text-zinc-400 border-zinc-700'
-                      }`}>
-                        {isCap ? 'SEGERA' : (
-                          <span className="inline-flex items-center gap-1">
-                            <Lock className="w-2.5 h-2.5" /> SEGERA DI HP
-                          </span>
-                        )}
+                      <span className="absolute top-2 right-2 px-2 py-0.5 rounded-full text-[9px] font-extrabold tracking-wide border bg-amber-500/15 text-amber-300 border-amber-500/40">
+                        SEGERA
                       </span>
                     )}
                   </div>
                   <h4 className="text-xs font-bold text-white truncate font-['Syne']">{item.label}</h4>
                   <p className="text-[11px] text-zinc-400">{item.gsm}</p>
                   <p className="text-[11px] text-[#FF6B35] font-semibold mt-1">
-                    {item.key === 'pants' || item.key === 'shorts' || item.key === 'sweater' || item.key === 'cap' ? 'Segera' : `Rp ${item.price.toLocaleString('id-ID')}`}
+                    {locked ? 'Segera' : `Rp ${item.price.toLocaleString('id-ID')}`}
                   </p>
                   {locked && (
                     <p className="text-[10px] text-zinc-500 mt-1 leading-snug">
-                      {item.key === 'pants'
-                        ? 'Mockup 3D di studio HP — pemesanan SEGERA.'
-                        : item.key === 'shorts'
-                        ? 'Mockup 3D di studio HP — pemesanan SEGERA.'
-                        : item.key === 'sweater'
-                        ? 'Mockup 3D di studio HP — pemesanan SEGERA.'
-                        : item.key === 'cap'
-                        ? 'Mockup 3D di studio HP — pemesanan SEGERA.'
-                        : 'Pilih Sweater Pack (mesh sama).'}
+                      <span className="inline-flex items-center gap-1">
+                        <Lock className="w-2.5 h-2.5" /> Mockup 3D di studio HP — pemesanan SEGERA.
+                      </span>
                     </p>
                   )}
                 </GlassCard>
@@ -961,24 +1116,24 @@ export default function MobileApp() {
                     <UserOrderTrackerLive
                       orderId={activeOrderId}
                       paymentUrl={pendingPaymentUrl ?? undefined}
+                      invoiceUrl={pendingInvoiceUrl ?? undefined}
                       onNotify={(msg) => triggerToast(msg)}
                     />
                     {pendingPaymentUrl && (
                       <HapticButton
                         variant="primary"
-                        onClick={() => openDuitkuPaymentModal(pendingPaymentUrl)}
+                        onClick={() =>
+                          openDuitkuPaymentModal(pendingPaymentUrl, () => {
+                            // A8: browser ditutup → paksa poll status segera (bukan tunggu interval).
+                            try {
+                              window.dispatchEvent(new Event("kaoskami:refresh-order"));
+                            } catch {}
+                            setToastMessage("Memeriksa status pembayaran…");
+                          })
+                        }
                         className="w-full py-3 text-xs font-bold"
                       >
                         Lanjutkan Pembayaran
-                      </HapticButton>
-                    )}
-                    {!pendingPaymentUrl && pendingInvoiceUrl && (
-                      <HapticButton
-                        variant="secondary"
-                        onClick={() => openDuitkuPaymentModal(pendingInvoiceUrl)}
-                        className="w-full py-3 text-xs font-bold"
-                      >
-                        Buka Invoice (Bayar Manual via WA)
                       </HapticButton>
                     )}
                   </>
@@ -1031,10 +1186,20 @@ export default function MobileApp() {
                 <h3 className="text-sm font-bold text-white font-['Syne']">Pelanggan Kaos Kami</h3>
                 <p className="text-[11px] text-zinc-400">Mode tamu • Kaluku Bodoa, Tallo, Makassar 90211</p>
                 <div className="flex gap-2 mt-1.5">
-                  <Badge variant="success">Face ID Aktif</Badge>
+                  {/* A9: badge jujur dari kemampuan perangkat (bukan klaim statis). */}
+                  <BiometricBadge />
                 </div>
               </div>
             </GlassCard>
+
+            {/* A9: keluar = hapus identitas perangkat (riwayat lokal tetap milik perangkat). */}
+            <HapticButton
+              variant="glass"
+              onClick={() => void handleMobileLogout()}
+              className="w-full py-2.5 text-xs font-bold text-rose-300 border-rose-500/30"
+            >
+              Keluar & Hapus Identitas Perangkat
+            </HapticButton>
 
             {/* Workshop & Default Lokasi Makassar */}
             <GlassCard className="p-4 space-y-2 border-zinc-800 bg-zinc-900/60">
@@ -1136,16 +1301,13 @@ export default function MobileApp() {
             <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
               {apparelOptions.map((opt) => {
                 const isSelected = apparelType === opt.key;
-                // KEPUTUSAN FALLBACK (jujur, bukan mesh salah): item
-                // !mockupEnabled TAK BISA dipilih — kunci + pesan (kini hanya
-                // crewneck: pilih Sweater Pack, mesh sama). Sweater/cap TIDAK
-                // reuse mesh hoodie/tshirt — MobileSweaterModel/MobileCapModel
-                // render mesh sendiri (mockup saja, order tetap diblokir).
-                // Pants/shorts mockupEnabled TRUE (orderable FALSE) → bisa dipilih
-                // di sini, tapi save-to-cart & checkout tetap menolak.
+                // SSOT = MOBILE_APPAREL_META. !mockupEnabled = kunci total.
+                // orderable false tapi mockup true (sweater/cap/pants/shorts) =
+                // BOLEH preview mockup, tapi toast lockedMessage (order terkunci;
+                // save-to-cart & checkout menolak ≈400, server validasi ulang).
                 const meta = MOBILE_APPAREL_META[opt.key];
                 const locked = !meta?.mockupEnabled;
-                const isCap = opt.key === 'cap';
+                const orderLocked = !meta?.orderable;
                 return (
                   <button
                     key={opt.key}
@@ -1157,6 +1319,9 @@ export default function MobileApp() {
                       }
                       haptic.selection();
                       setApparelType(opt.key);
+                      if (orderLocked) {
+                        triggerToast(meta?.lockedMessage || 'Mockup saja — pemesanan SEGERA.');
+                      }
                     }}
                     className={`p-3 rounded-2xl border text-left flex items-center justify-between transition-all ${
                       locked
@@ -1177,13 +1342,9 @@ export default function MobileApp() {
                       <div>
                         <p className="text-xs font-bold flex items-center gap-1.5">
                           {opt.label}
-                          {locked && (
-                            <span className={`px-1.5 py-px rounded-full text-[8px] font-extrabold border ${
-                              isCap
-                                ? 'bg-amber-500/15 text-amber-300 border-amber-500/40'
-                                : 'bg-zinc-800 text-zinc-400 border-zinc-700'
-                            }`}>
-                              {isCap ? 'SEGERA' : 'SEGERA DI HP'}
+                          {orderLocked && !locked && (
+                            <span className="px-1.5 py-px rounded-full text-[8px] font-extrabold border bg-amber-500/15 text-amber-300 border-amber-500/40">
+                              SEGERA
                             </span>
                           )}
                         </p>
@@ -1205,15 +1366,168 @@ export default function MobileApp() {
             />
           </div>
 
+          <div>
+            <ColorSwatchPicker
+              label="Warna Lengan:"
+              selectedHex={sleeveColor}
+              onSelect={(hex) => setSleeveColor(hex)}
+            />
+          </div>
+
+          <div>
+            <ColorSwatchPicker
+              label="Warna Kerah:"
+              selectedHex={collarColor}
+              onSelect={(hex) => setCollarColor(hex)}
+            />
+          </div>
+
+          <div>
+            <label className="text-xs font-semibold text-white mb-2 block font-['Syne']">
+              Ukuran:
+            </label>
+            <div className="grid grid-cols-4 gap-2">
+              {(['S', 'M', 'L', 'XL'] as const).map((sz) => (
+                <button
+                  key={sz}
+                  type="button"
+                  onClick={() => {
+                    haptic.selection();
+                    setPickedSize(sz);
+                  }}
+                  className={`py-2.5 rounded-xl border text-xs font-bold transition-all ${
+                    pickedSize === sz
+                      ? 'bg-[#FF6B35]/15 border-[#FF6B35] text-white'
+                      : 'bg-zinc-900 border-zinc-800 text-zinc-400'
+                  }`}
+                >
+                  {sz}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div>
+            <label className="text-xs font-semibold text-white mb-2 block font-['Syne']">
+              Bahan (standar — tanpa biaya premium):
+            </label>
+            <div className="grid grid-cols-2 gap-2">
+              {[
+                { id: 'combed-24s', label: 'Combed 24s' },
+                { id: 'combed-30s', label: 'Combed 30s' },
+                { id: 'fleece-280', label: 'Fleece 280' },
+                { id: 'twill', label: 'Twill / Ripstop' },
+              ].map((m) => (
+                <button
+                  key={m.id}
+                  type="button"
+                  onClick={() => {
+                    haptic.selection();
+                    setPickedMaterial(m.id);
+                  }}
+                  className={`py-2 rounded-xl border text-xs font-bold transition-all ${
+                    pickedMaterial === m.id
+                      ? 'bg-[#FF6B35]/15 border-[#FF6B35] text-white'
+                      : 'bg-zinc-900 border-zinc-800 text-zinc-400'
+                  }`}
+                >
+                  {m.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div>
+            <label className="text-xs font-semibold text-white mb-2 block font-['Syne']">
+              Teks artwork (opsional):
+            </label>
+            <input
+              type="text"
+              value={artworkText}
+              onChange={(e) => setArtworkText(e.target.value.slice(0, 40))}
+              placeholder="cth: KOMUNITAS MAKASSAR"
+              className="w-full px-3.5 py-2.5 rounded-xl bg-zinc-900 border border-zinc-700/80 text-white text-base outline-none focus:border-[#FF6B35]"
+            />
+          </div>
+
+          <div>
+            <div className="flex justify-between items-center mb-2">
+              <label className="text-xs font-semibold text-white font-['Syne']">
+                Opasitas sablon:
+              </label>
+              <span className="text-xs font-mono font-bold text-[#FF6B35]">{Math.round(decalOpacity * 100)}%</span>
+            </div>
+            <input
+              type="range"
+              min="0.2"
+              max="1"
+              step="0.05"
+              value={decalOpacity}
+              onChange={(e) => setDecalOpacity(parseFloat(e.target.value))}
+              className="w-full accent-[#FF6B35]"
+              aria-label="Opasitas sablon"
+            />
+          </div>
+
           <div className="p-4 rounded-2xl bg-zinc-900 border border-zinc-800 space-y-3">
             <div className="flex items-center justify-between">
               <span className="text-xs font-semibold text-white">Stiker Sablon DTF:</span>
-              <Badge variant={decalUrl ? 'success' : 'neutral'}>
-                {decalUrl
-                  ? `${printWidthCm}x${printHeightCm} cm • ${useMobileStudioStore.getState().decalDpi ?? '…'} DPI`
+              <Badge variant={decals.length > 0 ? 'success' : 'neutral'}>
+                {decals.length > 0
+                  ? `${decals.length} desain • ${printWidthCm}x${printHeightCm} cm • ${useMobileStudioStore.getState().decalDpi ?? '…'} DPI`
                   : 'Belum Ada'}
               </Badge>
             </div>
+            {/* P1 parity: sisi upload BERIKUTNYA (7 sisi, disaring per apparel).
+                Upload = tambah lapis, tak menimpa lapis lain. */}
+            <label className="block">
+              <span className="text-[11px] text-zinc-400">Sisi untuk logo berikutnya:</span>
+              <select
+                value={pendingSide}
+                onChange={(e) => setPendingSide(e.target.value as MobileDecalSide)}
+                className="mt-1 w-full px-3 py-2.5 rounded-xl bg-zinc-800 border border-zinc-700 text-white text-sm outline-none focus:border-[#FF6B35]"
+              >
+                {validSidesForMobile(apparelType).map((side) => (
+                  <option key={side} value={side}>
+                    {MOBILE_DECAL_SIDE_LABELS[side]}
+                  </option>
+                ))}
+              </select>
+            </label>
+            {decals.length > 0 && (
+              <div className="space-y-1.5">
+                {decals.map((d, i) => {
+                  const isActive =
+                    (useMobileStudioStore.getState().selectedDecalId ?? decals[decals.length - 1]?.id) === d.id;
+                  return (
+                    <div
+                      key={d.id}
+                      className={`flex items-center justify-between gap-2 px-3 py-2 rounded-xl border text-[11px] ${
+                        isActive ? 'bg-[#FF6B35]/10 border-[#FF6B35]/50 text-white' : 'bg-zinc-800 border-zinc-700 text-zinc-300'
+                      }`}
+                    >
+                      <button
+                        type="button"
+                        onClick={() => setSelectedDecalId(d.id)}
+                        className="flex-1 text-left truncate"
+                        title="Jadikan aktif (gizmo/cutout)"
+                      >
+                        #{i + 1} • {MOBILE_DECAL_SIDE_LABELS[d.targetSide] ?? d.targetSide}
+                        {isActive ? ' • aktif' : ''}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => removeDecal(d.id)}
+                        className="px-2 py-1 rounded-lg bg-zinc-900 border border-zinc-700 text-rose-300 font-bold"
+                        title="Hapus lapis ini"
+                      >
+                        Hapus
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
             <HapticButton
               variant="secondary"
               hapticStyle="tapHeavy"
@@ -1221,7 +1535,7 @@ export default function MobileApp() {
               onClick={handleUploadDecal}
               className="w-full"
             >
-              {decalUrl ? 'Ganti Desain Logo' : 'Upload Logo dari Galeri (PNG)'}
+              {decals.length > 0 ? 'Tambah Logo (tak menimpa)' : 'Upload Logo dari Galeri (PNG)'}
             </HapticButton>
           </div>
 
@@ -1233,6 +1547,9 @@ export default function MobileApp() {
           >
             Simpan Desain Kaos
           </HapticButton>
+          <p className="text-[10px] text-zinc-500 text-center">
+            Estimasi — dihitung ulang server saat checkout. Sablon dihitung engine server, bukan harga tetap HP.
+          </p>
         </div>
       </BottomSheet>
 
@@ -1308,9 +1625,9 @@ export default function MobileApp() {
             printWidthCm: match?.printWidthCm ?? printWidthCm,
             printHeightCm: match?.printHeightCm ?? printHeightCm,
             offsetFromCollarCm,
-            // Biaya film = sablonPrice cart nyata; 35000 hanya fallback tier A3
-            // maks (server hitung ulang via calculate6VariablePrice).
-            estimatedFilmCostIdr: match?.sablonPrice ?? 35000,
+            // Biaya film = sablonPrice cart nyata (kini 0 = server hitung ulang
+            // via calculate6VariablePrice; JANGAN fallback 35000 karangan).
+            estimatedFilmCostIdr: match?.sablonPrice ?? 0,
           };
         })()}
       />

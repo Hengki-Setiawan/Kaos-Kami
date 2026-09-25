@@ -4,7 +4,7 @@ import React, { useState } from "react";
 import { useRouter } from "next/navigation";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 
-const ROLES = ["CUSTOMER", "ADMIN", "PRODUCTION_STAFF", "SUPER_ADMIN"] as const;
+const ROLES = ["CUSTOMER", "ADMIN", "PRODUCTION_STAFF", "COURIER", "SUPER_ADMIN"] as const;
 
 /** Ubah role customer (admin only, anti-lockout + anti-eskalasi di server). */
 export function CustomerRoleSelect({
@@ -57,7 +57,7 @@ export function CustomerRoleSelect({
         value={role}
         disabled={busy}
         onChange={(e) => setPending(e.target.value)}
-        className="px-2 py-1 rounded-lg bg-surface border border-white/10 text-white text-[11px] disabled:opacity-50"
+        className="px-2 py-1 rounded-lg bg-surface border border-border-subtle text-text-primary text-[11px] disabled:opacity-50"
         aria-label="Ubah role"
       >
         {visibleRoles.map((r) => (

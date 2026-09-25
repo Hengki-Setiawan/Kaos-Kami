@@ -44,22 +44,39 @@
 		"TURSO_DATABASE_URL": "libsql://kaos-kami-hengki164.aws-ap-northeast-1.turso.io",
 		"CLOUDFLARE_ACCOUNT_ID": "6c660b71ad4e72f3bc343252a7c5e825",
 		"R2_BUCKET_NAME": "kaos-kami-assets",
-		"R2_PUBLIC_URL": "https://pub-5746f36a46904edc8425ecd721b0bfdc.r2.dev"
+		"R2_PUBLIC_URL": "https://pub-5746f36a46904edc8425ecd721b0bfdc.r2.dev",
+		// W1 (21 Sep 2026, KOREKSI): GOOGLE_CLIENT_ID publik → vars. DUITKU_ENV
+		// KEMBALI ke secrets (revert): nilainya WAJIB beda per env (sandbox
+		// lokal vs production prod) — vars yg ter-commit akan memaksa satu
+		// nilai untuk semua deploy = BAHAYA (prod bisa baca sandbox).
+		// Site key Turnstile dibaca client dari build-time .env.local (baked).
+		// JANGAN taruh di vars (nilai kosong menimpa secret — insiden 21 Sep).
+		// GOOGLE_CLIENT_ID + TURNSTILE_SITE_KEY = publik (OAuth/sitekey terlihat
+		// di redirect/HTML) — BOLEH di vars, TAPI wajib nilai ASLI, jangan "".
+		// Dipulihkan 21 Sep 2026 pasca-insiden overwrite (secret put 10053).
+		"GOOGLE_CLIENT_ID": "172850071575-k1ctsjr6gdjuk4j873uc8pbkotf40017.apps.googleusercontent.com",
+		"NEXT_PUBLIC_CLOUDFLARE_TURNSTILE_SITE_KEY": "0x4AAAAAAErqdIfhQY0ShwKU",
+		"SHOP_POSTAL_CODE": "90211",
+		"R2_BACKUP_BUCKET_NAME": "kaos-kami-backups"
 	},
 	"secrets": {
 		"required": [
-			"TURSO_AUTH_TOKEN",
-			"DUITKU_MERCHANT_CODE",
-			"DUITKU_API_KEY",
-			"DUITKU_ENV",
-			"CLOUDFLARE_API_TOKEN",
+	"TURSO_AUTH_TOKEN",
+		"DUITKU_MERCHANT_CODE",
+		"DUITKU_API_KEY",
+		"DUITKU_ENV",
+		"CLOUDFLARE_API_TOKEN",
 			"CLOUDFLARE_TURNSTILE_SECRET_KEY",
 			"BETTER_AUTH_SECRET",
 			"FONNTE_TOKEN",
-			"CRON_SECRET",
-			"AGENWEBSITE_RATE_API_KEY",
-			"GOOGLE_CLIENT_ID",
-			"GOOGLE_CLIENT_SECRET"
-		]
+	"CRON_SECRET",
+	"AGENWEBSITE_RATE_API_KEY",
+	"GOOGLE_CLIENT_SECRET"
+]
+	// Catatan 21 Sep 2026: GOOGLE_CLIENT_ID (publik) pindah ke vars dgn nilai
+	// asli; JANGAN masukkan ke required (secret put 10053 + konflik binding).
+	// Catatan 21 Sep 2026: RESEND_API_KEY SENGAJA di luar required agar deploy
+	// tak gagal bila fitur email dimatikan; bila register-email dipakai di prod,
+	// pasang via `wrangler secret put RESEND_API_KEY` (kode gagal jujur 503 bila kosong).
 	}
 }

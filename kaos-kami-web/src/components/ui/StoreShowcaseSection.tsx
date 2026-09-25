@@ -1,12 +1,35 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
+import dynamic from "next/dynamic";
 import Link from "next/link";
 import Image from "next/image";
-import { ShoppingBag, Eye, ArrowRight, X, Check, ShieldCheck, Truck } from "lucide-react";
+import { ShoppingBag, Eye, ArrowRight, X, Check, ShieldCheck, Truck, RotateCw, Sparkles } from "lucide-react";
 import { useCartStore } from "@/store/useCartStore";
 import { APPAREL_CATALOG, type ApparelType } from "@/lib/constants";
 import { isSafeImageUrl } from "@/lib/safeUrl";
+
+const Showcase3DOrbitViewer = dynamic(
+  () => import("@/components/3d/Showcase3DOrbitViewer").then((m) => m.Showcase3DOrbitViewer),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="w-full h-full min-h-[350px] md:min-h-[460px] bg-gradient-to-b from-[#18181b] to-[#09090b] border border-border-subtle rounded-2xl flex flex-col items-center justify-center font-mono text-xs text-text-muted gap-2 animate-pulse">
+        <RotateCw size={24} className="animate-spin text-brand-accent" />
+        <span>Memuat Model 3D Interaktif...</span>
+      </div>
+    ),
+  }
+);
+
+const SHOWCASE_COLOR_PALETTE = [
+  { name: "Hitam Pekat", hex: "#121214" },
+  { name: "Putih Ecru", hex: "#EFECE6" },
+  { name: "Oranye Makassar", hex: "#E65100" },
+  { name: "Hijau Olive", hex: "#3B4435" },
+  { name: "Navy Gelap", hex: "#1B2A4A" },
+  { name: "Abu Misty", hex: "#9E9E9E" },
+];
 
 interface ShowcaseProduct {
   id: string;
@@ -70,6 +93,30 @@ const DEFAULT_SHOWCASE: ShowcaseProduct[] = [
     apparelSlug: "shirt",
     description: "Jaket coach kasual urban dengan material taslan water-repellent ringan dan furing katun nyaman. Dilengkapi kancing snap button tahan karat dan saku fungsional.",
   },
+  {
+    id: "cmtgx5thh000uush0930k82ml",
+    name: "Hoodie Heavyweight Boxy Fleece - Hitam Pekat",
+    colorHex: "#121214",
+    colorName: "Hitam",
+    size: "L",
+    priceIdr: 285000,
+    stockQty: 25,
+    image: "/lookbook/look-01.jpg",
+    apparelSlug: "hoodie",
+    description: "Hoodie heavyweight katun fleece tebal 330gsm dengan kap ganda tegap. Hangat, lembut di dalam, dan tidak mudah berbulu. Potongan boxy streetwear modern.",
+  },
+  {
+    id: "cmtgx5tkk000wush019ak44op",
+    name: "Crewneck Classic Pullover - Abu Misty",
+    colorHex: "#9E9E9E",
+    colorName: "Abu Misty",
+    size: "L",
+    priceIdr: 245000,
+    stockQty: 30,
+    image: "/lookbook/look-02.jpg",
+    apparelSlug: "crewneck",
+    description: "Sweater crewneck fleece katun berserat abu misty premium. Rib elastis di leher, ujung lengan, dan pinggang tidak mudah melar setelah dicuci berkali-kali.",
+  },
 ];
 
 const AVAILABLE_SIZES = ["S", "M", "L", "XL", "XXL"];
@@ -81,11 +128,15 @@ export const StoreShowcaseSection: React.FC = () => {
 
   // Product Detail Modal State
   const [activeModalProduct, setActiveModalProduct] = useState<ShowcaseProduct | null>(null);
+  const [viewMode, setViewMode] = useState<"3d" | "photo">("3d");
+  const [activeColorHex, setActiveColorHex] = useState<string>("#121214");
+  const [activeColorName, setActiveColorName] = useState<string>("Hitam");
   const [selectedSize, setSelectedSize] = useState<string>("L");
   const [quantity, setQuantity] = useState<number>(1);
   const [modalAdded, setModalAdded] = useState(false);
 
   const addItem = useCartStore((s) => s.addItem);
+  const openCart = useCartStore((s) => s.openCart);
 
   useEffect(() => {
     const ctrl = new AbortController();
@@ -97,7 +148,7 @@ export const StoreShowcaseSection: React.FC = () => {
         clearTimeout(t);
         if (res.ok && data?.success && Array.isArray(data.variants) && data.variants.length > 0) {
           setTotalCount(data.variants.length);
-          const mapped: ShowcaseProduct[] = data.variants.slice(0, 4).map((v: any, i: number) => {
+          const mapped: ShowcaseProduct[] = data.variants.slice(0, 6).map((v: any, i: number) => {
             const rawSlug = String(v.category?.slug || "").trim().toLowerCase();
             const apparelSlug: ApparelType = (Object.keys(APPAREL_CATALOG) as ApparelType[]).includes(rawSlug as ApparelType)
               ? (rawSlug as ApparelType)
@@ -133,11 +184,14 @@ export const StoreShowcaseSection: React.FC = () => {
     };
   }, []);
 
-  const openDetailModal = (product: ShowcaseProduct) => {
+  const openDetailModal = (product: ShowcaseProduct, defaultMode: "3d" | "photo" = "3d") => {
     setActiveModalProduct(product);
     setSelectedSize(product.size || "L");
     setQuantity(1);
     setModalAdded(false);
+    setViewMode(defaultMode);
+    setActiveColorHex(product.colorHex || "#121214");
+    setActiveColorName(product.colorName || "Hitam");
   };
 
   const closeDetailModal = () => {
@@ -145,16 +199,18 @@ export const StoreShowcaseSection: React.FC = () => {
     setModalAdded(false);
   };
 
-  const handleModalAddToCart = () => {
+  const handleModalAddToCart = (directCheckout = false) => {
     if (!activeModalProduct || activeModalProduct.stockQty <= 0) return;
     for (let i = 0; i < quantity; i++) {
       addItem({
-        id: `${activeModalProduct.id}-${selectedSize}`,
-        name: activeModalProduct.name,
+        id: `${activeModalProduct.id}-${selectedSize}-${activeColorHex.replace('#', '')}`,
+        name: activeColorHex !== activeModalProduct.colorHex
+          ? `${activeModalProduct.name} - ${activeColorName}`
+          : activeModalProduct.name,
         priceIdr: activeModalProduct.priceIdr,
         size: selectedSize,
-        colorName: activeModalProduct.colorName,
-        colorHex: activeModalProduct.colorHex,
+        colorName: activeColorName,
+        colorHex: activeColorHex,
         image: activeModalProduct.image,
         apparelSlug: activeModalProduct.apparelSlug,
         productVariantId: activeModalProduct.id,
@@ -162,11 +218,15 @@ export const StoreShowcaseSection: React.FC = () => {
       });
     }
     setModalAdded(true);
-    setTimeout(() => setModalAdded(false), 2500);
+    setTimeout(() => {
+      setModalAdded(false);
+      closeDetailModal();
+      openCart();
+    }, directCheckout ? 200 : 500);
   };
 
   return (
-    <section className="relative z-20 bg-canvas px-6 md:px-12 py-24 border-t border-border-subtle">
+    <section id="etalase" className="relative z-20 bg-canvas px-6 md:px-12 py-24 border-t border-border-subtle scroll-mt-20">
       <div className="max-w-7xl mx-auto space-y-10">
         {/* Section Header */}
         <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-6 pb-4 border-b border-border-subtle">
@@ -191,13 +251,13 @@ export const StoreShowcaseSection: React.FC = () => {
           </Link>
         </div>
 
-        {/* 4-Column Editorial Store Showcase Grid */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5 font-mono">
+        {/* 3-Column Editorial Store Showcase Grid (6 Items) */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 font-mono">
           {products.map((p, idx) => (
             <div
               key={p.id}
               className="group relative rounded-2xl bg-surface border border-border-subtle hover:border-brand-accent/50 transition-all duration-300 flex flex-col justify-between overflow-hidden shadow-sm hover:shadow-md cursor-pointer"
-              onClick={() => openDetailModal(p)}
+              onClick={() => openDetailModal(p, "3d")}
             >
               {/* Product Visual Mockup */}
               <div className="relative aspect-[3/4] overflow-hidden bg-surface">
@@ -218,7 +278,7 @@ export const StoreShowcaseSection: React.FC = () => {
                   }}
                 />
 
-                {/* Top Badge: Color & Size */}
+                {/* Top Left Badge: Color & Size */}
                 <div className="absolute top-3 left-3 flex items-center space-x-1.5 px-2.5 py-1 rounded-full bg-canvas/75 backdrop-blur-md text-[10px] text-text-primary font-bold border border-border-subtle">
                   <span
                     className="w-2.5 h-2.5 rounded-full border border-border-subtle"
@@ -227,18 +287,17 @@ export const StoreShowcaseSection: React.FC = () => {
                   <span>{p.colorName} · Size {p.size}</span>
                 </div>
 
-                {/* Stock Tag if low */}
-                {p.stockQty > 0 && p.stockQty <= 10 && (
-                  <span className="absolute top-3 right-3 px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-500 text-[10px] font-bold border border-amber-500/30">
-                    Sisa {p.stockQty}
-                  </span>
-                )}
+                {/* Top Right Badge: 3D 360° Ready */}
+                <div className="absolute top-3 right-3 flex items-center space-x-1 px-2.5 py-1 rounded-full bg-black/70 backdrop-blur-md text-[10px] text-brand-accent font-bold border border-brand-accent/40 shadow-sm">
+                  <RotateCw size={11} className="animate-spin-slow" />
+                  <span>3D 360°</span>
+                </div>
 
                 {/* Hover Quick-View Hint */}
                 <div className="absolute inset-0 bg-canvas/30 backdrop-blur-[2px] opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
                   <span className="py-2 px-4 rounded-full bg-canvas/90 text-text-primary font-bold text-[11px] border border-border-subtle flex items-center gap-1.5 shadow-lg">
-                    <Eye size={13} />
-                    <span>LIHAT DETAIL</span>
+                    <RotateCw size={13} className="text-brand-accent" />
+                    <span>PREVIEW 3D (360°)</span>
                   </span>
                 </div>
               </div>
@@ -267,15 +326,15 @@ export const StoreShowcaseSection: React.FC = () => {
                   </div>
                 </div>
 
-                {/* Direct Action Buttons (E-Commerce Standard: Quick Buy & Detail) */}
+                {/* Direct Action Buttons */}
                 <div className="grid grid-cols-2 gap-2 pt-2 border-t border-border-subtle text-xs" onClick={(e) => e.stopPropagation()}>
                   <button
-                    onClick={() => openDetailModal(p)}
-                    className="min-h-[40px] py-2 px-2.5 rounded-xl bg-surface border border-border-subtle text-text-primary font-bold hover:border-brand-accent hover:text-brand-accent transition-all flex items-center justify-center space-x-1 min-w-0"
-                    title="Buka deskripsi & spesifikasi produk"
+                    onClick={() => openDetailModal(p, "3d")}
+                    className="min-h-[40px] py-2 px-2.5 rounded-xl bg-surface border border-border-subtle text-text-primary font-bold hover:border-brand-accent hover:text-brand-accent transition-all flex items-center justify-center space-x-1.5 min-w-0"
+                    title="Buka 3D Orbit 360° & spesifikasi produk"
                   >
-                    <Eye size={12} className="shrink-0" />
-                    <span className="truncate text-[11px]">DETAIL</span>
+                    <RotateCw size={12} className="shrink-0 text-brand-accent" />
+                    <span className="truncate text-[11px]">3D ORBIT</span>
                   </button>
 
                   <button
@@ -294,6 +353,7 @@ export const StoreShowcaseSection: React.FC = () => {
                         stockQty: p.stockQty,
                       });
                       setAddedId(p.id);
+                      openCart();
                       setTimeout(() => setAddedId((cur) => (cur === p.id ? null : cur)), 2000);
                     }}
                     disabled={p.stockQty <= 0}
@@ -312,46 +372,82 @@ export const StoreShowcaseSection: React.FC = () => {
         </div>
       </div>
 
-      {/* ─── E-COMMERCE PRODUCT DETAIL MODAL ─── */}
+      {/* ─── E-COMMERCE 3D ORBIT & DETAIL MODAL ─── */}
       {activeModalProduct && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-md animate-in fade-in duration-200"
+          className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/80 backdrop-blur-md animate-in fade-in duration-200"
           onClick={closeDetailModal}
         >
           <div
-            className="relative w-full max-w-3xl max-h-[90vh] overflow-y-auto bg-surface border border-border-subtle rounded-3xl p-6 md:p-8 font-mono text-xs shadow-2xl space-y-6"
+            className="relative w-full max-w-4xl max-h-[92vh] overflow-y-auto bg-surface border border-border-subtle rounded-3xl p-5 sm:p-7 md:p-8 font-mono text-xs shadow-2xl space-y-6"
             onClick={(e) => e.stopPropagation()}
           >
             {/* Close Button */}
             <button
               onClick={closeDetailModal}
-              className="absolute top-5 right-5 p-2 rounded-full bg-surface border border-border-subtle text-text-muted hover:text-text-primary transition-colors"
+              className="absolute top-5 right-5 p-2 rounded-full bg-surface border border-border-subtle text-text-muted hover:text-text-primary transition-colors z-20"
+              title="Tutup"
             >
               <X size={18} />
             </button>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-start">
-              {/* Left Column: Big Product Image */}
-              <div className="relative aspect-[3/4] rounded-2xl overflow-hidden bg-canvas border border-border-subtle">
-                <Image
-                  src={activeModalProduct.image}
-                  alt={activeModalProduct.name}
-                  width={800}
-                  height={1000}
-                  className="w-full h-full object-cover"
-                  unoptimized={true}
-                />
-                <div className="absolute top-3 left-3 px-3 py-1 rounded-full bg-canvas/80 backdrop-blur-md text-[10px] font-bold border border-border-subtle flex items-center gap-1.5">
-                  <span
-                    className="w-2.5 h-2.5 rounded-full border border-border-subtle"
-                    style={{ backgroundColor: activeModalProduct.colorHex }}
+            {/* View Mode Switcher Tabs */}
+            <div className="flex items-center gap-2 p-1 bg-canvas rounded-xl border border-border-subtle w-full sm:w-auto sm:inline-flex">
+              <button
+                onClick={() => setViewMode("3d")}
+                className={`flex-1 sm:flex-initial py-1.5 px-4 rounded-lg font-bold text-xs flex items-center justify-center gap-2 transition-all ${
+                  viewMode === "3d"
+                    ? "bg-brand-accent text-canvas shadow-sm"
+                    : "text-text-muted hover:text-text-primary"
+                }`}
+              >
+                <RotateCw size={13} />
+                <span>3D ORBIT 360°</span>
+              </button>
+              <button
+                onClick={() => setViewMode("photo")}
+                className={`flex-1 sm:flex-initial py-1.5 px-4 rounded-lg font-bold text-xs flex items-center justify-center gap-2 transition-all ${
+                  viewMode === "photo"
+                    ? "bg-brand-accent text-canvas shadow-sm"
+                    : "text-text-muted hover:text-text-primary"
+                }`}
+              >
+                <Eye size={13} />
+                <span>FOTO LOOKBOOK</span>
+              </button>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 md:gap-8 items-start">
+              {/* Left Column: Interactive 3D Orbit Viewport OR Lookbook Photo */}
+              <div className="w-full">
+                {viewMode === "3d" ? (
+                  <Showcase3DOrbitViewer
+                    apparelSlug={activeModalProduct.apparelSlug}
+                    colorHex={activeColorHex}
                   />
-                  <span>{activeModalProduct.colorName}</span>
-                </div>
+                ) : (
+                  <div className="relative aspect-[3/4] rounded-2xl overflow-hidden bg-canvas border border-border-subtle">
+                    <Image
+                      src={activeModalProduct.image}
+                      alt={activeModalProduct.name}
+                      width={800}
+                      height={1000}
+                      className="w-full h-full object-cover"
+                      unoptimized={true}
+                    />
+                    <div className="absolute top-3 left-3 px-3 py-1 rounded-full bg-canvas/80 backdrop-blur-md text-[10px] font-bold border border-border-subtle flex items-center gap-1.5">
+                      <span
+                        className="w-2.5 h-2.5 rounded-full border border-border-subtle"
+                        style={{ backgroundColor: activeColorHex }}
+                      />
+                      <span>{activeColorName}</span>
+                    </div>
+                  </div>
+                )}
               </div>
 
-              {/* Right Column: E-Commerce Product Information */}
-              <div className="space-y-5">
+              {/* Right Column: E-Commerce Product Info & Config */}
+              <div className="space-y-4">
                 <div>
                   <span className="text-[10px] tracking-widest text-brand-accent uppercase font-bold block mb-1">
                     READY STOCK MAKASSAR // {activeModalProduct.apparelSlug.toUpperCase()}
@@ -359,13 +455,47 @@ export const StoreShowcaseSection: React.FC = () => {
                   <h2 className="font-display font-black text-xl sm:text-2xl uppercase text-text-primary leading-tight">
                     {activeModalProduct.name}
                   </h2>
-                  <div className="mt-2.5 text-2xl font-bold text-brand-accent">
+                  <div className="mt-2 text-2xl font-bold text-brand-accent">
                     Rp {Number(activeModalProduct.priceIdr).toLocaleString("id-ID")}
                   </div>
                 </div>
 
+                {/* Color Selector (Live Updates 3D Orbit Model) */}
+                <div className="space-y-2 p-3 rounded-xl bg-canvas border border-border-subtle">
+                  <div className="flex justify-between items-center text-[11px]">
+                    <span className="font-bold text-text-primary flex items-center gap-1">
+                      <Sparkles size={12} className="text-brand-accent" />
+                      <span>WARNA 3D:</span>
+                    </span>
+                    <span className="text-text-muted">
+                      Warna aktif: <strong className="text-brand-accent">{activeColorName}</strong>
+                    </span>
+                  </div>
+                  <div className="flex gap-2 flex-wrap pt-1">
+                    {SHOWCASE_COLOR_PALETTE.map((col) => (
+                      <button
+                        key={col.hex}
+                        onClick={() => {
+                          setActiveColorHex(col.hex);
+                          setActiveColorName(col.name);
+                        }}
+                        className={`w-7 h-7 rounded-full border-2 transition-transform ${
+                          activeColorHex.toLowerCase() === col.hex.toLowerCase()
+                            ? "scale-110 border-brand-accent ring-2 ring-brand-accent/30 shadow-md"
+                            : "border-white/20 hover:scale-105"
+                        }`}
+                        style={{ backgroundColor: col.hex }}
+                        title={col.name}
+                      />
+                    ))}
+                  </div>
+                  <p className="text-[10px] text-text-muted">
+                    💡 Klik warna di atas untuk melihat model 3D berubah secara langsung.
+                  </p>
+                </div>
+
                 {/* Description & Material Specs */}
-                <div className="p-4 rounded-xl bg-canvas border border-border-subtle space-y-2 text-text-muted leading-relaxed">
+                <div className="p-3.5 rounded-xl bg-canvas border border-border-subtle space-y-2 text-text-muted leading-relaxed">
                   <p className="text-text-primary font-bold text-[11px]">
                     Spesifikasi & Keunggulan Bahan:
                   </p>
@@ -408,7 +538,7 @@ export const StoreShowcaseSection: React.FC = () => {
                 </div>
 
                 {/* Quantity & Stock */}
-                <div className="flex items-center justify-between pt-2">
+                <div className="flex items-center justify-between pt-1">
                   <span className="font-bold text-text-primary text-[11px]">JUMLAH (PCS):</span>
                   <div className="flex items-center border border-border-subtle rounded-xl bg-canvas overflow-hidden">
                     <button
@@ -427,27 +557,30 @@ export const StoreShowcaseSection: React.FC = () => {
                   </div>
                 </div>
 
-                {/* Add To Cart Button */}
-                <div className="pt-3 border-t border-border-subtle space-y-2">
-                  <button
-                    onClick={handleModalAddToCart}
-                    disabled={activeModalProduct.stockQty <= 0}
-                    className="w-full py-3.5 px-6 rounded-2xl bg-brand-accent text-canvas font-bold text-xs uppercase tracking-wider hover:brightness-110 active:scale-[0.98] transition-all flex items-center justify-center gap-2 shadow-lg disabled:opacity-40"
-                  >
-                    {modalAdded ? (
-                      <>
-                        <Check size={16} />
-                        <span>✓ BERHASIL DITAMBAH KE KERANJANG</span>
-                      </>
-                    ) : (
-                      <>
-                        <ShoppingBag size={16} />
-                        <span>TAMBAH KE KERANJANG • RP {(activeModalProduct.priceIdr * quantity).toLocaleString("id-ID")}</span>
-                      </>
-                    )}
-                  </button>
+                {/* Action Buttons: Add To Cart & Quick Buy Duitku */}
+                <div className="pt-2 border-t border-border-subtle space-y-2">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    <button
+                      onClick={() => handleModalAddToCart(false)}
+                      disabled={activeModalProduct.stockQty <= 0}
+                      className="py-3 px-4 rounded-xl bg-surface border border-border-subtle text-text-primary font-bold text-xs uppercase tracking-wider hover:border-brand-accent hover:text-brand-accent transition-all flex items-center justify-center gap-1.5 disabled:opacity-40"
+                    >
+                      <ShoppingBag size={14} />
+                      <span>KERANJANG</span>
+                    </button>
+
+                    <button
+                      onClick={() => handleModalAddToCart(true)}
+                      disabled={activeModalProduct.stockQty <= 0}
+                      className="py-3 px-4 rounded-xl bg-brand-accent text-canvas font-bold text-xs uppercase tracking-wider hover:brightness-110 active:scale-[0.98] transition-all flex items-center justify-center gap-1.5 shadow-lg disabled:opacity-40"
+                    >
+                      <Check size={14} />
+                      <span>BELI SEKARANG</span>
+                    </button>
+                  </div>
+
                   <p className="text-[10px] text-center text-text-muted">
-                    Stok siap kirim: {activeModalProduct.stockQty} pcs di workshop Makassar
+                    Total: Rp {(activeModalProduct.priceIdr * quantity).toLocaleString("id-ID")} · Stok siap kirim: {activeModalProduct.stockQty} pcs
                   </p>
                 </div>
               </div>

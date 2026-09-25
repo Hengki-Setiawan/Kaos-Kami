@@ -1,7 +1,10 @@
 import React from "react";
 import Link from "next/link";
-import { and, count, inArray, like, ne, notInArray, sum, gte, lte } from "drizzle-orm";
+import { headers } from "next/headers";
+import { redirect } from "next/navigation";
+import { and, count, eq, inArray, like, ne, notInArray, sum, gte, lte } from "drizzle-orm";
 import { db } from "@/lib/db";
+import { auth } from "@/lib/auth";
 import { Order, ProductionTask, ProductVariant } from "@/lib/drizzle-schema";
 import {
   DollarSign,
@@ -12,6 +15,8 @@ import {
   ChevronRight,
   AlertTriangle,
   SlidersHorizontal,
+  Truck,
+  ShoppingBag,
 } from "lucide-react";
 
 export const revalidate = 0; // Dynamic server component
@@ -21,6 +26,20 @@ export default async function AdminDashboardPage({
 }: {
   searchParams: Promise<{ range?: string }>;
 }) {
+  // Guard role: PRODUCTION_STAFF -> /admin/production, COURIER -> /admin/deliveries
+  try {
+    const session = await auth.api.getSession({ headers: (await headers()) as any });
+    const userRole = ((session?.user as any)?.role || "ADMIN").toUpperCase();
+    if (userRole === "PRODUCTION_STAFF") {
+      redirect("/admin/production");
+    }
+    if (userRole === "COURIER") {
+      redirect("/admin/deliveries");
+    }
+  } catch (err: any) {
+    if (err?.digest?.startsWith?.("NEXT_REDIRECT") || err?.message === "NEXT_REDIRECT") throw err;
+  }
+
   const sp = await searchParams;
   const range = sp.range || "all";
 
@@ -43,7 +62,17 @@ export default async function AdminDashboardPage({
   }
 
   // Aggregate workshop statistics from Turso DB
-  const [totalOrdersRows, totalRevenueRows, pendingProductionRows, expressOrdersRows, recentOrders, lowStockVariants] = await Promise.all([
+  const [
+    totalOrdersRows,
+    totalRevenueRows,
+    pendingProductionRows,
+    expressOrdersRows,
+    readyToShipRows,
+    shippedRows,
+    makassarReadyRows,
+    recentOrders,
+    lowStockVariants,
+  ] = await Promise.all([
     db.select({ n: count() }).from(Order),
     db.select({ total: sum(Order.totalIdr) }).from(Order).where(and(...revenueConditions)),
     db
@@ -57,6 +86,17 @@ export default async function AdminDashboardPage({
       .from(Order)
       .where(
         and(like(Order.courierNotes, "%EXPRESS%"), notInArray(Order.status, ["COMPLETED", "CANCELLED"]))
+      ),
+    db.select({ n: count() }).from(Order).where(eq(Order.status, "READY_TO_SHIP")),
+    db.select({ n: count() }).from(Order).where(eq(Order.status, "SHIPPED")),
+    db
+      .select({ n: count() })
+      .from(Order)
+      .where(
+        and(
+          inArray(Order.status, ["READY_TO_SHIP", "SHIPPED"]),
+          eq(Order.deliveryMethod, "FREE_MAKASSAR")
+        )
       ),
     db.query.Order.findMany({
       limit: 6,
@@ -72,6 +112,9 @@ export default async function AdminDashboardPage({
   const totalOrders = totalOrdersRows[0]?.n || 0;
   const pendingProduction = pendingProductionRows[0]?.n || 0;
   const expressOrders = expressOrdersRows[0]?.n || 0;
+  const readyToShip = readyToShipRows[0]?.n || 0;
+  const shipped = shippedRows[0]?.n || 0;
+  const makassarActive = makassarReadyRows[0]?.n || 0;
 
   const revenueIdr = Number(totalRevenueRows[0]?.total || 0);
 
@@ -80,11 +123,14 @@ export default async function AdminDashboardPage({
       {/* Header */}
       <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-4 pb-4 border-b border-border-subtle">
         <div>
+          <div className="flex items-center gap-2 text-brand-accent font-mono text-[11px] font-bold uppercase tracking-widest mb-1">
+            <span>PORTAL INTERNAL · KAOS KAMI MAKASSAR</span>
+          </div>
           <h1 className="font-display text-2xl sm:text-3xl font-black uppercase tracking-tight text-text-primary">
-            OVERVIEW WORKSHOP & METRIK
+            DASHBOARD EKSEKUTIF 3 PILAR
           </h1>
           <p className="text-text-muted mt-0.5">
-            Monitoring produksi sablon DTF Makassar & status pesanan harian.
+            Kendali terpadu Produksi Sablon DTF, Pengiriman & Kurir Makassar, dan Manajemen E-Commerce.
           </p>
         </div>
 
@@ -103,6 +149,124 @@ export default async function AdminDashboardPage({
             <Layers size={14} />
             <span>BUKA KANBAN SABLON</span>
           </Link>
+        </div>
+      </div>
+
+      {/* 3 PILAR OPERASIONAL STATUS BANNER */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        {/* PILAR 1: PRODUKSI */}
+        <div className="p-5 rounded-2xl bg-surface border border-border-subtle hover:border-amber-500/40 transition-all flex flex-col justify-between space-y-4">
+          <div className="space-y-2">
+            <div className="flex items-center justify-between text-amber-500 font-bold uppercase text-[11px]">
+              <span className="flex items-center gap-1.5">
+                <Layers size={15} />
+                <span>PILAR PRODUKSI WORKSHOP</span>
+              </span>
+              <span className="px-2 py-0.5 rounded bg-amber-500/15 border border-amber-500/30 text-[10px]">
+                DTF SABLON
+              </span>
+            </div>
+            <div className="pt-1">
+              <span className="font-display font-black text-2xl text-text-primary block">
+                {pendingProduction} Tugas Cetak
+              </span>
+              <span className="text-[11px] text-text-muted mt-1 block">
+                {expressOrders > 0 ? (
+                  <span className="text-amber-500 font-bold">⚠️ {expressOrders} Pesanan SLA Express 24 Jam</span>
+                ) : (
+                  "Antrean sablon & heat press berjalan normal."
+                )}
+              </span>
+            </div>
+          </div>
+          <div className="flex items-center gap-2 pt-2 border-t border-border-subtle">
+            <Link
+              href="/admin/production"
+              className="flex-1 py-2 px-3 rounded-xl bg-amber-500/15 text-amber-600 dark:text-amber-300 font-bold text-center hover:bg-amber-500/25 transition-all"
+            >
+              Buka Kanban
+            </Link>
+            <Link
+              href="/admin/gang-sheet"
+              className="py-2 px-3 rounded-xl bg-black/5 dark:bg-white/5 border border-border-subtle text-text-muted hover:text-text-primary transition-all"
+            >
+              Gang Sheet
+            </Link>
+          </div>
+        </div>
+
+        {/* PILAR 2: PENGIRIMAN */}
+        <div className="p-5 rounded-2xl bg-surface border border-border-subtle hover:border-blue-500/40 transition-all flex flex-col justify-between space-y-4">
+          <div className="space-y-2">
+            <div className="flex items-center justify-between text-blue-500 font-bold uppercase text-[11px]">
+              <span className="flex items-center gap-1.5">
+                <Truck size={15} />
+                <span>PILAR PENGIRIMAN & KURIR</span>
+              </span>
+              <span className="px-2 py-0.5 rounded bg-blue-500/15 border border-blue-500/30 text-[10px]">
+                LOGISTIK
+              </span>
+            </div>
+            <div className="pt-1">
+              <span className="font-display font-black text-2xl text-text-primary block">
+                {readyToShip + shipped} Paket Antar
+              </span>
+              <span className="text-[11px] text-text-muted mt-1 block">
+                {readyToShip} Siap Antar · {shipped} Dalam Perjalanan ({makassarActive} Kurir Makassar)
+              </span>
+            </div>
+          </div>
+          <div className="flex items-center gap-2 pt-2 border-t border-border-subtle">
+            <Link
+              href="/admin/deliveries"
+              className="flex-1 py-2 px-3 rounded-xl bg-blue-500/15 text-blue-600 dark:text-blue-300 font-bold text-center hover:bg-blue-500/25 transition-all"
+            >
+              Buka Hub Pengiriman
+            </Link>
+            <Link
+              href="/admin/shipping"
+              className="py-2 px-3 rounded-xl bg-black/5 dark:bg-white/5 border border-border-subtle text-text-muted hover:text-text-primary transition-all"
+            >
+              Zona Ongkir
+            </Link>
+          </div>
+        </div>
+
+        {/* PILAR 3: E-COMMERCE */}
+        <div className="p-5 rounded-2xl bg-surface border border-border-subtle hover:border-brand-accent/40 transition-all flex flex-col justify-between space-y-4">
+          <div className="space-y-2">
+            <div className="flex items-center justify-between text-brand-accent font-bold uppercase text-[11px]">
+              <span className="flex items-center gap-1.5">
+                <ShoppingBag size={15} />
+                <span>PILAR E-COMMERCE & ADMIN</span>
+              </span>
+              <span className="px-2 py-0.5 rounded bg-brand-accent/15 border border-brand-accent/30 text-[10px]">
+                TOKO & BISNIS
+              </span>
+            </div>
+            <div className="pt-1">
+              <span className="font-display font-black text-2xl text-text-primary block">
+                Rp {revenueIdr.toLocaleString("id-ID")}
+              </span>
+              <span className="text-[11px] text-text-muted mt-1 block">
+                {totalOrders} Total Pesanan Masuk · {lowStockVariants.length} Varian Menipis
+              </span>
+            </div>
+          </div>
+          <div className="flex items-center gap-2 pt-2 border-t border-border-subtle">
+            <Link
+              href="/admin/orders"
+              className="flex-1 py-2 px-3 rounded-xl bg-brand-accent/15 text-brand-accent font-bold text-center hover:bg-brand-accent/25 transition-all"
+            >
+              Kelola Pesanan
+            </Link>
+            <Link
+              href="/admin/catalog"
+              className="py-2 px-3 rounded-xl bg-black/5 dark:bg-white/5 border border-border-subtle text-text-muted hover:text-text-primary transition-all"
+            >
+              Katalog Stok
+            </Link>
+          </div>
         </div>
       </div>
 

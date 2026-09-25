@@ -6,3 +6,5 @@ export * from './MobileDecalLayerRenderer';
 export * from './MobileStudioLighting';
 export * from './StudioControlOverlay';
 export * from './ARPreviewStage';
+export * from './MobileTestLabOverlay3D';
+export * from './MobileTestLabControls';

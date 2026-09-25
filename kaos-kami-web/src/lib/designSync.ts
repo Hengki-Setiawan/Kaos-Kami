@@ -82,12 +82,20 @@ export function scheduleAutosave() {
   if (debounceTimer) clearTimeout(debounceTimer);
   debounceTimer = setTimeout(async () => {
     const state = useConfiguratorStore.getState();
+    // Payload ramping: base64 dataUrl TIDAK ikut autosave (bisa MB-an per
+    // ketikan; draft = cadangan posisi, master https di-upload saat
+    // simpan/checkout via ensureDecalMastersUploaded).
+    const slimDecals = state.decals.map((l: any) =>
+      typeof l?.url === "string" && l.url.startsWith("data:")
+        ? { ...l, url: "" }
+        : l
+    );
     const payload = {
       apparelSlug: state.activeApparel,
       colorHex: state.selectedColor,
       colorName: state.activeColorName,
       size: state.selectedSize,
-      decals: state.decals,
+      decals: slimDecals,
       studioTheme: state.studioTheme,
       materialFinishSlug: state.materialFinish,
     };

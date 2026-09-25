@@ -7,9 +7,11 @@ import { siteUrl } from "@/lib/siteUrl";
 import { Address, ApparelCategory, Design, Order, OrderItem, OrderStatusEvent, Payment, User, Verification } from "@/lib/drizzle-schema";
 import { calculate6VariablePrice, materialFinishToPricing } from "@/lib/pricingEngine";
 import { PRODUCT_COLORS, APPAREL_CATALOG, type ApparelType } from "@/lib/constants";
-import { duitkuProvider } from "@/lib/payments/duitku";
+// ALUR BARU (owner Sep 2026): charge Duitku PINDAH ke
+// POST /api/orders/[id]/request-payment — import duitkuProvider DICABUT dari
+// route ini (JANGAN dipakai lagi di sini; lihat request-payment/route.ts).
 import { hashOtp } from "@/lib/otp";
-import { sendWhatsAppNotification, buildOrderConfirmedMessage } from "@/lib/notifications/whatsapp";
+// Kebijakan Fonnte owner 20 Sep 2026: HANYA OTP — route ini tak kirim WA lain.
 import { MAKASSAR_DELIVERY_OPTIONS, MAKASSAR_SUBDISTRICTS, PRODUCTION_TURNAROUND_OPTIONS } from "@/lib/shipping/deliveryOptions";
 import { verifyTurnstileToken } from "@/lib/turnstile";
 import { DecalLayerSchema, ApparelSlugSchema, CheckoutMasterMapSchema } from "@/lib/schemas/design";
@@ -117,6 +119,26 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    // KEPUTUSAN OWNER Sep 2026: tamu DILARANG checkout — wajib login.
+    // Gate sesi di awal (sebelum idem/Duitku/validasi) — 401 konsisten.
+    // Mobile Capacitor meneruskan cookie sesi ke API ini; tanpa sesi = 401.
+    let sessionUser: any = null;
+    try {
+      const { auth } = await import("@/lib/auth");
+      const session = await auth.api.getSession({ headers: req.headers });
+      if (session?.user?.id) {
+        sessionUser = await db.query.User.findFirst({
+          where: (t, { eq }) => eq(t.id, session.user.id),
+        });
+      }
+    } catch {}
+    if (!sessionUser) {
+      return NextResponse.json(
+        { error: "Login dulu untuk memesan (tamu tidak bisa order)." },
+        { status: 401 }
+      );
+    }
+
     // P0-2 IDEMPOTENCY TANPA MIGRASI (paritas web checkout): dedupe via header
     // Idempotency-Key di atas tabel Verification yang SUDAH ADA (identifier
     // `idem:checkout:<key>` → value orderId, expiry 24 jam). TANPA kolom/tabel
@@ -158,16 +180,11 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // Fail-closed: tolak 503 sebelum tulis order bila secret Duitku kosong
-    // (paritas web checkout).
-    try {
-      duitkuProvider.assertDuitkuConfigured();
-    } catch {
-      return NextResponse.json(
-        { error: "Pembayaran belum dikonfigurasi. Coba lagi nanti / hubungi admin." },
-        { status: 503 }
-      );
-    }
+    // ALUR BARU (keputusan owner Sep 2026 — checkout → DESIGN_REVIEW tanpa
+    // charge; gerbang OTP/Turnstile di bawah ini MILIK alur mobile, SENGAJA tak
+    // diubah): fail-closed Duitku di sini DICABUT — charge dibuat NANTI saat
+    // user klik bayar via POST /api/orders/[id]/request-payment (setelah admin
+    // ACC). Order TANPA secret Duitku tetap boleh masuk antrean review.
 
     const rawBody = await req.text();
     // Cap body mentah dulu (paritas web: anti OOM sebelum Zod).
@@ -186,6 +203,19 @@ export async function POST(req: NextRequest) {
     }
     const { recipientName, phoneNumber, email, deliveryMethod, district, destinationCity, expeditionZoneId, destinationPostalCode, expeditionCourier, expeditionService, fullAddress, courierNotes, couponCode, turnaroundTier, items, turnstileToken } =
       validation.data;
+
+    // OTP SEKALI SEUMUR HIDUP (paritas web, owner 20 Sep 2026): HANYA untuk
+    // akun login ini — nomor body harus cocok milik akun + phoneVerified.
+    // Nomor baru wajib lolos OTP di bawah (aturan lifetime tetap, JANGAN ubah).
+    let lifetimeVerified = false;
+    try {
+      const cleanOrderDigits = phoneNumber.replace(/[^0-9]/g, "").replace(/^0/, "62");
+      const cleanUserDigits = ((sessionUser as any)?.phoneNumber || "").replace(/[^0-9]/g, "").replace(/^0/, "62");
+      lifetimeVerified =
+        Boolean((sessionUser as any)?.phoneVerified) &&
+        Boolean((sessionUser as any)?.phoneNumber) &&
+        cleanUserDigits === cleanOrderDigits;
+    } catch {}
 
     // P0-3 GUARD FREE_MAKASSAR (paritas web): kecamatan wajib & whitelist kota.
     if (deliveryMethod === "FREE_MAKASSAR") {
@@ -355,6 +385,9 @@ export async function POST(req: NextRequest) {
     let mobileOtpVerified = false;
     if (process.env.CHECKOUT_OTP_REQUIRED === "false") {
       console.warn("[m-checkout] CHECKOUT_OTP_REQUIRED=false — gerbang OTP DILEWATI (mode darurat)");
+    } else if (lifetimeVerified) {
+      console.log(`[m-checkout] Nomor ${phoneNumber} sudah phoneVerified — gerbang OTP dilewati.`);
+      mobileOtpVerified = true;
     } else {
     const otpRaw =
       (parsedBody as any)?.otpCode ??
@@ -380,8 +413,21 @@ export async function POST(req: NextRequest) {
         { status: 401 }
       );
     }
-    const cleanProofPhone = otpParsed.data.phoneNumber.replace(/[^0-9]/g, "");
-    const cleanOrderPhone = phoneNumber.replace(/[^0-9]/g, "");
+    // I3 kanonis + A1 throttle per-nomor (tutup oracle tebak-OTP lintas IP).
+    // Kunci `otp:` WAJIB kanonis — sama dengan send-otp agar kode ketemu.
+    const { canonicalPhone } = await import("@/lib/phone");
+    const cleanProofPhone = canonicalPhone(otpParsed.data.phoneNumber);
+    const cleanOrderPhone = canonicalPhone(phoneNumber);
+    if (!cleanProofPhone || !cleanOrderPhone) {
+      return NextResponse.json({ error: "Nomor WA tidak valid" }, { status: 400 });
+    }
+    const otpGuess = await checkRateLimitAsync(`otp-check:phone:${cleanProofPhone || "unknown"}`, 6, 300);
+    if (otpGuess.isLimited) {
+      return NextResponse.json(
+        { error: `Terlalu banyak tebakan OTP. Tunggu ${otpGuess.resetSeconds} detik lalu minta kode baru.` },
+        { status: 429, headers: rateLimitHeaders(otpGuess, 6) }
+      );
+    }
     const otpRecord = await db.query.Verification.findFirst({
       where: (t, { and, eq }) =>
         and(eq(t.identifier, `otp:${cleanProofPhone}`), eq(t.value, hashOtp(otpParsed.data.otp))),
@@ -457,24 +503,17 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ error: couponErr?.message || "Kupon tidak valid" }, { status: 400 });
       }
     }
-    const cleanPhone = phoneNumber.replace(/[^0-9]/g, "");
-    const guestEmail = email || `${cleanPhone}@kaoskami.customer`;
-
-    let user = await db.query.User.findFirst({
-      where: (t, { or, eq }) => or(eq(t.phoneNumber, cleanPhone), eq(t.email, guestEmail)),
-    });
-    if (!user) {
-      const [created] = await db
-        .insert(User)
-        .values({ id: nanoid(), name: recipientName, phoneNumber: cleanPhone, email: guestEmail, role: "CUSTOMER" })
-        .onConflictDoNothing()
-        .returning();
-      user =
-        created! ||
-        (await db.query.User.findFirst({
-          where: (t, { or, eq }) => or(eq(t.phoneNumber, cleanPhone), eq(t.email, guestEmail)),
-        }))!;
-    }
+    // User SELALU dari sesi login (tamu dilarang — 401 di gate awal).
+    // phoneNumber body harus cocok milik akun ATAU nomor baru lolos OTP
+    // (aturan lifetime/OTP di atas tetap — JANGAN ubah pricing/shipping).
+    const { canonicalPhone: canonM } = await import("@/lib/phone");
+    const cleanPhone = canonM(phoneNumber);
+    const user: any = sessionUser;
+    // Lolos gerbang OTP (kode fresh / lifetime / darurat) = nomor sah milik
+    // pemesan → tandai verified selamanya (paritas web checkout).
+    try {
+      await db.update(User).set({ phoneNumber: cleanPhone, phoneVerified: true }).where(eq(User.id, user.id));
+    } catch {}
 
     const [address] = await db
       .insert(Address)
@@ -502,7 +541,9 @@ export async function POST(req: NextRequest) {
             id: nanoid(),
             orderNumber: nextOrderNumber(),
             userId: user.id,
-            status: "PENDING_PAYMENT",
+            // ALUR BARU (owner Sep 2026): checkout masuk DESIGN_REVIEW TANPA
+            // charge — admin ACC via POST /api/admin/orders/[id]/review.
+            status: "DESIGN_REVIEW",
             deliveryMethod,
             subtotalIdr,
             shippingCostIdr: shippingIdr,
@@ -601,8 +642,8 @@ export async function POST(req: NextRequest) {
       await db.insert(OrderStatusEvent).values({
         id: nanoid(),
         orderId: orderRow.id,
-        status: "PENDING_PAYMENT",
-        note: "Pesanan dari aplikasi mobile.",
+        status: "DESIGN_REVIEW",
+        note: "Pesanan dari aplikasi mobile — menunggu review desain admin (tanpa charge).",
       });
     } catch (itemsErr: any) {
       console.error("Mobile checkout items gagal, kompensasi hapus order:", orderRow.id, itemsErr?.message);
@@ -645,9 +686,13 @@ export async function POST(req: NextRequest) {
       items: validatedItems,
     };
 
-    // P0-1 (paritas web): Payment PENDING dengan ref sementara SEBELUM Duitku.
-    // Webhook kompatibel (lookup via orderNumber, timpa providerRef dari
-    // callback). Charge gagal → baris PENDING tertinggal untuk repay.
+    // P0-1 (alur baru owner Sep 2026 — paritas web): Payment PENDING dengan ref
+    // sementara TANPA charge Duitku. Charge dibuat NANTI via
+    // POST /api/orders/[id]/request-payment (setelah admin ACC) yang menimpa
+    // providerRef ini (update-in-place, Payment.orderId UNIQUE). Webhook tetap
+    // kompatibel (lookup via orderNumber). CATATAN M2 (13 Sep): deep-link APK
+    // `kaoskami://payment/callback?orderId=` DITERUSKAN di request-payment via
+    // body { returnUrlOverride } — JANGAN hapus dukungan itu di sana.
     const pendingRef = `pending-${order.id}`;
     await db.insert(Payment).values({
       id: nanoid(),
@@ -659,83 +704,31 @@ export async function POST(req: NextRequest) {
       status: "PENDING",
     });
 
-    let charge;
-    try {
-      // QRIS ONLY (Duitku kode SP). Tanpa cabang COD — sablon lunas-dulu.
-      const duitkuMethod = "SP";
-      // Duitku: paymentAmount wajib == Σ item (lihat checkout web).
-      const duitkuItems = [
-        ...validatedItems.map((it) => ({
-          name: it.title || `${it.apparelSlug.toUpperCase()} Sablon`,
-          price: it.unitPriceIdr,
-          quantity: it.quantity,
-        })),
-        ...(shippingIdr > 0
-          ? [{ name: `Ongkir ${expeditionLabel || delivery?.name || deliveryMethod}`.slice(0, 120), price: shippingIdr, quantity: 1 }]
-          : []),
-        ...(turnaroundSurchargeIdr > 0
-          ? [{ name: "Surcharge EXPRESS 24H", price: turnaroundSurchargeIdr, quantity: 1 }]
-          : []),
-        ...(discountIdr > 0
-          ? [{ name: `Diskon kupon ${appliedCoupon || ""}`.trim(), price: -discountIdr, quantity: 1 }]
-          : []),
-      ];
-      // M2 tersambung 13 Sep: returnUrl charge = deep-link APK (ditangani
-      // appUrlOpen + parseDuitkuReturnUrl di mobile page.tsx). Fallback tetap
-      // ada: paymentUrl di Browser + polling status bila return tak terpicu.
-      charge = await duitkuProvider.createCharge({
-        orderId: order.id,
-        orderNumber: order.orderNumber,
-        amountIdr: totalIdr,
-        paymentMethod: duitkuMethod,
-        customer: { name: recipientName, phone: cleanPhone, email: email || `${cleanPhone}@kaoskami.customer` },
-        itemDetails: duitkuItems,
-        returnUrlOverride: `kaoskami://payment/callback?orderId=${order.id}`,
-      });
-    } catch (chargeErr: any) {
-      console.error("Mobile checkout Duitku gagal:", chargeErr?.message);
-      return NextResponse.json(
-        {
-          success: false,
-          orderId: order.id,
-          orderNumber: order.orderNumber,
-          userId: user.id,
-          invoiceUrl: `${siteUrl()}/orders/${order.id}`,
-          error: "Pembayaran gagal dibuat. Pesanan PENDING — silakan retry.",
-        },
-        { status: 502 }
-      );
-    }
+    // 7. CHARGE DITUNDA (alur baru owner Sep 2026): JANGAN createCharge di
+    // sini. Rincian item Duitku DIBANGUN ULANG di
+    // POST /api/orders/[id]/request-payment dari baris Order tersimpan
+    // (paritas pola createCharge lama + repay/route.ts). Baris Payment PENDING
+    // (ref `pending-*`) di atas jadi jangkar update-in-place saat user klik
+    // bayar pasca-ACC (klien mobile kirim returnUrlOverride deep-link APK).
 
-    // P0-1: selesaikan baris PENDING — timpa ref sementara dengan reference asli.
-    await db
-      .update(Payment)
-      .set({ providerRef: charge.reference })
-      .where(eq(Payment.orderId, order.id));
-
+    // KEBIJAKAN FONNTE (owner 20 Sep 2026): Fonnte HANYA untuk OTP sekali seumur
+    // hidup. Notifikasi "order confirmed" via WA DIMATIKAN (paritas web checkout;
+    // hemat kuota). Invoice web + tracker tetap jadi kanal status.
     const invoiceUrl = `${siteUrl()}/orders/${order.id}`;
-    sendWhatsAppNotification(
-      cleanPhone,
-      buildOrderConfirmedMessage({
-        orderNumber: order.orderNumber,
-        recipientName,
-        totalIdr,
-        deliveryMethod: delivery?.name || deliveryMethod,
-        itemSummary: validatedItems.map((it) => `${it.quantity}x ${it.apparelSlug.toUpperCase()} (${it.size})`).join(", "),
-        invoiceUrl,
-      })
-    ).catch((err) => console.warn("Mobile checkout WA warning:", err));
 
     return NextResponse.json({
       success: true,
       orderId: order.id,
       orderNumber: order.orderNumber,
       userId: user.id,
-      paymentUrl: charge.paymentUrl,
-      reference: charge.reference,
+      // ALUR BARU: tanpa paymentUrl/reference — charge dibuat saat user klik
+      // bayar pasca-ACC (POST /api/orders/[id]/request-payment). APK WAJIB
+      // arahkan ke invoice/tracker (bukan ke Duitku) bila field ini absen.
+      status: "DESIGN_REVIEW",
       invoiceUrl,
       discountIdr,
       appliedCoupon,
+      message: "Pesanan masuk antrean review desain (tanpa charge). Link bayar tersedia setelah admin ACC.",
     });
   } catch (e: any) {
     console.error("Mobile checkout error:", e);

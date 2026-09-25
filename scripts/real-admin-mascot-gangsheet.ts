@@ -21,6 +21,13 @@ import {
 const MASCOT_DIR = path.resolve(process.cwd(), "Kaos Kami Mascot");
 const OUTPUT_DIR = path.resolve(process.cwd(), "Blueprint/hasil-pengujian-e2e/gang-sheets");
 const BASE_URL = "http://localhost:3000";
+// Secret WAJIB via env (JANGAN hardcode).
+function requireEnv(name: string): string {
+  const v = process.env[name];
+  if (!v) throw new Error('E2E butuh env ' + name + ' (JANGAN commit nilainya)');
+  return v;
+}
+
 
 interface MascotOrderItemDef {
   idSuffix: string;
@@ -157,7 +164,7 @@ async function main() {
   const loginRes = await auth.api.signInEmail({
     body: {
       email: "hengkishadow@gmail.com",
-      password: "KaosKamiAdmin2026!",
+      password: requireEnv("E2E_ADMIN_PASSWORD"),
     },
     asResponse: true,
   });

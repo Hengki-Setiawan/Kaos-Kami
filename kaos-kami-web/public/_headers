@@ -19,3 +19,15 @@
 
 /sw.js
   Cache-Control: no-cache,no-store,must-revalidate
+
+# N5 (21 Sep 2026) — Universal Links / App Links. Apple & Google mengambil
+# file ini TANPA redirect dan (Apple) dengan Content-Type application/json.
+# JANGAN pasang redirect /auth apa pun di path /.well-known/*.
+# Nilai placeholder (SHA256 / TEAMID) wajib diganti owner — lihat
+# kaos-kami-mobile/docs/NATIVE-DISTRIBUSI.md §N5.
+/.well-known/assetlinks.json
+  Content-Type: application/json
+  Cache-Control: public,max-age=3600
+/.well-known/apple-app-site-association
+  Content-Type: application/json
+  Cache-Control: public,max-age=3600

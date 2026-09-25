@@ -17,7 +17,8 @@ export interface AdminJobTicketData {
   quantity: number;
   printWidthCm: number;
   printHeightCm: number;
-  decalDpi?: number;
+  /** DPI aktual store/artwork — null = belum diukur (tampil jujur). */
+  decalDpi?: number | null;
   deliveryMethod?: string;
   artworkUrl?: string | null;
 }
@@ -52,23 +53,44 @@ export function AdminJobTicketModal({
   ];
 
   const completedCount = Object.values(checkedSteps).filter(Boolean).length;
+  const todayId = (() => {
+    try {
+      return new Date().toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' });
+    } catch {
+      return '';
+    }
+  })();
+  const overMax = data.printWidthCm > 30.0;
+  const hasDims = data.printWidthCm > 0 && data.printHeightCm > 0;
+  const dpiLabel = data.decalDpi && data.decalDpi > 0 ? `${data.decalDpi} DPI (aktual)` : 'menunggu info workshop';
+
+  const ticketText = [
+    `📋 SPK JOB TICKET PRODUKSI — KAOS KAMI MAKASSAR`,
+    `Tanggal: ${todayId}`,
+    `Order: ${data.orderNumber}`,
+    `Pelanggan: ${data.customerName || 'Pelanggan'}`,
+    `Apparel: ${data.apparelTitle} (${data.colorName} - Size ${data.size} x ${data.quantity} pcs)`,
+    `Ukuran Cetak DTF: ${hasDims ? `${data.printWidthCm} x ${data.printHeightCm} cm (Maks 30.0 cm)` : 'menunggu info workshop'}${overMax ? ' — ⚠️ MELEBIHI BATAS, kecilkan sebelum cetak' : ''}`,
+    `DPI master: ${dpiLabel}`,
+    `Kirim: ${data.deliveryMethod || '-'}`,
+    `Workshop: ${WORKSHOP_LOCATION.address}`,
+    `SOP QC: ${completedCount}/${SOP_STEPS.length} langkah selesai`,
+  ].join('\n');
 
   const handleShareSpk = async () => {
     haptic.tap();
-    const text = [
-      `📋 SPK JOB TICKET PRODUKSI — KAOS KAMI MAKASSAR`,
-      `Order: ${data.orderNumber}`,
-      `Apparel: ${data.apparelTitle} (${data.colorName} - Size ${data.size} x ${data.quantity} pcs)`,
-      `Ukuran Cetak DTF: ${data.printWidthCm} x ${data.printHeightCm} cm (Maks 30.0 cm)`,
-      `Workshop: ${WORKSHOP_LOCATION.address}`,
-      `SOP QC: ${completedCount}/${SOP_STEPS.length} langkah selesai`,
-    ].join('\n');
-
     await shareText(
       `SPK Job Ticket ${data.orderNumber}`,
-      text,
+      ticketText,
       'Bagikan Lembar Kerja SPK Workshop'
     );
+  };
+
+  const handlePrintSpk = () => {
+    haptic.tap();
+    try {
+      window.print();
+    } catch {}
   };
 
   return (
@@ -78,9 +100,17 @@ export function AdminJobTicketModal({
       title={`SPK Job Ticket ${data.orderNumber}`}
       description="Lembar Instruksi Kerja & Kendali Mutu Workshop Tallo Makassar"
     >
-      <div className="space-y-4 py-2 pb-8 select-none text-xs">
-        {/* Workshop SSOT Header */}
-        <div className="p-3.5 rounded-2xl bg-zinc-900 border border-zinc-800 space-y-1.5">
+      {/* CSS cetak: hanya tiket yang keluar di kertas (siap cetak/share). */}
+      <style>{`@media print {
+        body * { visibility: hidden !important; }
+        #kk-spk-ticket, #kk-spk-ticket * { visibility: visible !important; }
+        #kk-spk-ticket { position: absolute !important; left: 0; top: 0; width: 100% !important; background: #fff !important; color: #000 !important; }
+        #kk-spk-ticket .spk-no-print { display: none !important; }
+        #kk-spk-ticket .spk-card { border: 1px solid #000 !important; background: #fff !important; }
+      }`}</style>
+      <div id="kk-spk-ticket" className="space-y-4 py-2 pb-8 select-none text-xs">
+        {/* Kop tiket — rapi untuk cetak thermal/A4 */}
+        <div className="spk-card p-3.5 rounded-2xl bg-zinc-900 border border-zinc-800 space-y-1.5">
           <div className="flex items-center justify-between">
             <span className="font-bold text-white font-['Syne'] flex items-center gap-1.5">
               <ShieldCheck className="w-4 h-4 text-emerald-400" />
@@ -93,12 +123,12 @@ export function AdminJobTicketModal({
             <span>{WORKSHOP_LOCATION.address}</span>
           </p>
           <p className="text-[10px] text-zinc-500 font-mono">
-            WA: {SHOP_WHATSAPP} • Operasional: {WORKSHOP_LOCATION.operatingHours}
+            WA: {SHOP_WHATSAPP} • Operasional: {WORKSHOP_LOCATION.operatingHours} • {todayId}
           </p>
         </div>
 
         {/* Spesifikasi Cetak & Apparel */}
-        <div className="p-3.5 rounded-2xl bg-zinc-900/90 border border-[#FF6B35]/30 space-y-2.5">
+        <div className="spk-card p-3.5 rounded-2xl bg-zinc-900/90 border border-[#FF6B35]/30 space-y-2.5">
           <div className="flex items-center justify-between border-b border-zinc-800 pb-2">
             <div>
               <span className="text-[10px] text-zinc-500 block font-mono">NOMOR SPK:</span>
@@ -110,7 +140,23 @@ export function AdminJobTicketModal({
             </div>
           </div>
 
+          {data.artworkUrl && (
+            <div className="flex items-center gap-2.5 p-2 rounded-xl bg-black/50 border border-zinc-800">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={data.artworkUrl} alt="Artwork sablon" className="w-14 h-14 object-contain rounded-lg bg-white/5" />
+              <p className="text-[10px] text-zinc-400">Pratinjau artwork — file master 300 DPI dipakai produksi, bukan thumbnail ini.</p>
+            </div>
+          )}
+
           <div className="grid grid-cols-2 gap-2 text-zinc-300">
+            <div>
+              <span className="text-[10px] text-zinc-500 block">Pelanggan:</span>
+              <span className="font-bold text-white">{data.customerName || 'Pelanggan'}</span>
+            </div>
+            <div>
+              <span className="text-[10px] text-zinc-500 block">Kirim:</span>
+              <span className="font-bold text-white">{data.deliveryMethod || '-'}</span>
+            </div>
             <div>
               <span className="text-[10px] text-zinc-500 block">Apparel:</span>
               <span className="font-bold text-white">{data.apparelTitle}</span>
@@ -121,13 +167,16 @@ export function AdminJobTicketModal({
             </div>
             <div>
               <span className="text-[10px] text-zinc-500 block">Dimensi DTF Sablon:</span>
-              <span className="font-bold text-emerald-400 font-mono">
-                {data.printWidthCm} cm x {data.printHeightCm} cm
+              <span className={`font-bold font-mono ${overMax ? 'text-red-400' : 'text-emerald-400'}`}>
+                {hasDims ? `${data.printWidthCm} cm x ${data.printHeightCm} cm` : 'menunggu info workshop'}
               </span>
+              {overMax && (
+                <span className="block text-[10px] text-red-300 font-bold">⚠️ Melebihi printhead 30.0 cm — kecilkan dulu!</span>
+              )}
             </div>
             <div>
               <span className="text-[10px] text-zinc-500 block">Kerapatan Resolusi:</span>
-              <span className="font-bold text-white font-mono">{data.decalDpi ?? 300} DPI</span>
+              <span className="font-bold text-white font-mono">{dpiLabel}</span>
             </div>
           </div>
         </div>
@@ -135,7 +184,9 @@ export function AdminJobTicketModal({
         {/* SOP & QC Checklist */}
         <div className="space-y-2">
           <div className="flex items-center justify-between">
-            <span className="font-bold text-white font-['Syne']">Checklist SOP Produksi:</span>
+            <span className="font-bold text-white font-['Syne'] flex items-center gap-1.5">
+              <FileText className="w-4 h-4 text-amber-400" /> Checklist SOP Produksi:
+            </span>
             <span className="text-[10px] font-mono font-bold text-emerald-400">
               {completedCount}/{SOP_STEPS.length} Selesai
             </span>
@@ -149,7 +200,7 @@ export function AdminJobTicketModal({
                   key={idx}
                   type="button"
                   onClick={() => toggleStep(idx)}
-                  className={`w-full text-left p-2.5 rounded-xl border flex items-center gap-2.5 transition-colors ${
+                  className={`spk-no-print w-full text-left p-2.5 rounded-xl border flex items-center gap-2.5 transition-colors ${
                     isChecked
                       ? 'bg-emerald-950/30 border-emerald-500/40 text-emerald-200'
                       : 'bg-zinc-900 border-zinc-800 text-zinc-400 hover:border-zinc-700'
@@ -161,16 +212,34 @@ export function AdminJobTicketModal({
                     <Square className="w-4 h-4 text-zinc-600 shrink-0" />
                   )}
                   <span className={`text-[11px] leading-snug ${isChecked ? 'line-through opacity-80' : ''}`}>
-                    {step}
+                    <span className="font-mono text-zinc-500 mr-1">{idx + 1}.</span>{step}
                   </span>
                 </button>
               );
             })}
           </div>
+          {/* Versi cetak: daftar bernomor statis (tombol interaktif disembunyikan). */}
+          <ol className="hidden print:block text-[11px] text-black space-y-0.5 list-decimal ml-4">
+            {SOP_STEPS.map((step, idx) => (
+              <li key={idx}>{step} {(checkedSteps[idx] ? '✓' : '☐')}</li>
+            ))}
+          </ol>
         </div>
 
-        {/* Actions */}
-        <div className="flex gap-2 pt-2">
+        {/* Tanda tangan QC — wajib di kertas */}
+        <div className="spk-card p-3 rounded-2xl bg-zinc-900 border border-zinc-800 grid grid-cols-2 gap-3 text-[11px]">
+          <div>
+            <p className="text-zinc-500 text-[10px]">Operator Press:</p>
+            <p className="mt-6 border-t border-zinc-700 pt-1 text-zinc-400">(nama + ttd)</p>
+          </div>
+          <div>
+            <p className="text-zinc-500 text-[10px]">QC / Admin:</p>
+            <p className="mt-6 border-t border-zinc-700 pt-1 text-zinc-400">(nama + ttd)</p>
+          </div>
+        </div>
+
+        {/* Actions (disembunyikan saat cetak) */}
+        <div className="spk-no-print flex gap-2 pt-2">
           <HapticButton
             variant="primary"
             icon={<Share2 className="w-4 h-4" />}
@@ -178,6 +247,14 @@ export function AdminJobTicketModal({
             className="flex-1 text-xs"
           >
             Bagikan Lembar SPK
+          </HapticButton>
+          <HapticButton
+            variant="glass"
+            icon={<Printer className="w-4 h-4" />}
+            onClick={handlePrintSpk}
+            className="flex-1 text-xs"
+          >
+            Cetak / PDF
           </HapticButton>
           <HapticButton
             variant="glass"

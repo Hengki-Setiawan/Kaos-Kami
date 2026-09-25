@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { nanoid } from "nanoid";
 import { z } from "zod";
-import { eq, count } from "drizzle-orm";
+import { and, eq, count, ne } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { Design } from "@/lib/drizzle-schema";
 import { SaveDesignSchema } from "@/lib/schemas/design";
@@ -71,6 +71,8 @@ export async function POST(req: NextRequest) {
 
     // Pembatasan Kuota 5 Desain per Akun User (Kebijakan Storage UMKM Sep 2026):
     // Melindungi kuota R2 dari penumpukan draft & menjaga dashboard user tetap rapi.
+    // KEPUTUSAN OWNER 2026-09-24 (P0-1 E2E): arsip ORDERED DIKECUALIKAN — arsip adalah
+    // riwayat order (dilindungi!), bukan draft. Tanpa ini user lama terkunci selamanya.
     if (viewer) {
       const isStaffOrAdmin = ["ADMIN", "SUPER_ADMIN", "PRODUCTION_STAFF"].includes(viewer.role);
       if (!isStaffOrAdmin) {
@@ -78,7 +80,7 @@ export async function POST(req: NextRequest) {
           await db
             .select({ n: count() })
             .from(Design)
-            .where(eq(Design.userId, viewer.id))
+            .where(and(eq(Design.userId, viewer.id), ne(Design.status, "ORDERED")))
         )[0]?.n ?? 0;
 
         if (existingCount >= 5) {
@@ -244,6 +246,13 @@ async function ownDesignOr403(id: string) {
 /** PATCH /api/designs — ganti judul milik sendiri. */
 export async function PATCH(req: NextRequest) {
   try {
+    // Limiter mutasi (sejajar POST 10/mnt) — tanpa ini rename bisa di-spam.
+    // Key IP: tamu (userId null) pun bisa memegang ID desain, jadi userId
+    // tak cukup sebagai satu-satunya key di sini.
+    const rl = await checkRateLimitAsync(`designs-patch:ip:${getClientIp(req)}`, 10, 60);
+    if (rl.isLimited) {
+      return NextResponse.json({ error: "Terlalu banyak mengubah desain." }, { status: 429, headers: rateLimitHeaders(rl, 10) });
+    }
     const parsed = DesignMutationSchema.safeParse(await req.json().catch(() => ({})));
     if (!parsed.success || !parsed.data.title) {
       return NextResponse.json({ error: "Judul wajib diisi" }, { status: 400 });
@@ -260,6 +269,12 @@ export async function PATCH(req: NextRequest) {
 /** DELETE /api/designs — hapus milik sendiri. */
 export async function DELETE(req: NextRequest) {
   try {
+    // Limiter hapus (destruktif — sejajar POST 10/mnt). Key IP dengan alasan
+    // yang sama seperti PATCH (jalur tamu userId null).
+    const rl = await checkRateLimitAsync(`designs-delete:ip:${getClientIp(req)}`, 10, 60);
+    if (rl.isLimited) {
+      return NextResponse.json({ error: "Terlalu banyak menghapus desain." }, { status: 429, headers: rateLimitHeaders(rl, 10) });
+    }
     const parsed = DesignMutationSchema.safeParse(await req.json().catch(() => ({})));
     if (!parsed.success) {
       return NextResponse.json({ error: "Invalid" }, { status: 400 });

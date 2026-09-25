@@ -47,6 +47,7 @@ export async function POST(req: NextRequest) {
 
     let added = 0;
     let skipped = 0;
+    const skippedNoStock: string[] = [];
     for (const it of items) {
       if (!it.productVariantId && !it.designId) {
         skipped++;
@@ -60,6 +61,12 @@ export async function POST(req: NextRequest) {
         });
         if (!v || !v.isActive) {
           skipped++;
+          continue;
+        }
+        // U4: varian habis (stok 0) ditolak jujur + dilaporkan (bukan added diam).
+        if ((v.stockQty ?? 0) <= 0) {
+          skipped++;
+          skippedNoStock.push(v.name || it.productVariantId!);
           continue;
         }
         unitPriceIdr = v.priceIdr;
@@ -134,7 +141,16 @@ export async function POST(req: NextRequest) {
       }
       added++;
     }
-    return NextResponse.json({ success: true, added, skipped });
+    return NextResponse.json({
+      success: true,
+      added,
+      skipped,
+      skippedNoStock,
+      message:
+        skippedNoStock.length > 0
+          ? `${skippedNoStock.length} item tak tersedia (stok habis): ${skippedNoStock.slice(0, 3).join(", ")}${skippedNoStock.length > 3 ? "…" : ""}`
+          : undefined,
+    });
   } catch (e: any) {
     return NextResponse.json({ error: e?.message || "Gagal" }, { status: 500 });
   }

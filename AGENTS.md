@@ -10,13 +10,17 @@
 Every AI assistant working in this repository MUST strictly follow the architecture, guidelines, and execution tracker established in this codebase.
 
 ### 1. The Blueprint & Progress System
-All design decisions, schemas, and API contracts are formally documented in the `Blueprint/` directory (daftar ini = file YANG ADA di disk 13 Sep 2026; BLUEPRINT-01..05 sudah tidak ada):
-- **`Blueprint/TODO-SISA-KERJA-MAXIMAL.md`**: MASTER EXECUTION CHECKLIST (pengganti BUILD-PROGRESS-TRACKER yang sudah dihapus).
-- **`Blueprint/TODO-UPGRADE-3D-MAXIMAL.md`**: Upgrade 3D & framework Fase A–G (SELESAI dieksekusi 09 Sep 2026, Fase 29).
-- **`Blueprint/TODO-MOCKUP-5PER5.md`**: Mockup 5/5 aset + sistem + alur 2D Fase M0–M5 (RENCANA 09 Sep 2026; KTX2 DITUNDA keputusan owner 11 Sep 2026).
-- **`Blueprint/ASSET-WAVE1-CHECKLIST.md`**: Checklist unduh Wave-1 per situs (Sketchfab dkk, badge lisensi per model).
-- **`Blueprint/mobile/BLUEPRINT-M1-…-M10-*.md`** (M1 architecture … M10 API contracts) + **`Blueprint/mobile/BUILD-PROGRESS-TRACKER-MOBILE.md`**: spek + tracker mobile.
-- **`Blueprint/TODO-SISA-KERJA-MAXIMAL.md`** (+ `Blueprint/TODO-*` / `Blueprint/ASSET-WAVE1-CHECKLIST.md`): **MASTER EXECUTION CHECKLIST** (pengganti `Blueprint/BUILD-PROGRESS-TRACKER.md` yang sudah tidak ada). Whenever you complete a task, you MUST check off `[x]` the corresponding item in this tracker and update the daily worklog table!
+All design decisions, schemas, and API contracts are formally documented in the `Blueprint/` directory (+ ringkasan utama `Blueprint/RINGKASAN-LENGKAP.md`):
+- **`Blueprint/RINGKASAN-LENGKAP.md`**: ringkasan 1-file seluruh progres (arsitektur, alur, build, validasi, risiko, sisa).
+- **`Blueprint/TODO-SISA-KERJA-MAXIMAL.md`**: MASTER EXECUTION CHECKLIST.
+- **`Blueprint/TODO-TESTLAB/ADMIN/USER/ENV/MOBILE-MAXIMAL.md` + `CRON-JOB-SPEC.md` + `ALUR-LENGKAP-USER-ADMIN-PROGRAM.md`**: tracker aktif per area.
+- **`Blueprint/TODO-MOCKUP-5PER5.md`**: Mockup 5/5 Fase M0–M5 (RENCANA 09 Sep 2026; KTX2 DITUNDA keputusan owner).
+- **`Blueprint/ASSET-WAVE1-CHECKLIST.md`**: Checklist unduh Wave-1 (bukti lisensi, dirujuk `ASSET_CREDITS.md` — JANGAN pindah).
+- **`Blueprint/mobile/BLUEPRINT-M1-…-M10-*.md`** + **`BUILD-PROGRESS-TRACKER-MOBILE.md`**: spek + tracker mobile.
+- **`Blueprint/e2e/E2E-MASTER-PLAN.md`**: SSOT testing Bab 0–17 (±350 test + 60 go-live G + 10 rantai C + roadmap R1–R7). WAJIB dibaca sebelum tulis/jalankan test apa pun; notasi `TEST-<STAMP>-*` + akun factory + bukti 3 lapis (Bab 0, 7).
+- **`Blueprint/e2e/hasil-pengujian-e2e/`**: SATU-SATUNYA folder output test (`README` aturan + `index.md` register + `BAB-COVERAGE.md` cakupan Bab 0–17 + `_template/` kontrak + `<run-ts>/` artefak). Klaim tanpa file di sini = BELUM terjadi. JANGAN buat folder hasil lain!
+- **`Blueprint/e2e/` (dokumen operasional, dibaca sesuai kebutuhan)**: `TODO-MASTER.md` (checklist urutan Fase 0–5 BERTUAN — baca DULU sebelum kerjakan apa pun!) · `DUITKU-SANDBOX.md` (D-01) · `SOP-REFUND.md` · `SOP-REKONSILIASI.md` · `KEBIJAKAN-RETENSI.md` · `PLAYBOOK-CS.md` (10 template WA + koms insiden) · `PANDUAN-RUNNER.md` (spesifikasi 9 script eksekusi + aturan keras — WAJIB dibaca sebelum tulis/jalankan runner apa pun!).
+- Arsip basi (di luar repo): `Backup-Kaos-Kami/arsip/` = `TODO-UPGRADE-3D-MAXIMAL.md` (SELESAI 09 Sep 2026) + `hasil-pengujian-e2e/` (artefak 267MB). Whenever you complete a task, you MUST check off `[x]` the corresponding item in this tracker and update the daily worklog table!
 
 ---
 

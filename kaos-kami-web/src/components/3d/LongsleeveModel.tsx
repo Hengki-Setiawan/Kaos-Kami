@@ -13,9 +13,11 @@ import { useDeviceTier } from "@/hooks/useDeviceTier";
 import { useResourceTracker, useTrackedResource } from "@/lib/threeResourceTracker";
 import { surfaceZForApparel } from "@/lib/scaleCalibration";
 import { extractApparelGeometry } from "@/lib/extractApparelGeometry";
-import { getStretchFactors } from "@/lib/3d/stretchPhysics";
+import { applyStretchToMaterial, sharedStretchUniforms } from "@/lib/3d/stretchDeform";
 
-const MODEL_PATH = "/models/longsleeve.glb?v=15";
+// SWAP 20 Sep 2026: mesh = ex-sweater.glb (lengan panjang + rib cuff sejati,
+// torso parity 2.6% vs longsleeve lama) — scale 0.72/crown -0.12 dipertahankan.
+const MODEL_PATH = "/models/longsleeve.glb?v=16";
 
 // PERF 14 Sep 2026: top-level useGLTF.preload DIHAPUS — preload terpusat
 // HANYA via idle-preload di CanvasStage (aktif + tetangga katalog) agar tak
@@ -167,19 +169,32 @@ const GltfLongsleeve: React.FC<{ path: string }> = ({ path }) => {
     }
   });
 
+  // Uji Tarik REAL + bleed X-ray: hooks WAJIB sebelum early-return (rules-of-hooks).
+  useEffect(() => {
+    if (!baseGeometry) return;
+    applyStretchToMaterial(material, sharedStretchUniforms);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [material, baseGeometry]);
+  // Mode inspeksi bleed X-ray: kain transparan, sablon tetap opak.
+  const bleedCheck = useConfiguratorStore((s) => s.inspectMode === "bleed");
+  useEffect(() => {
+    if (!baseGeometry) return;
+    material.transparent = bleedCheck;
+    material.opacity = bleedCheck ? 0.15 : 1;
+    material.depthWrite = !bleedCheck;
+  }, [material, bleedCheck, baseGeometry]);
+
   const posX = viewMode === "story" ? 0 : modelPosX;
   const posY = viewMode === "story" ? -0.05 : modelPosY - 0.05;
   const scale = viewMode === "story" ? 1.0 : modelScale;
 
   if (!baseGeometry) return null;
 
-  const stretchFactors = getStretchFactors(testLabMode, stretchIntensity, stretchDirection);
-
   return (
     <group
       ref={meshRef}
       position={[posX, posY, 0]}
-      scale={[scale * stretchFactors.stretchX, scale * stretchFactors.stretchY, scale * stretchFactors.stretchZ]}
+      scale={[scale, scale, scale]}
       dispose={null}
     >
       <mesh

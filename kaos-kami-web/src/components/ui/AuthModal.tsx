@@ -111,8 +111,9 @@ export const AuthModal: React.FC<AuthModalProps> = ({
               setRegisterName(saved.name || "");
               setRegisterEmail(saved.email || "");
               setRegisterPhone(saved.phone || "");
-              setRegisterPassword(saved.password || "");
-              setRegisterConfirmPassword(saved.password || "");
+              // A6 keamanan: password TIDAK PERNAH disimpan — user ketik ulang.
+              setRegisterPassword("");
+              setRegisterConfirmPassword("");
               const remainingCooldown = Math.max(0, 60 - Math.floor(elapsed / 1000));
               setOtpCooldown(remainingCooldown);
               setSuccessMessage(`Kode verifikasi telah dikirim ke ${saved.email}. Silakan masukkan OTP Anda.`);
@@ -184,13 +185,28 @@ export const AuthModal: React.FC<AuthModalProps> = ({
     try {
       setLoading(true);
 
-      // Verifikasi Turnstile jika token tersedia
+      // A5: hasil Turnstile WAJIB dicek — gagal/tak-valid = tolak login (anti-bot).
       if (loginTurnstileToken) {
-        await fetch("/api/auth/verify-turnstile", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ token: loginTurnstileToken }),
-        }).catch(() => null);
+        try {
+          const tsRes = await fetch("/api/auth/verify-turnstile", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ token: loginTurnstileToken }),
+          });
+          const tsData = await tsRes.json().catch(() => null);
+          if (!tsRes.ok || (tsData as any)?.success !== true) {
+            setErrorMessage("Verifikasi anti-bot gagal. Muat ulang dan coba lagi.");
+            try {
+              console.warn("[auth] turnstile ditolak", (tsData as any)?.error || tsRes.status);
+            } catch {}
+            setLoading(false);
+            return;
+          }
+        } catch {
+          setErrorMessage("Verifikasi anti-bot gagal. Muat ulang dan coba lagi.");
+          setLoading(false);
+          return;
+        }
       }
 
       // Resolusi identifier ke canonical email akun
@@ -285,13 +301,13 @@ export const AuthModal: React.FC<AuthModalProps> = ({
 
       if (typeof window !== "undefined") {
         try {
+          // A6: password TIDAK disimpan (hanya di memori sampai verifikasi).
           sessionStorage.setItem(
             "kaoskami_pending_reg",
             JSON.stringify({
               name: registerName.trim(),
               email: registerEmail.trim(),
               phone: registerPhone.trim(),
-              password: registerPassword,
               timestamp: Date.now(),
             })
           );
@@ -965,13 +981,13 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                               setSuccessMessage("Kode OTP baru berhasil dikirim!");
                               if (typeof window !== "undefined") {
                                 try {
+                                  // A6: tanpa password (ketik ulang bila sesi refresh).
                                   sessionStorage.setItem(
                                     "kaoskami_pending_reg",
                                     JSON.stringify({
                                       name: registerName.trim(),
                                       email: registerEmail.trim(),
                                       phone: registerPhone.trim(),
-                                      password: registerPassword,
                                       timestamp: Date.now(),
                                     })
                                   );

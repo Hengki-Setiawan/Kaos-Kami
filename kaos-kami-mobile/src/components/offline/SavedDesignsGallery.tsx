@@ -4,7 +4,7 @@ import React from 'react';
 import { Layers, Share2, Trash2, ArrowUpRight, Plus } from 'lucide-react';
 import { GlassCard, HapticButton, Badge } from '@/components/ui';
 import { useSavedDesignsStore, SavedDesign } from '@/lib/offline/savedDesignsStore';
-import { useMobileStudioStore } from '@/store/useMobileStudioStore';
+import { useMobileStudioStore, sanitizeMobileDecal } from '@/store/useMobileStudioStore';
 import { useShallow } from 'zustand/shallow';
 import { shareCustomDesign } from '@/lib/bridge/share';
 import { removeDecalPxForDesign } from '@/lib/offline/persistentKeys';
@@ -20,11 +20,10 @@ export function SavedDesignsGallery({
   const { designs, deleteDesign } = useSavedDesignsStore(
     useShallow((s) => ({ designs: s.designs, deleteDesign: s.deleteDesign }))
   );
-  const { setApparelType, setColor, setDecalUrl } = useMobileStudioStore(
+  const { setApparelType, setColor } = useMobileStudioStore(
     useShallow((s) => ({
       setApparelType: s.setApparelType,
       setColor: s.setColor,
-      setDecalUrl: s.setDecalUrl,
     }))
   );
 
@@ -39,9 +38,31 @@ export function SavedDesignsGallery({
 
   const handleLoadDesign = (design: SavedDesign) => {
     haptic.tapHeavy();
-    setApparelType(design.apparelType);
-    setColor(design.colorHex);
-    setDecalUrl(design.decalDataUrl);
+    // P1: pulihkan SEMUA lapis (decals[]; fallback bungkus tunggal lawas) —
+    // sanitasi ke batas SSOT apparel tsb. Urutan dipertahankan.
+    const st = useMobileStudioStore.getState();
+    st.setApparelType(design.apparelType);
+    st.setColor(design.colorHex);
+    const source =
+      Array.isArray(design.decals) && design.decals.length > 0
+        ? design.decals
+        : design.decalDataUrl
+          ? [{ id: `decal-${design.id}`, url: design.decalDataUrl, targetSide: 'front' as const, x: 0, y: 0.04, scale: 0.22, rotation: 0, opacity: 1 }]
+          : [];
+    st.clearDecals();
+    for (const d of source.slice(0, 10)) {
+      if (typeof d.url !== 'string' || d.url.length === 0) continue;
+      const clean = sanitizeMobileDecal(design.apparelType, d);
+      st.addDecal({
+        url: clean.url,
+        targetSide: clean.targetSide,
+        x: clean.x,
+        y: clean.y,
+        scale: clean.scale,
+        rotation: clean.rotation,
+        opacity: clean.opacity,
+      });
+    }
     onSelectDesign();
   };
 

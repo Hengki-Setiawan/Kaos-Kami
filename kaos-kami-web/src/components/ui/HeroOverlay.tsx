@@ -115,12 +115,19 @@ export const HeroOverlay: React.FC = () => {
           >
             <span>KUSTOM DESAIN (3D)</span>
           </Link>
-          <Link
-            href="/catalog"
+          <a
+            href="#etalase"
+            onClick={(e) => {
+              const el = document.getElementById("etalase");
+              if (el) {
+                e.preventDefault();
+                el.scrollIntoView({ behavior: "smooth" });
+              }
+            }}
             className="inline-flex items-center px-6 py-3 rounded-full bg-surface border border-border-subtle text-text-primary font-mono font-bold text-xs uppercase tracking-wider hover:border-brand-accent hover:text-brand-accent transition-all active:scale-95"
           >
-            <span>KATALOG SIAP BELI</span>
-          </Link>
+            <span>PRODUK SIAP BELI</span>
+          </a>
         </div>
       </div>
 

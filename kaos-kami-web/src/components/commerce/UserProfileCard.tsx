@@ -18,9 +18,79 @@ export function UserProfileCard({ user, onProfileUpdated }: UserProfileProps) {
   const [isEditing, setIsEditing] = useState(false);
   const [name, setName] = useState(user?.name || "");
   const [phone, setPhone] = useState(user?.phoneNumber || "");
+  const [otpCode, setOtpCode] = useState("");
+  const [otpSent, setOtpSent] = useState(false);
+  const [sendingOtp, setSendingOtp] = useState(false);
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+
+  const handleExportData = async () => {
+    try {
+      const res = await fetch("/api/user/profile/export", { cache: "no-store" });
+      const data = await res.json().catch(() => null);
+      if (!res.ok || !data?.success) throw new Error(data?.error || "Gagal mengunduh data");
+      const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `kaos-kami-data-saya-${new Date().toISOString().slice(0, 10)}.json`;
+      a.click();
+      setTimeout(() => URL.revokeObjectURL(url), 5000);
+    } catch (e: any) {
+      setErrorMsg(e?.message || "Gagal mengunduh data");
+    }
+  };
+
+  const handleDeleteAccount = async () => {
+    setDeleting(true);
+    try {
+      const res = await fetch("/api/user/profile", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ confirm: "HAPUS" }),
+      });
+      const data = await res.json().catch(() => null);
+      if (!res.ok || !data?.success) throw new Error(data?.error || "Gagal menghapus akun");
+      setSuccessMsg("Akun dihapus. Mengalihkan…");
+      setTimeout(() => {
+        window.location.href = "/";
+      }, 1500);
+    } catch (e: any) {
+      setErrorMsg(e?.message || "Gagal menghapus akun");
+    } finally {
+      setDeleting(false);
+    }
+  };
+
+  const phoneChanged =
+    (phone.trim() || "") !== (user?.phoneNumber || "");
+
+  const handleSendOtp = async () => {
+    setErrorMsg(null);
+    try {
+      setSendingOtp(true);
+      const res = await fetch("/api/auth/send-otp", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ phoneNumber: phone.trim() }),
+      });
+      const data = await res.json().catch(() => null);
+      if (!res.ok || !data?.success) throw new Error(data?.error || "Gagal kirim OTP");
+      if ((data as any)?.alreadyVerified) {
+        setSuccessMsg("Nomor ini sudah terverifikasi permanen.");
+      } else {
+        setOtpSent(true);
+        setSuccessMsg("Kode OTP dikirim ke nomor BARU. Isi 6 digit lalu simpan.");
+      }
+    } catch (e: any) {
+      setErrorMsg(e?.message || "Gagal kirim OTP");
+    } finally {
+      setSendingOtp(false);
+    }
+  };
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -29,6 +99,11 @@ export function UserProfileCard({ user, onProfileUpdated }: UserProfileProps) {
 
     if (name.trim().length < 2) {
       setErrorMsg("Nama lengkap minimal 2 karakter.");
+      return;
+    }
+    // Nomor berubah wajib OTP milik nomor baru (server 401 bila tanpa/salah).
+    if (phoneChanged && !/^\d{6}$/.test(otpCode.trim())) {
+      setErrorMsg("Nomor berubah — klik KIRIM OTP ke nomor baru lalu isi 6 digit.");
       return;
     }
 
@@ -40,6 +115,7 @@ export function UserProfileCard({ user, onProfileUpdated }: UserProfileProps) {
         body: JSON.stringify({
           name: name.trim(),
           phoneNumber: phone.trim() || null,
+          ...(phoneChanged ? { otpCode: otpCode.trim() } : {}),
         }),
       });
 
@@ -143,11 +219,42 @@ export function UserProfileCard({ user, onProfileUpdated }: UserProfileProps) {
                 <input
                   type="tel"
                   value={phone}
-                  onChange={(e) => setPhone(e.target.value)}
+                  onChange={(e) => {
+                    setPhone(e.target.value);
+                    setOtpSent(false);
+                    setOtpCode("");
+                  }}
                   placeholder="08123456789 atau +628123456789"
                   className="w-full pl-9 pr-3 py-2.5 rounded-xl bg-surface-elevated border border-border-subtle focus:border-brand-accent text-text-primary focus:outline-none transition-all text-xs"
                 />
               </div>
+              {phoneChanged && (
+                <div className="mt-2 space-y-2 p-3 rounded-xl bg-amber-500/10 border border-amber-500/30">
+                  <p className="text-[10px] text-amber-300">
+                    Nomor berubah — verifikasi OTP milik nomor BARU (sekali, gratis seterusnya).
+                  </p>
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      onClick={() => void handleSendOtp()}
+                      disabled={sendingOtp}
+                      className="px-3 py-2 rounded-lg bg-surface border border-border-subtle text-[11px] font-bold text-text-primary disabled:opacity-50"
+                    >
+                      {sendingOtp ? "Mengirim…" : otpSent ? "Kirim Ulang OTP" : "Kirim OTP"}
+                    </button>
+                    <input
+                      type="text"
+                      inputMode="numeric"
+                      value={otpCode}
+                      onChange={(e) => setOtpCode(e.target.value.replace(/[^0-9]/g, "").slice(0, 6))}
+                      placeholder="6 digit"
+                      maxLength={6}
+                      aria-label="Kode OTP nomor baru"
+                      className="flex-1 px-3 py-2 rounded-lg bg-surface-elevated border border-border-subtle text-center tracking-[0.3em] text-xs text-text-primary focus:outline-none focus:border-brand-accent"
+                    />
+                  </div>
+                </div>
+              )}
             </div>
           </div>
 
@@ -167,6 +274,45 @@ export function UserProfileCard({ user, onProfileUpdated }: UserProfileProps) {
             <p className="text-[10px] text-text-muted mt-1">
               Email terdaftar digunakan sebagai kunci login & notifikasi verifikasi.
             </p>
+          </div>
+
+          {/* A12: ekspor data + hapus akun (UU PDP). */}
+          <div className="flex flex-wrap items-center gap-2 pt-1">
+            <button
+              type="button"
+              onClick={() => void handleExportData()}
+              className="px-3 py-1.5 rounded-lg border border-border-subtle text-[11px] text-text-muted hover:text-text-primary"
+            >
+              Unduh Data Saya (JSON)
+            </button>
+            {!confirmDelete ? (
+              <button
+                type="button"
+                onClick={() => setConfirmDelete(true)}
+                className="px-3 py-1.5 rounded-lg border border-rose-500/40 text-[11px] text-rose-400 hover:bg-rose-500/10"
+              >
+                Hapus Akun…
+              </button>
+            ) : (
+              <span className="flex items-center gap-2 text-[11px]">
+                <span className="text-rose-300 font-bold">Yakin? Tindakan permanen.</span>
+                <button
+                  type="button"
+                  onClick={() => void handleDeleteAccount()}
+                  disabled={deleting}
+                  className="px-3 py-1.5 rounded-lg bg-rose-600 text-white font-bold disabled:opacity-50"
+                >
+                  {deleting ? "Menghapus…" : "YA, HAPUS"}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setConfirmDelete(false)}
+                  className="px-3 py-1.5 rounded-lg border border-border-subtle text-text-muted"
+                >
+                  Batal
+                </button>
+              </span>
+            )}
           </div>
 
           <div className="flex items-center justify-end gap-2.5 pt-2">
