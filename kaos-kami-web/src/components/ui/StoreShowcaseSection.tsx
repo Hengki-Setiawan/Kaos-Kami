@@ -44,30 +44,51 @@ interface ShowcaseProduct {
   description?: string;
 }
 
+const PRODUCT_IMAGE_MAP: Record<string, string> = {
+  "cmtgx5tee000sush0grpi0mxp": "/products/coach-jacket-olive.jpg",
+  "cmtgx5tab000qush0tyeaysce": "/products/hoodie-black.jpg",
+  "cmtgx5thh000uush0930k82ml": "/products/hoodie-black.jpg",
+  "cmtgx5t5b000oush0pgpjop1g": "/products/tshirt-orange-makassar.jpg",
+  "cmtgx5t0q000mush0jv2muo0e": "/products/tshirt-white-ecru.jpg",
+  "cmtgx5swk000kush0030f43il": "/products/tshirt-black.jpg",
+  "cmtgx5tkk000wush019ak44op": "/products/crewneck-grey.jpg",
+};
+
+function getProductPhoto(id: string, apparelSlug: ApparelType, colorHex: string, rawImg?: string): string {
+  if (PRODUCT_IMAGE_MAP[id]) return PRODUCT_IMAGE_MAP[id];
+  if (rawImg && rawImg.startsWith("/products/")) return rawImg;
+  if (apparelSlug === "shirt") return "/products/coach-jacket-olive.jpg";
+  if (apparelSlug === "hoodie") return "/products/hoodie-black.jpg";
+  if (apparelSlug === "crewneck") return "/products/crewneck-grey.jpg";
+  if (colorHex?.toLowerCase() === "#efece6") return "/products/tshirt-white-ecru.jpg";
+  if (colorHex?.toLowerCase() === "#e65100") return "/products/tshirt-orange-makassar.jpg";
+  return "/products/tshirt-black.jpg";
+}
+
 const DEFAULT_SHOWCASE: ShowcaseProduct[] = [
   {
-    id: "cmtgx5swk000kush0030f43il",
-    name: "Kaos Polos Boxy Combed 24s - Hitam",
-    colorHex: "#121214",
-    colorName: "Hitam",
+    id: "cmtgx5tee000sush0grpi0mxp",
+    name: "Jaket Coach Urban - Hijau Olive",
+    colorHex: "#3B4435",
+    colorName: "Hijau Olive",
     size: "L",
-    priceIdr: 165000,
-    stockQty: 48,
-    image: "/lookbook/look-01.jpg",
-    apparelSlug: "tshirt",
-    description: "Kaos streetwear potongan boxy tegap dengan katun combed 24s berkarakter pekat. Sejuk untuk iklim tropis Makassar dengan jahitan rantai rapi dan rib kerah tebal tahan melar.",
+    priceIdr: 320000,
+    stockQty: 18,
+    image: "/products/coach-jacket-olive.jpg",
+    apparelSlug: "shirt",
+    description: "Jaket coach kasual urban dengan material taslan water-repellent ringan dan furing katun nyaman. Dilengkapi kancing snap button tahan karat dan saku fungsional.",
   },
   {
-    id: "cmtgx5t0q000mush0jv2muo0e",
-    name: "Kaos Polos Boxy Combed 24s - Putih Ecru",
-    colorHex: "#EFECE6",
-    colorName: "Putih Ecru",
-    size: "L",
-    priceIdr: 165000,
-    stockQty: 35,
-    image: "/lookbook/look-02.jpg",
-    apparelSlug: "tshirt",
-    description: "Warna ecru alami katun tanpa pemutih kimia berlebih. Tekstur lembut dan adem dipakai seharian. Potongan drop-shoulder modern yang jatuh proporsional di badan.",
+    id: "cmtgx5tab000qush0tyeaysce",
+    name: "Hoodie Boxy Fleece - Hitam",
+    colorHex: "#121214",
+    colorName: "Hitam",
+    size: "XL",
+    priceIdr: 285000,
+    stockQty: 25,
+    image: "/products/hoodie-black.jpg",
+    apparelSlug: "hoodie",
+    description: "Hoodie heavyweight katun fleece tebal 330gsm dengan kap ganda tegap. Hangat, lembut di dalam, dan tidak mudah berbulu. Potongan boxy streetwear modern.",
   },
   {
     id: "cmtgx5t5b000oush0pgpjop1g",
@@ -77,33 +98,33 @@ const DEFAULT_SHOWCASE: ShowcaseProduct[] = [
     size: "M",
     priceIdr: 195000,
     stockQty: 20,
-    image: "/lookbook/look-03.jpg",
+    image: "/products/tshirt-orange-makassar.jpg",
     apparelSlug: "tshirt",
     description: "Rilisan grafis spesial edisi terbatas dengan warna oranye menyala khas Makassar. Sablon digital DTF premium presisi tinggi dengan tinta lentur yang tahan cuci berkali-kali.",
   },
   {
-    id: "cmtgx5tee000sush0grpi0mxp",
-    name: "Jaket Coach Urban - Hijau Olive",
-    colorHex: "#3B4435",
-    colorName: "Hijau Olive",
+    id: "cmtgx5t0q000mush0jv2muo0e",
+    name: "Kaos Polos Combed 24s - Putih Ecru",
+    colorHex: "#EFECE6",
+    colorName: "Putih Ecru",
     size: "L",
-    priceIdr: 320000,
-    stockQty: 18,
-    image: "/lookbook/look-04.jpg",
-    apparelSlug: "shirt",
-    description: "Jaket coach kasual urban dengan material taslan water-repellent ringan dan furing katun nyaman. Dilengkapi kancing snap button tahan karat dan saku fungsional.",
+    priceIdr: 165000,
+    stockQty: 35,
+    image: "/products/tshirt-white-ecru.jpg",
+    apparelSlug: "tshirt",
+    description: "Warna ecru alami katun tanpa pemutih kimia berlebih. Tekstur lembut dan adem dipakai seharian. Potongan drop-shoulder modern yang jatuh proporsional di badan.",
   },
   {
-    id: "cmtgx5thh000uush0930k82ml",
-    name: "Hoodie Heavyweight Boxy Fleece - Hitam Pekat",
+    id: "cmtgx5swk000kush0030f43il",
+    name: "Kaos Polos Combed 24s - Hitam",
     colorHex: "#121214",
     colorName: "Hitam",
     size: "L",
-    priceIdr: 285000,
-    stockQty: 25,
-    image: "/lookbook/look-01.jpg",
-    apparelSlug: "hoodie",
-    description: "Hoodie heavyweight katun fleece tebal 330gsm dengan kap ganda tegap. Hangat, lembut di dalam, dan tidak mudah berbulu. Potongan boxy streetwear modern.",
+    priceIdr: 165000,
+    stockQty: 48,
+    image: "/products/tshirt-black.jpg",
+    apparelSlug: "tshirt",
+    description: "Kaos streetwear potongan boxy tegap dengan katun combed 24s berkarakter pekat. Sejuk untuk iklim tropis Makassar dengan jahitan rantai rapi dan rib kerah tebal tahan melar.",
   },
   {
     id: "cmtgx5tkk000wush019ak44op",
@@ -113,7 +134,7 @@ const DEFAULT_SHOWCASE: ShowcaseProduct[] = [
     size: "L",
     priceIdr: 245000,
     stockQty: 30,
-    image: "/lookbook/look-02.jpg",
+    image: "/products/crewneck-grey.jpg",
     apparelSlug: "crewneck",
     description: "Sweater crewneck fleece katun berserat abu misty premium. Rib elastis di leher, ujung lengan, dan pinggang tidak mudah melar setelah dicuci berkali-kali.",
   },
@@ -148,7 +169,7 @@ export const StoreShowcaseSection: React.FC = () => {
         clearTimeout(t);
         if (res.ok && data?.success && Array.isArray(data.variants) && data.variants.length > 0) {
           setTotalCount(data.variants.length);
-          const mapped: ShowcaseProduct[] = data.variants.slice(0, 6).map((v: any, i: number) => {
+          const mapped: ShowcaseProduct[] = data.variants.slice(0, 6).map((v: any) => {
             const rawSlug = String(v.category?.slug || "").trim().toLowerCase();
             const apparelSlug: ApparelType = (Object.keys(APPAREL_CATALOG) as ApparelType[]).includes(rawSlug as ApparelType)
               ? (rawSlug as ApparelType)
@@ -156,8 +177,8 @@ export const StoreShowcaseSection: React.FC = () => {
               ? "shirt"
               : "tshirt";
 
-            const fallbackImg = `/lookbook/look-0${(i % 4) + 1}.jpg`;
-            const firstImg = Array.isArray(v.images) && v.images[0] && isSafeImageUrl(v.images[0]) ? v.images[0] : fallbackImg;
+            const rawImg = Array.isArray(v.images) && v.images[0] ? v.images[0] : undefined;
+            const finalImg = getProductPhoto(v.id, apparelSlug, v.colorHex, rawImg);
 
             return {
               id: v.id,
@@ -167,7 +188,7 @@ export const StoreShowcaseSection: React.FC = () => {
               size: v.size || "L",
               priceIdr: Number(v.priceIdr) || 165000,
               stockQty: Number(v.stockQty) || 0,
-              image: firstImg,
+              image: finalImg,
               apparelSlug,
               description: v.category?.description || "Koleksi pakaian jadi Kaos Kami dengan katun combed sejuk berkualitas, potongan tegap, dan sablon digital presisi.",
             };
@@ -273,7 +294,7 @@ export const StoreShowcaseSection: React.FC = () => {
                   unoptimized={true}
                   onError={(e) => {
                     const t = e.target as HTMLImageElement;
-                    const fallback = `/lookbook/look-0${(idx % 4) + 1}.jpg`;
+                    const fallback = p.image || "/products/tshirt-black.jpg";
                     if (!t.src.endsWith(fallback)) t.src = fallback;
                   }}
                 />
