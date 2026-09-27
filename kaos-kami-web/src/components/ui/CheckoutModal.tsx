@@ -140,6 +140,15 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
   const [resendCooldown, setResendCooldown] = useState(0);
 
   const sessionUser = session?.user as any;
+  const userRole = sessionUser?.role || "CUSTOMER";
+  const isAdmin =
+    ["ADMIN", "SUPER_ADMIN"].includes(userRole) ||
+    sessionUser?.email === "hengkishadow@gmail.com" ||
+    sessionUser?.email === "admin@kaoskami.biz.id";
+
+  const [adminBypassActive, setAdminBypassActive] = useState(false);
+  const [adminDirectConfirm, setAdminDirectConfirm] = useState(true);
+
   const cleanPhone = (p?: string | null) => (p || "").replace(/[^0-9]/g, "").replace(/^0/, "62");
   const isAccountPhoneVerified =
     Boolean(sessionUser?.phoneVerified) &&
@@ -508,7 +517,7 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
       cleanPhone(normPhone) === cleanPhone(sessionUser?.phoneNumber);
 
     const isSandboxBypass = process.env.NODE_ENV !== "production";
-    if (!isAccountPhoneVerified && !isSandboxBypass && !/^\d{6}$/.test(otpCode.trim())) {
+    if (!isAccountPhoneVerified && !isSandboxBypass && !adminBypassActive && !/^\d{6}$/.test(otpCode.trim())) {
       setErrorMessage("Kode OTP 6 digit wajib diisi. Klik KIRIM OTP untuk menerima kode via WhatsApp.");
       return;
     }
@@ -608,7 +617,7 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
         recipientName,
         phoneNumber: normPhone,
         email: email || session?.user?.email || undefined,
-        otpCode: isAccountPhoneVerified || isSandboxBypass ? undefined : otpCode.trim(),
+        otpCode: isAccountPhoneVerified || isSandboxBypass || adminBypassActive ? undefined : otpCode.trim(),
         deliveryMethod,
         turnaroundTier,
         district: deliveryMethod === "EXPEDITION_MANUAL" ? destQuery.trim() || undefined : deliveryMethod !== "PICKUP" ? district : undefined,
@@ -622,6 +631,8 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
         items: itemsPayload,
         turnstileToken: turnstileToken || undefined,
         couponCode: couponCode.trim() || undefined,
+        adminBypassPayment: isAdmin ? adminBypassActive : undefined,
+        adminDirectConfirm: isAdmin && adminBypassActive ? adminDirectConfirm : undefined,
       };
 
       const data = await fetchJson<{
@@ -637,6 +648,13 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
         headers: { "Content-Type": "application/json", "Idempotency-Key": newIdempotencyKey() },
         body: JSON.stringify(payload),
       }, 30000);
+
+      // ALUR PENGUJIAN ADMIN / BYPASS: jika order langsung lunas atau berstatus test
+      if ((data as any)?.isTestOrder || (data as any)?.status === "PAYMENT_CONFIRMED") {
+        if (isCartCheckout) clearCart();
+        window.location.href = (data as any)?.invoiceUrl || `/orders/${data.orderId}`;
+        return;
+      }
 
       // ALUR REVIEW (owner Sep 2026): checkout = antre review, TANPA charge.
       // Sukses = order DESIGN_REVIEW → kosongkan cart, arahkan ke dashboard
@@ -1370,7 +1388,7 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
                 </div>
 
                 {/* Turnstile Anti-bot */}
-                {turnstileEnabled && (
+                {turnstileEnabled && !adminBypassActive && (
                   <TurnstileWidget
                     onVerify={(t) => setTurnstileToken(t)}
                     onExpire={() => setTurnstileToken(null)}
@@ -1379,17 +1397,95 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
                   />
                 )}
 
+                {/* Card Khusus Pengujian Admin (Bypass Pembayaran) */}
+                {isAdmin && (
+                  <div className="p-4 rounded-xl border border-amber-500/40 bg-amber-500/10 dark:bg-amber-950/20 space-y-3 font-mono text-xs animate-fadeIn">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <div className="w-6 h-6 rounded-lg bg-amber-500 text-black flex items-center justify-center font-black">
+                          ⚡
+                        </div>
+                        <div>
+                          <span className="font-extrabold text-amber-500 uppercase tracking-wider block">
+                            Mode Pengujian Admin
+                          </span>
+                          <span className="text-[10px] text-text-muted">
+                            {adminBypassActive ? "Bypass pembayaran AKTIF" : "Bypass pembayaran NONAKTIF"}
+                          </span>
+                        </div>
+                      </div>
+                      <label className="relative inline-flex items-center cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={adminBypassActive}
+                          onChange={(e) => setAdminBypassActive(e.target.checked)}
+                          className="sr-only peer"
+                        />
+                        <div className="w-10 h-5 bg-neutral-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-amber-500"></div>
+                      </label>
+                    </div>
+
+                    {adminBypassActive ? (
+                      <div className="space-y-2 pt-2 border-t border-amber-500/20 text-[11px]">
+                        <p className="text-text-muted leading-relaxed">
+                          ⚡ <strong>Bypass Pembayaran Aktif:</strong> Biaya Rp 0 (tanpa charge Duitku & verifikasi OTP dilewati). Pesanan diberi tanda <code className="text-amber-400 font-bold">[TEST]</code> agar omzet toko tetap akurat.
+                        </p>
+                        <div className="space-y-1.5 pt-1">
+                          <label className="flex items-center gap-2 cursor-pointer p-1.5 rounded-lg hover:bg-black/5 dark:hover:bg-white/5 transition-colors">
+                            <input
+                              type="radio"
+                              name="adminDirectConfirm"
+                              checked={adminDirectConfirm}
+                              onChange={() => setAdminDirectConfirm(true)}
+                              className="accent-amber-500"
+                            />
+                            <span>
+                              <strong className="text-amber-400">Langsung Lunas</strong> &amp; Terbitkan Tiket Produksi DTF di Kanban
+                            </span>
+                          </label>
+                          <label className="flex items-center gap-2 cursor-pointer p-1.5 rounded-lg hover:bg-black/5 dark:hover:bg-white/5 transition-colors">
+                            <input
+                              type="radio"
+                              name="adminDirectConfirm"
+                              checked={!adminDirectConfirm}
+                              onChange={() => setAdminDirectConfirm(false)}
+                              className="accent-amber-500"
+                            />
+                            <span>
+                              <strong className="text-blue-400">Antrean Review Desain</strong> (Simulasi alur ACC admin)
+                            </span>
+                          </label>
+                        </div>
+                      </div>
+                    ) : (
+                      <p className="text-[10px] text-text-muted">
+                        Saklar OFF: Anda bertindak sebagai pembeli biasa 100% (alur normal Duitku & OTP).
+                      </p>
+                    )}
+                  </div>
+                )}
+
                 {/* Desktop Primary Action CTA */}
                 <div className="hidden md:block space-y-2">
                   <button
                     type="submit"
                     disabled={isLoading}
-                    className="w-full py-3.5 px-5 rounded-xl font-mono text-xs font-bold tracking-wider uppercase bg-brand-accent text-canvas shadow-[0_0_20px_rgba(230,81,0,0.4)] hover:brightness-110 active:scale-[0.99] disabled:opacity-50 transition-all flex items-center justify-center gap-2 cursor-pointer"
+                    className={`w-full py-3.5 px-5 rounded-xl font-mono text-xs font-bold tracking-wider uppercase transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 active:scale-[0.99] ${
+                      adminBypassActive
+                        ? "bg-gradient-to-r from-amber-500 to-amber-600 text-black shadow-[0_0_20px_rgba(245,158,11,0.4)] hover:brightness-110"
+                        : "bg-brand-accent text-canvas shadow-[0_0_20px_rgba(230,81,0,0.4)] hover:brightness-110"
+                    }`}
                   >
                     {isLoading ? (
                       <>
                         <Loader2 size={16} className="animate-spin" />
                         <span>MENGIRIM...</span>
+                      </>
+                    ) : adminBypassActive ? (
+                      <>
+                        <ShieldCheck size={16} className="stroke-[2.5]" />
+                        <span>⚡ PESAN UJI COBA (BYPASS PEMBAYARAN RP 0)</span>
+                        <ArrowRight size={14} />
                       </>
                     ) : (
                       <>
@@ -1402,7 +1498,11 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
                   <ShopClosedNotice />
                   <p className="text-center font-mono text-[10px] text-text-muted flex items-center justify-center gap-1">
                     <Lock size={11} className="text-emerald-400" />
-                    <span>Pembayaran resmi & aman didukung Sandbox Duitku Gateway (QRIS & VA)</span>
+                    <span>
+                      {adminBypassActive
+                        ? "Mode pengujian admin — transaksi simulasi internal"
+                        : "Pembayaran resmi & aman didukung Sandbox Duitku Gateway (QRIS & VA)"}
+                    </span>
                   </p>
                 </div>
               </div>
@@ -1413,13 +1513,17 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
               <div>
                 <p className="text-[10px] font-mono text-text-muted uppercase">TOTAL BAYAR</p>
                 <p className="text-base font-mono font-bold text-brand-accent">
-                  Rp {grandTotal.toLocaleString("id-ID")}
+                  {adminBypassActive ? "Rp 0 (Bypass)" : `Rp ${grandTotal.toLocaleString("id-ID")}`}
                 </p>
               </div>
               <button
                 type="submit"
                 disabled={isLoading}
-                className="py-2.5 px-5 rounded-xl bg-brand-accent text-canvas font-mono font-bold text-xs uppercase flex items-center gap-1.5 shadow-lg active:scale-95 transition-all cursor-pointer disabled:opacity-50"
+                className={`py-2.5 px-5 rounded-xl font-mono font-bold text-xs uppercase flex items-center gap-1.5 shadow-lg active:scale-95 transition-all cursor-pointer disabled:opacity-50 ${
+                  adminBypassActive
+                    ? "bg-amber-500 text-black shadow-[0_0_16px_rgba(245,158,11,0.4)]"
+                    : "bg-brand-accent text-canvas"
+                }`}
               >
                 {isLoading ? (
                   <>
@@ -1428,7 +1532,7 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
                   </>
                 ) : (
                   <>
-                    <span>BAYAR SEKARANG</span>
+                    <span>{adminBypassActive ? "⚡ PESAN (BYPASS)" : "BAYAR SEKARANG"}</span>
                     <ArrowRight size={14} />
                   </>
                 )}

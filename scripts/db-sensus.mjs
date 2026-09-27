@@ -45,7 +45,7 @@ const QUERIES = [
   ["stok_negatif", `SELECT id, sku, name, stockQty FROM "ProductVariant" WHERE stockQty < 0 LIMIT 50`, []],
   ["kupon_overuse", `SELECT id, code, maxUses, usedCount, isActive FROM "Coupon" WHERE maxUses IS NOT NULL AND usedCount > maxUses LIMIT 50`, []],
 ];
-const COUNT_TABLES = ["User", "Session", "Design", "Cart", "Order", "OrderItem", "Payment", "ProductionTask", "Coupon", "ExpeditionZone", "ProductVariant"];
+const COUNT_TABLES = ["User", "Session", "Design", "Cart", "Order", "OrderItem", "Payment", "ProductionTask", "Coupon", "ExpeditionZone", "ProductVariant", "ChatMessage", "UserPresence"];
 
 if (has("--dry-run")) {
   console.log("[dry-run] READ-ONLY, NOL tulis DB. Query yang AKAN jalan:");

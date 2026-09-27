@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useMemo } from "react";
+import React, { useEffect, useMemo, useRef } from "react";
 import * as THREE from "three";
 import { useTexture } from "@react-three/drei";
 import { CleanDecal } from "@/components/3d/CleanDecal";
@@ -47,17 +47,9 @@ const SingleDecalItem: React.FC<{
 
   // Parameter penempatan 3D terkalibrasi presisi (anti-tembus torso, anti-shearing samping)
   const placement = getDecal3DPlacement(apparel, decal.targetSide, decal.x, decal.y, surfaceZ);
-  let posX = placement.position[0];
-  let posY = placement.position[1];
+  const posX = placement.position[0];
+  const posY = placement.position[1];
   const posZ = placement.position[2];
-  // 🌪️ Decal flop: sablon ikut bergoyang sefase kain saat mode angin (statis per
-  // kecepatan — murah, tanpa frame-loop; shader kain yg membawa gerak detail).
-  if (testLabMode === "windtunnel" && windTunnelSpeed > 0) {
-    const wdir = windDirectionToVec(windDirection);
-    const g = (windTunnelSpeed / 100) * 0.02;
-    posX += wdir.x * g;
-    posY += wdir.y * g;
-  }
   // Depth terkalibrasi: CleanDecal secara geometris memfilter segitiga yang tidak menghadap proyektor
   const depthZ = placement.projectionDepth;
 
@@ -243,10 +235,43 @@ const SingleDecalItem: React.FC<{
 
 
 
+  const decalMeshRef = useRef<THREE.Mesh>(null!);
+
+  useFrame((state) => {
+    if (!decalMeshRef.current) return;
+    const isWindActive =
+      (testLabMode === "windtunnel" || animationPreset === "wind") && windTunnelSpeed > 0;
+    if (isWindActive) {
+      const time = state.clock.getElapsedTime();
+      const wdir = windDirectionToVec(windDirection);
+      const speedFactor = windTunnelSpeed / 35;
+      const g = (windTunnelSpeed / 100) * 0.45;
+      // Gelombang sefase dengan vertex shader kain (dot pos.xy [4.0, 5.0])
+      const w1 = Math.sin(time * 2.2 * speedFactor + (posX * 4.0 + posY * 5.0));
+      const w2 = Math.sin(time * 4.1 * speedFactor + posY * 9.0 + posX * 6.0) * 0.35;
+      const flutter = (w1 + w2) * 0.55 * 0.045 * g;
+      const flutterY = wdir.y * flutter + w2 * 0.55 * 0.012 * g;
+      decalMeshRef.current.position.set(
+        wdir.x * flutter,
+        flutterY,
+        wdir.z * flutter
+      );
+      decalMeshRef.current.rotation.set(
+        w2 * 0.035 * g,
+        w1 * 0.03 * g,
+        0
+      );
+    } else {
+      decalMeshRef.current.position.set(0, 0, 0);
+      decalMeshRef.current.rotation.set(0, 0, 0);
+    }
+  });
+
   const setSelectedDecalId = useConfiguratorStore((s) => s.setSelectedDecalId);
 
   return (
     <CleanDecal
+      ref={decalMeshRef}
       targetSide={decal.targetSide}
       position={[posX, posY, posZ]}
       rotation={finalRotation}

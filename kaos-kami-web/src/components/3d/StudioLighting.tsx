@@ -58,12 +58,13 @@ const StudioFloor: React.FC<{ color: string; reflective: boolean }> = ({ color, 
 };
 
 export const StudioLighting: React.FC = () => {
-  const { studioTheme, lightingPreset, selectedColor, testLabMode } = useConfiguratorStore(
+  const { studioTheme, lightingPreset, selectedColor, testLabMode, inspectMode } = useConfiguratorStore(
     useShallow((s) => ({
       studioTheme: s.studioTheme,
       lightingPreset: s.lightingPreset,
       selectedColor: s.selectedColor,
       testLabMode: s.testLabMode,
+      inspectMode: s.inspectMode,
     }))
   );
   // Tiering HP: tier-low = rig ramping (hemi+key+fill+rear), TANPA spot /
@@ -72,10 +73,20 @@ export const StudioLighting: React.FC = () => {
   const isLow = tier === "low" || tier === "no-webgl";
   const isHigh = tier === "high";
 
-  const isLightMode = studioTheme === "gallery";
+  // Redupkan pencahayaan ruangan saat mode Senter 3D aktif agar sorotan senter & pantulan 3M dramatis
+  const isFlashlight = testLabMode === "flashlight";
+  const testLabDim = isFlashlight ? 0.04 : 1.0;
+
+  const isLightMode = !isFlashlight && studioTheme === "gallery";
   const shadowColor = isLightMode ? "#707080" : "#050508";
   const floorColor =
-    studioTheme === "gallery" ? "#E9E7E1" : studioTheme === "concrete" ? "#1B1C1E" : "#101012";
+    isFlashlight
+      ? "#030304"
+      : studioTheme === "gallery"
+        ? "#E9E7E1"
+        : studioTheme === "concrete"
+          ? "#1B1C1E"
+          : "#101012";
 
   // A1: lampu ADAPTIF warna kain — kain gelap "terbakar" jadi abu belang oleh
   // key+rim bila intensitas penuh. darkFactor 0.55 (hitam) → 1.0 (putih).
@@ -89,10 +100,6 @@ export const StudioLighting: React.FC = () => {
   })();
   const darkFactor = Math.min(1, Math.max(0.55, 0.55 + lum * 1.6));
   const k = (v: number) => v * (isLightMode ? 1 : darkFactor);
-
-  // Redupkan pencahayaan ruangan saat mode Senter 3D aktif agar sorotan senter & pantulan 3M dramatis
-  const isFlashlight = testLabMode === "flashlight";
-  const testLabDim = isFlashlight ? 0.05 : 1.0;
 
   // Kalibrasi suhu warna lampu berdasarkan SUASANA CAHAYA (Golden, Sunset, Galeri)
   const isGolden = lightingPreset === "golden";

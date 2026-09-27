@@ -77,12 +77,11 @@ const GltfJacket: React.FC<{ path: string }> = ({ path }) => {
     });
   }, [selectedColor, isWireframe, activeColorMode, materialFinish, windStrength, tier]);
 
-  // Ekstrak geometri terkalibrasi 1:1 vs jacket lama (height-based):
-  // tinggi baked 1.8473 × 0.2999 = 0.55395 = lama 1.06522 × 0.52 → body 74cm sama.
-  // crownYOffset -0.075 dipertahankan (puncak di Y=0.202 = lama persis).
-  // Threshold multi-part tetap valid: puncak 0.202, torso-half ~0.10, lengan s/d 0.31.
+  // Ekstrak geometri terkalibrasi 1:1 dunia nyata (outerwear proportion):
+  // tinggi baked 1.8473 × 0.35 = 0.6465 unit (di atas t-shirt 0.570 & di bawah hoodie 0.725; torso proporsional outerwear).
+  // crownYOffset -0.075 dipertahankan.
   const baseGeometry = useMemo(() => {
-    return extractApparelGeometry(scene, { scaleMultiplier: 0.2999, crownYOffset: -0.075 });
+    return extractApparelGeometry(scene, { scaleMultiplier: 0.35, crownYOffset: -0.075 });
   }, [scene, path]);
 
   useEffect(() => {
@@ -139,7 +138,6 @@ const GltfJacket: React.FC<{ path: string }> = ({ path }) => {
       (material as any).userData.shader.uniforms.uTime.value += delta * animationSpeed;
     }
     if (meshRef.current) {
-      if (isRotating) meshRef.current.rotation.y += delta * 0.75;
       if (animationPreset === "walking") {
         const t = state.clock.getElapsedTime() * animationSpeed;
         meshRef.current.position.y = Math.sin(t * 2.2) * 0.02;

@@ -9,8 +9,8 @@ import {
 // Bila salah satu gagal = mesh/glB diganti tanpa ukur ulang → investigasi dulu.
 describe("scale calibration snapshot (TL-07)", () => {
   it("meshMultiplier sesuai kalibrasi torso 1:1", () => {
-    expect(APPAREL_PHYSICAL_SPECS.tshirt?.meshMultiplier).toBe(145.5);
-    expect(APPAREL_PHYSICAL_SPECS.longsleeve?.meshMultiplier).toBe(145.5);
+    expect(APPAREL_PHYSICAL_SPECS.tshirt?.meshMultiplier).toBe(202.0);
+    expect(APPAREL_PHYSICAL_SPECS.longsleeve?.meshMultiplier).toBe(202.0);
     expect(APPAREL_PHYSICAL_SPECS.crewneck?.meshMultiplier).toBe(163.7);
     expect(APPAREL_PHYSICAL_SPECS.hoodie?.meshMultiplier).toBe(105.6);
     expect(APPAREL_PHYSICAL_SPECS.shirt?.meshMultiplier).toBe(69.5);

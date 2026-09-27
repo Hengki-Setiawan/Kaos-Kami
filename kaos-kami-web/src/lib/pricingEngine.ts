@@ -108,17 +108,14 @@ export function calculate6VariablePrice(input: CalculatePricingInput): PricingBr
   }
 
   // 1. Base Apparel Price
-  const basePriceIdr = APPAREL_CATALOG[apparelSlug]?.basePriceIdr ?? 149000;
+  const basePriceIdr = APPAREL_CATALOG[apparelSlug]?.basePriceIdr ?? 59000;
 
-  // 2. Fabric GSM Surcharge
-  let fabricThicknessSurchargeIdr = 0;
-  if (fabricThicknessSlug === "combed-24s") fabricThicknessSurchargeIdr = 10000;
-  else if (fabricThicknessSlug === "combed-20s") fabricThicknessSurchargeIdr = 15000;
-  else if (fabricThicknessSlug === "combed-16s") fabricThicknessSurchargeIdr = 25000;
+  // 2. Fabric GSM Surcharge (Standar bahan flat Combed 24s bawaan — Rp 0 surcharge)
+  const fabricThicknessSurchargeIdr = 0;
 
-  // 3. Sleeve Surcharge
+  // 3. Sleeve Surcharge (Longsleeve sudah punya basePriceIdr mandiri di APPAREL_CATALOG — Rp 0 surcharge)
   const isLongsleeve = apparelSlug === "longsleeve";
-  const sleeveSurchargeIdr = isLongsleeve ? 20000 : 0;
+  const sleeveSurchargeIdr = 0;
 
   // 4. Per-Decal Print Area Tier (SSOT printTiers.ts, terkalibrasi Maks 30cm DTF)
   // Aspek RIIL dari printPx bila ada (audit: aspect 1.0 hardcoded = undercharge

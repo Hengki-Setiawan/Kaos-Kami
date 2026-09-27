@@ -30,6 +30,7 @@ export interface AdminSummary {
   oversellCount: number | null;
   expressOverdue: number | null;
   complaintsOpen: number | null;
+  unreadChatCount: number | null;
 }
 
 const EMPTY: AdminSummary = {
@@ -39,6 +40,7 @@ const EMPTY: AdminSummary = {
   oversellCount: 0,
   expressOverdue: 0,
   complaintsOpen: 0,
+  unreadChatCount: 0,
 };
 
 /** null = metrik gagal dibaca di server (bukan 0) — tampil "…". */
@@ -58,7 +60,8 @@ function parseSummary(json: unknown): AdminSummary | null {
     s.needsReviewOverdue24h === undefined &&
     s.newOrdersLastHour === undefined &&
     s.oversellCount === undefined &&
-    s.expressOverdue === undefined
+    s.expressOverdue === undefined &&
+    s.unreadChatCount === undefined
   ) {
     return null;
   }
@@ -69,6 +72,7 @@ function parseSummary(json: unknown): AdminSummary | null {
     oversellCount: toNumOrNull(s.oversellCount),
     expressOverdue: toNumOrNull(s.expressOverdue),
     complaintsOpen: toNumOrNull(s.complaintsOpen),
+    unreadChatCount: toNumOrNull(s.unreadChatCount),
   };
 }
 
@@ -180,10 +184,10 @@ export function AdminBell({ pollMs = 60000 }: { pollMs?: number }) {
     return () => clearInterval(id);
   }, [load, pollMs]);
 
-  // Bunyi hanya saat needsReview NAIK dan > 0 (bukan tiap poll).
+  // Bunyi saat needsReview atau unreadChatCount NAIK dan > 0 (bukan tiap poll).
   useEffect(() => {
     if (!summary) return;
-    const cur = summary.needsReview ?? 0;
+    const cur = (summary.needsReview ?? 0) + (summary.unreadChatCount ?? 0);
     const prev = prevNeeds.current;
     prevNeeds.current = cur;
     if (prev !== null && cur > prev && cur > 0) {
@@ -191,10 +195,11 @@ export function AdminBell({ pollMs = 60000 }: { pollMs?: number }) {
     }
   }, [summary]);
 
-  const needs = summary?.needsReview ?? 0;
+  const needs = (summary?.needsReview ?? 0) + (summary?.unreadChatCount ?? 0);
 
   const rows: Array<{ label: string; value: number | null; href: string; danger: boolean }> = [
-    { label: "Perlu review desain", value: summary?.needsReview ?? null, href: "/admin/review", danger: needs > 0 },
+    { label: "Chat masuk pelanggan", value: summary?.unreadChatCount ?? null, href: "/admin/chat", danger: (summary?.unreadChatCount ?? 0) > 0 },
+    { label: "Perlu review desain", value: summary?.needsReview ?? null, href: "/admin/review", danger: (summary?.needsReview ?? 0) > 0 },
     { label: "Review >24 jam", value: summary?.needsReviewOverdue24h ?? null, href: "/admin/review", danger: (summary?.needsReviewOverdue24h ?? 0) > 0 },
     { label: "Order baru 1 jam terakhir", value: summary?.newOrdersLastHour ?? null, href: "/admin/orders", danger: false },
     { label: "Indikasi oversell", value: summary?.oversellCount ?? null, href: "/admin/catalog", danger: (summary?.oversellCount ?? 0) > 0 },

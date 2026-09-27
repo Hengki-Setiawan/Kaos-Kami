@@ -82,8 +82,12 @@ interface ConfiguratorState {
   isWireframe: boolean;
   isRotating: boolean;
   cameraPreset: CameraViewPreset | null;
+  activeViewSide: DecalTargetSide;
+  isStudio3DReady: boolean;
 
   // Actions
+  setIsStudio3DReady: (ready: boolean) => void;
+  setActiveViewSide: (side: DecalTargetSide) => void;
   setViewMode: (mode: ViewMode) => void;
   setActivePhase: (phase: number) => void;
   setIsHideWebsiteUI: (hide: boolean) => void;
@@ -152,12 +156,15 @@ interface ConfiguratorState {
   setLogoPresetPos: (idx: LogoPresetIndex) => void;
   setLogoPresetScale: (idx: LogoPresetIndex) => void;
   setIsMobile: (v: boolean) => void;
-  applyLogoPreset: () => void;
+  applyLogoPreset: (posIndex?: LogoPresetIndex) => void;
   isGizmoDragging: boolean;
   setGizmoDragging: (v: boolean) => void;
   isGizmoVisible: boolean;
   setIsGizmoVisible: (v: boolean) => void;
   toggleGizmoVisible: () => void;
+  isSizeGuideOpen: boolean;
+  setIsSizeGuideOpen: (open: boolean) => void;
+  toggleSizeGuide: () => void;
   animationPreset: "static" | "wind" | "walking" | "knit";
   animationSpeed: number;
   setAnimationPreset: (p: "static" | "wind" | "walking" | "knit") => void;
@@ -178,6 +185,8 @@ interface ConfiguratorState {
   setStretchDirection: (dir: StretchDirection) => void;
   flashlightFocus: number;
   setFlashlightFocus: (focus: number) => void;
+  isStretchDragging: boolean;
+  setIsStretchDragging: (dragging: boolean) => void;
   // Titik grip tarikan di ruang lokal garmen (ditulis raycast controller, dibaca shader).
   stretchCenterXY: [number, number];
   setStretchCenterXY: (xy: [number, number]) => void;
@@ -191,9 +200,9 @@ interface ConfiguratorState {
   qcLux: number;
   setQcLux: (v: number) => void;
   // Mode inspeksi desain (toggle murni, tak ubah data): turntable | bleed X-ray |
-  // macro | mood lintas-cahaya | bounds batas cetak.
-  inspectMode: "none" | "turntable" | "bleed" | "macro" | "mood" | "bounds";
-  setInspectMode: (m: "none" | "turntable" | "bleed" | "macro" | "mood" | "bounds") => void;
+  // grid simetri laser | glaze kilau tinta DTF | macro | mood | bounds.
+  inspectMode: "none" | "turntable" | "bleed" | "grid" | "glaze" | "macro" | "mood" | "bounds";
+  setInspectMode: (m: "none" | "turntable" | "bleed" | "grid" | "glaze" | "macro" | "mood" | "bounds") => void;
   showMannequin: boolean;
   setShowMannequin: (v: boolean) => void;
   toggleShowMannequin: () => void;
@@ -274,7 +283,7 @@ export const useConfiguratorStore = create<ConfiguratorState>((set, get) => ({
   isHideWebsiteUI: false,
 
   isDrawerCollapsed: false,
-  drawerPosition: "right",
+  drawerPosition: "left",
   interactionTool: "rotate",
 
   activeApparel: "tshirt",
@@ -298,6 +307,7 @@ export const useConfiguratorStore = create<ConfiguratorState>((set, get) => ({
   isMobile: false,
   isGizmoDragging: false,
   isGizmoVisible: true,
+  isSizeGuideOpen: false,
   animationPreset: "static" as const,
   animationSpeed: 1.0,
 
@@ -308,6 +318,7 @@ export const useConfiguratorStore = create<ConfiguratorState>((set, get) => ({
   stretchIntensity: 0,
   stretchDirection: "horizontal" as StretchDirection,
   flashlightFocus: 0.45,
+  isStretchDragging: false,
   showMannequin: false,
 
 
@@ -321,7 +332,11 @@ export const useConfiguratorStore = create<ConfiguratorState>((set, get) => ({
   isWireframe: false,
   isRotating: false,
   cameraPreset: null,
+  activeViewSide: "front",
+  isStudio3DReady: false,
 
+  setIsStudio3DReady: (ready) => set({ isStudio3DReady: ready }),
+  setActiveViewSide: (side) => set({ activeViewSide: side }),
   setViewMode: (mode) => set({ viewMode: mode }),
   setActivePhase: (phase) => set({ activePhase: phase }),
   setIsHideWebsiteUI: (hide) => set({ isHideWebsiteUI: hide }),
@@ -338,6 +353,7 @@ export const useConfiguratorStore = create<ConfiguratorState>((set, get) => ({
     const info = APPAREL_CATALOG[apparel];
     set({
       activeApparel: apparel,
+      isStudio3DReady: false,
       selectedSize: info.sizes[0] ?? "L",
       modelPosX: 0,
       modelPosY: 0,
@@ -427,13 +443,14 @@ export const useConfiguratorStore = create<ConfiguratorState>((set, get) => ({
       if (existing) {
         state.updateDecal(existing.id, { url });
       } else {
+        const isJacket = state.activeApparel === "shirt";
         state.addDecal({
           name: "Front Primary",
           url,
           targetSide: "front",
-          x: 0,
-          y: 0.02,
-          scale: 0.11, // A4 standard (~20.5 cm)
+          x: isJacket ? -0.11 : 0, // Jaket open-front: taruh di dada kiri agar menempel di kain, bukan melayang di lubang tengah!
+          y: isJacket ? 0.04 : 0.02,
+          scale: isJacket ? 0.08 : 0.11, // Logo dada jaket proporsional (~10-12cm DTF / bordir)
           rotation: 0,
           opacity: 1,
         });
@@ -457,7 +474,7 @@ export const useConfiguratorStore = create<ConfiguratorState>((set, get) => ({
           url,
           targetSide: "back",
           x: 0,
-          y: 0.02,
+          y: 0.0,
           scale: 0.15, // A3 poster (~27.8 cm)
           rotation: 0,
           opacity: 1,
@@ -663,7 +680,17 @@ export const useConfiguratorStore = create<ConfiguratorState>((set, get) => ({
   toggleWireframe: () => set((state) => ({ isWireframe: !state.isWireframe })),
   setIsRotating: (rotating) => set({ isRotating: rotating }),
   toggleRotating: () => set((state) => ({ isRotating: !state.isRotating })),
-  setCameraPreset: (preset) => set({ cameraPreset: preset }),
+  setCameraPreset: (preset) => {
+    let side: DecalTargetSide | null = null;
+    if (preset === "front" || preset === "collar") side = "front";
+    else if (preset === "back") side = "back";
+    else if (preset === "left") side = "left_sleeve";
+    else if (preset === "right") side = "right_sleeve";
+    set({
+      cameraPreset: preset,
+      ...(side ? { activeViewSide: side } : {}),
+    });
+  },
 
   setPartColor: (partId, hex) =>
     set((s) => ({ partColors: { ...s.partColors, [partId]: hex } })),
@@ -675,6 +702,8 @@ export const useConfiguratorStore = create<ConfiguratorState>((set, get) => ({
   setGizmoDragging: (v) => set({ isGizmoDragging: v }),
   setIsGizmoVisible: (v) => set({ isGizmoVisible: v }),
   toggleGizmoVisible: () => set((state) => ({ isGizmoVisible: !state.isGizmoVisible })),
+  setIsSizeGuideOpen: (open) => set({ isSizeGuideOpen: open }),
+  toggleSizeGuide: () => set((state) => ({ isSizeGuideOpen: !state.isSizeGuideOpen })),
   setAnimationPreset: (p) => set({ animationPreset: p }),
   setAnimationSpeed: (s) => set({ animationSpeed: s }),
   setTestLabMode: (mode) => set({ testLabMode: mode }),
@@ -684,6 +713,7 @@ export const useConfiguratorStore = create<ConfiguratorState>((set, get) => ({
   setStretchIntensity: (intensity) => set({ stretchIntensity: Math.max(0, Math.min(1, intensity)) }),
   setStretchDirection: (dir) => set({ stretchDirection: dir }),
   setFlashlightFocus: (focus) => set({ flashlightFocus: Math.max(0.15, Math.min(0.85, focus)) }),
+  setIsStretchDragging: (dragging) => set({ isStretchDragging: dragging }),
   stretchCenterXY: [0, 0],
   setStretchCenterXY: (xy) => set({ stretchCenterXY: xy }),
   qcGrazingDeg: 30,
@@ -694,21 +724,28 @@ export const useConfiguratorStore = create<ConfiguratorState>((set, get) => ({
   setQcAzimuth: (a) => set({ qcAzimuth: Number.isFinite(a) ? Math.max(0, Math.min(360, a)) : 90 }),
   qcLux: 0,
   setQcLux: (v) => set({ qcLux: Number.isFinite(v) ? Math.max(0, Math.round(v)) : 0 }),
-  inspectMode: "none" as "none" | "turntable" | "bleed" | "macro" | "mood" | "bounds",
+  inspectMode: "none" as "none" | "turntable" | "bleed" | "grid" | "glaze" | "macro" | "mood" | "bounds",
   setInspectMode: (m) => set({ inspectMode: m }),
   setShowMannequin: (v) => set({ showMannequin: v }),
   toggleShowMannequin: () => set((state) => ({ showMannequin: !state.showMannequin })),
 
-  applyLogoPreset: () => {
-    // SATU konstanta: LOGO_POSITION_PRESETS + LOGO_SCALE_PRESETS (SSOT preset
-    // logo). Dulu ada scaleMap lokal [0.05,0.11,0.16] yang menyimpang dari
-    // LOGO_SCALE_PRESETS [0.09,0.12,0.17] → preset tampil beda dari klaim.
+  applyLogoPreset: (posIndex?: LogoPresetIndex) => {
     const s = get();
+    const pos = posIndex !== undefined ? posIndex : s.logoPresetPos;
+    if (posIndex !== undefined && s.logoPresetPos !== posIndex) {
+      set({ logoPresetPos: posIndex });
+    }
     const active = s.decals.find((d) => d.id === s.selectedDecalId) ?? s.decals[0];
     if (!active) return;
+    const isPocket = pos === 0 || pos === 2;
+    const posX = pos === 0 ? -0.065 : pos === 2 ? 0.065 : 0;
+    const posY = isPocket ? 0.04 : 0.0;
+    const targetScale = isPocket ? Math.min(active.scale, 0.11) : active.scale;
     s.updateDecal(active.id, {
-      x: LOGO_POSITION_PRESETS[s.logoPresetPos] ?? 0,
-      scale: LOGO_SCALE_PRESETS[s.logoPresetScale] ?? LOGO_SCALE_PRESETS[1]!,
+      x: posX,
+      y: posY,
+      targetSide: "front",
+      scale: targetScale,
     });
   },
 }));

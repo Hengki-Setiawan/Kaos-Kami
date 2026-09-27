@@ -22,6 +22,7 @@ import { TechSpecsOverlay } from "@/components/ui/TechSpecsOverlay";
 import { BackGraphicOverlay } from "@/components/ui/BackGraphicOverlay";
 import { CustomizerDrawer } from "@/components/ui/CustomizerDrawer";
 import { StoreShowcaseSection } from "@/components/ui/StoreShowcaseSection";
+import { AboutWorkshopSection } from "@/components/ui/AboutWorkshopSection";
 import { useScrollPhases } from "@/hooks/useScrollPhases";
 import { useWebglSupport } from "@/hooks/useWebglSupport";
 import { useDeviceTier } from "@/hooks/useDeviceTier";
@@ -74,6 +75,7 @@ export default function Home() {
         <Navbar />
         <StaticShowcase />
         <StoreShowcaseSection />
+        <AboutWorkshopSection />
         <Footer />
       </>
     );
@@ -115,6 +117,7 @@ export default function Home() {
       {!isHideWebsiteUI && (
         <>
           <StoreShowcaseSection />
+          <AboutWorkshopSection />
           <Footer />
         </>
       )}

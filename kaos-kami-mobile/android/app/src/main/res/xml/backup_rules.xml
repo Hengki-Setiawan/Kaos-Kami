@@ -10,7 +10,6 @@
      allowBackup TETAP true (bukan false): galeri draft & preferensi tema
      tetap ikut backup; hanya file sensitif/basi yang di-exclude. -->
 <full-backup-content>
-    <exclude domain="cache" path="." />
     <exclude domain="file" path="app_webview/" />
     <exclude domain="database" path="webview.db" />
     <exclude domain="database" path="webviewCookiesChromium.db" />

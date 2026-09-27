@@ -542,3 +542,39 @@ model UserDevice {
 
   @@index([userId])
 }
+
+// ------------------------------------------------------------------
+// LIVE CHAT & PRESENCE (User <-> Admin Workshop / Kamito)
+// ------------------------------------------------------------------
+
+model ChatMessage {
+  id          String   @id @default(cuid())
+  senderId    String
+  senderName  String?
+  senderRole  String   @default("CUSTOMER") // "CUSTOMER" | "ADMIN" | "BOT"
+  receiverId  String?  // null bila pesan ditujukan ke seluruh tim admin workshop
+  orderId     String?  // opsional: menautkan percakapan dengan order tertentu
+  content     String
+  attachments String?  // JSON array URL lampiran / gambar R2
+  isRead      Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([senderId])
+  @@index([receiverId])
+  @@index([createdAt])
+  @@index([orderId])
+}
+
+model UserPresence {
+  userId     String   @id
+  userName   String?
+  role       String   @default("CUSTOMER") // "CUSTOMER" | "ADMIN"
+  lastSeenAt DateTime @default(now())
+  isOnline   Boolean  @default(true)
+  deviceInfo String?
+
+  @@index([role])
+  @@index([lastSeenAt])
+}
+

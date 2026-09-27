@@ -64,7 +64,7 @@ const CheckoutItemSchema = z.object({
   // Opsional; hanya URL https yang diterima (base64 ditolak Zod) — client
   // WAJIB upload ke R2 dulu (login: /api/upload/r2 kind=master; guest:
   // POST /api/designs draft). Disimpan ke arsip Design saat checkout.
-  masterAssetUrl: CheckoutMasterMapSchema,
+  masterAssetUrl: CheckoutMasterMapSchema.optional(),
 });
 
 const MAX_CHECKOUT_RAW_BYTES = 2 * 1024 * 1024;
@@ -97,6 +97,9 @@ const CheckoutPayloadSchema = z.object({
   // Alias code/otp/otpToken/proof dibaca dari body mentah (lihat gerbang OTP).
   otpCode: z.string().max(32).optional(),
   couponCode: z.string().max(32).optional(),
+  // Fitur Khusus Pengujian Admin (Bypass Pembayaran)
+  adminBypassPayment: z.boolean().optional(),
+  adminDirectConfirm: z.boolean().optional(),
 });
 
 export async function POST(req: NextRequest) {
@@ -129,6 +132,12 @@ export async function POST(req: NextRequest) {
         });
       }
     } catch {}
+
+    const isAdminUser =
+      sessionUser?.role === "ADMIN" ||
+      sessionUser?.role === "SUPER_ADMIN" ||
+      sessionUser?.email === "hengkishadow@gmail.com" ||
+      sessionUser?.email === "admin@kaoskami.biz.id";
 
     // P0-2 IDEMPOTENCY TANPA MIGRASI: dedupe via header Idempotency-Key di atas
     // tabel Verification yang SUDAH ADA (identifier `idem:checkout:<key>` →
@@ -216,7 +225,18 @@ export async function POST(req: NextRequest) {
       items,
       turnstileToken,
       couponCode,
+      adminBypassPayment,
+      adminDirectConfirm,
     } = validation.data;
+
+    // Strict Server-Side Gate: Bypass pembayaran hanya untuk ADMIN
+    if (adminBypassPayment && !isAdminUser) {
+      return NextResponse.json(
+        { error: "Akses ditolak: Fitur bypass pembayaran hanya diizinkan untuk akun Admin" },
+        { status: 403 }
+      );
+    }
+    const isAdminBypassActive = Boolean(adminBypassPayment && isAdminUser);
 
     // P0-3 GUARD FREE_MAKASSAR: kecamatan wajib & harus dalam whitelist kota
     // (paritas dropdown CheckoutModal←MAKASSAR_SUBDISTRICTS) — tolak 400,
@@ -245,7 +265,9 @@ export async function POST(req: NextRequest) {
     // P0-4 Turnstile FAIL-CLOSED: production tanpa secret = 503 (JANGAN
     // fail-open buta); dev tanpa secret = lewati + warn (DX lokal).
     // Secret ada = token wajib lolos verifikasi (403 bila gagal).
-    if (process.env.TURNSTILE_ENFORCE === "false") {
+    if (isAdminBypassActive) {
+      console.log(`[checkout] Mode pengujian Admin (${sessionUser?.email}) — verifikasi anti-bot dilewati`);
+    } else if (process.env.TURNSTILE_ENFORCE === "false") {
       console.warn("[checkout] TURNSTILE_ENFORCE=false — verifikasi anti-bot DILEWATI (mode darurat)");
     } else if (!process.env.CLOUDFLARE_TURNSTILE_SECRET_KEY) {
       if (process.env.NODE_ENV === "production") {
@@ -459,8 +481,10 @@ export async function POST(req: NextRequest) {
       cleanUserPhone === cleanOrderPhone.replace(/^0/, "62");
 
     const isSandboxMode = process.env.DUITKU_ENV === "sandbox";
-    if (process.env.CHECKOUT_OTP_REQUIRED === "false" || isAlreadyVerified || isSandboxMode) {
-      if (isAlreadyVerified) {
+    if (process.env.CHECKOUT_OTP_REQUIRED === "false" || isAlreadyVerified || isSandboxMode || isAdminBypassActive) {
+      if (isAdminBypassActive) {
+        console.log(`[checkout] Mode pengujian Admin (${sessionUser?.email}) — gerbang OTP dilewati.`);
+      } else if (isAlreadyVerified) {
         console.log(`[checkout] Akun ${sessionUser?.id} (${cleanOrderPhone}) sudah phoneVerified — gerbang OTP dilewati.`);
       } else {
         console.warn(`[checkout] Gerbang OTP DILEWATI (${isSandboxMode ? "mode sandbox Duitku audit" : "CHECKOUT_OTP_REQUIRED=false"})`);
@@ -601,14 +625,22 @@ export async function POST(req: NextRequest) {
     );
     const isSandbox = process.env.DUITKU_ENV === "sandbox";
     // Produk ready-stock katalog (non-custom) ATAU mode sandbox Duitku audit siap bayar langsung
-    const isImmediatePayment = !isCustomDesign || isSandbox;
-    const initialStatus = isImmediatePayment ? "PENDING_PAYMENT" : "DESIGN_REVIEW";
+    const isImmediatePayment = isAdminBypassActive
+      ? Boolean(adminDirectConfirm)
+      : (!isCustomDesign || isSandbox);
+    const initialStatus = isAdminBypassActive
+      ? (adminDirectConfirm ? "PENDING_PAYMENT" : "DESIGN_REVIEW")
+      : (isImmediatePayment ? "PENDING_PAYMENT" : "DESIGN_REVIEW");
 
     // 5. Generate Human-Readable Order Number (KK-YYYYMMDD-XXXX, tanggal WITA)
     // + retry anti-tabrakan UNIQUE (ruang 9000/hari bisa penuh saat ramai).
     const { nextOrderNumber } = await import("@/lib/orderNumber");
     let orderBase: any = null;
     let lastErr: any = null;
+    const testTag = isAdminBypassActive ? "[TEST_ORDER:ADMIN_BYPASS]" : null;
+    const combinedNotes = [appliedCoupon ? `COUPON:${appliedCoupon}` : null, testTag].filter(Boolean).join(" | ") || null;
+    const testCourierTag = isAdminBypassActive ? "[UJI COBA ADMIN]" : "";
+
     for (let attempt = 0; attempt < 5 && !orderBase; attempt++) {
       try {
         const [row] = await db
@@ -619,22 +651,24 @@ export async function POST(req: NextRequest) {
             userId: user.id,
             // Jika ready-stock katalog atau sandbox Duitku audit: langsung PENDING_PAYMENT
             status: initialStatus,
-            reviewedBy: isImmediatePayment ? (isCustomDesign ? "AUDIT_SANDBOX" : "SYSTEM_CATALOG") : null,
+            reviewedBy: (isAdminBypassActive && adminDirectConfirm)
+              ? "ADMIN_TEST_BYPASS"
+              : (isImmediatePayment ? (isCustomDesign ? "AUDIT_SANDBOX" : "SYSTEM_CATALOG") : null),
             deliveryMethod,
             subtotalIdr: computedSubtotalIdr,
             shippingCostIdr,
             discountIdr,
             totalIdr: computedTotalIdr,
             shippingAddressId: address?.id,
-            // Marker kupon untuk restore kuota saat batal/refund
-            // (dibaca getOrderCouponCode — JANGAN hapus/pakai untuk teks bebas).
-            notes: appliedCoupon ? `COUPON:${appliedCoupon}` : null,
+            // Marker kupon untuk restore kuota saat batal/refund + marker test order
+            notes: combinedNotes,
             // Marker tier SERVER-ONLY: notes user dibersihkan dari pola [TIER:*]
             // agar tak bisa klaim prioritas gratis (audit: substring EXPRESS).
             courierNotes: [
               (courierNotes || "").replace(/\[TIER:[^\]]*\]/g, "").trim(),
               expeditionLabel,
               turnaroundTier === "EXPRESS_24H" ? "EXPRESS 24H [TIER:EXPRESS_24H]" : "",
+              testCourierTag,
             ]
               .filter(Boolean)
               .join(" | "),
@@ -777,6 +811,61 @@ export async function POST(req: NextRequest) {
       throw itemsErr;
     }
     const order = { ...orderRow, items: validatedItems };
+
+    // ALUR PENGUJIAN ADMIN (BYPASS PEMBAYARAN LANGSUNG)
+    if (isAdminBypassActive) {
+      if (adminDirectConfirm) {
+        // 1. Catat Payment lunas bypass
+        await db.insert(Payment).values({
+          id: nanoid(),
+          orderId: order.id,
+          provider: "ADMIN_BYPASS",
+          providerRef: `TEST-BYPASS-${nanoid(8).toUpperCase()}`,
+          amountIdr: computedTotalIdr,
+          status: "SETTLED",
+        });
+
+        // 2. Panggil confirmOrderPaid untuk set status PAYMENT_CONFIRMED & spawn tiket produksi DTF di Kanban
+        const { confirmOrderPaid } = await import("@/lib/payments/confirmOrder");
+        await confirmOrderPaid(order.id, {
+          via: `ADMIN_BYPASS (${sessionUser?.name || sessionUser?.email})`,
+          paymentCode: "ADMIN_BYPASS",
+          reference: `TEST-ORDER-${order.orderNumber}`,
+          express: turnaroundTier === "EXPRESS_24H",
+        });
+
+        return NextResponse.json({
+          success: true,
+          orderId: order.id,
+          orderNumber: order.orderNumber,
+          amount: computedTotalIdr,
+          status: "PAYMENT_CONFIRMED",
+          invoiceUrl: `${siteUrl()}/orders/${order.id}`,
+          isTestOrder: true,
+          message: "Pesanan uji coba berhasil dibuat dengan bypass pembayaran. Status lunas & tiket produksi terbit di Kanban.",
+        });
+      } else {
+        await db.insert(Payment).values({
+          id: nanoid(),
+          orderId: order.id,
+          provider: "ADMIN_BYPASS",
+          providerRef: `TEST-BYPASS-PENDING-${nanoid(6).toUpperCase()}`,
+          amountIdr: computedTotalIdr,
+          status: "PENDING",
+        });
+
+        return NextResponse.json({
+          success: true,
+          orderId: order.id,
+          orderNumber: order.orderNumber,
+          amount: computedTotalIdr,
+          status: "DESIGN_REVIEW",
+          invoiceUrl: `${siteUrl()}/orders/${order.id}`,
+          isTestOrder: true,
+          message: "Pesanan uji coba berhasil dibuat dalam antrean Review Desain (simulasi review).",
+        });
+      }
+    }
 
     let chargeResult: any = null;
     if (isImmediatePayment) {

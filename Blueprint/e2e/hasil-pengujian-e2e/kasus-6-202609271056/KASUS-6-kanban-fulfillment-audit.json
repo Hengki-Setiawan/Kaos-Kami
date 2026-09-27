@@ -1,0 +1,54 @@
+{
+  "kasus": "KASUS 6: WORKSHOP KANBAN 7-TAHAP & FULFILLMENT",
+  "stages": [
+    {
+      "stage": "DESIGN_PREP",
+      "desc": "Persiapan File RIP, Master 300 DPI, Margin & Bleed Check"
+    },
+    {
+      "stage": "PRINTING",
+      "desc": "Pencetakan Transfer Film DTF Menggunakan Tinta Putih Underbase"
+    },
+    {
+      "stage": "HEAT_PRESS_1",
+      "desc": "Pengepresan Panas Pertama (165 Derajat C, 15 Detik, 4.5 Bar Tekanan)"
+    },
+    {
+      "stage": "HEAT_PRESS_2",
+      "desc": "Cold Peel Pelepasan Film & Finishing Press Penguncian Serat Kain"
+    },
+    {
+      "stage": "QC_INSPECTION",
+      "desc": "Inspeksi Visual Kualitas, Sudut Grazing Light 30 Derajat, Uji Gosok"
+    },
+    {
+      "stage": "PACKAGING",
+      "desc": "Pelipatan Garmen, Hangtag Kaos Kami, Kemasan Plastik Polymailer"
+    },
+    {
+      "stage": "DONE",
+      "desc": "Produksi Sablon Selesai Penuh — Masuk Jalur Pengantaran / Pickup"
+    }
+  ],
+  "orders": [
+    {
+      "orderNumber": "KK-20260927-6240",
+      "deliveryMethod": "FREE_MAKASSAR",
+      "finalStatus": "SHIPPED",
+      "tasksCount": 4
+    },
+    {
+      "orderNumber": "KK-20260927-8914",
+      "deliveryMethod": "PICKUP",
+      "finalStatus": "READY_TO_PICKUP",
+      "tasksCount": 2
+    },
+    {
+      "orderNumber": "KK-20260927-1158",
+      "deliveryMethod": "FREE_MAKASSAR",
+      "finalStatus": "SHIPPED",
+      "tasksCount": 2
+    }
+  ],
+  "timestamp": "2026-09-27T10:57:07.195Z"
+}

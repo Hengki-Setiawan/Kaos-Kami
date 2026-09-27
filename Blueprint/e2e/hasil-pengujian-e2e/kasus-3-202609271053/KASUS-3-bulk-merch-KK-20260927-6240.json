@@ -1,0 +1,52 @@
+{
+  "kasus": "KASUS 3: BULK MERCH ORDER (12 PCS KAOS)",
+  "order": {
+    "id": "f_yzooTayGVvRoOX5MoEu",
+    "orderNumber": "KK-20260927-6240",
+    "status": "PENDING_PAYMENT",
+    "subtotalIdr": 1356600,
+    "shippingCostIdr": 0,
+    "totalIdr": 1356600
+  },
+  "customer": {
+    "name": "hengki vibecoding1",
+    "email": "hengkivibecoding@gmail.com",
+    "phone": "0895803463032"
+  },
+  "itemsCount": 12,
+  "productionTasks": [
+    {
+      "id": "29mL-1R5VvzbyF-Jui87o",
+      "orderId": "f_yzooTayGVvRoOX5MoEu",
+      "stage": "DESIGN_PREP",
+      "printWidthCm": 30,
+      "printHeightCm": 40.7,
+      "placementSide": "front"
+    },
+    {
+      "id": "46Jm_KgIwUjn8IOiYyO2M",
+      "orderId": "f_yzooTayGVvRoOX5MoEu",
+      "stage": "DESIGN_PREP",
+      "printWidthCm": 24.2,
+      "printHeightCm": 24.2,
+      "placementSide": "back"
+    },
+    {
+      "id": "FGpDUsdDHeJLCsJhb5T0D",
+      "orderId": "f_yzooTayGVvRoOX5MoEu",
+      "stage": "DESIGN_PREP",
+      "printWidthCm": 30,
+      "printHeightCm": 42,
+      "placementSide": "front"
+    },
+    {
+      "id": "yB57o_28Qgz6rFTx0MzMb",
+      "orderId": "f_yzooTayGVvRoOX5MoEu",
+      "stage": "DESIGN_PREP",
+      "printWidthCm": 30,
+      "printHeightCm": 30,
+      "placementSide": "front"
+    }
+  ],
+  "timestamp": "2026-09-27T10:53:16.963Z"
+}

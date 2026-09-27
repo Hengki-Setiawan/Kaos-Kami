@@ -15,6 +15,7 @@ import { useResourceTracker, useTrackedResource } from "@/lib/threeResourceTrack
 import { surfaceZForApparel } from "@/lib/scaleCalibration";
 import { SilentModelFallback } from "@/components/ui/ModelErrorBoundary";
 import { extractApparelGeometry } from "@/lib/extractApparelGeometry";
+import { applyStretchToMaterial, ensureStretchWeights, sharedStretchUniforms } from "@/lib/3d/stretchDeform";
 import { TshirtModel } from "./TshirtModel";
 
 // CELANA coming-soon (pola integrasi cap, Sep 2026).
@@ -91,7 +92,9 @@ const GltfPants: React.FC<{ path: string }> = ({ path }) => {
     animationPreset === "wind" ? 0.8 * animationSpeed : animationPreset === "walking" ? 0.4 * animationSpeed : 0;
 
   const baseGeometry = useMemo(() => {
-    return extractApparelGeometry(scene);
+    const geo = extractApparelGeometry(scene);
+    if (geo) ensureStretchWeights(geo, { mode: "full" });
+    return geo;
   }, [scene, path]);
 
   useEffect(() => {
@@ -116,13 +119,25 @@ const GltfPants: React.FC<{ path: string }> = ({ path }) => {
   useTrackedResource(geoTracker, baseGeometry);
   useTrackedResource(matTracker, material);
 
+  // Injeksi shader stretch ke material celana
+  useEffect(() => {
+    applyStretchToMaterial(material, sharedStretchUniforms, baseGeometry ?? undefined);
+  }, [material, baseGeometry]);
+
+  // Mode inspeksi bleed X-ray: kain transparan, sablon tetap tampak
+  const bleedCheck = useConfiguratorStore((s) => s.inspectMode === "bleed");
+  useEffect(() => {
+    material.transparent = bleedCheck;
+    material.opacity = bleedCheck ? 0.15 : 1;
+    material.depthWrite = !bleedCheck;
+  }, [material, bleedCheck]);
+
   useFrame((state, delta) => {
     easing.dampC(material.color, new THREE.Color(selectedColor), 0.25, delta);
     if ((material as any).userData?.shader?.uniforms?.uTime) {
       (material as any).userData.shader.uniforms.uTime.value += delta * animationSpeed;
     }
     if (meshRef.current) {
-      if (isRotating) meshRef.current.rotation.y += delta * 0.75;
       if (animationPreset === "walking") {
         const t = state.clock.getElapsedTime() * animationSpeed;
         meshRef.current.position.y = Math.sin(t * 2.2) * 0.025;

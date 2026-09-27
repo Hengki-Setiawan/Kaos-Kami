@@ -32,6 +32,21 @@ const LOOKBOOK_PRESETS = [
   { label: "Look 04 (Tactical Olive)", url: "/lookbook/look-04.jpg" },
 ];
 
+interface SizeMatrixItem {
+  size: string;
+  enabled: boolean;
+  priceIdr: number;
+  stockQty: number;
+}
+
+const DEFAULT_MATRIX: SizeMatrixItem[] = [
+  { size: "S", enabled: true, priceIdr: 165000, stockQty: 20 },
+  { size: "M", enabled: true, priceIdr: 165000, stockQty: 25 },
+  { size: "L", enabled: true, priceIdr: 165000, stockQty: 30 },
+  { size: "XL", enabled: true, priceIdr: 175000, stockQty: 20 },
+  { size: "XXL", enabled: true, priceIdr: 185000, stockQty: 10 },
+];
+
 export function AddProductModal({ categories }: { categories: CategoryOption[] }) {
   const router = useRouter();
   const [isOpen, setIsOpen] = useState(false);
@@ -44,11 +59,28 @@ export function AddProductModal({ categories }: { categories: CategoryOption[] }
   const [name, setName] = useState("");
   const [colorHex, setColorHex] = useState("#121214");
   const [colorName, setColorName] = useState("Obsidian Black");
-  const [size, setSize] = useState("L");
-  const [priceIdr, setPriceIdr] = useState("165000");
-  const [stockQty, setStockQty] = useState("25");
   const [imageUrl, setImageUrl] = useState("/lookbook/look-01.jpg");
   const [isPreDesigned, setIsPreDesigned] = useState(true);
+
+  // Shopee/Tokopedia Size & Stock Variation Matrix
+  const [sizeMatrix, setSizeMatrix] = useState<SizeMatrixItem[]>(DEFAULT_MATRIX);
+  const [massPrice, setMassPrice] = useState("165000");
+  const [massStock, setMassStock] = useState("20");
+
+  const handleMassApply = () => {
+    const p = Number(massPrice) || 165000;
+    const s = Number(massStock) || 0;
+    setSizeMatrix((prev) =>
+      prev.map((item) => {
+        const surcharge = item.size === "XL" ? 10000 : item.size === "XXL" ? 20000 : 0;
+        return {
+          ...item,
+          priceIdr: p + surcharge,
+          stockQty: s,
+        };
+      })
+    );
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -56,14 +88,10 @@ export function AddProductModal({ categories }: { categories: CategoryOption[] }
       setErrorMsg("Nama produk wajib diisi");
       return;
     }
-    const price = Math.min(100_000_000, Number(priceIdr) || 0);
-    const stock = Number(stockQty);
-    if (!price || price < 1000) {
-      setErrorMsg("Harga produk minimal Rp 1.000");
-      return;
-    }
-    if (Number(priceIdr) > 100_000_000) {
-      setErrorMsg("Harga maksimal Rp 100.000.000");
+
+    const enabledVariations = sizeMatrix.filter((m) => m.enabled);
+    if (enabledVariations.length === 0) {
+      setErrorMsg("Pilih minimal 1 ukuran untuk dijual");
       return;
     }
 
@@ -78,12 +106,14 @@ export function AddProductModal({ categories }: { categories: CategoryOption[] }
           categoryId,
           name: name.trim(),
           colorHex,
-          colorName,
-          size,
-          priceIdr: price,
-          stockQty: stock,
-          images: [imageUrl],
+          colorName: colorName.trim(),
+          images: [imageUrl.trim()],
           isPreDesigned,
+          variations: enabledVariations.map((v) => ({
+            size: v.size,
+            priceIdr: Math.max(1000, Math.min(100_000_000, v.priceIdr)),
+            stockQty: Math.max(0, Math.min(100000, v.stockQty)),
+          })),
         }),
       });
 
@@ -121,7 +151,7 @@ export function AddProductModal({ categories }: { categories: CategoryOption[] }
           onClick={() => !busy && setIsOpen(false)}
         >
           <div
-            className="relative w-full max-w-xl max-h-[90vh] overflow-y-auto bg-surface border border-border-subtle rounded-3xl p-6 sm:p-8 font-mono text-xs shadow-2xl space-y-6"
+            className="relative w-full max-w-2xl max-h-[92vh] overflow-y-auto bg-surface border border-border-subtle rounded-3xl p-6 sm:p-8 font-mono text-xs shadow-2xl space-y-6"
             onClick={(e) => e.stopPropagation()}
           >
             {/* Modal Header */}
@@ -134,7 +164,7 @@ export function AddProductModal({ categories }: { categories: CategoryOption[] }
                   INPUT PRODUK ETALASE BARU
                 </h2>
                 <p className="text-text-muted mt-1 text-[11px]">
-                  Produk yang Anda buat akan langsung tampil di Beranda & Katalog Publik Kaos Kami.
+                  Pengaturan variasi ukuran, harga dinamis, dan stok terintegrasi database Turso.
                 </p>
               </div>
               <button
@@ -156,7 +186,7 @@ export function AddProductModal({ categories }: { categories: CategoryOption[] }
             {successMsg && (
               <div className="p-3.5 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 flex items-center gap-2">
                 <Check size={15} className="shrink-0" />
-                <span>✓ Produk berhasil ditambahkan ke katalog & etalase toko!</span>
+                <span>✓ Produk dan seluruh variasi ukuran berhasil disimpan ke database!</span>
               </div>
             )}
 
@@ -165,12 +195,12 @@ export function AddProductModal({ categories }: { categories: CategoryOption[] }
               {/* Kategori Apparel */}
               <div className="space-y-1.5">
                 <label className="font-bold text-text-primary uppercase text-[11px]">
-                  Kategori Pakaian
+                  Kategori Pakaian / Model 3D
                 </label>
                 <select
                   value={categoryId}
                   onChange={(e) => setCategoryId(e.target.value)}
-                  className="w-full p-3 rounded-xl bg-canvas border border-border-subtle text-text-primary focus:outline-none focus:border-brand-accent"
+                  className="w-full p-3 rounded-xl bg-canvas border border-border-subtle text-text-primary focus:outline-none focus:border-brand-accent font-bold"
                 >
                   {categories.map((c) => (
                     <option key={c.id} value={c.id}>
@@ -193,34 +223,6 @@ export function AddProductModal({ categories }: { categories: CategoryOption[] }
                   className="w-full p-3 rounded-xl bg-canvas border border-border-subtle text-text-primary focus:outline-none focus:border-brand-accent text-xs"
                   required
                 />
-              </div>
-
-              {/* Grid: Harga & Stok */}
-              <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-1.5">
-                  <label className="font-bold text-text-primary uppercase text-[11px]">
-                    Harga Jual (Rp)
-                  </label>
-                  <input
-                    type="number"
-                    value={priceIdr}
-                    onChange={(e) => setPriceIdr(e.target.value)}
-                    className="w-full p-3 rounded-xl bg-canvas border border-border-subtle text-text-primary focus:outline-none focus:border-brand-accent font-bold"
-                    required
-                  />
-                </div>
-                <div className="space-y-1.5">
-                  <label className="font-bold text-text-primary uppercase text-[11px]">
-                    Jumlah Stok (Pcs)
-                  </label>
-                  <input
-                    type="number"
-                    value={stockQty}
-                    onChange={(e) => setStockQty(e.target.value)}
-                    className="w-full p-3 rounded-xl bg-canvas border border-border-subtle text-text-primary focus:outline-none focus:border-brand-accent font-bold"
-                    required
-                  />
-                </div>
               </div>
 
               {/* Pilihan Warna Kain */}
@@ -255,26 +257,150 @@ export function AddProductModal({ categories }: { categories: CategoryOption[] }
                 </div>
               </div>
 
-              {/* Pilihan Ukuran Default */}
-              <div className="space-y-1.5">
-                <label className="font-bold text-text-primary uppercase text-[11px]">
-                  Ukuran Tersedia
-                </label>
-                <div className="flex gap-2">
-                  {["S", "M", "L", "XL", "XXL"].map((sz) => (
-                    <button
-                      key={sz}
-                      type="button"
-                      onClick={() => setSize(sz)}
-                      className={`flex-1 py-2 rounded-xl font-bold border transition-all ${
-                        size === sz
-                          ? "bg-brand-accent text-canvas border-brand-accent"
-                          : "bg-canvas border-border-subtle text-text-primary hover:border-brand-accent/50"
-                      }`}
-                    >
-                      {sz}
-                    </button>
-                  ))}
+              {/* ─── PENGATURAN VARIASI UKURAN & STOK (STANDAR SHOPEE / TOKOPEDIA) ─── */}
+              <div className="p-4 rounded-2xl bg-canvas border border-border-subtle space-y-3">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-border-subtle pb-3">
+                  <div>
+                    <span className="font-bold text-text-primary uppercase text-[11px] block">
+                      Matriks Variasi Ukuran (Size & Stock Matrix)
+                    </span>
+                    <span className="text-[10px] text-text-muted">
+                      Atur harga dan stok masing-masing ukuran (S, M, L, XL, XXL) terintegrasi ke database.
+                    </span>
+                  </div>
+                  <div className="flex gap-1.5 flex-wrap">
+                    {sizeMatrix.map((sz) => (
+                      <button
+                        key={sz.size}
+                        type="button"
+                        onClick={() =>
+                          setSizeMatrix((prev) =>
+                            prev.map((it) => (it.size === sz.size ? { ...it, enabled: !it.enabled } : it))
+                          )
+                        }
+                        className={`px-2.5 py-1 rounded-lg text-[10px] font-bold border transition-all ${
+                          sz.enabled
+                            ? "bg-brand-accent/20 border-brand-accent text-brand-accent"
+                            : "bg-surface border-border-subtle text-text-muted opacity-60"
+                        }`}
+                      >
+                        {sz.enabled ? `✓ ${sz.size}` : `+ ${sz.size}`}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Mass Apply Bar */}
+                <div className="p-2.5 rounded-xl bg-surface border border-border-subtle flex flex-col sm:flex-row items-center gap-2 text-[11px]">
+                  <span className="font-bold text-text-primary text-[10px] shrink-0 uppercase">
+                    ⚡ Terapkan Massal:
+                  </span>
+                  <div className="flex items-center gap-1.5 w-full sm:w-auto">
+                    <span className="text-text-muted text-[10px]">Harga Rp</span>
+                    <input
+                      type="number"
+                      value={massPrice}
+                      onChange={(e) => setMassPrice(e.target.value)}
+                      placeholder="165000"
+                      className="w-24 p-1.5 rounded-lg bg-canvas border border-border-subtle text-text-primary font-bold text-[11px]"
+                    />
+                  </div>
+                  <div className="flex items-center gap-1.5 w-full sm:w-auto">
+                    <span className="text-text-muted text-[10px]">Stok</span>
+                    <input
+                      type="number"
+                      value={massStock}
+                      onChange={(e) => setMassStock(e.target.value)}
+                      placeholder="20"
+                      className="w-20 p-1.5 rounded-lg bg-canvas border border-border-subtle text-text-primary font-bold text-[11px]"
+                    />
+                    <span className="text-text-muted text-[10px]">pcs</span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleMassApply}
+                    className="w-full sm:w-auto ml-auto px-3 py-1.5 rounded-lg bg-brand-accent text-canvas font-bold text-[10px] uppercase hover:brightness-110 active:scale-95 transition-all shadow-sm"
+                  >
+                    Terapkan ke Semua Ukuran
+                  </button>
+                </div>
+
+                {/* Variation Table */}
+                <div className="overflow-x-auto">
+                  <table className="w-full text-[11px] text-left">
+                    <thead>
+                      <tr className="border-b border-border-subtle text-text-muted text-[10px] uppercase">
+                        <th className="py-2 px-2">Ukuran</th>
+                        <th className="py-2 px-2">Harga Jual (Rp)</th>
+                        <th className="py-2 px-2">Stok (Pcs)</th>
+                        <th className="py-2 px-2">Keterangan</th>
+                        <th className="py-2 px-2 text-right">Status</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-border-subtle">
+                      {sizeMatrix.map((item) => (
+                        <tr key={item.size} className={item.enabled ? "" : "opacity-40"}>
+                          <td className="py-2.5 px-2 font-bold text-text-primary flex items-center gap-2">
+                            <input
+                              type="checkbox"
+                              checked={item.enabled}
+                              onChange={(e) =>
+                                setSizeMatrix((prev) =>
+                                  prev.map((it) => (it.size === item.size ? { ...it, enabled: e.target.checked } : it))
+                                )
+                              }
+                              className="rounded accent-brand-accent"
+                            />
+                            <span className="text-xs">{item.size}</span>
+                          </td>
+                          <td className="py-2.5 px-2">
+                            <input
+                              type="number"
+                              disabled={!item.enabled}
+                              value={item.priceIdr}
+                              onChange={(e) =>
+                                setSizeMatrix((prev) =>
+                                  prev.map((it) =>
+                                    it.size === item.size ? { ...it, priceIdr: Number(e.target.value) || 0 } : it
+                                  )
+                                )
+                              }
+                              className="w-28 p-1.5 rounded-lg bg-surface border border-border-subtle text-text-primary font-bold focus:border-brand-accent"
+                            />
+                          </td>
+                          <td className="py-2.5 px-2">
+                            <input
+                              type="number"
+                              disabled={!item.enabled}
+                              value={item.stockQty}
+                              onChange={(e) =>
+                                setSizeMatrix((prev) =>
+                                  prev.map((it) =>
+                                    it.size === item.size ? { ...it, stockQty: Number(e.target.value) || 0 } : it
+                                  )
+                                )
+                              }
+                              className="w-20 p-1.5 rounded-lg bg-surface border border-border-subtle text-text-primary font-bold focus:border-brand-accent"
+                            />
+                          </td>
+                          <td className="py-2.5 px-2 text-[10px] text-text-muted">
+                            {item.size === "XL" ? "+10rb (katun extra)" : item.size === "XXL" ? "+20rb (katun extra)" : "Standar distro"}
+                          </td>
+                          <td className="py-2.5 px-2 text-right">
+                            {item.stockQty <= 0 ? (
+                              <span className="px-2 py-0.5 rounded text-[9px] font-bold bg-rose-500/10 text-rose-400 border border-rose-500/20">
+                                HABIS (0)
+                              </span>
+                            ) : (
+                              <span className="px-2 py-0.5 rounded text-[9px] font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                                READY ({item.stockQty})
+                              </span>
+                            )}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
                 </div>
               </div>
 
@@ -335,7 +461,7 @@ export function AddProductModal({ categories }: { categories: CategoryOption[] }
                   className="w-full py-3.5 px-6 rounded-2xl bg-brand-accent text-canvas font-bold text-xs uppercase tracking-wider hover:brightness-110 active:scale-[0.98] transition-all flex items-center justify-center gap-2 shadow-lg disabled:opacity-40"
                 >
                   <Sparkles size={15} />
-                  <span>{busy ? "MENYIMPAN KE DATABASE..." : "TERBITKAN PRODUK KE ETALASE"}</span>
+                  <span>{busy ? "MENYIMPAN KE DATABASE..." : "TERBITKAN SELURUH VARIASI KE ETALASE"}</span>
                 </button>
               </div>
             </form>

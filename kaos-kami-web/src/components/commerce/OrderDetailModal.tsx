@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState } from "react";
 import Link from "next/link";
-import { X, ExternalLink, CreditCard, MessageCircleWarning } from "lucide-react";
+import { X, ExternalLink, CreditCard, MessageCircleWarning, ShieldCheck } from "lucide-react";
 import { RepayButton } from "@/components/commerce/RepayButton";
 import { ComplaintForm } from "@/components/commerce/ComplaintForm";
 
@@ -102,12 +102,39 @@ function formatRupiah(n: number) {
 export function OrderDetailModal({
   order,
   onClose,
+  isAdmin = false,
 }: {
   order: ModalOrder;
   onClose: () => void;
+  isAdmin?: boolean;
 }) {
   const [eventNotes, setEventNotes] = useState<string[]>([]);
   const [notesLoading, setNotesLoading] = useState(true);
+  // Bypass pembayaran untuk testing admin
+  const [bypassBusy, setBypassBusy] = useState(false);
+  const [bypassMsg, setBypassMsg] = useState<string | null>(null);
+
+  const handleBypassPayment = async () => {
+    setBypassBusy(true);
+    setBypassMsg(null);
+    try {
+      const res = await fetch(`/api/orders/${order.id}/bypass-payment`, {
+        method: "POST",
+      });
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        throw new Error(data.error || "Gagal memproses bypass");
+      }
+      setBypassMsg("✅ Pembayaran berhasil di-bypass! Tiket produksi diterbitkan di Kanban.");
+      setTimeout(() => {
+        window.location.reload();
+      }, 900);
+    } catch (err: any) {
+      setBypassMsg(`❌ ${err?.message || "Gagal bypass pembayaran"}`);
+    } finally {
+      setBypassBusy(false);
+    }
+  };
   // Alur bayar cepat defensif (request-payment) — fallback RepayButton.
   const [payBusy, setPayBusy] = useState(false);
   const [payUrl, setPayUrl] = useState<string | null>(null);
@@ -270,6 +297,36 @@ export function OrderDetailModal({
             <span className="text-brand-accent">{formatRupiah(order.totalIdr)}</span>
           </div>
         </div>
+
+        {/* Fitur Khusus Pengujian Admin: Bypass Pembayaran Langsung */}
+        {isAdmin && ["DESIGN_REVIEW", "PENDING_PAYMENT"].includes(order.status) && (
+          <div className="p-3.5 rounded-xl bg-amber-500/10 border border-amber-500/30 space-y-2 font-mono">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-1.5 text-amber-500 font-bold text-xs">
+                <ShieldCheck size={15} />
+                <span>Pengujian Admin: Bypass Pembayaran</span>
+              </div>
+              <span className="text-[9px] px-1.5 py-0.5 rounded bg-amber-500 text-black font-extrabold uppercase">
+                BYPASS
+              </span>
+            </div>
+            <p className="text-[11px] text-text-muted">
+              Uji alur konfirmasi lunas instan (tanpa charge Duitku). Tiket sablon DTF langsung diterbitkan di Kanban.
+            </p>
+            <button
+              type="button"
+              onClick={handleBypassPayment}
+              disabled={bypassBusy}
+              className="w-full py-2.5 px-4 rounded-xl bg-gradient-to-r from-amber-500 to-amber-600 text-black font-bold text-xs uppercase tracking-wider hover:brightness-110 active:scale-95 disabled:opacity-50 transition-all flex items-center justify-center gap-2 cursor-pointer shadow-md"
+            >
+              <ShieldCheck size={14} className="stroke-[2.5]" />
+              <span>{bypassBusy ? "MEMPROSES BYPASS…" : "⚡ KONFIRMASI LUNAS SEKARANG (BYPASS RP 0)"}</span>
+            </button>
+            {bypassMsg && (
+              <p className="text-[11px] font-bold text-center mt-1 text-amber-400">{bypassMsg}</p>
+            )}
+          </div>
+        )}
 
         {/* Aksi: BAYAR (bila PENDING_PAYMENT ter-ACC) / INVOICE / KOMPLAIN */}
         {canPay && (

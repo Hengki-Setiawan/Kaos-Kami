@@ -10,10 +10,10 @@ async function main() {
   console.log("User table columns:", info.rows.map(r => ({ name: r.name, type: r.type })));
 
   const u = await c.execute({
-    sql: "SELECT * FROM User WHERE id = '6XBFRQCO5zsXOmdOFsBk0YJmU0lilEWn'",
+    sql: "SELECT id, name, email, phoneNumber, role FROM User WHERE role = 'ADMIN' OR email LIKE '%hengki%'",
     args: []
   });
-  console.log("User row:", u.rows[0]);
+  console.log("Admins and Hengki users:", u.rows);
 }
 
 main().catch(console.error);

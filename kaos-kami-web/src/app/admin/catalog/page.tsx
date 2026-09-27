@@ -6,6 +6,7 @@ import { db } from "@/lib/db";
 import { ProductVariant } from "@/lib/drizzle-schema";
 import { VariantRowActions } from "@/components/admin/VariantRowActions";
 import { AddProductModal } from "@/components/admin/AddProductModal";
+import { MatrixStockGrid } from "@/components/admin/MatrixStockGrid";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -31,11 +32,14 @@ export default async function AdminCatalogPage({
 }) {
   const sp = await searchParams;
   const vpage = Math.max(1, Number(sp.vpage) || 1);
-  const [categories, colors, materials, sablonMethods] = await Promise.all([
+  const [categories, colors, materials, sablonMethods, allVariants] = await Promise.all([
     db.query.ApparelCategory.findMany({ orderBy: (t, { asc }) => asc(t.sortOrder) }),
     db.query.ColorOption.findMany({ orderBy: (t, { asc }) => asc(t.sortOrder) }),
     db.query.MaterialFinish.findMany(),
     db.query.SablonMethod.findMany(),
+    db.query.ProductVariant.findMany({
+      orderBy: (t, { asc }) => [asc(t.categoryId), asc(t.colorName), asc(t.size)],
+    }),
   ]);
   const variantTotal = (await db.select({ n: count() }).from(ProductVariant))[0]?.n ?? 0;
   const variantPages = Math.max(1, Math.ceil(Number(variantTotal) / PER_PAGE));
@@ -53,15 +57,22 @@ export default async function AdminCatalogPage({
     _count: { variants: countMap.get(c.id) || 0 },
   }));
 
+  const categoryOptions = categories.map((c: any) => ({ id: c.id, name: c.name, slug: c.slug }));
+
   return (
     <div className="p-5 sm:p-8 space-y-8 max-w-7xl mx-auto font-mono text-xs">
       <div className="pb-4 border-b border-border-subtle flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="font-display text-2xl sm:text-3xl font-black uppercase text-text-primary">KATALOG MANAGEMENT (ADMIN)</h1>
-          <p className="text-text-muted mt-1">Input & kelola produk etalase • Stok & Harga • Kategori Apparel — sinkron langsung dengan Turso DB</p>
+          <h1 className="font-display text-2xl sm:text-3xl font-black uppercase text-text-primary">KATALOG & INVENTORY MANAGEMENT</h1>
+          <p className="text-text-muted mt-1">Matriks Stok Multi-Dimensi (8 Produk × Warna × Ukuran) • Sinkron langsung dengan Turso DB Edge</p>
         </div>
-        <AddProductModal categories={categories.map((c: any) => ({ id: c.id, name: c.name, slug: c.slug }))} />
+        <AddProductModal categories={categoryOptions} />
       </div>
+
+      {/* MATRIX STOCK GRID (MULTI-DIMENSI) */}
+      <section>
+        <MatrixStockGrid categories={categories as any} initialVariants={allVariants as any} />
+      </section>
 
       <section className="space-y-3">
         <h2 className="font-bold text-text-primary uppercase">Apparel Categories ({categories.length})</h2>
@@ -86,7 +97,14 @@ export default async function AdminCatalogPage({
           {variants.map((v: any) => (
             <div key={v.id} className="p-4 flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3">
               <span className="text-text-primary font-bold">{v.sku || v.id} — {v.name || "Tanpa nama"} ({v.size || "?"} • {v.colorName || "?"})</span>
-              <VariantRowActions id={v.id} stockQty={v.stockQty} priceIdr={v.priceIdr} isActive={!!v.isActive} />
+              <VariantRowActions
+                id={v.id}
+                stockQty={v.stockQty}
+                priceIdr={v.priceIdr}
+                isActive={!!v.isActive}
+                variant={v}
+                categories={categoryOptions}
+              />
             </div>
           ))}
           {variants.length === 0 && <div className="p-8 text-center text-text-muted">Belum ada varian.</div>}

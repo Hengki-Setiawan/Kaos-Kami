@@ -12,30 +12,31 @@ describe("printTiers SSOT", () => {
     expect(classifyPrintTierByCm(10)).toBe("A6");
     expect(classifyPrintTierByCm(10.1)).toBe("A5");
     expect(classifyPrintTierByCm(15)).toBe("A5");
-    expect(classifyPrintTierByCm(15.1)).toBe("A4");
+    expect(classifyPrintTierByCm(20)).toBe("A5");
+    expect(classifyPrintTierByCm(20.1)).toBe("A4");
     expect(classifyPrintTierByCm(25)).toBe("A4");
     expect(classifyPrintTierByCm(25.1)).toBe("A3");
     expect(classifyPrintTierByCm(30)).toBe("A3");
   });
 
-  it("harga tier sesuai price list", () => {
+  it("harga tier sesuai price list (per 10cm = 10rb)", () => {
     expect(printTierCost("A6")).toBe(10000);
-    expect(printTierCost("A5")).toBe(15000);
-    expect(printTierCost("A4")).toBe(25000);
-    expect(printTierCost("A3")).toBe(35000);
+    expect(printTierCost("A5")).toBe(20000);
+    expect(printTierCost("A4")).toBe(30000);
+    expect(printTierCost("A3")).toBe(30000);
   });
 
-  it("by-scale konsisten dengan by-cm via multiplier terukur (Fase Kalibrasi: tshirt 145.5)", () => {
-    // 0.11 × 145.5 = 16.0cm -> A4 di kedua jalur
-    expect(classifyPrintTierByScale(0.11, "tshirt")).toBe(
-      classifyPrintTierByCm(0.11 * 145.5)
+  it("by-scale konsisten dengan by-cm via multiplier terukur (Fase Kalibrasi: tshirt 202.0)", () => {
+    // 0.08 × 202.0 = 16.16cm -> A5 (<= 20cm) di kedua jalur
+    expect(classifyPrintTierByScale(0.08, "tshirt")).toBe(
+      classifyPrintTierByCm(0.08 * 202.0)
     );
-    expect(classifyPrintTierByScale(0.11, "tshirt")).toBe("A4");
+    expect(classifyPrintTierByScale(0.08, "tshirt")).toBe("A5");
   });
 
   it("maxDecalScaleUnits mencapai batas cetak fisik per apparel", () => {
-    // tshirt 30/145.5 ≈ 0.2062; hoodie 28/105.6 ≈ 0.2652
-    expect(maxDecalScaleUnits("tshirt", "front")).toBeCloseTo(30 / 145.5, 4);
+    // tshirt 30/202.0 ≈ 0.1485; hoodie 28/105.6 ≈ 0.2652
+    expect(maxDecalScaleUnits("tshirt", "front")).toBeCloseTo(30 / 202.0, 4);
     expect(maxDecalScaleUnits("hoodie", "front")).toBeCloseTo(28 / 105.6, 4);
     // SWAP 20 Sep 2026: shirt = pullover tanpa resleting → depan full 28 (dulu 14 split).
     expect(maxDecalScaleUnits("shirt", "front")).toBeCloseTo(28 / 69.5, 4);

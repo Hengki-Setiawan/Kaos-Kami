@@ -7,25 +7,41 @@ import { Design } from '@/lib/drizzle-schema';
 import { auth } from '@/lib/auth';
 import { headers } from 'next/headers';
 import { checkRateLimitAsync, getClientIp, rateLimitHeaders } from "@/lib/security/rateLimiter";
-import { DecalLayerSchema, ApparelSlugSchema } from "@/lib/schemas/design";
+import { ApparelSlugSchema } from "@/lib/schemas/design";
+
+const AutosaveDecalSchema = z.object({
+  id: z.string().max(64),
+  url: z.string().max(500_000).default(""),
+  name: z.string().default("Grafis"),
+  targetSide: z.enum(["front", "back", "left_sleeve", "right_sleeve", "hood"]),
+  x: z.number().min(-0.75).max(0.75),
+  y: z.number().min(-0.75).max(0.75),
+  scale: z.number().min(0.02).max(1.5),
+  rotation: z.number().min(-180).max(180),
+  opacity: z.number().min(0).max(1),
+  printPx: z
+    .object({
+      w: z.number().int().positive().max(8000),
+      h: z.number().int().positive().max(8000),
+    })
+    .optional(),
+});
 
 const AutosaveSchema = z.object({
-  // SSOT slug (K-B): alias jacket→shirt dinormalisasi; asing ditolak 400
-  // (fail-closed agar harga/kategori tak salah, bukan fallback diam-diam).
   apparelSlug: ApparelSlugSchema,
   colorHex: z.string().regex(/^#([0-9A-Fa-f]{3}|[0-9A-Fa-f]{6})$/).optional(),
   colorName: z.string().max(40).optional(),
   size: z.string().max(10).optional(),
-  decals: z.array(DecalLayerSchema).max(10).optional(),
+  decals: z.array(AutosaveDecalSchema).max(10).optional(),
   studioTheme: z.string().max(20).optional(),
   materialFinishSlug: z.string().max(40).optional(),
 });
 
 export async function POST(req: NextRequest) {
   try {
-    const rl = await checkRateLimitAsync(`autosave:ip:${getClientIp(req)}`, 20, 60);
+    const rl = await checkRateLimitAsync(`autosave:ip:${getClientIp(req)}`, 120, 60);
     if (rl.isLimited) {
-      return NextResponse.json({ error: "Autosave dibatasi." }, { status: 429, headers: rateLimitHeaders(rl, 20) });
+      return NextResponse.json({ error: "Autosave dibatasi." }, { status: 429, headers: rateLimitHeaders(rl, 120) });
     }
     const body = await req.json();
     const parsed = AutosaveSchema.safeParse(body);

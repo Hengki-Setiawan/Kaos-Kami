@@ -9,8 +9,8 @@ import { useConfiguratorStore } from "@/store/useConfiguratorStore";
 import { useShallow } from "zustand/shallow";
 
 interface CameraRigProps {
-  targetPosition: THREE.Vector3;
-  targetLookAt: THREE.Vector3;
+  targetPosition?: THREE.Vector3;
+  targetLookAt?: THREE.Vector3;
 }
 
 export const CameraRig: React.FC<CameraRigProps> = ({ targetPosition, targetLookAt }) => {
@@ -23,6 +23,8 @@ export const CameraRig: React.FC<CameraRigProps> = ({ targetPosition, targetLook
     drawerPosition,
     interactionTool,
     isGizmoDragging,
+    isStretchDragging,
+    testLabMode,
     modelPosX,
     modelPosY,
   } = useConfiguratorStore(
@@ -35,17 +37,36 @@ export const CameraRig: React.FC<CameraRigProps> = ({ targetPosition, targetLook
       drawerPosition: s.drawerPosition,
       interactionTool: s.interactionTool,
       isGizmoDragging: s.isGizmoDragging,
+      isStretchDragging: s.isStretchDragging,
+      testLabMode: s.testLabMode,
       modelPosX: s.modelPosX,
       modelPosY: s.modelPosY,
     }))
   );
 
-  const { camera } = useThree();
+  const { camera, gl, invalidate } = useThree();
   const controlsRef = useRef<OrbitControlsImpl>(null);
 
-  // Sweet-spot target offset based on drawer state
-  const targetX = isHideWebsiteUI || isDrawerCollapsed ? 0 : drawerPosition === "left" ? 0.14 : -0.14;
-  const currentLookAt = useRef(new THREE.Vector3(targetX, 0, 0));
+  const isMobile = useConfiguratorStore((s) => s.isMobile);
+
+  // Ukuran besar & megah: targetZ 1.46 untuk desktop, 1.82 untuk mobile dengan elevasi aman dari HUD dock
+  const targetZ = isMobile ? 1.82 : 1.46;
+
+  // Viewport Offset Dinamis via Three.js camera.setViewOffset:
+  // - Panel di Kiri  -> Aset 3D otomatis bergeser ke panggung KANAN (+280px)
+  // - Panel di Kanan -> Aset 3D otomatis bergeser ke panggung KIRI (-280px)
+  // - Panel Ditutup / Tampil Bersih / Mobile -> Aset 3D tepat di TENGAH (0px)
+  // Poros rotasi (OrbitControls) TETAP 100% tepat di tengah baju (0, -0.10, 0),
+  // sehingga baju berputar mulus pada porosnya sendiri tanpa goyang/ayunan.
+  const targetPixelOffset =
+    isMobile || isHideWebsiteUI || isDrawerCollapsed || viewMode !== "studio"
+      ? 0
+      : drawerPosition === "left"
+      ? 280
+      : -280;
+
+  const currentPixelOffset = useRef(targetPixelOffset);
+  const currentLookAt = useRef(new THREE.Vector3(modelPosX, modelPosY - 0.10, 0));
   const presetAnim = useRef<{
     from: THREE.Vector3;
     to: THREE.Vector3;
@@ -54,12 +75,47 @@ export const CameraRig: React.FC<CameraRigProps> = ({ targetPosition, targetLook
     t: number;
   } | null>(null);
 
-  // Inisialisasi target OrbitControls sekali saat mount
+  // Trigger re-render instan saat posisi drawer berubah (menghilangkan bug macet/stuck di demand frameloop)
   useEffect(() => {
+    invalidate();
+  }, [targetPixelOffset, invalidate]);
+
+  // Inisialisasi posisi kamera & viewOffset saat pertama kali mount
+  useEffect(() => {
+    const W = gl.domElement.clientWidth || (typeof window !== "undefined" ? window.innerWidth : 1920);
+    const H = gl.domElement.clientHeight || (typeof window !== "undefined" ? window.innerHeight : 1080);
+
+    const initOffset =
+      isMobile || isHideWebsiteUI || isDrawerCollapsed || viewMode !== "studio"
+        ? 0
+        : drawerPosition === "left"
+        ? 280
+        : -280;
+
+    currentPixelOffset.current = initOffset;
+
+    if (initOffset !== 0) {
+      (camera as THREE.PerspectiveCamera).setViewOffset(W, H, -initOffset, 0, W, H);
+    } else {
+      (camera as THREE.PerspectiveCamera).clearViewOffset?.();
+      (camera as THREE.PerspectiveCamera).updateProjectionMatrix?.();
+    }
+
     if (controlsRef.current) {
-      controlsRef.current.target.set(targetX, 0, 0);
+      controlsRef.current.target.set(modelPosX, modelPosY - 0.10, 0);
+      camera.position.set(modelPosX, modelPosY + 0.01, targetZ);
+      camera.lookAt(modelPosX, modelPosY - 0.10, 0);
       controlsRef.current.update();
     }
+
+    invalidate();
+
+    return () => {
+      try {
+        (camera as THREE.PerspectiveCamera).clearViewOffset?.();
+        (camera as THREE.PerspectiveCamera).updateProjectionMatrix?.();
+      } catch {}
+    };
   }, []);
 
   // Quick Camera Presets
@@ -70,18 +126,21 @@ export const CameraRig: React.FC<CameraRigProps> = ({ targetPosition, targetLook
   useEffect(() => {
     if (!cameraPreset) return;
 
-    const baseDest = new THREE.Vector3(0, 0.05, 2.3);
-    if (cameraPreset === "back") baseDest.set(0, 0.05, -2.3);
-    else if (cameraPreset === "left") baseDest.set(-2.3, 0.05, 0);
-    else if (cameraPreset === "right") baseDest.set(2.3, 0.05, 0);
-    else if (cameraPreset === "iso") baseDest.set(1.6, 1.1, 1.8);
+    const baseDest = new THREE.Vector3(0, 0.01, targetZ);
+    if (cameraPreset === "back") baseDest.set(0, 0.01, -targetZ);
+    else if (cameraPreset === "left") baseDest.set(-targetZ, 0.01, 0);
+    else if (cameraPreset === "right") baseDest.set(targetZ, 0.01, 0);
+    else if (cameraPreset === "iso") baseDest.set(1.2, 0.75, 1.25);
     // M4.4 — zoom kerah: dekat + sedikit dari atas agar rib kerah terbaca.
-    else if (cameraPreset === "collar") baseDest.set(0, 0.32, 1.05);
+    else if (cameraPreset === "collar") baseDest.set(0, 0.22, 0.78);
 
     const currentTarget = controlsRef.current
       ? controlsRef.current.target.clone()
-      : new THREE.Vector3(targetX, 0, 0);
-    const targetLook = new THREE.Vector3(targetX, 0, 0);
+      : new THREE.Vector3(modelPosX, modelPosY - 0.10, 0);
+    const targetLook =
+      cameraPreset === "collar"
+        ? new THREE.Vector3(modelPosX, modelPosY + 0.12, 0)
+        : new THREE.Vector3(modelPosX, modelPosY - 0.10, 0);
     const dest = baseDest.clone().add(targetLook);
 
     presetAnim.current = {
@@ -91,11 +150,10 @@ export const CameraRig: React.FC<CameraRigProps> = ({ targetPosition, targetLook
       toLook: targetLook,
       t: 0,
     };
-  }, [cameraPreset, camera, targetX]);
+    invalidate();
+  }, [cameraPreset, camera, modelPosX, modelPosY, targetZ, invalidate]);
 
-  // Pola eksklusif Sep 2026: busur kamera — preset naik y+0.25 di tengah
-  // jalan (sinus), gerak story pakai damp λ=3 yang lembut. Gate cameraPreset
-  // TETAP: preset baru di-clear saat animasi tuntas (frameloop demand aman).
+  // Pola eksklusif: busur kamera — preset naik y+0.25 di tengah jalan (sinus)
   const tmpVec = useRef(new THREE.Vector3());
   useFrame((_, delta) => {
     // Mainkan animasi preset (±0.6 detik, ease-out + busur).
@@ -112,6 +170,7 @@ export const CameraRig: React.FC<CameraRigProps> = ({ targetPosition, targetLook
         controlsRef.current.target.copy(currentLookAt.current);
         controlsRef.current.update();
       }
+      invalidate();
       // B-06: tuntas → baru clear preset (CanvasStage kembali demand).
       if (anim.t >= 1) {
         presetAnim.current = null;
@@ -121,7 +180,40 @@ export const CameraRig: React.FC<CameraRigProps> = ({ targetPosition, targetLook
       }
       return;
     }
-    if (viewMode === "story" && !isHideWebsiteUI) {
+
+    if (viewMode === "studio") {
+      const d = Math.min(delta, 0.05);
+
+      // Smooth View Offset Gliding (transisi mulus ketika drawer dibuka/ditutup/dipindah)
+      const diffOffset = targetPixelOffset - currentPixelOffset.current;
+      if (Math.abs(diffOffset) > 0.5) {
+        currentPixelOffset.current = THREE.MathUtils.damp(
+          currentPixelOffset.current,
+          targetPixelOffset,
+          6.0,
+          d
+        );
+        const W = gl.domElement.clientWidth || window.innerWidth;
+        const H = gl.domElement.clientHeight || window.innerHeight;
+        (camera as THREE.PerspectiveCamera).setViewOffset(
+          W,
+          H,
+          -currentPixelOffset.current,
+          0,
+          W,
+          H
+        );
+        // Terus minta render frame berikutnya sampai transisi konvergen (mengatasi bug macet tanpa klik!)
+        invalidate();
+      } else if (targetPixelOffset === 0 && (camera as any).view && (camera as any).view.enabled) {
+        currentPixelOffset.current = 0;
+        (camera as THREE.PerspectiveCamera).clearViewOffset?.();
+        (camera as THREE.PerspectiveCamera).updateProjectionMatrix?.();
+        invalidate();
+      }
+    }
+
+    if (viewMode === "story" && !isHideWebsiteUI && targetPosition && targetLookAt) {
       // Damp λ=3: halus tanpa overshoot (ganti lerp kasar).
       const d = Math.min(delta, 0.05);
       tmpVec.current.copy(targetPosition);
@@ -153,17 +245,21 @@ export const CameraRig: React.FC<CameraRigProps> = ({ targetPosition, targetLook
 
   if (viewMode === "studio" || isHideWebsiteUI) {
     const isPanMode = interactionTool === "pan";
+    const isStretchMode = testLabMode === "stretch";
+    const canRotateOrPan = !isGizmoDragging && !isStretchDragging && !isStretchMode;
 
     return (
       <OrbitControls
         ref={controlsRef}
-        enabled={!isGizmoDragging}
+        enabled={!isGizmoDragging && !isStretchDragging}
+        enableRotate={canRotateOrPan}
+        enablePan={canRotateOrPan}
+        enableZoom={true}
         enableDamping
         dampingFactor={0.06}
         rotateSpeed={0.75}
         zoomSpeed={0.85}
         panSpeed={0.8}
-        enablePan={!isGizmoDragging}
         // TOUCH: 1 jari di mode geser = pan, di mode rotate = putar 360. 2 jari = zoom & pan
         touches={{
           ONE: isPanMode ? THREE.TOUCH.PAN : THREE.TOUCH.ROTATE,
@@ -174,7 +270,7 @@ export const CameraRig: React.FC<CameraRigProps> = ({ targetPosition, targetLook
           MIDDLE: THREE.MOUSE.DOLLY,
           RIGHT: isPanMode ? THREE.MOUSE.ROTATE : THREE.MOUSE.PAN,
         }}
-        minDistance={0.8}
+        minDistance={0.25}
         maxDistance={4.8}
         minPolarAngle={Math.PI / 8}
         maxPolarAngle={Math.PI / 1.7}

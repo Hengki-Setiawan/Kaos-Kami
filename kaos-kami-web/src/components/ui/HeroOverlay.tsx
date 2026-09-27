@@ -28,10 +28,12 @@ export const HeroOverlay: React.FC = () => {
       const raw = sessionStorage.getItem("kaos-hero-cms");
       if (raw) {
         const d = JSON.parse(raw);
-        if (typeof d?.heroTitle === "string" && d.heroTitle) {
+        if (typeof d?.heroTitle === "string" && d.heroTitle && !d.heroTitle.startsWith("E2E ")) {
           setCmsTitle(d.heroTitle.slice(0, 80));
+        } else if (d?.heroTitle?.startsWith("E2E ")) {
+          sessionStorage.removeItem("kaos-hero-cms");
         }
-        if (typeof d?.heroSubtitle === "string" && d.heroSubtitle) {
+        if (typeof d?.heroSubtitle === "string" && d.heroSubtitle && d.heroSubtitle !== "subtitle E2E") {
           setCmsSubtitle(String(d.heroSubtitle).slice(0, 200));
         }
       }
@@ -45,22 +47,28 @@ export const HeroOverlay: React.FC = () => {
         const d = await r.json().catch(() => null);
         clearTimeout(t);
         if (!r.ok || !d) return;
-        // Sanitasi panjang (audit #11): judul CMS tak boleh merusak layout.
+        // Sanitasi: abaikan teks pengujian otomatis E2E
         if (d?.heroTitle) {
           const v = String(d.heroTitle).slice(0, 80);
-          setCmsTitle(v);
-          try {
-            const prev = JSON.parse(sessionStorage.getItem("kaos-hero-cms") || "{}");
-            sessionStorage.setItem("kaos-hero-cms", JSON.stringify({ ...prev, heroTitle: v }));
-          } catch {}
+          if (!v.startsWith("E2E ")) {
+            setCmsTitle(v);
+            try {
+              const prev = JSON.parse(sessionStorage.getItem("kaos-hero-cms") || "{}");
+              sessionStorage.setItem("kaos-hero-cms", JSON.stringify({ ...prev, heroTitle: v }));
+            } catch {}
+          } else {
+            try { sessionStorage.removeItem("kaos-hero-cms"); } catch {}
+          }
         }
-        if (typeof d?.heroSubtitle === "string" && d.heroSubtitle) {
+        if (d?.heroSubtitle) {
           const v = (d.heroSubtitle as string).slice(0, 200);
-          setCmsSubtitle(v);
-          try {
-            const prev = JSON.parse(sessionStorage.getItem("kaos-hero-cms") || "{}");
-            sessionStorage.setItem("kaos-hero-cms", JSON.stringify({ ...prev, heroSubtitle: v }));
-          } catch {}
+          if (v !== "subtitle E2E") {
+            setCmsSubtitle(v);
+            try {
+              const prev = JSON.parse(sessionStorage.getItem("kaos-hero-cms") || "{}");
+              sessionStorage.setItem("kaos-hero-cms", JSON.stringify({ ...prev, heroSubtitle: v }));
+            } catch {}
+          }
         }
       } catch {}
     })();
@@ -70,8 +78,10 @@ export const HeroOverlay: React.FC = () => {
     };
   }, []);
 
-  const titleLines = (cmsTitle || "BIKIN KAOS IMPIANMU\nDENGAN MOCKUP 3D").split("\n");
-  const subtitle = cmsSubtitle || "Platform sablon DTF kustom satuan & kaos polos katun combed berkualitas di Makassar. Simulasikan desainmu 360° secara akurat.";
+  const isE2EText = (str: string | null) => !str || str.includes("E2E");
+  const cleanTitle = cmsTitle && !isE2EText(cmsTitle) ? cmsTitle : "BIKIN KAOS IMPIANMU\nDENGAN MOCKUP 3D";
+  const titleLines = cleanTitle.split("\n");
+  const subtitle = cmsSubtitle && !isE2EText(cmsSubtitle) ? cmsSubtitle : "Platform sablon DTF kustom satuan & kaos polos katun combed berkualitas di Makassar. Simulasikan desainmu 360° secara akurat.";
 
   return (
     <section
@@ -83,18 +93,14 @@ export const HeroOverlay: React.FC = () => {
     >
       {/* Top Clean Editorial Category */}
       <div className="max-w-xs sm:max-w-md pt-2">
-        <span className="font-mono text-xs text-brand-accent tracking-widest uppercase font-bold block mb-1">
-          KAOS KAMI · SABLON DTF & KAOS CUSTOM MAKASSAR
+        <span className="font-mono text-[10px] sm:text-xs text-brand-accent tracking-widest uppercase font-bold block">
+          KAOS KAMI // 3D DTF STUDIO MAKASSAR
         </span>
-        <p suppressHydrationWarning className="font-sans text-xs text-text-muted leading-relaxed min-h-[3rem]">
-          {subtitle}
-        </p>
       </div>
 
       {/* Main Editorial Title: Strict Left 45% Column, zero collision with 3D garment */}
       <div className="my-auto max-w-sm sm:max-w-md space-y-3 z-20">
-        {/* CWV: min-h cadangkan slot judul agar swap teks CMS
-            (stale→fresh) tak menggeser layout (CLS). */}
+        {/* CWV: min-h cadangkan slot judul agar swap teks CMS (stale→fresh) tak menggeser layout (CLS). */}
         <h1 suppressHydrationWarning className="text-[clamp(1.65rem,7.5vw,2.25rem)] sm:text-4xl md:text-[44px] font-display font-black uppercase tracking-tight leading-[0.96] text-text-primary min-h-[5.5rem] sm:min-h-[6rem]">
           {titleLines.map((line, i) => (
             <React.Fragment key={i}>
@@ -104,7 +110,7 @@ export const HeroOverlay: React.FC = () => {
           ))}
         </h1>
         <p className="font-mono text-xs sm:text-sm text-brand-accent tracking-wider uppercase font-bold">
-          {`KATUN COMBED ADEM · MULAI ${apparel.formattedPrice}`}
+          {`KATUN COMBED 24S · BEBAS SATUAN · MULAI ${apparel.formattedPrice}`}
         </p>
 
         {/* Action Buttons: Clean, Confident, Zero Gimmick */}
@@ -140,17 +146,17 @@ export const HeroOverlay: React.FC = () => {
           </div>
           <div>
             <span className="block text-[10px] text-text-muted uppercase tracking-wider">MINIMAL ORDER</span>
-            <span className="font-bold text-brand-accent">BEBAS SATUAN (0 MIN)</span>
+            <span className="font-bold text-brand-accent">0 MIN (BEBAS SATUAN)</span>
           </div>
           <div>
-            <span className="block text-[10px] text-text-muted uppercase tracking-wider">LOKASI</span>
-            <span className="font-bold text-text-primary">KOTA MAKASSAR, ID</span>
+            <span className="block text-[10px] text-text-muted uppercase tracking-wider">WORKSHOP</span>
+            <span className="font-bold text-text-primary">MAKASSAR, ID</span>
           </div>
         </div>
 
-        <div className="flex items-center space-x-3 font-mono text-xs text-text-muted animate-bounce">
-          <span className="tracking-widest uppercase">GULIR UNTUK JELAJAHI FITUR</span>
-          <ChevronDown size={16} className="text-brand-accent" />
+        <div className="flex items-center space-x-2 font-mono text-xs text-text-muted animate-bounce">
+          <span className="tracking-widest uppercase text-[11px]">GULIR EKSPLORASI</span>
+          <ChevronDown size={14} className="text-brand-accent" />
         </div>
       </div>
     </section>

@@ -1,8 +1,8 @@
 "use client";
 
-import React, { useRef, useState } from "react";
+import React, { useRef, useState, useLayoutEffect, useEffect, useCallback } from "react";
 import { Html } from "@react-three/drei";
-import { useThree } from "@react-three/fiber";
+import { useThree, useFrame } from "@react-three/fiber";
 import * as THREE from "three";
 import { useConfiguratorStore } from "@/store/useConfiguratorStore";
 import { useShallow } from "zustand/shallow";
@@ -14,6 +14,7 @@ import {
   DECAL_MOVE_LIMITS,
   clampDecalXY,
   getDecal3DPlacement,
+  computePhysicalPrintDimensions,
 } from "@/lib/scaleCalibration";
 import { RotateCw, X } from "lucide-react";
 
@@ -77,16 +78,61 @@ export const DecalGizmo: React.FC<DecalGizmoProps> = ({ surfaceZ }) => {
   const [activeGizmoTool, setActiveGizmoTool] = useState<"move" | "scale" | "rotate" | null>(null);
   const [snapAxis, setSnapAxis] = useState<{ x: boolean; y: boolean }>({ x: false, y: false });
 
+  // Sinkronisasi View Offset Kamera (Three.js camera.setViewOffset) dengan Drei <Html transform>:
+  // Kamera menerapkan camera.setViewOffset (-280px saat drawer kiri terbuka, +280px saat drawer kanan terbuka)
+  // untuk menggeser panggung 3D agar baju tidak tertutup drawer samping.
+  // Namun, Drei <Html transform> hanya membaca camera.matrixWorldInverse dan mengabaikan view offset
+  // projectionMatrix, menyebabkan gizmo tertinggal di tengah layar (terpisah jauh dari sablon di atas baju).
+  // Dengan mentranslasikan wrapper Drei <Html> sebesar (-camera.view.offsetX, -camera.view.offsetY),
+  // posisi gizmo 100% terkunci presisi di atas sablon di semua sudut kamera dan status drawer.
+  // (WAJIB dideklarasikan di top-level sebelum early-return agar mematuhi Rules of Hooks).
+  const syncWrapperOffset = useCallback(() => {
+    if (!containerRef.current) return;
+    const wrapper = containerRef.current.closest<HTMLElement>(".decal-gizmo-html-wrapper");
+    if (!wrapper) return;
+
+    const cam = camera as any;
+    if (cam.view && cam.view.enabled) {
+      const offX = -cam.view.offsetX;
+      const offY = -cam.view.offsetY;
+      const targetTransform = `translate3d(${offX}px, ${offY}px, 0)`;
+      if (wrapper.style.transform !== targetTransform) {
+        wrapper.style.transform = targetTransform;
+      }
+      if (wrapper.style.overflow !== "visible") {
+        wrapper.style.overflow = "visible";
+      }
+    } else if (wrapper.style.transform) {
+      wrapper.style.transform = "";
+    }
+  }, [camera]);
+
+  useLayoutEffect(() => {
+    syncWrapperOffset();
+  }, [syncWrapperOffset]);
+
+  useFrame(() => {
+    syncWrapperOffset();
+  });
+
+  useEffect(() => {
+    return () => {
+      const wrapper = containerRef.current?.closest<HTMLElement>(".decal-gizmo-html-wrapper");
+      if (wrapper) {
+        wrapper.style.transform = "";
+      }
+    };
+  }, []);
+
   const activeDecal = decals.find((d) => d.id === selectedDecalId) ?? decals[0];
 
-  // Only render gizmo in studio mode when visible, decal exists, model is static (not rotating or running physics simulation)
+  // Only render gizmo in studio mode when visible, decal exists, model is static (not running physics simulation)
   if (
     viewMode !== "studio" ||
     isHideWebsiteUI ||
     !isGizmoVisible ||
     !activeDecal ||
-    animationPreset !== "static" ||
-    isRotating
+    animationPreset !== "static"
   ) {
     return null;
   }
@@ -125,7 +171,7 @@ export const DecalGizmo: React.FC<DecalGizmoProps> = ({ surfaceZ }) => {
       camera.position.z - gizmoPos[2]
     ).normalize();
     const facingAngle = surfaceNormal.dot(toCam);
-    if (facingAngle < 0.18) {
+    if (facingAngle < 0.05) {
       return null;
     }
   }
@@ -150,6 +196,15 @@ export const DecalGizmo: React.FC<DecalGizmoProps> = ({ surfaceZ }) => {
   // Exact 3D-bound pixel dimensions (conforms to mesh surface 1:1)
   const boxWidthPx = Math.max(28, Math.round(scaleX * PIXELS_PER_UNIT));
   const boxHeightPx = Math.max(28, Math.round(scaleY * PIXELS_PER_UNIT));
+
+  // Dimensi fisik nyata (centimeter) terkalibrasi 1:1 terhadap DTF printer
+  const physicalDims = computePhysicalPrintDimensions(
+    activeApparel,
+    activeDecal.scale,
+    activeDecal.y,
+    realAspect,
+    activeDecal.targetSide
+  );
 
   // ==========================================
   // Interaction Handlers (Window-level capture)
@@ -247,8 +302,9 @@ export const DecalGizmo: React.FC<DecalGizmoProps> = ({ surfaceZ }) => {
       const dy = (ev.clientY - curStartY) / Math.max(1, PIXELS_PER_UNIT * groupScale);
 
       // Arah geser horizontal (signX):
-      // - front, left_sleeve, side_left: penambahan decalX menggeser ke kanan layar -> signX = +1
-      // - back, hood, right_sleeve, side_right: penambahan decalX menggeser ke kiri layar -> signX = -1
+      // - front, left_sleeve, side_left: dx > 0 menggeser ke kanan layar (ke arah +X / +Z dada) -> signX = +1
+      // - back, hood: dari tampak belakang, penambahan X dunia (+X) berada di kiri layar -> signX = -1
+      // - right_sleeve, side_right: kamera di +X melihat ke -X, kanan layar adalah -Z (punggung) -> signX = -1
       const signX =
         currentSide === "back" ||
         currentSide === "hood" ||
@@ -259,152 +315,14 @@ export const DecalGizmo: React.FC<DecalGizmoProps> = ({ surfaceZ }) => {
       let rawX = curInitialX + dx * signX;
       let rawY = curInitialY - dy;
 
-      let nextSide = currentSide;
-      let nextX = rawX;
-      let nextY = rawY;
-      let triggerCam: "front" | "back" | "left" | "right" | null = null;
-
-      // Dynamic Auto-Zone Transition when crossing boundaries
-      if (currentSide === "front") {
-        if (rawX < -0.13) {
-          // Dragged left
-          if (hasSleeves && rawY > 0.0) {
-            nextSide = "left_sleeve";
-            nextX = 0;
-            nextY = 0.05;
-            triggerCam = "left";
-          } else if (hasSides) {
-            nextSide = "side_left";
-            nextX = 0;
-            nextY = Math.max(-0.25, Math.min(0.20, rawY));
-            triggerCam = "left";
-          }
-        } else if (rawX > 0.13) {
-          // Dragged right
-          if (hasSleeves && rawY > 0.0) {
-            nextSide = "right_sleeve";
-            nextX = 0;
-            nextY = 0.05;
-            triggerCam = "right";
-          } else if (hasSides) {
-            nextSide = "side_right";
-            nextX = 0;
-            nextY = Math.max(-0.25, Math.min(0.20, rawY));
-            triggerCam = "right";
-          }
-        }
-      } else if (currentSide === "side_left") {
-        if (rawX < -0.06) {
-          nextSide = "front";
-          nextX = -0.10;
-          nextY = rawY;
-          triggerCam = "front";
-        } else if (rawX > 0.06) {
-          nextSide = "back";
-          nextX = -0.10;
-          nextY = rawY;
-          triggerCam = "back";
-        }
-      } else if (currentSide === "side_right") {
-        if (rawX < -0.06) {
-          nextSide = "front";
-          nextX = 0.10;
-          nextY = rawY;
-          triggerCam = "front";
-        } else if (rawX > 0.06) {
-          nextSide = "back";
-          nextX = 0.10;
-          nextY = rawY;
-          triggerCam = "back";
-        }
-      } else if (currentSide === "back") {
-        if (rawX > 0.13) {
-          if (hasSleeves && rawY > 0.0) {
-            nextSide = "left_sleeve";
-            nextX = 0;
-            nextY = 0.05;
-            triggerCam = "left";
-          } else if (hasSides) {
-            nextSide = "side_left";
-            nextX = 0;
-            nextY = rawY;
-            triggerCam = "left";
-          }
-        } else if (rawX < -0.13) {
-          if (hasSleeves && rawY > 0.0) {
-            nextSide = "right_sleeve";
-            nextX = 0;
-            nextY = 0.05;
-            triggerCam = "right";
-          } else if (hasSides) {
-            nextSide = "side_right";
-            nextX = 0;
-            nextY = rawY;
-            triggerCam = "right";
-          }
-        }
-      } else if (currentSide === "left_sleeve") {
-        if (rawX < -0.06) {
-          if (rawY > -0.10) {
-            nextSide = "front";
-            nextX = -0.10;
-            nextY = 0.05;
-            triggerCam = "front";
-          } else {
-            nextSide = "side_left";
-            nextX = 0;
-            nextY = -0.05;
-            triggerCam = "left";
-          }
-        } else if (rawX > 0.06) {
-          nextSide = "back";
-          nextX = -0.10;
-          nextY = 0.05;
-          triggerCam = "back";
-        }
-      } else if (currentSide === "right_sleeve") {
-        if (rawX < -0.06) {
-          if (rawY > -0.10) {
-            nextSide = "front";
-            nextX = 0.10;
-            nextY = 0.05;
-            triggerCam = "front";
-          } else {
-            nextSide = "side_right";
-            nextX = 0;
-            nextY = -0.05;
-            triggerCam = "right";
-          }
-        } else if (rawX > 0.06) {
-          nextSide = "back";
-          nextX = 0.10;
-          nextY = 0.05;
-          triggerCam = "back";
-        }
-      }
-
-      if (nextSide !== currentSide) {
-        currentSide = nextSide;
-        curStartX = ev.clientX;
-        curStartY = ev.clientY;
-        curInitialX = nextX;
-        curInitialY = nextY;
-        if (triggerCam) setCameraPreset(triggerCam);
-        updateDecal(activeDecal.id, {
-          targetSide: nextSide,
-          x: Number(nextX.toFixed(4)),
-          y: Number(nextY.toFixed(4)),
-        });
-      } else {
-        const jepit = clampDecalXY(currentSide, rawX, rawY);
-        const snappedX = Math.abs(jepit.x) <= SNAP_TOL;
-        const snappedY = Math.abs(jepit.y) <= SNAP_TOL;
-        setSnapAxis({ x: snappedX, y: snappedY });
-        updateDecal(activeDecal.id, {
-          x: snappedX ? 0 : Number(jepit.x.toFixed(4)),
-          y: snappedY ? 0 : Number(jepit.y.toFixed(4)),
-        });
-      }
+      const jepit = clampDecalXY(currentSide, rawX, rawY);
+      const snappedX = Math.abs(jepit.x) <= SNAP_TOL;
+      const snappedY = Math.abs(jepit.y) <= SNAP_TOL;
+      setSnapAxis({ x: snappedX, y: snappedY });
+      updateDecal(activeDecal.id, {
+        x: snappedX ? 0 : Number(jepit.x.toFixed(4)),
+        y: snappedY ? 0 : Number(jepit.y.toFixed(4)),
+      });
     };
 
     const onPointerUp = (ev: PointerEvent) => {
@@ -427,6 +345,7 @@ export const DecalGizmo: React.FC<DecalGizmoProps> = ({ surfaceZ }) => {
         distanceFactor={DISTANCE_FACTOR}
         pointerEvents="auto"
         zIndexRange={[100, 0]}
+        wrapperClass="decal-gizmo-html-wrapper"
       >
         <div
           ref={containerRef}
@@ -540,6 +459,18 @@ export const DecalGizmo: React.FC<DecalGizmoProps> = ({ surfaceZ }) => {
           >
             <X size={8} className="stroke-[3]" />
           </button>
+
+          {/* Real-world physical dimensions pill (Ukuran sablon nyata cm) */}
+          {physicalDims && (
+            <div className="absolute -bottom-6 left-1/2 -translate-x-1/2 flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-neutral-950/90 backdrop-blur-md border border-brand-accent/50 text-[9px] font-mono font-bold text-white shadow-lg pointer-events-none whitespace-nowrap select-none">
+              <span className="text-amber-300">
+                {physicalDims.widthCm.toFixed(1)} × {physicalDims.heightCm.toFixed(1)} cm
+              </span>
+              {!physicalDims.isWithinProductionLimits && (
+                <span className="text-[7.5px] text-rose-400 font-extrabold uppercase">MAKS 30cm</span>
+              )}
+            </div>
+          )}
         </div>
       </Html>
     </group>

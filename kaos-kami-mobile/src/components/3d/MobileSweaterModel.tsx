@@ -12,6 +12,7 @@ import { applyMobileWind } from '@/lib/3d/windShader';
 import { getStretchFactors } from '@/lib/3d/stretchPhysics';
 import { registerMobileStretchGroup, unregisterMobileStretchGroup } from '@/lib/3d/mobileStretchRegistry';
 import { extractMobileApparelGeometry } from '@/lib/3d/extractMobileApparelGeometry';
+import { getApparelSizeScaleFactors } from '@/lib/3d/mobileApparelSizing';
 import { MobileDecalLayerRenderer } from './MobileDecalLayerRenderer';
 import { DecalGizmoMobile } from './DecalGizmoMobile';
 import {
@@ -68,6 +69,8 @@ export function MobileSweaterModel() {
   const stretchIntensity = useMobileStudioStore((s) => s.stretchIntensity);
   const stretchDirection = useMobileStudioStore((s) => s.stretchDirection);
   const stretchFactors = getStretchFactors(testLabMode, stretchIntensity, stretchDirection);
+  const size = useMobileStudioStore((s) => s.size);
+  const sizeScale = useMemo(() => getApparelSizeScaleFactors('crewneck', size), [size]);
   const { tier } = useMobileDeviceTier();
 
   useEffect(() => {
@@ -151,7 +154,11 @@ export function MobileSweaterModel() {
   return (
     <group
       ref={groupRef}
-      scale={[1.4 * stretchFactors.stretchX, 1.4 * stretchFactors.stretchY, 1.4 * stretchFactors.stretchZ]}
+      scale={[
+        1.4 * sizeScale.scaleX * stretchFactors.stretchX,
+        1.4 * sizeScale.scaleY * stretchFactors.stretchY,
+        1.4 * sizeScale.scaleZ * stretchFactors.stretchZ,
+      ]}
       position={[0, -0.15, 0]}
     >
       <mesh castShadow receiveShadow geometry={baseGeometry ?? undefined} material={material}>

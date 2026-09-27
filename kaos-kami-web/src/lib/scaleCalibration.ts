@@ -96,8 +96,8 @@ export const APPAREL_PHYSICAL_SPECS: Record<string, ApparelSpec> = {
     maxSleeveHeightCm: 14.0,
     maxSideWidthCm: 12.0,
     maxSideHeightCm: 32.0,
-    meshMultiplier: 145.5,
-    measuredMeshWidthUnits: 0.385,
+    meshMultiplier: 202.0,
+    measuredMeshWidthUnits: 0.2772,
     sleeveAnchorX: 0.17,
     outerSleeveX: 0.34,
     sleeveCenterY: 0.02,
@@ -107,7 +107,7 @@ export const APPAREL_PHYSICAL_SPECS: Record<string, ApparelSpec> = {
     armEulerLeft: [1.5708, -1.3090, 1.5708],
     armEulerRight: [-1.5708, 1.3090, -1.5708],
     sideAnchorX: 0.185,
-    collarBaselineY: 0.165,
+    collarBaselineY: 0.052,
   },
   longsleeve: {
     name: "Kaos Lengan Panjang Kaos Kami",
@@ -121,8 +121,8 @@ export const APPAREL_PHYSICAL_SPECS: Record<string, ApparelSpec> = {
     maxSleeveHeightCm: 42.0, // Longsleeve typography down the entire arm
     maxSideWidthCm: 12.0,
     maxSideHeightCm: 32.0,
-    meshMultiplier: 145.5,
-    measuredMeshWidthUnits: 0.385,
+    meshMultiplier: 202.0,
+    measuredMeshWidthUnits: 0.2772,
     sleeveAnchorX: 0.17,
     // SWAP 20 Sep 2026: mesh = ex-sweater (lengan panjang + rib cuff, torso parity
     // 2.6% vs longsleeve lama) — scale 0.72/crown -0.12 dipertahankan.
@@ -134,7 +134,7 @@ export const APPAREL_PHYSICAL_SPECS: Record<string, ApparelSpec> = {
     armEulerLeft: [1.5708, -1.2305, 1.5708],
     armEulerRight: [-1.5708, 1.2305, -1.5708],
     sideAnchorX: 0.185,
-    collarBaselineY: 0.165,
+    collarBaselineY: 0.052,
   },
   crewneck: {
     name: "Sweater Crewneck Kaos Kami",
@@ -159,7 +159,7 @@ export const APPAREL_PHYSICAL_SPECS: Record<string, ApparelSpec> = {
     armEulerLeft: [1.5708, -1.0123, 1.5708],
     armEulerRight: [-1.5708, 1.0123, -1.5708],
     sideAnchorX: 0.20,
-    collarBaselineY: 0.160,
+    collarBaselineY: 0.046,
   },
   hoodie: {
     name: "Heavyweight Oversized Hoodie",
@@ -184,7 +184,7 @@ export const APPAREL_PHYSICAL_SPECS: Record<string, ApparelSpec> = {
     armEulerLeft: [1.5708, -1.1868, 1.5708],
     armEulerRight: [-1.5708, 1.1868, -1.5708],
     sideAnchorX: 0.20,
-    collarBaselineY: 0.31,
+    collarBaselineY: 0.072,
     // Tudung belakang: panel 18×14cm (riset: standar 15–20cm).
     maxHoodWidthCm: 18.0,
     maxHoodHeightCm: 14.0,
@@ -222,7 +222,7 @@ export const APPAREL_PHYSICAL_SPECS: Record<string, ApparelSpec> = {
     armEulerRight: [-1.5708, 0.9076, -1.5708],
     // Setengah hem baked 0.65078 × 0.2999 = 0.195/2 ≈ 0.098 + EPS proyektor.
     sideAnchorX: 0.105,
-    collarBaselineY: 0.155,
+    collarBaselineY: 0.108,
   },
   pants: {
     name: "Celana Panjang",
@@ -240,7 +240,7 @@ export const APPAREL_PHYSICAL_SPECS: Record<string, ApparelSpec> = {
     measuredMeshWidthUnits: 0.403,
     sleeveAnchorX: 0.20,
     sideAnchorX: 0.185,
-    collarBaselineY: 0.48,
+    collarBaselineY: 0.150,
   },
   shorts: {
     name: "Celana Pendek",
@@ -258,7 +258,7 @@ export const APPAREL_PHYSICAL_SPECS: Record<string, ApparelSpec> = {
     measuredMeshWidthUnits: 0.407,
     sleeveAnchorX: 0.20,
     sideAnchorX: 0.185,
-    collarBaselineY: 0.19,
+    collarBaselineY: 0.100,
   },
   cap: {
     name: "Topi Baseball Custom Kaos Kami",
@@ -528,10 +528,10 @@ export function computePhysicalPrintDimensions(
     maxSleeveHeightCm: 12.0,
     maxSideWidthCm: 14.0,
     maxSideHeightCm: 32.0,
-    meshMultiplier: 145.5,
-    measuredMeshWidthUnits: 0.385,
+    meshMultiplier: 202.0,
+    measuredMeshWidthUnits: 0.2772,
     sleeveAnchorX: 0.28,
-    collarBaselineY: 0.165,
+    collarBaselineY: 0.052,
   };
   
   let maxWidth = spec.maxFrontWidthCm;

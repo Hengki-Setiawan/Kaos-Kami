@@ -93,7 +93,7 @@ export function TouchOrbitControls() {
       dampingFactor={0.08}
       minPolarAngle={Math.PI / 4}
       maxPolarAngle={Math.PI / 1.75}
-      minDistance={1.6}
+      minDistance={0.5}
       maxDistance={4.2}
       makeDefault
     />

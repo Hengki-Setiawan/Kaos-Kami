@@ -126,7 +126,7 @@ export const KalkulatorSablonClient: React.FC = () => {
               {(Object.keys(PRINT_TIER_COST_IDR) as PrintTier[]).map((t) => (
                 <tr key={t} className={`border-b border-border-subtle ${hasil?.tier === t ? "text-brand-accent font-bold" : ""}`}>
                   <td className="py-2 pr-3">{t}</td>
-                  <td className="py-2 pr-3">{t === "A6" ? "≤ 10 cm" : t === "A5" ? "≤ 15 cm" : t === "A4" ? "≤ 25 cm" : "≤ 30 cm"}</td>
+                  <td className="py-2 pr-3">{t === "A6" ? "≤ 10 cm" : t === "A5" ? "≤ 20 cm" : t === "A4" ? "≤ 25 cm" : "≤ 30 cm"}</td>
                   <td className="py-2 pr-3">{PRINT_TIER_LABEL[t]}</td>
                   <td className="py-2 text-right">{fmtRp(PRINT_TIER_COST_IDR[t])}</td>
                 </tr>

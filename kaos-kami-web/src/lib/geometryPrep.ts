@@ -61,12 +61,9 @@ export function ensureWindWeights(
   const weights = new Float32Array(pos.count);
   for (let i = 0; i < pos.count; i++) {
     const y = pos.getY(i);
-    // smoothstep: 0 di atas garis pin (bahu/kerah/dada), 1 di hem bawah
-    // Zona dada print sablon (y > 38% tinggi, |x| < 60% lebar) dikunci 0 agar sablon tidak pernah tembus
-    const isChestPrintZone = Math.abs(pos.getX(i)) < halfWidth * 0.65 && y > (bb.min.y + (bb.max.y - bb.min.y) * 0.38);
-    const chestDamp = isChestPrintZone ? 0.0 : 1.0;
+    // Gelombang angin kontinu: leher/bahu tertahan natural (0.30), dada dan lengan berkibar lentur (0.55-0.75), hem bawah maksimal (1.0)
     const t = Math.max(0, Math.min(1, (top - y) / span));
-    weights[i] = t * t * (3 - 2 * t) * chestDamp;
+    weights[i] = 0.30 + 0.70 * (t * t * (3 - 2 * t));
     // Lipatan gravitasi: dua sinus diagonal (panjang gelombang 2π/28 ≈ 0.22
     // unit ≈ 22cm + 2π/17 ≈ 37cm — skala kerut torso nyata 15–35cm, BUKAN
     // kerut mikro yang sudah dipegang normal-map). Masker: sisi badan/ketiak
@@ -212,10 +209,8 @@ export function ensureWindAndStretchWeights(
     const y = pos.getY(i);
     if (wind) {
       // Rumus IDENTIK ensureWindWeights (jangan diverge — lihat catatan §6).
-      const isChestPrintZone = Math.abs(x) < halfWidth * 0.65 && y > (bb.min.y + (bb.max.y - bb.min.y) * 0.38);
-      const chestDamp = isChestPrintZone ? 0.0 : 1.0;
       const t = Math.max(0, Math.min(1, (top - y) / span));
-      wind[i] = t * t * (3 - 2 * t) * chestDamp;
+      wind[i] = 0.30 + 0.70 * (t * t * (3 - 2 * t));
       if (nor) {
         const side = Math.min(1, Math.abs(x) / halfWidth);
         const mask = (0.45 + 0.55 * side) * (0.65 + 0.35 * t);

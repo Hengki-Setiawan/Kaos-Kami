@@ -5,6 +5,7 @@ import { QueryProvider } from "@/components/providers/QueryProvider";
 import { DesignSyncProvider } from "@/components/providers/DesignSyncProvider";
 import { AppDownloadBanner } from "@/components/ui/AppDownloadBanner";
 import { NotificationGpsPrompt } from "@/components/ui/NotificationGpsPrompt";
+import { KamitoChatWidget } from "@/components/chat/KamitoChatWidget";
 import Script from "next/script";
 import "./globals.css";
 
@@ -171,6 +172,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             <SmoothScrollProvider>{children}</SmoothScrollProvider>
             <AppDownloadBanner />
             <NotificationGpsPrompt />
+            <KamitoChatWidget />
           </DesignSyncProvider>
         </QueryProvider>
       </body>

@@ -116,6 +116,61 @@ describe("3D <-> 2D Pattern Studio Mathematical Parity", () => {
     }
   });
 
+  it("ensures sleeve decals always stay within 2D pattern bounds and round-trip accurately", () => {
+    const sleeveApparels: ApparelType[] = ["tshirt", "longsleeve", "hoodie", "crewneck"];
+
+    for (const apparel of sleeveApparels) {
+      for (const panel of ["left_sleeve", "right_sleeve"] as const) {
+        const geo = getPanelGeometry(apparel, panel);
+        const origin = getPanelOrigin(apparel, panel);
+
+        // Uji berbagai posisi lengan: bahu (+0.25), tengah (0.0), manset (-0.25)
+        const sleeveTestCases = [
+          { x: 0, y: 0.25, scale: 0.08, rot: 0 },
+          { x: 0.05, y: 0.0, scale: 0.07, rot: 10 },
+          { x: -0.05, y: -0.20, scale: 0.06, rot: -10 },
+        ];
+
+        for (const tc of sleeveTestCases) {
+          const d: DecalLayer = {
+            id: `sleeve-${panel}-test`,
+            url: "https://example.com/logo.png",
+            name: "Sleeve Art",
+            targetSide: panel,
+            x: tc.x,
+            y: tc.y,
+            scale: tc.scale,
+            rotation: tc.rot,
+            opacity: 1,
+          };
+
+          const p = decalToFabric(apparel, d, 1.0, panel);
+          const fabricLeft = origin.xPx + p.cxPx;
+          const fabricTop = origin.yPx + p.cyPx;
+
+          // 1. Decal harus 100% berada di dalam kanvas pola lengan (tidak terbang keluar batas)
+          expect(fabricLeft - p.wPx / 2).toBeGreaterThanOrEqual(0);
+          expect(fabricLeft + p.wPx / 2).toBeLessThanOrEqual(geo.wCm * EDITOR_PX_PER_CM);
+          expect(fabricTop - p.hPx / 2).toBeGreaterThanOrEqual(0);
+          expect(fabricTop + p.hPx / 2).toBeLessThanOrEqual(geo.hCm * EDITOR_PX_PER_CM);
+
+          // 2. Round-trip 2D -> 3D harus kembali ke posisi Y dan X asal dengan presisi tinggi
+          const backCxPx = fabricLeft - origin.xPx;
+          const backCyPx = fabricTop - origin.yPx;
+          const patch = fabricToDecal(apparel, backCxPx, backCyPx, p.wPx, p.hPx, p.rotation, {
+            panel,
+            aspectWoverH: 1.0,
+            opacity: 1,
+          });
+
+          expect(patch.x).toBeCloseTo(tc.x, 2);
+          expect(patch.y).toBeCloseTo(tc.y, 2);
+          expect(patch.scale).toBeCloseTo(tc.scale, 2);
+        }
+      }
+    }
+  });
+
   it("positions print bounds safely on the garment", () => {
     for (const apparel of APPARELS) {
       const pb = getPrintBounds(apparel, "front");
@@ -132,4 +187,41 @@ describe("3D <-> 2D Pattern Studio Mathematical Parity", () => {
       expect(pb.topPx + halfH).toBeLessThanOrEqual(geo.hCm * EDITOR_PX_PER_CM);
     }
   });
+
+  it("verifies accurate 2D pattern silhouettes and geometries for all 8 catalog apparels", () => {
+    const ALL_8_APPARELS: ApparelType[] = [
+      "tshirt",
+      "longsleeve",
+      "crewneck",
+      "hoodie",
+      "shirt",
+      "cap",
+      "pants",
+      "shorts",
+    ];
+
+    for (const app of ALL_8_APPARELS) {
+      // 1. Front panel silhouette exists and has non-empty SVG path
+      const frontGeo = getPanelGeometry(app, "front");
+      expect(frontGeo.wCm).toBeGreaterThan(0);
+      expect(frontGeo.hCm).toBeGreaterThan(0);
+
+      // 2. Back panel silhouette exists
+      const backGeo = getPanelGeometry(app, "back");
+      expect(backGeo.wCm).toBeGreaterThan(0);
+      expect(backGeo.hCm).toBeGreaterThan(0);
+
+      // 3. Sleeve geometry validation for garments with sleeves
+      if (["tshirt", "longsleeve", "crewneck", "hoodie", "shirt"].includes(app)) {
+        const sleeveGeo = getPanelGeometry(app, "left_sleeve");
+        expect(sleeveGeo.wCm).toBeGreaterThanOrEqual(14);
+        if (app === "tshirt") {
+          expect(sleeveGeo.hCm).toBe(18.0);
+        } else {
+          expect(sleeveGeo.hCm).toBeGreaterThanOrEqual(22.0);
+        }
+      }
+    }
+  });
 });
+

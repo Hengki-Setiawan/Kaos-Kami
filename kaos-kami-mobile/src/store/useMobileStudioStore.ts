@@ -230,6 +230,7 @@ export interface MobileStudioState {
   color: string;
   sleeveColor: string;
   collarColor: string;
+  size: 'S' | 'M' | 'L' | 'XL' | 'XXL';
 
   // Lapis sablon N-desain (P1 parity): tambah tak menimpa (uji 2 desain).
   decals: MobileDecalLayer[];
@@ -278,6 +279,7 @@ export interface MobileStudioState {
   setColor: (hex: string) => void;
   setSleeveColor: (hex: string) => void;
   setCollarColor: (hex: string) => void;
+  setSize: (size: 'S' | 'M' | 'L' | 'XL' | 'XXL') => void;
   /** Tambah lapis (tak menimpa yang ada); kembalikan id atau null bila penuh. */
   addDecal: (input: { url: string; targetSide?: MobileDecalSide; x?: number; y?: number; scale?: number; rotation?: number; opacity?: number }) => string | null;
   updateDecal: (id: string, patch: Partial<Omit<MobileDecalLayer, 'id' | 'url'>> & { url?: string }) => void;
@@ -366,6 +368,8 @@ export const useMobileStudioStore = create<MobileStudioState>((set) => ({
   color: '#0E0E10',
   sleeveColor: '#0E0E10',
   collarColor: '#0E0E10',
+  size: 'L',
+  setSize: (size) => set({ size }),
 
   decals: [],
   selectedDecalId: null,
@@ -655,6 +659,7 @@ export const useMobileStudioStore = create<MobileStudioState>((set) => ({
       color: '#0E0E10',
       sleeveColor: '#0E0E10',
       collarColor: '#0E0E10',
+      size: 'L',
       decals: [],
       selectedDecalId: null,
       pendingSide: 'front',

@@ -1,0 +1,137 @@
+{
+  "kasus": "KASUS 4: DTF GANG SHEET 100x58cm NESTING",
+  "binsCount": 3,
+  "utilizationPct": 58.149655172413794,
+  "unplacedCount": 0,
+  "zeroOverlapVerified": true,
+  "bins": [
+    [
+      {
+        "id": "-FrDm1_WtF8K587azcTOz",
+        "label": "Task--FrDm1_W [front] 300x420mm",
+        "xMm": 10,
+        "yMm": 10,
+        "wMm": 300,
+        "hMm": 420,
+        "rot": false,
+        "bin": 0,
+        "copyIndex": 0
+      },
+      {
+        "id": "1JlAV4ZDvDENjnj8FNVzy",
+        "label": "Task-1JlAV4ZD [front] 300x420mm",
+        "xMm": 320,
+        "yMm": 10,
+        "wMm": 300,
+        "hMm": 420,
+        "rot": false,
+        "bin": 0,
+        "copyIndex": 0
+      },
+      {
+        "id": "FGpDUsdDHeJLCsJhb5T0D",
+        "label": "Task-FGpDUsdD [front] 300x420mm",
+        "xMm": 630,
+        "yMm": 10,
+        "wMm": 300,
+        "hMm": 420,
+        "rot": false,
+        "bin": 0,
+        "copyIndex": 0
+      }
+    ],
+    [
+      {
+        "id": "29mL-1R5VvzbyF-Jui87o",
+        "label": "Task-29mL-1R5 [front] 300x407mm",
+        "xMm": 10,
+        "yMm": 10,
+        "wMm": 300,
+        "hMm": 407,
+        "rot": false,
+        "bin": 1,
+        "copyIndex": 0
+      },
+      {
+        "id": "_qVKZAnj086NvTlaXMz2e",
+        "label": "Task-_qVKZAnj [back] 300x360mm",
+        "xMm": 320,
+        "yMm": 10,
+        "wMm": 300,
+        "hMm": 360,
+        "rot": false,
+        "bin": 1,
+        "copyIndex": 0
+      },
+      {
+        "id": "cj6jRXhB62kj7rhQ0-wjG",
+        "label": "Task-cj6jRXhB [back] 300x300mm",
+        "xMm": 630,
+        "yMm": 10,
+        "wMm": 300,
+        "hMm": 300,
+        "rot": false,
+        "bin": 1,
+        "copyIndex": 0
+      },
+      {
+        "id": "46Jm_KgIwUjn8IOiYyO2M",
+        "label": "Task-46Jm_KgI [back] 242x242mm",
+        "xMm": 630,
+        "yMm": 320,
+        "wMm": 242,
+        "hMm": 242,
+        "rot": false,
+        "bin": 1,
+        "copyIndex": 0
+      },
+      {
+        "id": "Zdap0KO6K5wCuoKacieff",
+        "label": "Task-Zdap0KO6 [front] 146x146mm",
+        "xMm": 320,
+        "yMm": 380,
+        "wMm": 146,
+        "hMm": 146,
+        "rot": false,
+        "bin": 1,
+        "copyIndex": 0
+      }
+    ],
+    [
+      {
+        "id": "grtplBHCnv8caXVVuKsoQ",
+        "label": "Task-grtplBHC [back] 300x300mm",
+        "xMm": 10,
+        "yMm": 10,
+        "wMm": 300,
+        "hMm": 300,
+        "rot": false,
+        "bin": 2,
+        "copyIndex": 0
+      },
+      {
+        "id": "yB57o_28Qgz6rFTx0MzMb",
+        "label": "Task-yB57o_28 [front] 300x300mm",
+        "xMm": 320,
+        "yMm": 10,
+        "wMm": 300,
+        "hMm": 300,
+        "rot": false,
+        "bin": 2,
+        "copyIndex": 0
+      },
+      {
+        "id": "OrMRAvj5hpRJvkyPBF79u",
+        "label": "Task-OrMRAvj5 [front] 232x232mm",
+        "xMm": 10,
+        "yMm": 320,
+        "wMm": 232,
+        "hMm": 232,
+        "rot": false,
+        "bin": 2,
+        "copyIndex": 0
+      }
+    ]
+  ],
+  "timestamp": "2026-09-27T10:53:58.910Z"
+}

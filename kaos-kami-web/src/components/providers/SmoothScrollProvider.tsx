@@ -37,6 +37,10 @@ export const SmoothScrollProvider: React.FC<{ children: React.ReactNode }> = ({ 
         wheelMultiplier: 0.95,
       });
 
+      if (typeof window !== "undefined") {
+        (window as any).__lenis = lenis;
+      }
+
       // gsap lazy: ScrollTrigger.update + ticker hanya dipasang setelah modul tiba.
       const [{ gsap }, { ScrollTrigger }] = await Promise.all([
         import("gsap"),
@@ -45,6 +49,7 @@ export const SmoothScrollProvider: React.FC<{ children: React.ReactNode }> = ({ 
       if (cancelled || !lenis) {
         lenis?.destroy();
         lenis = null;
+        if (typeof window !== "undefined") delete (window as any).__lenis;
         return;
       }
       gsap.registerPlugin(ScrollTrigger);
@@ -60,6 +65,7 @@ export const SmoothScrollProvider: React.FC<{ children: React.ReactNode }> = ({ 
 
     return () => {
       cancelled = true;
+      if (typeof window !== "undefined") delete (window as any).__lenis;
       if (gsapMod && raf) gsapMod.ticker.remove(raf);
       lenis?.destroy();
       lenis = null;

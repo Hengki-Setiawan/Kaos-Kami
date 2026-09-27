@@ -19,6 +19,7 @@ import {
   Palette,
   ShieldCheck,
   Printer,
+  MessageSquare,
 } from "lucide-react";
 import { ReorderButton } from "@/components/commerce/ReorderButton";
 import { DesignCardActions } from "@/components/commerce/DesignCardActions";
@@ -105,6 +106,8 @@ interface CustomerDashboardViewProps {
     designsCursor?: string | null;
     addressesCursor?: string | null;
   };
+  scope?: "mine" | "all";
+  canSeeAll?: boolean;
 }
 
 // Tahapan pesanan untuk visual stepper
@@ -188,6 +191,8 @@ export function CustomerDashboardView({
   ordersNextCursor,
   designsNextCursor,
   currentCursors,
+  scope = "mine",
+  canSeeAll = false,
 }: CustomerDashboardViewProps) {
   // U3: link muat-lagi mempertahankan cursor lain yg aktif.
   const moreHref = (key: "ordersCursor" | "designsCursor" | "addressesCursor", val: string | null | undefined) => {
@@ -311,6 +316,53 @@ export function CustomerDashboardView({
           </Link>
         </div>
       </div>
+
+      {/* Banner Khusus Pengujian Admin Persona Pelanggan */}
+      {canSeeAll && (
+        <div className="p-4 rounded-2xl bg-amber-500/10 border border-amber-500/30 flex flex-col sm:flex-row sm:items-center justify-between gap-4 animate-fadeIn">
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-xl bg-amber-500 text-black flex items-center justify-center font-black shrink-0">
+              <ShieldCheck size={18} />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="font-extrabold text-amber-500 text-xs uppercase tracking-wider">
+                  Mode Pengujian Admin (Persona Pelanggan)
+                </span>
+                <span className="px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-400 text-[9px] font-bold">
+                  TESTING MODE
+                </span>
+              </div>
+              <p className="text-[11px] text-text-muted mt-0.5">
+                Anda sedang menguji alur dan tampilan dashboard dari sudut pandang pelanggan asli.
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-1.5 p-1 rounded-xl bg-surface border border-border-subtle shrink-0">
+            <Link
+              href="/dashboard/orders?scope=mine"
+              className={`px-3 py-1.5 rounded-lg text-xs font-bold uppercase tracking-wider transition-all ${
+                scope !== "all"
+                  ? "bg-amber-500 text-black shadow-sm"
+                  : "text-text-muted hover:text-text-primary"
+              }`}
+            >
+              Pesanan Saya (Testing)
+            </Link>
+            <Link
+              href="/dashboard/orders?scope=all"
+              className={`px-3 py-1.5 rounded-lg text-xs font-bold uppercase tracking-wider transition-all ${
+                scope === "all"
+                  ? "bg-amber-500 text-black shadow-sm"
+                  : "text-text-muted hover:text-text-primary"
+              }`}
+            >
+              Semua Pesanan Toko
+            </Link>
+          </div>
+        </div>
+      )}
 
       {/* Segmented Navigation Tabs */}
       <div className="flex border-b border-border-subtle gap-2 text-xs">
@@ -482,6 +534,11 @@ export function CustomerDashboardView({
                         {isExpressOrder(order) && (
                           <span className="px-2 py-0.5 rounded-full text-[9px] font-bold bg-amber-500/20 text-amber-500 border border-amber-500/30">
                             ⚡ EXPRESS 24H
+                          </span>
+                        )}
+                        {(order.notes?.includes("TEST_ORDER") || order.courierNotes?.includes("UJI COBA")) && (
+                          <span className="px-2 py-0.5 rounded-full text-[9px] font-bold bg-purple-500/20 text-purple-400 border border-purple-500/40">
+                            🧪 UJI COBA ADMIN
                           </span>
                         )}
                       </div>
@@ -665,6 +722,24 @@ export function CustomerDashboardView({
                         <span>DETAIL</span>
                         <ChevronRight size={12} />
                       </button>
+
+                      {/* Tombol tanya Kamito seputar pesanan ini */}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          window.dispatchEvent(
+                            new CustomEvent("open-kamito-chat", {
+                              detail: { orderId: order.id, orderNumber: order.orderNumber },
+                            })
+                          );
+                        }}
+                        className="px-3.5 py-1.5 rounded-xl bg-surface border border-border-subtle hover:border-amber-500 text-text-primary font-bold hover:text-amber-400 transition-all flex items-center gap-1.5 text-xs"
+                        title="Tanya Kamito seputar pesanan ini"
+                      >
+                        <MessageSquare size={13} className="text-amber-500" />
+                        <span>TANYA CS</span>
+                      </button>
+
                       <ReorderButton
                         userId={order.userId || user?.id || ""}
                         items={order.items.map((it) => ({
@@ -708,7 +783,11 @@ export function CustomerDashboardView({
           })()}
           {/* Modal detail (klik kartu / tombol DETAIL): review + alasan + bayar. */}
           {selectedOrder && (
-            <OrderDetailModal order={selectedOrder} onClose={() => setSelectedOrderId(null)} />
+            <OrderDetailModal
+              order={selectedOrder}
+              onClose={() => setSelectedOrderId(null)}
+              isAdmin={canSeeAll}
+            />
           )}
         </div>
       )}

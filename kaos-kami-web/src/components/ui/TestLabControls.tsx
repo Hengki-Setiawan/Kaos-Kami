@@ -1,11 +1,10 @@
 "use client";
 
-import React from "react";
+import React, { useRef, useEffect } from "react";
 import {
   Activity,
   Flashlight,
   Wind,
-  ShieldCheck,
   Zap,
   Sparkles,
   RefreshCw,
@@ -58,6 +57,8 @@ export const TestLabControls: React.FC = () => {
     setQcAzimuth,
     qcLux,
     materialFinish,
+    studioTheme,
+    setStudioTheme,
     setAnimationPreset,
     setAnimationSpeed,
   } = useConfiguratorStore(
@@ -84,12 +85,26 @@ export const TestLabControls: React.FC = () => {
       setQcAzimuth: s.setQcAzimuth,
       qcLux: s.qcLux,
       materialFinish: s.materialFinish,
+      studioTheme: s.studioTheme,
+      setStudioTheme: s.setStudioTheme,
       setAnimationPreset: s.setAnimationPreset,
       setAnimationSpeed: s.setAnimationSpeed,
     }))
   );
 
+  const prevThemeRef = useRef<typeof studioTheme | null>(null);
+
   const handleSelectMode = (mode: TestLabMode) => {
+    if (mode === "flashlight") {
+      if (testLabMode !== "flashlight") {
+        prevThemeRef.current = studioTheme;
+      }
+      setStudioTheme("obsidian");
+    } else if (testLabMode === "flashlight" && prevThemeRef.current) {
+      setStudioTheme(prevThemeRef.current);
+      prevThemeRef.current = null;
+    }
+
     setTestLabMode(mode);
     if (mode === "windtunnel") {
       setAnimationPreset("wind");
@@ -102,21 +117,18 @@ export const TestLabControls: React.FC = () => {
     }
   };
 
+  useEffect(() => {
+    return () => {
+      if (prevThemeRef.current) {
+        useConfiguratorStore.getState().setStudioTheme(prevThemeRef.current);
+      }
+    };
+  }, []);
+
   const stretchPercentage = Math.round(stretchIntensity * 100);
-  // Bukti P0: telemetri elongasi/recovery diambil dari SSOT stretchPhysics.ts
-  // (bukan tensileForceN N/cm²). Elongasi per arah: horizontal 30% / vertical
-  // 18% / biaxial 20%. Recovery = estimasi visual D2594: 96 - 14*intensity.
   const elongationPct = elongationPercent(stretchDirection, stretchIntensity);
   const elongationMaxPct = Math.round(U_MAX_ELONG[stretchDirection] * 100);
-  const recoveryPctLabel = `${recoveryEstimate(stretchIntensity).toFixed(1)}% estimasi`;
-
-  // Telemetri permeabilitas udara berdasarkan bahan kain yang dipilih
-  const fabricBreathability =
-    materialFinish === "french-terry"
-      ? { cfm: 64, desc: "Fleece 380 GSM (Retensi Hangat)" }
-      : materialFinish === "poplin"
-      ? { cfm: 82, desc: "Poplin Kalis (Aliran Udara Sedang)" }
-      : { cfm: 98, desc: "Katun Combed 24s (Sangat Sejuk & Bernapas)" };
+  const recoveryPctLabel = `${recoveryEstimate(stretchIntensity).toFixed(1)}%`;
 
   return (
     <div className="p-4 rounded-2xl glass-panel border border-border-subtle space-y-3.5 shadow-sm">
@@ -138,82 +150,72 @@ export const TestLabControls: React.FC = () => {
           { id: "stretch", label: "TARIK KAIN", icon: Activity },
           { id: "flashlight", label: "SENTER 3D", icon: Flashlight },
           { id: "windtunnel", label: "ANGIN 3D", icon: Wind },
-        ].map(({ id, label, icon: Icon }) => {
-          const isActive = testLabMode === id;
-          return (
-            <button
-              key={id}
-              type="button"
-              onClick={() => handleSelectMode(id as TestLabMode)}
-              aria-pressed={isActive}
-              className={`py-2.5 px-1 rounded-xl font-mono text-[10px] font-bold border transition-all flex flex-col items-center gap-1 text-center ${
-                isActive
-                  ? "bg-brand-accent text-canvas border-brand-accent shadow-md scale-[1.02]"
-                  : "bg-surface border-border-subtle text-text-muted hover:text-text-primary hover:border-border"
-              }`}
-            >
-              <Icon size={14} />
-              <span>{label}</span>
-            </button>
-          );
-        })}
+        ].map(({ id, label, icon: Icon }) => (
+          <button
+            key={id}
+            type="button"
+            onClick={() => handleSelectMode(id as TestLabMode)}
+            aria-pressed={testLabMode === id}
+            className={`py-2 px-1.5 rounded-xl text-center border font-mono text-[10px] font-bold transition-all flex flex-col items-center gap-1 ${
+              testLabMode === id
+                ? "bg-brand-accent text-canvas border-brand-accent shadow-md scale-[1.02]"
+                : "bg-surface border-border-subtle text-text-muted hover:text-text-primary hover:border-border"
+            }`}
+          >
+            <Icon size={14} />
+            <span>{label}</span>
+          </button>
+        ))}
       </div>
 
-      {/* --- PANEL 1: UJI TARIK & ELASTISITAS KAIN (MAXIMAL) --- */}
+      {/* --- PANEL 1: UJI TARIK KAIN & ELASTISITAS DTF --- */}
       {testLabMode === "stretch" && (
         <div className="p-3.5 rounded-xl bg-surface/80 border border-border-subtle space-y-3 animate-in fade-in slide-in-from-top-1 duration-200">
           <div className="flex justify-between items-center">
             <span className="text-xs font-bold text-text-primary flex items-center gap-1.5">
               <Activity size={13} className="text-brand-accent" />
-              Uji Regangan Tarik & Elastisitas Sablon
+              Tarik Kain &amp; Elastisitas DTF
             </span>
             <span className="text-xs font-mono font-bold text-brand-accent">
               {stretchPercentage}%
             </span>
           </div>
 
-          {/* Pemilih Arah Tarikan Fisika */}
+          {/* Pengatur Arah Tarik */}
           <div className="space-y-1">
             <span className="text-[10px] font-mono font-bold text-text-muted uppercase">
-              ARAH REGANGAN FISIKA:
+              Arah Gaya Tarik:
             </span>
             <div className="grid grid-cols-3 gap-1.5">
               {[
-                { id: "horizontal", label: "DADA", icon: ArrowRightLeft, desc: "Melintang" },
-                { id: "vertical", label: "KERAH", icon: ArrowUpDown, desc: "Membujur" },
-                { id: "biaxial", label: "BIAXIAL", icon: Move, desc: "Radial 360°" },
-              ].map(({ id, label, icon: Icon, desc }) => (
+                { id: "horizontal", label: "HORIZONTAL", icon: ArrowRightLeft },
+                { id: "vertical", label: "VERTIKAL", icon: ArrowUpDown },
+                { id: "biaxial", label: "BIAXIAL (2 ARAH)", icon: Move },
+              ].map(({ id, label, icon: Icon }) => (
                 <button
                   key={id}
                   type="button"
                   onClick={() => setStretchDirection(id as StretchDirection)}
                   aria-pressed={stretchDirection === id}
-                  className={`py-1.5 px-1 rounded-lg border text-center transition-all flex flex-col items-center ${
+                  className={`py-1.5 px-1 rounded-lg border text-center transition-all flex flex-col items-center gap-0.5 ${
                     stretchDirection === id
-                      ? "bg-brand-accent text-canvas border-brand-accent shadow-sm"
+                      ? "bg-brand-accent/20 border-brand-accent text-brand-accent font-bold"
                       : "bg-surface border-border-subtle text-text-muted hover:text-text-primary"
                   }`}
                 >
-                  <div className="flex items-center gap-1 text-[10px] font-mono font-bold">
-                    <Icon size={11} />
-                    <span>{label}</span>
-                  </div>
-                  <span className="text-[8.5px] opacity-75">{desc}</span>
+                  <Icon size={12} />
+                  <span className="text-[9px] font-mono">{label}</span>
                 </button>
               ))}
             </div>
           </div>
 
-          {/* Progress Bar Tegangan */}
-          <div className="w-full bg-border-subtle/50 h-2 rounded-full overflow-hidden">
-            <div
-              className="h-full bg-gradient-to-r from-emerald-500 via-brand-accent to-amber-500 transition-all duration-75"
-              style={{ width: `${Math.max(4, stretchPercentage)}%` }}
-            />
-          </div>
-
-          {/* Slider Tarikan & Reset Pegas */}
-          <div className="flex items-center gap-2">
+          {/* Slider Intensitas Tarikan */}
+          <div className="space-y-1">
+            <div className="flex justify-between text-[10px] font-mono text-text-muted">
+              <span>INTENSITAS TARIK:</span>
+              <span className="text-brand-accent font-bold">{stretchPercentage}%</span>
+            </div>
             <input
               type="range"
               min="0"
@@ -221,45 +223,31 @@ export const TestLabControls: React.FC = () => {
               step="0.02"
               value={stretchIntensity}
               onChange={(e) => setStretchIntensity(parseFloat(e.target.value))}
-              className="flex-1 accent-brand-accent cursor-pointer"
+              className="w-full accent-brand-accent cursor-pointer"
               aria-label="Intensitas tarikan kain"
               aria-valuetext={`${stretchPercentage} persen`}
             />
-            <button
-              type="button"
-              onClick={() => setStretchIntensity(0)}
-              className="px-2 py-1.5 rounded-lg border border-border-subtle hover:bg-surface text-text-muted hover:text-text-primary text-[10px] font-mono font-bold flex items-center gap-1"
-              title="Lepas / Reset Pegas"
-            >
-              <RefreshCw size={11} />
-              <span>LEPAS</span>
-            </button>
           </div>
 
-          {/* Preset Cepat Tarikan */}
-          <div className="grid grid-cols-4 gap-1 text-[9px] font-mono font-bold">
-            {[
-              { val: 0.1, label: "10% SANTAI" },
-              { val: 0.25, label: "25% AKTIF" },
-              { val: 0.5, label: "50% MAKS" },
-              { val: 0, label: "0% RECOIL" },
-            ].map(({ val, label }) => (
+          {/* Tombol Cepat Nilai Tarik */}
+          <div className="grid grid-cols-4 gap-1">
+            {[0, 0.35, 0.7, 1.0].map((v) => (
               <button
-                key={label}
+                key={v}
                 type="button"
-                onClick={() => setStretchIntensity(val)}
-                className={`py-1 rounded border transition-all text-center ${
-                  Math.abs(stretchIntensity - val) < 0.05
-                    ? "bg-brand-accent/20 border-brand-accent text-brand-accent"
-                    : "bg-surface/70 border-border-subtle text-text-muted hover:text-text-primary"
+                onClick={() => setStretchIntensity(v)}
+                className={`py-1 rounded text-[10px] font-mono border transition-all ${
+                  Math.abs(stretchIntensity - v) < 0.05
+                    ? "bg-brand-accent text-canvas font-bold border-brand-accent"
+                    : "bg-surface border-border-subtle text-text-muted hover:text-text-primary"
                 }`}
               >
-                {label}
+                {Math.round(v * 100)}%
               </button>
             ))}
           </div>
 
-          {/* Telemetri elongasi & recovery — estimasi visual ala ASTM D2594 */}
+          {/* Telemetri elongasi & recovery */}
           <div className="p-2.5 rounded-lg bg-surface border border-border-subtle text-[10px] font-mono space-y-1">
             <div className="flex justify-between text-text-muted">
               <span>Elongasi Kain (maks {elongationMaxPct}%):</span>
@@ -268,36 +256,20 @@ export const TestLabControls: React.FC = () => {
               </span>
             </div>
             <div className="flex justify-between text-text-muted">
-              <span>Pemulihan Elastis (D2594):</span>
+              <span>Pemulihan Elastis:</span>
               <span className="font-bold text-emerald-400">{recoveryPctLabel}</span>
             </div>
           </div>
-          <p className="text-[9px] font-mono font-bold tracking-wide text-text-muted/70">
-            ESTIMASI VISUAL — bukan sertifikasi lab
-          </p>
-
-          {/* Badge Jaminan Ketahanan DTF */}
-          <div className="p-2.5 rounded-lg bg-emerald-500/10 border border-emerald-500/20 flex items-start gap-2">
-            <ShieldCheck size={16} className="text-emerald-400 shrink-0 mt-0.5" />
-            <div className="text-[11px] leading-tight text-emerald-300">
-              <span className="font-bold block">Tinta DTF Polyurethane Elastis (ASTM D2594 · knit stretch &amp; recovery)</span>
-              Sablon ikut melar lentur mengikuti serat kain tanpa retak (cracking), sobek, atau mengelupas.
-            </div>
-          </div>
-
-          <p className="text-[9.5px] text-text-muted/80 leading-relaxed italic">
-            💡 Tips: Anda juga bisa mengklik & men-drag langsung pada permukaan pakaian di kanvas 3D untuk merasakan tarikan pegas interaktif.
-          </p>
         </div>
       )}
 
-      {/* --- PANEL 2: SENTER 3D & EFEK TINTA KHUSUS (MAXIMAL) --- */}
+      {/* --- PANEL 2: SENTER 3D & INSPEKSI DARKROOM --- */}
       {testLabMode === "flashlight" && (
         <div className="p-3.5 rounded-xl bg-surface/80 border border-border-subtle space-y-3 animate-in fade-in slide-in-from-top-1 duration-200">
           <div className="flex items-center justify-between">
             <span className="text-xs font-bold text-text-primary flex items-center gap-1.5">
               <Flashlight size={13} className="text-brand-accent" />
-              Inspeksi Senter 3D & Tinta Spesial
+              Inspeksi Senter 3D &amp; Detail Sablon
             </span>
             <span className="text-[10px] font-mono text-emerald-400 font-bold flex items-center gap-1">
               <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping" />
@@ -305,149 +277,60 @@ export const TestLabControls: React.FC = () => {
             </span>
           </div>
 
-          {/* Badge: seluruh efek tinta di panel ini adalah simulasi visual */}
-          <p className="text-[9px] font-mono font-bold tracking-wide text-text-muted/70 text-center border border-border-subtle rounded-lg py-1 bg-surface/60">
-            SIMULASI VISUAL — produksi DTF standar
-          </p>
-
-          {/* Opsi 5 Tinta Khusus */}
-          <div className="grid grid-cols-2 gap-1.5">
-            {[
-              { id: "standard", label: "DTF Standar", desc: "Matte Katun Alami" },
-              { id: "reflective3m", label: "Reflective", desc: "Memantul saat kena cahaya · film khusus" },
-              { id: "glow", label: "Glow in Dark", desc: "Fosfor Neon Berpendar" },
-              { id: "goldfoil", label: "Gold Foil", desc: "Kilau Logam Emas Mewah" },
-              { id: "holographic", label: "Holo Prism", desc: "Spektrum Pelangi Iridescence" },
-            ].map(({ id, label, desc }) => {
-              const isSelected = specialInkEffect === id;
-              return (
-                <button
-                  key={id}
-                  type="button"
-                  onClick={() => setSpecialInkEffect(id as SpecialInkEffect)}
-                  aria-pressed={isSelected}
-                  className={`p-2 rounded-xl text-left border transition-all ${
-                    isSelected
-                      ? "bg-brand-accent/15 border-brand-accent text-brand-accent shadow-sm"
-                      : "bg-surface border-border-subtle text-text-muted hover:text-text-primary"
-                  } ${id === "holographic" ? "col-span-2" : ""}`}
-                >
-                  <div className="text-xs font-bold flex items-center justify-between">
-                    <span>{label}</span>
-                    {isSelected && <Sparkles size={11} className="text-brand-accent" />}
-                  </div>
-                  <div className="text-[10px] font-mono opacity-70 mt-0.5">{desc}</div>
-                </button>
-              );
-            })}
-          </div>
-
-          {/* Pengatur Fokus Berkas Senter 3D (cone spotlight, radian→derajat jujur) */}
-          <div className="pt-2 border-t border-border-subtle/50 space-y-1.5">
+          {/* Pengatur Fokus Berkas Senter 3D */}
+          <div className="space-y-2">
             <div className="flex justify-between text-[10px] font-mono text-text-muted">
-              <span>FOKUS BERKAS (CONE):</span>
+              <span>FOKUS BERKAS SENTER:</span>
               <span className="text-brand-accent font-bold">
-                {Math.round(flashlightFocus * 180 / Math.PI)}°{" "}
-                {flashlightFocus <= 0.3 ? "TAJAM" : flashlightFocus <= 0.55 ? "SEDANG" : "LUAS"}
+                {Math.round((flashlightFocus * 180) / Math.PI)}°{" "}
+                {flashlightFocus <= 0.35 ? "TAJAM" : flashlightFocus <= 0.55 ? "SEDANG" : "LUAS"}
               </span>
             </div>
             <input
               type="range"
-              min="0.18"
+              min="0.22"
               max="0.75"
-              step="0.03"
+              step="0.02"
               value={flashlightFocus}
               onChange={(e) => setFlashlightFocus(parseFloat(e.target.value))}
               className="w-full accent-brand-accent cursor-pointer"
               aria-label="Fokus berkas senter"
-              aria-valuetext={`Cone ${Math.round(flashlightFocus * 180 / Math.PI)} derajat`}
+              aria-valuetext={`Cone ${Math.round((flashlightFocus * 180) / Math.PI)} derajat`}
             />
-          </div>
 
-          {/* Preset sudut grazing industri (dari permukaan kain, bukan cone) */}
-          <div className="pt-2 border-t border-border-subtle/50 space-y-1.5">
-            <span className="text-[10px] font-mono font-bold text-text-muted uppercase">
-              SUDUT GRAZING QC:
-            </span>
-            <div className="grid grid-cols-2 gap-1.5">
-              {QC_GRAZING_PRESETS.map((p) => (
-                <button
-                  key={p.id}
-                  type="button"
-                  onClick={() => setQcGrazingDeg(p.deg)}
-                  aria-pressed={qcGrazingDeg === p.deg}
-                  className={`p-2 rounded-xl text-left border transition-all ${
-                    qcGrazingDeg === p.deg
-                      ? "bg-brand-accent/15 border-brand-accent text-brand-accent shadow-sm"
-                      : "bg-surface border-border-subtle text-text-muted hover:text-text-primary"
-                  }`}
-                >
-                  <div className="text-xs font-bold">{p.deg}° {p.deg >= 90 ? "DIFUS" : "RAKING"}</div>
-                  <div className="text-[10px] font-mono opacity-70 mt-0.5">{p.label}</div>
-                </button>
-              ))}
-            </div>
-            <div className="flex justify-between text-[10px] font-mono text-text-muted">
-              <span>AZIMUTH:</span>
-              <span className="text-brand-accent font-bold">{Math.round(qcAzimuth)}°</span>
-            </div>
-            <input
-              type="range"
-              min="0"
-              max="360"
-              step="15"
-              value={qcAzimuth}
-              onChange={(e) => setQcAzimuth(parseInt(e.target.value, 10))}
-              className="w-full accent-brand-accent cursor-pointer"
-              aria-label="Arah azimuth senter"
-              aria-valuetext={`Azimuth ${Math.round(qcAzimuth)} derajat`}
-            />
-            <div className="flex justify-between text-[10px] font-mono text-text-muted">
-              <span>SISI INSPEKSI:</span>
-              <span className="text-brand-accent font-bold">≈ {qcLux} lux</span>
-            </div>
-            <div className="grid grid-cols-3 gap-1.5">
+            {/* Tombol Preset Fokus Cepat */}
+            <div className="grid grid-cols-3 gap-1.5 pt-1">
               {[
-                { id: "front", label: "DEPAN" },
-                { id: "back", label: "BELAKANG" },
-                { id: "left_sleeve", label: "LGN KIRI" },
-                { id: "right_sleeve", label: "LGN KANAN" },
-                { id: "side_left", label: "RUSUK KIRI" },
-                { id: "side_right", label: "RUSUK KANAN" },
-              ].map(({ id, label }) => (
+                { rad: 0.26, label: "15° TAJAM", sub: "Detail Mikro" },
+                { rad: 0.45, label: "26° SEDANG", sub: "Standar Booth" },
+                { rad: 0.70, label: "40° LUAS", sub: "Sorot Menyeluruh" },
+              ].map(({ rad, label, sub }) => (
                 <button
-                  key={id}
+                  key={label}
                   type="button"
-                  onClick={() => setQcSide(id as DecalTargetSide)}
-                  aria-pressed={qcSide === id}
-                  className={`py-1.5 px-1 rounded-lg text-[10px] font-mono font-bold border transition-all text-center ${
-                    qcSide === id
-                      ? "bg-brand-accent text-canvas border-brand-accent"
+                  onClick={() => setFlashlightFocus(rad)}
+                  className={`py-1.5 px-1 rounded-lg border text-center transition-all ${
+                    Math.abs(flashlightFocus - rad) < 0.08
+                      ? "bg-brand-accent/20 border-brand-accent text-brand-accent font-bold"
                       : "bg-surface border-border-subtle text-text-muted hover:text-text-primary"
                   }`}
                 >
-                  {label}
+                  <div className="text-[10px] font-mono">{label}</div>
+                  <div className="text-[8.5px] opacity-70 font-normal">{sub}</div>
                 </button>
               ))}
             </div>
-            <p className="text-[9.5px] font-mono text-text-muted/80 italic">
-              Lux estimasi virtual (booth nyata 1000–2000 lux). Raking 15° kupas relief; 90° difus untuk warna.
-            </p>
           </div>
-
-          <p className="text-[10px] text-text-muted/80 leading-relaxed italic">
-            💡 Studio otomatis menggelap ke mode ruang inspeksi QC. Gerakkan kursor atau sentuh kanvas untuk mengarahkan sorotan berkas senter 3D langsung ke detail sablon.
-          </p>
         </div>
       )}
 
-      {/* --- PANEL 3: TEROWONGAN ANGIN 3D (MAXIMAL) --- */}
+      {/* --- PANEL 3: TEROWONGAN ANGIN 3D --- */}
       {testLabMode === "windtunnel" && (
         <div className="p-3.5 rounded-xl bg-surface/80 border border-border-subtle space-y-3 animate-in fade-in slide-in-from-top-1 duration-200">
           <div className="flex justify-between items-center">
             <span className="text-xs font-bold text-text-primary flex items-center gap-1.5">
               <Wind size={13} className="text-sky-400" />
-              Uji Terowongan Angin & Aerodinamika
+              Uji Terowongan Angin &amp; Aerodinamika
             </span>
             <span className="text-xs font-mono font-bold text-sky-400">
               {windTunnelSpeed} km/jam
@@ -461,7 +344,7 @@ export const TestLabControls: React.FC = () => {
             </span>
             <div className="grid grid-cols-3 gap-1.5">
               {[
-                { id: "front", label: "DEPAN", desc: "Menerpa Dada" },
+                { id: "front", label: "DEPAN", desc: "Menerpa Torso" },
                 { id: "side", label: "SAMPING", desc: "Menyapu Lengan" },
                 { id: "up", label: "BAWAH", desc: "Up-Draft Kelim" },
               ].map(({ id, label, desc }) => (
@@ -525,21 +408,6 @@ export const TestLabControls: React.FC = () => {
                 {label}
               </button>
             ))}
-          </div>
-
-          {/* Telemetri Aerodinamika & Sirkulasi Bahan */}
-          <div className="p-2.5 rounded-lg bg-sky-500/10 border border-sky-500/20 text-[11px] text-sky-300 space-y-1.5">
-            <div className="flex justify-between items-center">
-              <span className="opacity-80 text-[10px]">Permeabilitas Udara Kain:</span>
-              <span className="font-bold text-[10.5px]">{fabricBreathability.cfm} CFM</span>
-            </div>
-            <div className="text-[9.5px] opacity-75 italic pl-1 border-l-2 border-sky-400">
-              {fabricBreathability.desc}
-            </div>
-            <div className="flex justify-between items-center pt-1 border-t border-sky-400/20">
-              <span className="opacity-80 text-[10px]">Stabilitas Adhesi Sablon:</span>
-              <span className="font-bold text-emerald-400 text-[10.5px]">Simulasi: adhesi mengikuti kain (validasi produksi: uji cuci)</span>
-            </div>
           </div>
         </div>
       )}

@@ -488,6 +488,52 @@ export const UserDevice = sqliteTable(
 );
 
 // ------------------------------------------------------------------
+// LIVE CHAT & PRESENCE (User <-> Admin Workshop / Kamito)
+// ------------------------------------------------------------------
+
+export const ChatMessage = sqliteTable(
+  "ChatMessage",
+  {
+    id: text("id").primaryKey(),
+    senderId: text("senderId").notNull(),
+    senderName: text("senderName"),
+    senderRole: text("senderRole").notNull().default("CUSTOMER"),
+    receiverId: text("receiverId"),
+    orderId: text("orderId"),
+    content: text("content").notNull(),
+    attachments: text("attachments"),
+    isRead: integer("isRead", { mode: "boolean" }).notNull().default(false),
+    createdAt: isoDateTime("createdAt").notNull().$defaultFn(() => new Date()),
+    updatedAt: isoDateTime("updatedAt")
+      .notNull()
+      .$defaultFn(() => new Date())
+      .$onUpdate(() => new Date()),
+  },
+  (t) => [
+    index("idx_chat_sender").on(t.senderId),
+    index("idx_chat_receiver").on(t.receiverId),
+    index("idx_chat_created").on(t.createdAt),
+    index("idx_chat_order").on(t.orderId),
+  ],
+);
+
+export const UserPresence = sqliteTable(
+  "UserPresence",
+  {
+    userId: text("userId").primaryKey(),
+    userName: text("userName"),
+    role: text("role").notNull().default("CUSTOMER"),
+    lastSeenAt: isoDateTime("lastSeenAt").notNull().$defaultFn(() => new Date()),
+    isOnline: integer("isOnline", { mode: "boolean" }).notNull().default(true),
+    deviceInfo: text("deviceInfo"),
+  },
+  (t) => [
+    index("idx_presence_role").on(t.role),
+    index("idx_presence_lastSeen").on(t.lastSeenAt),
+  ],
+);
+
+// ------------------------------------------------------------------
 // RELATIONS (untuk db.query.*.with — setara Prisma include)
 // ------------------------------------------------------------------
 
@@ -598,6 +644,11 @@ export const UserDeviceRelations = relations(UserDevice, ({ one }) => ({
   user: one(User, { fields: [UserDevice.userId], references: [User.id] }),
 }));
 
+export const ChatMessageRelations = relations(ChatMessage, ({ one }) => ({
+  sender: one(User, { fields: [ChatMessage.senderId], references: [User.id] }),
+  order: one(Order, { fields: [ChatMessage.orderId], references: [Order.id] }),
+}));
+
 export const schema = {
   User,
   Session,
@@ -621,6 +672,8 @@ export const schema = {
   Coupon,
   ExpeditionZone,
   UserDevice,
+  ChatMessage,
+  UserPresence,
   UserRelations,
   SessionRelations,
   AccountRelations,
@@ -637,6 +690,7 @@ export const schema = {
   ProductionTaskRelations,
   QcInspectionRelations,
   UserDeviceRelations,
+  ChatMessageRelations,
 };
 
 export type DbSchema = typeof schema;

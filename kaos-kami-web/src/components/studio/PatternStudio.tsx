@@ -25,12 +25,42 @@ import { generateTextDecalDataUrl } from "@/lib/typography/textDecalGenerator";
 import { composePrintFileTiled, exportScaleFactor, PRINT_EXPORT_LIMITS } from "@/lib/printUV";
 import { clampDecalXY, maxDecalScaleUnits, REAL_WORLD_PRINT_LIMITS } from "@/lib/scaleCalibration";
 
-const PANELS: Array<{ id: PatternPanel; label: string; hoodOnly?: boolean }> = [
+function getPanelsForApparel(apparel: ApparelType): Array<{ id: PatternPanel; label: string }> {
+  if (apparel === "cap") {
+    return [
+      { id: "front", label: "Mahkota Depan" },
+      { id: "back", label: "Belakang / Strap" },
+    ];
+  }
+  if (apparel === "pants" || apparel === "shorts") {
+    return [
+      { id: "front", label: "Paha Depan" },
+      { id: "back", label: "Belakang" },
+    ];
+  }
+  if (apparel === "hoodie") {
+    return [
+      { id: "front", label: "Depan" },
+      { id: "back", label: "Belakang" },
+      { id: "left_sleeve", label: "Lengan Kiri" },
+      { id: "right_sleeve", label: "Lengan Kanan" },
+      { id: "hood", label: "Tudung" },
+    ];
+  }
+  return [
+    { id: "front", label: "Depan" },
+    { id: "back", label: "Belakang" },
+    { id: "left_sleeve", label: "Lengan Kiri" },
+    { id: "right_sleeve", label: "Lengan Kanan" },
+  ];
+}
+
+const PANELS: Array<{ id: PatternPanel; label: string }> = [
   { id: "front", label: "Depan" },
   { id: "back", label: "Belakang" },
   { id: "left_sleeve", label: "Lengan Kiri" },
   { id: "right_sleeve", label: "Lengan Kanan" },
-  { id: "hood", label: "Tudung", hoodOnly: true },
+  { id: "hood", label: "Tudung" },
 ];
 
 function getLuminance(hex: string): number {
@@ -110,6 +140,8 @@ export const PatternStudio: React.FC = () => {
     selectedDecalId,
     setSelectedDecalId,
     studioTheme,
+    cameraPreset,
+    setCameraPreset,
   } = useConfiguratorStore(
     useShallow((s) => ({
       activeApparel: s.activeApparel,
@@ -121,10 +153,52 @@ export const PatternStudio: React.FC = () => {
       selectedDecalId: s.selectedDecalId,
       setSelectedDecalId: s.setSelectedDecalId,
       studioTheme: s.studioTheme,
+      cameraPreset: s.cameraPreset,
+      setCameraPreset: s.setCameraPreset,
     }))
   );
   const isLight = studioTheme === "gallery";
-  const [panel, setPanel] = useState<PatternPanel>("front");
+  const availablePanels = React.useMemo(() => getPanelsForApparel(activeApparel), [activeApparel]);
+  const [panel, setPanel] = useState<PatternPanel>(() => {
+    // Inisialisasi cerdas: bila ada decal aktif, buka panel sisi decal tersebut
+    const sel = useConfiguratorStore.getState().selectedDecalId;
+    const allDecals = useConfiguratorStore.getState().decals;
+    const active = allDecals.find((d) => d.id === sel);
+    if (active?.targetSide && (active.targetSide as PatternPanel)) {
+      return active.targetSide as PatternPanel;
+    }
+    return "front";
+  });
+
+  // 1. Sinkronisasi otomatis saat targetSide decal aktif berpindah (misal diseret di 3D ke belakang atau lengan):
+  const activeDecalRef = decals.find((d) => d.id === selectedDecalId);
+  const activeSide = activeDecalRef?.targetSide;
+  useEffect(() => {
+    if (activeSide && availablePanels.some((p) => p.id === activeSide)) {
+      setPanel(activeSide as PatternPanel);
+    }
+  }, [activeSide, availablePanels]);
+
+  // 2. Sinkronisasi otomatis dari sudut kamera 3D (misal user klik BLKNG atau putar preset):
+  useEffect(() => {
+    if (!cameraPreset) return;
+    if (cameraPreset === "back" && availablePanels.some((p) => p.id === "back")) {
+      setPanel("back");
+    } else if (cameraPreset === "left" && availablePanels.some((p) => p.id === "left_sleeve")) {
+      setPanel("left_sleeve");
+    } else if (cameraPreset === "right" && availablePanels.some((p) => p.id === "right_sleeve")) {
+      setPanel("right_sleeve");
+    } else if (cameraPreset === "front" && availablePanels.some((p) => p.id === "front")) {
+      setPanel("front");
+    }
+  }, [cameraPreset, availablePanels]);
+
+  useEffect(() => {
+    if (!availablePanels.some((p) => p.id === panel)) {
+      setPanel(availablePanels[0]?.id || "front");
+    }
+  }, [availablePanels, panel]);
+
   const [textInput, setTextInput] = useState("");
   const [textColorChoice, setTextColorChoice] = useState<string>("auto");
   const [status, setStatus] = useState<string | null>(null);
@@ -414,7 +488,7 @@ export const PatternStudio: React.FC = () => {
             const natAspect = d.printPx?.w && d.printPx?.h
               ? d.printPx.w / d.printPx.h
               : nat.w / nat.h;
-            const p = decalToFabric(activeApparel, d, natAspect);
+            const p = decalToFabric(activeApparel, d, natAspect, panel);
             const img = await (fabric as any).FabricImage.fromURL(srcUrl);
             img.set({
               left: origin.xPx + p.cxPx,
@@ -468,6 +542,7 @@ export const PatternStudio: React.FC = () => {
           // Aspek dari objek (disimpan saat upload/muat); fallback ke bbox.
           const aspectOpt = (obj as any).aspectWoverH as number | undefined;
           const patch = fabricToDecal(activeApparel, cxPx, cyPx, wPx, hPx, obj.angle ?? 0, {
+            panel,
             ...(aspectOpt && aspectOpt > 0 ? { aspectWoverH: aspectOpt } : {}),
             ...(typeof obj.opacity === "number" ? { opacity: obj.opacity } : {}),
           });
@@ -621,7 +696,9 @@ export const PatternStudio: React.FC = () => {
               const natAspect = d.printPx?.w && d.printPx?.h
                 ? d.printPx.w / d.printPx.h
                 : (nat.w && nat.h ? nat.w / nat.h : 1);
-              const p = decalToFabric(activeApparel, d, natAspect);
+              const maxS = maxDecalScaleUnits(activeApparel, panel as any);
+              const safeDecal = { ...d, scale: Math.min(d.scale, maxS) };
+              const p = decalToFabric(activeApparel, safeDecal, natAspect, panel);
               const newImg = await (fabric as any).FabricImage.fromURL(srcUrl);
               if (isCancelled || !fabricRef.current) {
                 loadingDecalIdsRef.current.delete(d.id);
@@ -657,7 +734,9 @@ export const PatternStudio: React.FC = () => {
           if (activeObj === obj && (canvas as any)._currentTransform) continue;
 
           const aspect = (obj as any).aspectWoverH || 1;
-          const p = decalToFabric(activeApparel, d, aspect);
+          const maxS = maxDecalScaleUnits(activeApparel, panel as any);
+          const safeDecal = { ...d, scale: Math.min(d.scale, maxS) };
+          const p = decalToFabric(activeApparel, safeDecal, aspect, panel);
           const targetLeft = origin.xPx + p.cxPx;
           const targetTop = origin.yPx + p.cyPx;
 
@@ -1030,7 +1109,7 @@ export const PatternStudio: React.FC = () => {
 
     if (mode === "center") {
       targetX = 0;
-      targetY = panel === "front" ? -0.05 : panel === "back" ? -0.08 : 0;
+      targetY = panel === "left_sleeve" || panel === "right_sleeve" ? 0.05 : 0;
     } else if (mode === "pocket") {
       targetX = -0.12;
       targetY = -0.08;
@@ -1041,8 +1120,10 @@ export const PatternStudio: React.FC = () => {
       targetY = 0;
     }
 
+    const maxS = maxDecalScaleUnits(activeApparel, panel as any);
+    targetScale = Math.min(targetScale, maxS);
     const jepit = clampDecalXY(panel as any, targetX, targetY);
-    updateDecal(id, { x: jepit.x, y: jepit.y, scale: targetScale, rotation: 0 });
+    updateDecal(id, { targetSide: panel as any, x: jepit.x, y: jepit.y, scale: targetScale, rotation: 0 });
 
     if (canvas) {
       const obj = canvas.getObjects().find((o: any) => o.decalId === id);
@@ -1052,7 +1133,8 @@ export const PatternStudio: React.FC = () => {
         const p = decalToFabric(
           activeApparel,
           { ...activeDecal, x: jepit.x, y: jepit.y, scale: targetScale, rotation: 0 },
-          natAspect
+          natAspect,
+          panel
         );
         obj.set({
           left: origin.xPx + p.cxPx,
@@ -1064,11 +1146,13 @@ export const PatternStudio: React.FC = () => {
         canvas.requestRenderAll();
       }
     }
-  }, [activeApparel, activeDecal, canvasH, canvasW, panel, updateDecal]);
+  }, [activeApparel, activeDecal, panel, updateDecal]);
 
   const decalStats = (() => {
     if (!activeDecal) return null;
-    const wCm = unitsToCm(activeApparel, activeDecal.scale);
+    const maxS = maxDecalScaleUnits(activeApparel, panel as any);
+    const clampedScale = Math.min(activeDecal.scale, maxS);
+    const wCm = unitsToCm(activeApparel, clampedScale);
     const aspect =
       activeDecal.printPx && activeDecal.printPx.h > 0
         ? activeDecal.printPx.w / activeDecal.printPx.h
@@ -1077,77 +1161,43 @@ export const PatternStudio: React.FC = () => {
     const actualHCm = aspect >= 1 ? wCm / aspect : wCm;
 
     const origin = getPanelOrigin(activeApparel, panel);
+    if (panel === "left_sleeve" || panel === "right_sleeve") {
+      const shoulderDistCm = Math.round(Math.max(0, (0.35 - activeDecal.y) / 0.70 * geo.hCm) * 10) / 10;
+      return {
+        wCm: Math.round(actualWCm * 10) / 10,
+        hCm: Math.round(actualHCm * 10) / 10,
+        distCollar: shoulderDistCm,
+        labelCollar: `Dari bahu: ~${shoulderDistCm} cm`,
+        maxPrintW: geo.printWcm,
+      };
+    }
+
     const cyCm = origin.yCm - unitsToCm(activeApparel, activeDecal.y);
     const topEdgeCm = cyCm - actualHCm / 2;
     const distFromCollar = Math.max(0, topEdgeCm - origin.collarYCm);
+    const roundedDist = Math.round(distFromCollar * 10) / 10;
+
+    const labelCollar =
+      panel === "back"
+        ? `Leher belakang: ~${roundedDist} cm`
+        : panel === "hood"
+        ? `Tudung atas: ~${roundedDist} cm`
+        : activeApparel === "cap"
+        ? `Visor: ~${roundedDist} cm`
+        : activeApparel === "pants" || activeApparel === "shorts"
+        ? `Pinggang: ~${roundedDist} cm`
+        : `Jarak kerah: ~${roundedDist} cm`;
 
     return {
       wCm: Math.round(actualWCm * 10) / 10,
       hCm: Math.round(actualHCm * 10) / 10,
-      distCollar: Math.round(distFromCollar * 10) / 10,
+      distCollar: roundedDist,
+      labelCollar,
+      maxPrintW: geo.printWcm,
     };
   })();
 
   // KEPUTUSAN FASE 13 (risiko kecil): Pola 2D untuk TOPI DINONAKTIFKAN
-  // EKSPLISIT berpesan — bukan "minimal layak". Alasan: geometri panel topi
-  // (crown melengkung + lidah) tak terwakili artboard persegi tshirt-fallback
-  // (56×74cm) — menampilkan skala-cm SALAH lebih berbahaya daripada jujur
-  // menonaktifkan. Sablon topi tetap bisa diatur via mockup 3D + PanelStudio
-  // menyusul bila pola crown diukur.
-  // CELANA coming-soon (pola cap): Pola 2D celana DINONAKTIFKAN EKSPLISIT
-  // berpesan — bukan "minimal layak". Alasan: panel paha melengkung +
-  // selangkangan tak terwakili artboard persegi (32.7×100cm) — menampilkan
-  // skala-cm SALAH lebih berbahaya daripada jujur menonaktifkan. Sablon
-  // celana tetap bisa diatur via mockup 3D, lalu simpan desain seperti biasa.
-  if (activeApparel === "cap") {
-    return (
-      <div className="space-y-3 rounded-xl border border-amber-500/30 bg-amber-500/5 p-4">
-        <p className="font-mono text-[11px] font-bold text-amber-300 uppercase tracking-wider flex items-center gap-1.5">
-          <AlertTriangle size={13} className="text-amber-400 shrink-0" />
-          <span>Pola 2D topi belum tersedia</span>
-        </p>
-        <p className="font-mono text-[11px] text-text-muted leading-relaxed">
-          Panel crown melengkung belum ada pola ukurnya — menampilkan artboard
-          datar akan menipu skala cm. Atur posisi & ukuran sablon langsung di
-          mockup 3D (geser/zoom), lalu simpan desain seperti biasa.
-        </p>
-      </div>
-    );
-  }
-  if (activeApparel === "pants") {
-    return (
-      <div className="space-y-3 rounded-xl border border-amber-500/30 bg-amber-500/5 p-4">
-        <p className="font-mono text-[11px] font-bold text-amber-300 uppercase tracking-wider flex items-center gap-1.5">
-          <AlertTriangle size={13} className="text-amber-400 shrink-0" />
-          <span>Pola 2D celana belum tersedia</span>
-        </p>
-        <p className="font-mono text-[11px] text-text-muted leading-relaxed">
-          Panel paha melengkung belum ada pola ukurnya — menampilkan artboard
-          datar akan menipu skala cm. Atur posisi & ukuran sablon langsung di
-          mockup 3D (geser/zoom), lalu simpan desain seperti biasa.
-        </p>
-      </div>
-    );
-  }
-  // CELANA PENDEK coming-soon (pola pants persis): Pola 2D DINONAKTIFKAN
-  // EKSPLISIT berpesan — panel paha melengkung + selangkangan tak terwakili
-  // artboard persegi (28.4×50cm). Sablon diatur via mockup 3D, lalu simpan.
-  if (activeApparel === "shorts") {
-    return (
-      <div className="space-y-3 rounded-xl border border-amber-500/30 bg-amber-500/5 p-4">
-        <p className="font-mono text-[11px] font-bold text-amber-300 uppercase tracking-wider flex items-center gap-1.5">
-          <AlertTriangle size={13} className="text-amber-400 shrink-0" />
-          <span>Pola 2D celana pendek belum tersedia</span>
-        </p>
-        <p className="font-mono text-[11px] text-text-muted leading-relaxed">
-          Panel paha melengkung belum ada pola ukurnya — menampilkan artboard
-          datar akan menipu skala cm. Atur posisi & ukuran sablon langsung di
-          mockup 3D (geser/zoom), lalu simpan desain seperti biasa.
-        </p>
-      </div>
-    );
-  }
-
   // MODE PERBESAR LAYAR PENUH (PORTAL LANGSUNG KE BODY — 100% BEBAS DARI KENDALA DRAWER)
   if (isExpanded && mounted && typeof document !== "undefined") {
     return createPortal(
@@ -1162,7 +1212,7 @@ export const PatternStudio: React.FC = () => {
             <div className="flex flex-col">
               <div className="flex items-center gap-2">
                 <span className="font-mono text-sm sm:text-base font-bold text-text-primary tracking-wide whitespace-nowrap">
-                  POLA {PANELS.find((p) => p.id === panel)?.label.toUpperCase()}
+                  POLA {(availablePanels.find((p) => p.id === panel)?.label || panel).toUpperCase()}
                 </span>
                 <span className="text-[11px] font-mono text-emerald-400 bg-emerald-500/10 border border-emerald-500/30 px-2 py-0.5 rounded-md font-bold whitespace-nowrap">
                   {geo.wCm}×{geo.hCm} cm
@@ -1174,13 +1224,20 @@ export const PatternStudio: React.FC = () => {
             </div>
           </div>
 
-          {/* Tengah: Tab Pemilih Panel Baju */}
-          <div className="flex items-center gap-1 bg-surface/90 p-1 rounded-2xl border border-border-subtle shadow-sm shrink-0">
-            {PANELS.filter((p) => !p.hoodOnly || activeApparel === "hoodie").map((p) => (
+          {/* Tengah: Tab Pemilih Panel Garmen Dinamis */}
+          <div className="flex items-center gap-1 bg-surface/90 p-1 rounded-2xl border border-border-subtle shadow-sm shrink-0 overflow-x-auto max-w-md">
+            {availablePanels.map((p) => (
               <button
                 key={p.id}
                 type="button"
-                onClick={() => setPanel(p.id)}
+                onClick={() => {
+                  setPanel(p.id);
+                  if (p.id === "front") setCameraPreset("front");
+                  else if (p.id === "back") setCameraPreset("back");
+                  else if (p.id === "left_sleeve") setCameraPreset("left");
+                  else if (p.id === "right_sleeve") setCameraPreset("right");
+                  else if (p.id === "hood") setCameraPreset("back");
+                }}
                 className={`px-3.5 py-1.5 rounded-xl font-mono text-xs font-bold transition-all whitespace-nowrap ${
                   panel === p.id
                     ? "bg-brand-accent text-canvas shadow-sm"
@@ -1412,15 +1469,23 @@ export const PatternStudio: React.FC = () => {
         </div>
       </div>
 
-      {/* Tab panel (tudung = hoodie saja) */}
-      <div className="grid grid-cols-5 gap-1.5 shrink-0" role="tablist" aria-label="Panel pola">
-        {PANELS.filter((p) => !p.hoodOnly || activeApparel === "hoodie").map((p) => (
+      {/* Tab panel dinamis per apparel */}
+      <div className="flex items-center gap-1.5 overflow-x-auto pb-0.5 shrink-0" role="tablist" aria-label="Panel pola">
+        {availablePanels.map((p) => (
           <button
             key={p.id}
             role="tab"
             aria-selected={panel === p.id}
-            onClick={() => setPanel(p.id)}
-            className={`py-1.5 px-1 rounded-xl font-mono text-[10px] font-bold uppercase tracking-wide transition-all ${
+            onClick={() => {
+              setPanel(p.id);
+              // Auto-align kamera 3D ke sisi yang dipilih
+              if (p.id === "front") setCameraPreset("front");
+              else if (p.id === "back") setCameraPreset("back");
+              else if (p.id === "left_sleeve") setCameraPreset("left");
+              else if (p.id === "right_sleeve") setCameraPreset("right");
+              else if (p.id === "hood") setCameraPreset("back");
+            }}
+            className={`flex-1 min-w-[70px] py-1.5 px-1.5 rounded-xl font-mono text-[10px] font-bold uppercase tracking-wide transition-all whitespace-nowrap text-center ${
               panel === p.id
                 ? "bg-brand-accent text-canvas shadow-sm"
                 : "bg-surface border border-border-subtle text-text-muted hover:text-text-primary hover:border-brand-accent"
@@ -1430,6 +1495,42 @@ export const PatternStudio: React.FC = () => {
           </button>
         ))}
       </div>
+
+      {/* Quick Move Decal to Current Panel: Solusi saat sablon berada di sisi lain */}
+      {activeDecal && (activeDecal.targetSide as string) !== panel && (
+        <div className="p-2.5 rounded-xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-between text-[10px] font-mono animate-fadeIn">
+          <div className="flex items-center gap-1.5 min-w-0 pr-2">
+            <span className="text-amber-400">💡</span>
+            <span className="text-text-muted truncate">
+              Sablon ini ada di <strong className="text-text-primary font-bold">{(availablePanels.find(x => x.id === activeDecal.targetSide)?.label || activeDecal.targetSide).toUpperCase()}</strong>
+            </span>
+          </div>
+          <button
+            type="button"
+            onClick={() => {
+              let newY = 0;
+              if (panel === "left_sleeve" || panel === "right_sleeve") newY = 0.05;
+              else if (panel === "front") newY = -0.05;
+              else if (panel === "back") newY = -0.05;
+              else newY = 0;
+
+              updateDecal(activeDecal.id, {
+                targetSide: panel as any,
+                x: 0,
+                y: newY,
+              });
+              if (panel === "front") setCameraPreset("front");
+              else if (panel === "back") setCameraPreset("back");
+              else if (panel === "left_sleeve") setCameraPreset("left");
+              else if (panel === "right_sleeve") setCameraPreset("right");
+              else if (panel === "hood") setCameraPreset("back");
+            }}
+            className="px-2.5 py-1 rounded-lg bg-brand-accent text-canvas font-bold uppercase shrink-0 transition-all hover:brightness-110 active:scale-95 shadow-sm"
+          >
+            PINDAHKAN KE SINI
+          </button>
+        </div>
+      )}
 
       {/* Quick Alignment & Real-Time DTF Measurement (Bila ada karya aktif) */}
       {activeDecal && decalStats && (
@@ -1447,16 +1548,34 @@ export const PatternStudio: React.FC = () => {
             <button
               type="button"
               onClick={() => handleAlign("center")}
-              className="flex-1 py-1 px-2 rounded-lg bg-surface border border-border-subtle hover:border-brand-accent hover:text-brand-accent text-[10px] font-mono font-bold transition-all text-center"
-              title="Posisikan pas di tengah dada (7.5 cm dari leher)"
+              className="flex-1 py-1 px-2 rounded-lg bg-surface border border-border-subtle hover:border-brand-accent hover:text-brand-accent text-[10px] font-mono font-bold transition-all text-center truncate"
+              title={
+                panel === "front"
+                  ? "Posisikan pas di tengah dada (7.5 cm dari leher)"
+                  : panel === "back"
+                  ? "Posisikan di punggung atas (12 cm dari leher)"
+                  : panel === "left_sleeve" || panel === "right_sleeve"
+                  ? "Posisikan di tengah bidang lengan"
+                  : "Posisikan di tengah panel"
+              }
             >
-              🎯 Tengah Dada
+              {panel === "front"
+                ? "🎯 Tengah Dada"
+                : panel === "back"
+                ? "🎯 Tengah Punggung"
+                : panel === "left_sleeve" || panel === "right_sleeve"
+                ? "🎯 Tengah Lengan"
+                : panel === "hood"
+                ? "🎯 Tengah Tudung"
+                : activeApparel === "cap"
+                ? "🎯 Mahkota Topi"
+                : "🎯 Tengah Panel"}
             </button>
             {panel === "front" && (
               <button
                 type="button"
                 onClick={() => handleAlign("pocket")}
-                className="flex-1 py-1 px-2 rounded-lg bg-surface border border-border-subtle hover:border-brand-accent hover:text-brand-accent text-[10px] font-mono font-bold transition-all text-center"
+                className="flex-1 py-1 px-2 rounded-lg bg-surface border border-border-subtle hover:border-brand-accent hover:text-brand-accent text-[10px] font-mono font-bold transition-all text-center truncate"
                 title="Posisikan logo di dada kiri ukuran saku (8.5 cm)"
               >
                 👕 Dada Kiri
@@ -1472,8 +1591,8 @@ export const PatternStudio: React.FC = () => {
             </button>
           </div>
           <div className="flex items-center justify-between text-[9px] font-mono text-text-muted pt-0.5 border-t border-border-subtle/40">
-            <span>Jarak kerah: ~{decalStats.distCollar} cm</span>
-            <span className="text-text-muted/70">Batas lebar: 30 cm</span>
+            <span>{decalStats.labelCollar}</span>
+            <span className="text-text-muted/70">Batas lebar: {decalStats.maxPrintW} cm</span>
           </div>
         </div>
       )}

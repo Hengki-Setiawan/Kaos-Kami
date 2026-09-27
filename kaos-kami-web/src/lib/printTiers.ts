@@ -13,9 +13,9 @@ export type PrintTier = "A6" | "A5" | "A4" | "A3";
 
 export const PRINT_TIER_COST_IDR: Record<PrintTier, number> = {
   A6: 10000,
-  A5: 15000,
-  A4: 25000,
-  A3: 35000,
+  A5: 20000,
+  A4: 30000,
+  A3: 30000,
 };
 
 export const PRINT_TIER_LABEL: Record<PrintTier, "A6 Pocket" | "A5 Sedang" | "A4 Chest" | "A3 Big Print"> = {
@@ -25,10 +25,17 @@ export const PRINT_TIER_LABEL: Record<PrintTier, "A6 Pocket" | "A5 Sedang" | "A4
   A3: "A3 Big Print",
 };
 
-/** Klasifikasi utama: dari dimensi fisik cm (sudah dikalibrasi 30cm). */
+/**
+ * Klasifikasi utama: dari dimensi fisik cm (sudah dikalibrasi 30cm).
+ * Standar workshop: per 10 cm = Rp 10.000 per gambar:
+ * - ≤ 10 cm: A6 (Rp 10.000, pocket/lengan/label)
+ * - 10.1 - 20 cm: A5 (Rp 20.000)
+ * - 20.1 - 25 cm: A4 (Rp 30.000)
+ * - > 25 cm (maks 30 cm roll DTF): A3 (Rp 30.000)
+ */
 export function classifyPrintTierByCm(maxDimensionCm: number): PrintTier {
   if (maxDimensionCm <= 10) return "A6";
-  if (maxDimensionCm <= 15) return "A5";
+  if (maxDimensionCm <= 20) return "A5";
   if (maxDimensionCm <= 25) return "A4";
   return "A3";
 }

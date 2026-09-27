@@ -63,8 +63,8 @@ export const SERVER_ACCEPTED_SIDES: ReadonlySet<string> = new Set([
  * SSOT angka ada di sini; store me-re-export agar satu sumber.
  */
 export const MOBILE_MULTIPLIERS: Record<string, number> = {
-  tshirt: 145.5,
-  longsleeve: 145.5,
+  tshirt: 202.0,
+  longsleeve: 202.0,
   crewneck: 163.7,
   sweater: 163.7,
   hoodie: 105.6,

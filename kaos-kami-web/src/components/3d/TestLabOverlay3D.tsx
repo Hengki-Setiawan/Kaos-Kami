@@ -157,18 +157,17 @@ const WindTunnelStreamlines: React.FC<{ speed: number; direction: WindDirection 
 /**
  * 🔦 Senter QC Pro (Interactive Inspection Spotlight v2)
  * - Target mengikuti pointer + KEDALAMAN per apparel/sisi (SSOT surfaceZ, bukan 0.15 fixed).
- * - Posisi lampu dari sudut GRAZING industri (15/30/45/90°) via qcLighting.
- * - Fisik: decay=2 (E≈I/d²), readout lux estimasi throttled 4Hz.
- * - focusAngle = setengah-cone spotlight (radian, dari slider) — konsep beda dari grazing.
+/**
+ * 🔦 Senter 3D Interaktif (Interactive Flashlight)
+ * - Berkas sorotan lampu senter nyata mengikuti gerakan kursor / sentuhan pointer di kanvas 3D.
+ * - Menguji kepekatan, tekstur serat kain, dan detail sablon DTF dalam ruang gelap (darkroom).
  */
 const InteractiveFlashlight: React.FC<{
   focusAngle: number;
-  grazingDeg: number;
-  azimuthDeg: number;
-  side: QcSide;
-}> = ({ focusAngle, grazingDeg, azimuthDeg, side }) => {
+}> = ({ focusAngle }) => {
   const spotLightRef = useRef<THREE.SpotLight>(null);
   const targetRef = useRef<THREE.Object3D>(null);
+  const reticleRef = useRef<THREE.Group>(null);
   const { viewport } = useThree();
   const activeApparel = useConfiguratorStore((s) => s.activeApparel);
   const setQcLux = useConfiguratorStore((s) => s.setQcLux);
@@ -177,62 +176,90 @@ const InteractiveFlashlight: React.FC<{
   const currentTargetPos = useRef(new THREE.Vector3(0, 0, surfaceZ));
   const frameRef = useRef(0);
 
+  // Reticle crosshair geometry (cincin + 4 garis bidik laser)
+  const ringGeo = useMemo(() => new THREE.RingGeometry(0.016, 0.022, 32), []);
+  const crossGeo = useMemo(() => {
+    const pts = [
+      new THREE.Vector3(0, 0.012, 0.001), new THREE.Vector3(0, 0.038, 0.001),
+      new THREE.Vector3(0, -0.012, 0.001), new THREE.Vector3(0, -0.038, 0.001),
+      new THREE.Vector3(0.012, 0, 0.001), new THREE.Vector3(0.038, 0, 0.001),
+      new THREE.Vector3(-0.012, 0, 0.001), new THREE.Vector3(-0.038, 0, 0.001),
+    ];
+    return new THREE.BufferGeometry().setFromPoints(pts);
+  }, []);
+
   useFrame((state, delta) => {
     if (!spotLightRef.current || !targetRef.current) return;
 
-    // Koordinat pointer di bidang garmen (skala viewport → unit 3D).
-    const ptrX = (state.pointer.x * viewport.width) * 0.36;
-    const ptrY = (state.pointer.y * viewport.height) * 0.36 - 0.05;
+    // Proyeksi presisi raycaster kamera ke bidang kain (Z = surfaceZ)
+    // Menghasilkan posisi target yang 100% presisi dengan posisi kursor mouse tanpa offset
+    const surfacePlane = new THREE.Plane(new THREE.Vector3(0, 0, 1), -surfaceZ);
+    const hitPoint = new THREE.Vector3();
+    state.raycaster.setFromCamera(state.pointer, state.camera);
+    const hit = state.raycaster.ray.intersectPlane(surfacePlane, hitPoint);
 
-    currentTargetPos.current.x = THREE.MathUtils.damp(currentTargetPos.current.x, ptrX, 14, delta);
-    currentTargetPos.current.y = THREE.MathUtils.damp(currentTargetPos.current.y, ptrY, 14, delta);
+    const targetX = hit ? hitPoint.x : state.pointer.x * (viewport.width / 2);
+    const targetY = hit ? hitPoint.y : state.pointer.y * (viewport.height / 2);
 
-    // Kedalaman target per sisi: depan/belakang = surfaceZ SSOT; sisi/lengan =
-    // reuse penempatan proyektor decal (kontur A-pose yg sudah terkalibrasi).
-    let tz = surfaceZ + 0.004;
-    if (side === "back") {
-      tz = -(surfaceZ + 0.004);
-    } else if (side !== "front") {
-      try {
-        const place = getDecal3DPlacement(activeApparel, side, currentTargetPos.current.x, currentTargetPos.current.y, surfaceZ);
-        targetRef.current.position.set(place.position[0], place.position[1], place.position[2]);
-      } catch {
-        targetRef.current.position.set(currentTargetPos.current.x, currentTargetPos.current.y, tz);
-      }
-    } else {
-      targetRef.current.position.set(currentTargetPos.current.x, currentTargetPos.current.y, tz);
+    currentTargetPos.current.x = THREE.MathUtils.damp(currentTargetPos.current.x, targetX, 22, delta);
+    currentTargetPos.current.y = THREE.MathUtils.damp(currentTargetPos.current.y, targetY, 22, delta);
+
+    // Target sorotan tepat di permukaan kain/sablon
+    targetRef.current.position.set(currentTargetPos.current.x, currentTargetPos.current.y, surfaceZ);
+
+    if (reticleRef.current) {
+      reticleRef.current.position.set(currentTargetPos.current.x, currentTargetPos.current.y, surfaceZ + 0.005);
     }
-    const t = targetRef.current.position;
 
-    // Posisi lampu = target + offset sudut grazing (dari permukaan kain).
-    const off = grazingToOffset(grazingDeg, 1.6, azimuthDeg);
-    spotLightRef.current.position.set(t.x + off.x, t.y + off.y, t.z + off.z);
+    // Posisi senter berasal dari arah kamera (perspektif senter nyata)
+    // Saat user zoom in (kamera dekat), jarak senter ke kain mengecil -> diameter berkas senter di kain otomatis mengecil
+    // Saat user zoom out (kamera jauh), jarak senter ke kain membesar -> diameter berkas senter melebar
+    const camPos = state.camera.position;
+    const toTarget = new THREE.Vector3().subVectors(targetRef.current.position, camPos).normalize();
+    const camDist = camPos.distanceTo(targetRef.current.position);
 
-    // Readout lux estimasi (throttle ~4Hz — hemat re-render store).
+    const lightDist = Math.max(0.45, Math.min(2.8, camDist * 0.72));
+    const lightPos = new THREE.Vector3()
+      .copy(targetRef.current.position)
+      .sub(toTarget.clone().multiplyScalar(lightDist));
+    spotLightRef.current.position.copy(lightPos);
+
+    // Readout lux estimasi (~4Hz)
     frameRef.current += 1;
     if (frameRef.current % 15 === 0) {
-      const dist = spotLightRef.current.position.distanceTo(t);
-      setQcLux(estimateLux(7.2, dist));
+      setQcLux(estimateLux(8.5, lightDist));
     }
   });
-
-  const isDiffuse = grazingDeg >= 90;
 
   return (
     <>
       <object3D ref={targetRef} position={[0, 0, surfaceZ]} />
+      {/* Reticle crosshair senter 3D interaktif pada permukaan kain */}
+      <group ref={reticleRef} position={[0, 0, surfaceZ + 0.005]}>
+        {/* eslint-disable-next-line react/no-unknown-property */}
+        <mesh geometry={ringGeo}>
+          {/* eslint-disable-next-line react/no-unknown-property */}
+          <meshBasicMaterial color="#38bdf8" transparent opacity={0.65} depthTest={false} />
+        </mesh>
+        {/* eslint-disable-next-line react/no-unknown-property */}
+        <lineSegments geometry={crossGeo}>
+          {/* eslint-disable-next-line react/no-unknown-property */}
+          <lineBasicMaterial color="#38bdf8" transparent opacity={0.85} depthTest={false} />
+        </lineSegments>
+      </group>
       <spotLight
         ref={spotLightRef}
         target={targetRef.current || undefined}
-        intensity={7.2}
+        intensity={9.5}
         angle={focusAngle}
-        penumbra={isDiffuse ? 0.9 : 0.45}
+        penumbra={0.45}
         color="#ffffff"
-        distance={6}
-        decay={2}
+        distance={8}
+        decay={1.8}
+        castShadow={false}
       />
       {/* Cahaya ambient redup bernuansa darkroom QC */}
-      <ambientLight color="#080d1a" intensity={0.35} />
+      <ambientLight color="#080d1a" intensity={0.25} />
     </>
   );
 };
@@ -334,9 +361,6 @@ const StretchPhysicsController: React.FC = () => {
       const target = e.target as HTMLElement;
       if (target && target.tagName !== "CANVAS") return;
 
-      isDraggingRef.current = true;
-      pointerStartRef.current = { x: e.clientX, y: e.clientY };
-
       // Raycast titik grip di permukaan garmen → pusat deformasi lokal.
       try {
         const rect = gl.domElement.getBoundingClientRect();
@@ -346,9 +370,22 @@ const StretchPhysicsController: React.FC = () => {
         const meshes: THREE.Object3D[] = [];
         scene.traverse((o: THREE.Object3D) => {
           const anyO = o as unknown as { isMesh?: boolean; isInstancedMesh?: boolean };
-          if (anyO.isMesh && !anyO.isInstancedMesh) meshes.push(o);
+          if (
+            anyO.isMesh &&
+            !anyO.isInstancedMesh &&
+            !o.name?.includes("floor") &&
+            !o.name?.includes("ground") &&
+            !o.name?.includes("shadow")
+          ) {
+            meshes.push(o);
+          }
         });
         const hits = raycasterRef.current.intersectObjects(meshes, false);
+
+        isDraggingRef.current = true;
+        useConfiguratorStore.getState().setIsStretchDragging(true);
+        pointerStartRef.current = { x: e.clientX, y: e.clientY };
+
         if (hits.length > 0) {
           const p = hits[0]!.point;
           // World → ruang lokal garmen (kompensasi grup model; aproksimasi jujur).
@@ -359,9 +396,14 @@ const StretchPhysicsController: React.FC = () => {
           const lx = Math.max(-0.5, Math.min(0.5, (p.x - gx) / gs));
           const ly = Math.max(-0.5, Math.min(0.5, (p.y - gy) / gs));
           setStretchCenterXY([lx, ly]);
+        } else {
+          setStretchCenterXY([0, 0]);
         }
       } catch {
-        // Grip fallback = tengah (0,0); tarikan tetap jalan.
+        isDraggingRef.current = true;
+        useConfiguratorStore.getState().setIsStretchDragging(true);
+        pointerStartRef.current = { x: e.clientX, y: e.clientY };
+        setStretchCenterXY([0, 0]);
       }
     };
 
@@ -375,22 +417,28 @@ const StretchPhysicsController: React.FC = () => {
       if (dirNow === "vertical") dist = dy;
       else if (dirNow === "biaxial") dist = Math.sqrt(dx * dx + dy * dy);
 
-      // Konversi jarak piksel tarikan layar (0-180px) ke intensitas (0.0 - 1.0)
-      const targetIntensity = Math.min(1.0, dist / 180);
+      // Konversi jarak piksel tarikan layar (0-85px) ke intensitas (0.0 - 1.0)
+      const targetIntensity = Math.min(1.0, dist / 85);
       setStretchIntensity(targetIntensity);
     };
 
     const handlePointerUp = () => {
-      isDraggingRef.current = false;
+      if (isDraggingRef.current) {
+        isDraggingRef.current = false;
+        useConfiguratorStore.getState().setIsStretchDragging(false);
+      }
     };
 
     window.addEventListener("pointerdown", handlePointerDown);
     window.addEventListener("pointermove", handlePointerMove);
     window.addEventListener("pointerup", handlePointerUp);
+    window.addEventListener("pointercancel", handlePointerUp);
     return () => {
       window.removeEventListener("pointerdown", handlePointerDown);
       window.removeEventListener("pointermove", handlePointerMove);
       window.removeEventListener("pointerup", handlePointerUp);
+      window.removeEventListener("pointercancel", handlePointerUp);
+      useConfiguratorStore.getState().setIsStretchDragging(false);
     };
   }, [setStretchIntensity, setStretchCenterXY, gl, camera, scene]);
 
@@ -450,16 +498,13 @@ const WindUniformWriter: React.FC = () => {
  * 🧪 TestLabOverlay3D — Root Overlay untuk Semua Fitur Test Lab 3D
  */
 export const TestLabOverlay3D: React.FC = () => {
-  const { testLabMode, windTunnelSpeed, windDirection, flashlightFocus, qcGrazingDeg, qcAzimuth, qcSide } =
+  const { testLabMode, windTunnelSpeed, windDirection, flashlightFocus } =
     useConfiguratorStore(
       useShallow((s) => ({
         testLabMode: s.testLabMode,
         windTunnelSpeed: s.windTunnelSpeed,
         windDirection: s.windDirection,
         flashlightFocus: s.flashlightFocus,
-        qcGrazingDeg: s.qcGrazingDeg,
-        qcAzimuth: s.qcAzimuth,
-        qcSide: s.qcSide,
       }))
     );
 
@@ -471,9 +516,6 @@ export const TestLabOverlay3D: React.FC = () => {
       {testLabMode === "flashlight" && (
         <InteractiveFlashlight
           focusAngle={flashlightFocus}
-          grazingDeg={qcGrazingDeg}
-          azimuthDeg={qcAzimuth}
-          side={qcSide}
         />
       )}
       {testLabMode === "windtunnel" && (

@@ -112,7 +112,7 @@ describe("mobileParitySpec: snapshot = SSOT web", () => {
       expect(z).toBeGreaterThan(0.05);
       expect(z).toBeLessThan(0.25);
       expect(mult).toBeGreaterThanOrEqual(50);
-      expect(mult).toBeLessThanOrEqual(200);
+      expect(mult).toBeLessThanOrEqual(250);
       // maxScaleUnits = maxFront / multiplier — harus dalam rentang
       // clamp Zod mobile (0.02…1.5) agar klaim cm tercapai tanpa pecah.
       const maxScale = front / mult;

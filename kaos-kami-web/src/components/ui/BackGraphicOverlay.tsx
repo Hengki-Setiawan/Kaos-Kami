@@ -1,6 +1,7 @@
 "use client";
 
 import React from "react";
+import { Maximize2, RotateCw, Layers } from "lucide-react";
 import { useConfiguratorStore } from "@/store/useConfiguratorStore";
 import { useShallow } from "zustand/shallow";
 import { APPAREL_PHYSICAL_SPECS } from "@/lib/scaleCalibration";
@@ -29,30 +30,38 @@ export const BackGraphicOverlay: React.FC = () => {
     >
       <div className="max-w-md lg:max-w-lg space-y-4 text-left md:text-right z-20">
         <div>
-          <span className="font-mono text-[11px] sm:text-xs text-brand-accent tracking-widest uppercase font-bold">
-            AREA CETAK FLEKSIBEL
+          <span className="font-mono text-[10px] sm:text-xs text-brand-accent tracking-widest uppercase font-bold">
+            SKALA FISIK // AREA CETAK MAKSIMAL
           </span>
-          <h2 className="text-2xl sm:text-3xl md:text-[34px] lg:text-[40px] font-display font-black uppercase leading-[1.08] tracking-tight text-text-primary mt-2">
+          <h2 className="text-2xl sm:text-3xl md:text-[34px] font-display font-black uppercase leading-[1.08] tracking-tight text-text-primary mt-1.5">
             SABLON BESAR<br />HINGGA UKURAN A3+
           </h2>
-          <p className="text-xs sm:text-sm font-mono text-text-muted mt-2.5 leading-relaxed">
-            Bebas posisikan desain di dada depan, punggung, maupun lengan lewat mockup 3D 360°. Ukuran cetak presisi hingga A3+ dengan tinta DTF lentur yang tahan lama.
-          </p>
         </div>
 
-        {/* Back Print Specs Box */}
-        <div className="p-4 rounded-xl glass-panel border border-border-subtle space-y-3 inline-block text-left w-full">
-          <div className="flex justify-between items-center border-b border-border-subtle pb-2">
-            <span className="text-xs font-mono text-text-muted">AREA CETAK MAKSIMAL:</span>
-            <span className="text-xs font-mono font-bold text-text-primary">{maxW} cm × {maxH} cm (A3+)</span>
+        {/* Minimalist 3-Pill Specs Grid */}
+        <div className="p-4 rounded-2xl bg-surface/75 border border-border-subtle backdrop-blur-sm space-y-2.5 inline-block text-left w-full font-mono text-xs">
+          <div className="flex items-center justify-between py-1 border-b border-border-subtle">
+            <div className="flex items-center gap-2 text-text-muted">
+              <Maximize2 size={13} className="text-brand-accent" />
+              <span>DIMENSI CETAK:</span>
+            </div>
+            <strong className="text-text-primary">{maxW} × {maxH} cm (A3+)</strong>
           </div>
-          <div className="flex justify-between items-center border-b border-border-subtle pb-2">
-            <span className="text-xs font-mono text-text-muted">TEKNOLOGI CETAK:</span>
-            <span className="text-xs font-mono font-bold text-brand-accent">SABLON DIGITAL DTF PREMIUM</span>
+
+          <div className="flex items-center justify-between py-1 border-b border-border-subtle">
+            <div className="flex items-center gap-2 text-text-muted">
+              <Layers size={13} className="text-brand-accent" />
+              <span>SISTEM SABLON:</span>
+            </div>
+            <strong className="text-brand-accent">DTF High Definition</strong>
           </div>
-          <div className="flex justify-between items-center">
-            <span className="text-xs font-mono text-text-muted">SIMULASI DESAIN:</span>
-            <span className="text-xs font-mono font-bold text-text-primary">MOCKUP 3D REAL-TIME 360°</span>
+
+          <div className="flex items-center justify-between py-1">
+            <div className="flex items-center gap-2 text-text-muted">
+              <RotateCw size={13} className="text-brand-accent" />
+              <span>SIMULASI POSISI:</span>
+            </div>
+            <strong className="text-text-primary">3D Interaktif 360°</strong>
           </div>
         </div>
       </div>

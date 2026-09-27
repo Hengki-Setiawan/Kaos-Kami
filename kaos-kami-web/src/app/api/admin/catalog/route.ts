@@ -25,12 +25,34 @@ async function assertAdminSession() {
 const PRICE_FLOOR_IDR = 1000;
 const PRICE_CAP_IDR = 100_000_000;
 
-const PatchSchema = z.object({
+const BatchVariationPatchSchema = z.object({
   variantId: z.string().min(1),
+  size: z.string().min(1).max(10).optional(),
+  priceIdr: z.number().int().min(PRICE_FLOOR_IDR).max(PRICE_CAP_IDR).optional(),
+  stockQty: z.number().int().min(0).max(100000).optional(),
+  isActive: z.boolean().optional(),
+});
+
+const PatchSchema = z.object({
+  variantId: z.string().min(1).optional(),
+  name: z.string().min(2).max(120).optional(),
+  categoryId: z.string().min(1).optional(),
+  colorHex: z.string().min(4).max(9).optional(),
+  colorName: z.string().min(2).max(50).optional(),
+  size: z.string().min(1).max(10).optional(),
   stockQty: z.number().int().min(0).max(100000).optional(),
   delta: z.number().int().min(-100000).max(100000).optional(),
   priceIdr: z.number().int().min(PRICE_FLOOR_IDR).max(PRICE_CAP_IDR).optional(),
+  images: z.array(z.string()).min(1).optional(),
   isActive: z.boolean().optional(),
+  batchVariations: z.array(BatchVariationPatchSchema).optional(),
+});
+
+const VariationItemSchema = z.object({
+  size: z.string().min(1).max(10),
+  priceIdr: z.number().int().min(1000).max(100_000_000),
+  stockQty: z.number().int().min(0).max(100000).default(0),
+  sku: z.string().min(2).max(50).optional(),
 });
 
 const CreateVariantSchema = z.object({
@@ -40,15 +62,16 @@ const CreateVariantSchema = z.object({
   colorHex: z.string().min(4).max(9).default("#121214"),
   colorName: z.string().min(2).max(50).default("Obsidian Black"),
   size: z.string().min(1).max(10).default("L"),
-  priceIdr: z.number().int().min(1000).max(100_000_000),
+  priceIdr: z.number().int().min(1000).max(100_000_000).optional(),
   stockQty: z.number().int().min(0).max(100000).default(10),
   images: z.array(z.string()).min(1).default(["/lookbook/look-01.jpg"]),
   isPreDesigned: z.boolean().default(true),
   frontDecalUrl: z.string().nullable().optional(),
   backDecalUrl: z.string().nullable().optional(),
+  variations: z.array(VariationItemSchema).optional(),
 });
 
-/** PATCH /api/admin/catalog — ubah stok/harga/status varian (admin only). */
+/** PATCH /api/admin/catalog — ubah stok/harga/status/nama/kategori 3D/gambar varian (admin only). */
 export async function PATCH(req: NextRequest) {
   const rl = await checkRateLimitAsync(`admin-cat:ip:${getClientIp(req)}`, 60, 60);
   if (rl.isLimited) return NextResponse.json({ error: "Rate limited" }, { status: 429, headers: rateLimitHeaders(rl, 60) });
@@ -60,9 +83,46 @@ export async function PATCH(req: NextRequest) {
   }
 
   const parsed = PatchSchema.safeParse(await req.json().catch(() => ({})));
-  if (!parsed.success) return NextResponse.json({ error: "Invalid payload" }, { status: 400 });
-  const { variantId, stockQty, delta, priceIdr, isActive } = parsed.data;
+  if (!parsed.success) return NextResponse.json({ error: "Invalid payload: " + (parsed.error.errors[0]?.message || "") }, { status: 400 });
+  const { variantId, name, categoryId, colorHex, colorName, size, stockQty, delta, priceIdr, images, isActive, batchVariations } = parsed.data;
+
+  // Jalur Batch Variations (Shopee / Tokopedia Matrix Update)
+  if (Array.isArray(batchVariations) && batchVariations.length > 0) {
+    for (const item of batchVariations) {
+      const itemSet: Record<string, unknown> = {};
+      if (item.priceIdr !== undefined) itemSet.priceIdr = item.priceIdr;
+      if (item.stockQty !== undefined) itemSet.stockQty = item.stockQty;
+      if (item.isActive !== undefined) itemSet.isActive = item.isActive;
+      if (name !== undefined) itemSet.name = name.trim();
+      if (categoryId !== undefined) itemSet.categoryId = categoryId;
+      if (colorHex !== undefined) itemSet.colorHex = colorHex;
+      if (colorName !== undefined) itemSet.colorName = colorName.trim();
+      if (images !== undefined) itemSet.images = JSON.stringify(images);
+
+      if (Object.keys(itemSet).length > 0) {
+        await db.update(ProductVariant).set(itemSet).where(eq(ProductVariant.id, item.variantId));
+      }
+    }
+    return NextResponse.json({ success: true, count: batchVariations.length });
+  }
+
+  if (!variantId) {
+    return NextResponse.json({ error: "variantId atau batchVariations diperlukan" }, { status: 400 });
+  }
+
   const set: Record<string, unknown> = {};
+  if (name !== undefined) set.name = name.trim();
+  if (categoryId !== undefined) {
+    const cat = await db.query.ApparelCategory.findFirst({
+      where: (t, { eq: eqq }) => eqq(t.id, categoryId),
+    });
+    if (!cat) return NextResponse.json({ error: "Kategori tidak ditemukan" }, { status: 404 });
+    set.categoryId = categoryId;
+  }
+  if (colorHex !== undefined) set.colorHex = colorHex;
+  if (colorName !== undefined) set.colorName = colorName.trim();
+  if (size !== undefined) set.size = size.toUpperCase();
+  if (images !== undefined) set.images = JSON.stringify(images);
   if (priceIdr !== undefined) set.priceIdr = priceIdr;
   if (isActive !== undefined) set.isActive = isActive;
   if (stockQty !== undefined && delta === undefined) set.stockQty = stockQty;
@@ -111,19 +171,53 @@ export async function POST(req: NextRequest) {
     isPreDesigned,
     frontDecalUrl,
     backDecalUrl,
+    variations,
   } = parsed.data;
 
-  // Verifikasi kategori ada
+  // Verifikasi kategori ada (bisa via id atau slug)
   const cat = await db.query.ApparelCategory.findFirst({
-    where: (t, { eq }) => eq(t.id, categoryId),
+    where: (t, { eq, or }) => or(eq(t.id, categoryId), eq(t.slug, categoryId)),
   });
   if (!cat) {
     return NextResponse.json({ error: "Kategori pakaian tidak ditemukan" }, { status: 404 });
   }
 
-  // Generate unique SKU bila tidak diisi manual
   const skuPrefix = cat.slug.toUpperCase().slice(0, 3);
   const colorPrefix = colorName.replace(/[^a-zA-Z]/g, "").toUpperCase().slice(0, 3) || "CLR";
+
+  // Jalur Multi-Size Variations (Shopee Seller Centre Style)
+  if (Array.isArray(variations) && variations.length > 0) {
+    const createdList = [];
+    for (const v of variations) {
+      const vSku = v.sku?.trim() || `${skuPrefix}-${colorPrefix}-${v.size.toUpperCase()}-${nanoid(4).toUpperCase()}`;
+      const vId = `prod_${nanoid(16)}`;
+      const [c] = await db
+        .insert(ProductVariant)
+        .values({
+          id: vId,
+          categoryId: cat.id,
+          sku: vSku,
+          name,
+          colorHex,
+          colorName,
+          size: v.size.toUpperCase(),
+          priceIdr: v.priceIdr,
+          stockQty: v.stockQty,
+          images: JSON.stringify(images),
+          frontDecalUrl: frontDecalUrl || null,
+          backDecalUrl: backDecalUrl || null,
+          isPreDesigned,
+          isActive: true,
+        })
+        .returning();
+      createdList.push(c);
+    }
+    return NextResponse.json({ success: true, count: createdList.length, variants: createdList });
+  }
+
+  // Single Variant Fallback
+  const finalPrice = priceIdr || 165000;
+  const finalStock = stockQty ?? 10;
   const sku = customSku?.trim() || `${skuPrefix}-${colorPrefix}-${size.toUpperCase()}-${nanoid(4).toUpperCase()}`;
 
   // Pastikan SKU unik
@@ -140,14 +234,14 @@ export async function POST(req: NextRequest) {
     .insert(ProductVariant)
     .values({
       id: variantId,
-      categoryId,
+      categoryId: cat.id,
       sku,
       name,
       colorHex,
       colorName,
       size: size.toUpperCase(),
-      priceIdr,
-      stockQty,
+      priceIdr: finalPrice,
+      stockQty: finalStock,
       images: JSON.stringify(images),
       frontDecalUrl: frontDecalUrl || null,
       backDecalUrl: backDecalUrl || null,

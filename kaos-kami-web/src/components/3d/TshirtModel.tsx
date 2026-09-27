@@ -178,7 +178,6 @@ const GltfTeeNew: React.FC<{ path: string }> = ({ path }) => {
     }
     // Animation presets: wind via shader, walking via bob, knit via quick reveal, static none
     if (meshRef.current) {
-      if (isRotating) meshRef.current.rotation.y += delta * 0.75;
       if (animationPreset === "walking") {
         const t = state.clock.getElapsedTime() * animationSpeed;
         meshRef.current.position.y = Math.sin(t * 2.2) * 0.025;
@@ -351,7 +350,6 @@ const GltfTeeLegacy: React.FC = () => {
       (material as any).userData.shader.uniforms.uTime.value += delta * animationSpeed;
     }
     if (meshRef.current) {
-      if (isRotating) meshRef.current.rotation.y += delta * 0.75;
       if (animationPreset === "walking") {
         const t = state.clock.getElapsedTime() * animationSpeed;
         meshRef.current.position.y = Math.sin(t * 2.2) * 0.025;

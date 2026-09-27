@@ -68,11 +68,14 @@ import {
   setOriginalMasterDataUrl,
   uploadMasterDataUrlToR2,
 } from "@/lib/imageEditPipeline";
-import { Ruler, Wand2, Loader2, AlertTriangle, ShieldCheck, ShoppingCart, Type, Shirt, Scissors, Lock, CheckCircle2, Pin, Crosshair, ArrowLeft as ArrowLeftIcon, ArrowRight as ArrowRightIcon, CircleHelp, User, UserCheck } from "lucide-react";
+import { Ruler, Wand2, Loader2, AlertTriangle, ShieldCheck, ShoppingCart, Type, Shirt, Scissors, Lock, CheckCircle2, Pin, Crosshair, ArrowLeft as ArrowLeftIcon, ArrowRight as ArrowRightIcon, CircleHelp, User, UserCheck, Building2, CircleDot, SlidersHorizontal, Sunrise, Sunset, Image as ImageIcon } from "lucide-react";
+import { getApparelIcon } from "@/components/ui/ApparelIcons";
 
 import { CheckoutModal } from "@/components/ui/CheckoutModal";
 import { BottomSheet } from "@/components/ui/BottomSheet";
 import { AuthModal } from "@/components/ui/AuthModal";
+import { SizeGuideModal } from "@/components/studio/SizeGuideModal";
+import { formatQuickDimensions } from "@/lib/apparelSizing";
 import { openStudioTour } from "@/components/studio/StudioTour";
 import { useSession } from "@/lib/auth-client";
 import dynamic from "next/dynamic";
@@ -93,14 +96,49 @@ const PatternStudioLazy = dynamic(
   }
 );
 
-// Lab Kain verlet (lazy — Canvas R3F kecil, hanya saat dibuka).
-const ClothLabLazy = dynamic(
-  () => import("@/components/studio/ClothLab").then((m) => m.ClothLab),
-  {
-    ssr: false,
-    loading: () => <p className="text-xs font-mono text-text-muted p-2">Memuat lab kain…</p>,
-  }
-);
+// Spesifikasi bahan resmi otentik per apparel (standar konveksi & distro Kaos Kami Makassar)
+const APPAREL_FABRIC_SPECS: Record<ApparelType, { name: string; tag: string; desc: string }> = {
+  tshirt: {
+    name: "100% Cotton Combed 24s (190 GSM)",
+    tag: "DISTRO REGULAR",
+    desc: "Kain katun combed premium: serat rapat & halus, adem di cuaca tropis, menyerap keringat optimal, dan sangat ramah sablon DTF.",
+  },
+  longsleeve: {
+    name: "100% Cotton Combed 24s Rib Cuff (190 GSM)",
+    tag: "DISTRO LONGSLEEVE",
+    desc: "Katun combed 24s dengan manset rib elastis pada ujung lengan, nyaman dipakai harian tanpa rasa gerah.",
+  },
+  hoodie: {
+    name: "Heavyweight Cotton Fleece 380 GSM",
+    tag: "PREMIUM HEAVYWEIGHT",
+    desc: "Bahan fleece tebal berbulu halus di bagian dalam, hangat maksimal dengan tudung ganda (double-layered hood) dan saku kangguru kokoh.",
+  },
+  crewneck: {
+    name: "Heavy Cotton Fleece 330 GSM",
+    tag: "SWEATER FLEECE",
+    desc: "Sweater rajut fleece tebal tanpa tudung, kerah rib tahan kendur, potongan relaxed fit yang hangat dan lembut di kulit.",
+  },
+  shirt: {
+    name: "Micro Taslan Polyester (Coach Jacket)",
+    tag: "OUTDOOR STREETWEAR",
+    desc: "Bahan jaket coach berpori rapat: tahan terpaan angin (windproof), menepis percikan air ringan, dan berfuring lembut.",
+  },
+  cap: {
+    name: "Premium Cotton Twill 7-Panel",
+    tag: "HEADWEAR DISTRO",
+    desc: "Kain twill katun kokoh dengan lubang ventilasi bordir, mempertahankan struktur mahkota topi tetap tegak dan awet.",
+  },
+  pants: {
+    name: "Cotton Twill / Stretch Jogger",
+    tag: "CHINO PANTS",
+    desc: "Bahan celana panjang twill berdaya regang tinggi, fleksibel untuk aktivitas harian dan jahitan ganda tahan lama.",
+  },
+  shorts: {
+    name: "Cotton Baby Terry / Twill 240 GSM",
+    tag: "CASUAL SHORTS",
+    desc: "Bahan celana pendek santai bertekstur loop halus di bagian dalam, sejuk, ringan, dan leluasa bergerak.",
+  },
+};
 
 // FASE F — Editor gambar in-mockup (lazy client-only; chunk AI 0KB sampai diklik
 // di dalam modal via await import di imageEditPipeline).
@@ -409,6 +447,19 @@ async function export360Gif(
 
   type StudioTab = "apparel" | "decals" | "options" | "pattern" | "test3d" | "sandbox" | "saved" | "team" | "export";
 
+function getMoodIcon(id: string) {
+  switch (id) {
+    case "golden":
+      return <Sunrise size={18} className="mx-auto text-amber-500" />;
+    case "sunset":
+      return <Sunset size={18} className="mx-auto text-orange-500" />;
+    case "gallery":
+      return <ImageIcon size={18} className="mx-auto text-sky-500" />;
+    default:
+      return <Sun size={18} className="mx-auto" />;
+  }
+}
+
 export const CustomizerDrawer: React.FC = () => {
   const {
     activeApparel,
@@ -475,6 +526,8 @@ export const CustomizerDrawer: React.FC = () => {
     setAnimationSpeed,
     isGizmoVisible,
     toggleGizmoVisible,
+    isSizeGuideOpen,
+    setIsSizeGuideOpen,
   } = useConfiguratorStore(
     useShallow((s) => ({
       activeApparel: s.activeApparel,
@@ -541,6 +594,8 @@ export const CustomizerDrawer: React.FC = () => {
       setAnimationSpeed: s.setAnimationSpeed,
       isGizmoVisible: s.isGizmoVisible,
       toggleGizmoVisible: s.toggleGizmoVisible,
+      isSizeGuideOpen: s.isSizeGuideOpen,
+      setIsSizeGuideOpen: s.setIsSizeGuideOpen,
     }))
   );
 
@@ -605,6 +660,100 @@ export const CustomizerDrawer: React.FC = () => {
   // M3.6 — Peringatan master belum tersimpan sebelum checkout (sekali per buka).
   const [masterWarnDismissed, setMasterWarnDismissed] = useState(false);
 
+  // Live Inventory Variant Map (persilangan slug_color_size)
+  interface VariantItemInfo {
+    stockQty: number;
+    priceIdr: number;
+    sku: string;
+  }
+  const [variantStockMap, setVariantStockMap] = useState<Record<string, VariantItemInfo>>({});
+  useEffect(() => {
+    let active = true;
+    fetch("/api/catalog/variants")
+      .then((r) => r.json())
+      .then((data) => {
+        if (!active || !data?.variants) return;
+        const map: Record<string, VariantItemInfo> = {};
+        for (const v of data.variants) {
+          const rawSlug = (v.category?.slug || "").toLowerCase().trim();
+          const slugs = [rawSlug];
+          if (rawSlug === "tee") slugs.push("tshirt");
+          if (rawSlug === "tshirt") slugs.push("tee");
+          if (rawSlug === "sweater") slugs.push("crewneck");
+          if (rawSlug === "crewneck") slugs.push("sweater");
+          if (rawSlug === "jacket") slugs.push("shirt");
+          if (rawSlug === "shirt") slugs.push("jacket");
+
+          const hex = (v.colorHex || "").toLowerCase().trim();
+          const sz = (v.size || "").toUpperCase().trim();
+          const cName = (v.colorName || "").toLowerCase().trim();
+          const info: VariantItemInfo = {
+            stockQty: v.stockQty ?? 0,
+            priceIdr: v.priceIdr ?? 0,
+            sku: v.sku ?? "",
+          };
+
+          for (const s of slugs) {
+            // Prioritaskan kunci eksak (hex dan nama warna spesifik)
+            if (hex) map[`${s}_${hex}_${sz}`] = info;
+            if (cName) map[`${s}_${cName}_${sz}`] = info;
+
+            // Alias fallback tanpa menimpa varian eksak yang sudah ada
+            if (hex === "#ffffff" || cName.includes("chalk")) {
+              if (!map[`${s}_#ffffff_${sz}`]) map[`${s}_#ffffff_${sz}`] = info;
+              if (!map[`${s}_chalk_${sz}`]) map[`${s}_chalk_${sz}`] = info;
+            }
+            if (hex === "#121214" || cName.includes("obsidian")) {
+              if (!map[`${s}_#121214_${sz}`]) map[`${s}_#121214_${sz}`] = info;
+              if (!map[`${s}_obsidian_${sz}`]) map[`${s}_obsidian_${sz}`] = info;
+            }
+          }
+        }
+        setVariantStockMap(map);
+      })
+      .catch(() => {});
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  const resolveVariantInfo = (apparel: string, colorHex: string, size: string): VariantItemInfo | undefined => {
+    const normApparel = apparel.toLowerCase().trim();
+    const hex = colorHex.toLowerCase().trim();
+    const sz = size.toUpperCase().trim();
+
+    // 1. Cek kunci eksak apparel + hex + size
+    if (variantStockMap[`${normApparel}_${hex}_${sz}`]) {
+      return variantStockMap[`${normApparel}_${hex}_${sz}`];
+    }
+    // 2. Cek nama warna aktif
+    if (activeColorName && variantStockMap[`${normApparel}_${activeColorName.toLowerCase().trim()}_${sz}`]) {
+      return variantStockMap[`${normApparel}_${activeColorName.toLowerCase().trim()}_${sz}`];
+    }
+    // 3. Fallback warna putih / hitam standar
+    if (hex === "#ffffff" || hex === "#efece6" || hex === "#f7f5f0") {
+      const whiteInfo = variantStockMap[`${normApparel}_#ffffff_${sz}`] || variantStockMap[`${normApparel}_chalk_${sz}`] || variantStockMap[`${normApparel}_#f7f5f0_${sz}`];
+      if (whiteInfo) return whiteInfo;
+    }
+    if (hex === "#121214" || hex === "#111111" || hex === "#000000") {
+      const blackInfo = variantStockMap[`${normApparel}_#121214_${sz}`] || variantStockMap[`${normApparel}_obsidian_${sz}`] || variantStockMap[`${normApparel}_#000000_${sz}`];
+      if (blackInfo) return blackInfo;
+    }
+    // 4. Fallback varian pertama garmen & ukuran sama
+    for (const key of Object.keys(variantStockMap)) {
+      if (key.startsWith(`${normApparel}_`) && key.endsWith(`_${sz}`)) {
+        return variantStockMap[key];
+      }
+    }
+    return undefined;
+  };
+
+  const currentVariantInfo = resolveVariantInfo(activeApparel, selectedColor, selectedSize);
+  const currentVariantStock = currentVariantInfo?.stockQty;
+  const currentVariantSku = currentVariantInfo?.sku;
+  const isCurrentVariantOut = currentVariantInfo !== undefined && currentVariantInfo.stockQty <= 0;
+  const isCurrentVariantLow = currentVariantInfo !== undefined && currentVariantInfo.stockQty > 0 && currentVariantInfo.stockQty <= 10;
+
   const handleAddTextDecal = async () => {
     if (!customTextString.trim()) return;
     // M3.5 — SATU mesin teks (mesin yang sama dengan PatternStudio) + master.
@@ -616,13 +765,32 @@ export const CustomizerDrawer: React.FC = () => {
     });
     if (!textDataUrl) return;
 
+    const curCam = useConfiguratorStore.getState().cameraPreset;
+    let targetSide: DecalTargetSide = "front";
+    let initX = 0;
+    let initY = -0.05;
+    let initScale = 0.11;
+    if (curCam === "back") {
+      targetSide = "back";
+      initY = 0.0;
+      initScale = 0.14;
+    } else if (curCam === "left") {
+      targetSide = "left_sleeve";
+      initY = 0.05;
+      initScale = 0.08;
+    } else if (curCam === "right") {
+      targetSide = "right_sleeve";
+      initY = 0.05;
+      initScale = 0.08;
+    }
+
     const id = addDecal({
       name: `Teks: ${customTextString.slice(0, 10)}`,
       url: textDataUrl,
-      targetSide: "front",
-      x: 0,
-      y: -0.05,
-      scale: 0.11, // A4 standar dada (~20.5 cm)
+      targetSide,
+      x: initX,
+      y: initY,
+      scale: initScale,
       rotation: 0,
       opacity: 1,
     });
@@ -831,6 +999,13 @@ export const CustomizerDrawer: React.FC = () => {
       setIsAuthOpen(true);
       return;
     }
+    if (isCurrentVariantOut) {
+      setEnhancementMessage(
+        `⚠️ Stok varian ${currentApparelInfo.name} (${activeColorName} - Ukuran ${selectedSize}) sedang habis di workshop. Silakan pilih warna atau ukuran lain.`
+      );
+      setTimeout(() => setEnhancementMessage(null), 6000);
+      return;
+    }
     if (unsavedMasters.length > 0 && !masterWarnDismissed) {
       setEnhancementMessage(
         `⚠️ Master belum tersimpan (${unsavedMasters.length} decal masih base64 lokal): ${unsavedMasters.slice(0, 3).map((m) => m.name).join(", ")}${unsavedMasters.length > 3 ? "…" : ""}. Kualitas tetap master penuh saat checkout. Klik PESAN sekali lagi untuk lanjut.`
@@ -886,13 +1061,33 @@ export const CustomizerDrawer: React.FC = () => {
       // Warning DPI pakai angka MASTER (jujur untuk cetak), bukan preview.
       const masterDpi = r.masterDpiAt30cm ?? r.previewDpiAt30cm;
 
+      // Tentukan targetSide cerdas sesuai sudut pandang kamera saat ini
+      const curCam = useConfiguratorStore.getState().cameraPreset;
+      let targetSide: DecalTargetSide = "front";
+      let initX = 0;
+      let initY = 0.0;
+      let initScale = 0.11;
+      if (curCam === "back") {
+        targetSide = "back";
+        initY = 0.0;
+        initScale = 0.14; // Sablon punggung lebih leluasa (A3/A4)
+      } else if (curCam === "left") {
+        targetSide = "left_sleeve";
+        initY = 0.05;
+        initScale = 0.08;
+      } else if (curCam === "right") {
+        targetSide = "right_sleeve";
+        initY = 0.05;
+        initScale = 0.08;
+      }
+
       const id = addDecal({
         name: `Sablon ${decals.length + 1} (${file.name.slice(0, 8)})`,
         url: previewUrl,
-        targetSide: "front",
-        x: 0,
-        y: -0.05, // Clean chest placement, below neck/hood
-        scale: 0.11, // A4 standar dada (~20.5 cm)
+        targetSide,
+        x: initX,
+        y: initY,
+        scale: initScale,
         rotation: 0,
         opacity: 1,
       });
@@ -935,21 +1130,7 @@ export const CustomizerDrawer: React.FC = () => {
       setActiveTab("decals");
       setDecalSubMode("standard");
 
-      if (typeof masterDpi === "number" && Number.isFinite(masterDpi)) {
-        if (masterDpi < 150) {
-          setEnhancementMessage(
-            `⚠️ Master ~${masterDpi} DPI @30cm — cetakan besar bisa pecah. Perkecil ukuran sablon atau pakai file asli yang lebih tajam.`
-          );
-        } else if (masterDpi < 300) {
-          setEnhancementMessage(
-            `Master ~${masterDpi} DPI @30cm — cukup jelas untuk DTF. Hasil terbaik bila ≥300 DPI.`
-          );
-          setTimeout(() => setEnhancementMessage(null), 5000);
-        } else {
-          setEnhancementMessage(`✅ Master ~${masterDpi} DPI @30cm — tajam & siap cetak.`);
-          setTimeout(() => setEnhancementMessage(null), 4000);
-        }
-      }
+
     } catch (err: any) {
       console.error("Gagal mengompres gambar:", err);
       setEnhancementMessage("Gagal mengunggah gambar. Coba file JPG/PNG/WebP lain.");
@@ -1167,10 +1348,6 @@ export const CustomizerDrawer: React.FC = () => {
   };
 
   const handleExportCurrentPNG = async (viewName: string = "current-view") => {
-    if (!session) {
-      setIsAuthOpen(true);
-      return;
-    }
     await doExportMockupImage(viewName);
   };
 
@@ -1428,39 +1605,12 @@ export const CustomizerDrawer: React.FC = () => {
 
   if (!isVisible) return null;
 
+  const isDrawerHidden = isDrawerCollapsed || isHideWebsiteUI;
+
   return (
     <>
-      {/* Floating Interactive Tool Switcher (mobile: bottom-88px di atas BottomSheet; desktop: top-20) */}
-      <div className="fixed top-auto bottom-[88px] md:top-20 md:bottom-auto left-4 sm:left-8 z-40 flex items-center space-x-1.5 p-1.5 rounded-2xl glass-panel shadow-xl pointer-events-auto border border-border-subtle">
-        <button
-          onClick={() => setInteractionTool("rotate")}
-          className={`flex items-center space-x-1.5 px-3 py-2 rounded-xl text-xs font-mono transition-all ${
-            interactionTool === "rotate"
-              ? "bg-brand-accent text-canvas font-bold shadow-md"
-              : "text-text-muted hover:text-text-primary hover:bg-surface"
-          }`}
-          title="Mode putar (klik kiri + geser untuk memutar 360°)"
-        >
-          <Compass size={14} />
-          <span className="hidden sm:inline">PUTAR 360°</span>
-        </button>
-
-        <button
-          onClick={() => setInteractionTool("pan")}
-          className={`flex items-center space-x-1.5 px-3 py-2 rounded-xl text-xs font-mono transition-all ${
-            interactionTool === "pan"
-              ? "bg-brand-accent text-canvas font-bold shadow-md"
-              : "text-text-muted hover:text-text-primary hover:bg-surface"
-          }`}
-          title="Mode geser (klik kiri + geser di mana saja untuk memindahkan model)"
-        >
-          <Hand size={14} />
-          <span className="hidden sm:inline">GESER</span>
-        </button>
-      </div>
-
-      {/* Collapsed Floating Recovery Pill - Always accessible when drawer is closed */}
-      {isDrawerCollapsed && (
+      {/* Collapsed Floating Recovery Pill - Always accessible when drawer is closed, except in clean view */}
+      {isDrawerCollapsed && !isHideWebsiteUI && (
         <div
           className={`fixed bottom-6 z-50 pointer-events-auto transition-all left-4 right-4 sm:left-auto ${
             drawerPosition === "left" ? "sm:left-6 sm:right-auto" : "sm:right-6"
@@ -1481,8 +1631,9 @@ export const CustomizerDrawer: React.FC = () => {
                 className="w-4 h-4 rounded-full border border-white/40 shadow-sm shrink-0"
                 style={{ backgroundColor: selectedColor }}
               />
-              <span className="font-display font-bold text-xs uppercase tracking-wider text-text-primary">
-                ✏️ BUKA MENU · {currentApparelInfo.name}
+              <span className="font-display font-bold text-xs uppercase tracking-wider text-text-primary flex items-center gap-1.5">
+                <SlidersHorizontal size={13} className="text-brand-accent shrink-0" />
+                <span>BUKA MENU · {currentApparelInfo.name}</span>
               </span>
             </div>
             <div className="flex items-center space-x-2">
@@ -1497,23 +1648,21 @@ export const CustomizerDrawer: React.FC = () => {
         </div>
       )}
 
-      {/* Full Customizer Drawer — Desktop (md+ via CSS), Mobile via BottomSheet di bawah.
-          SATU breakpoint: CSS `hidden md:block` di sini + matchMedia 767px di
-          useIsMobileCss untuk BottomSheet — keduanya = <768px mobile. */}
-      <section
-        className={`fixed bottom-0 z-40 p-3 sm:p-6 md:p-8 max-w-xl w-full pointer-events-none transition-all duration-500 ease-out hidden md:block ${
-          drawerPosition === "left" ? "left-0" : "right-0"
+      {/* Full Customizer Drawer — Desktop Floating Luxury Panel (md+ via CSS) */}
+      <aside
+        className={`fixed top-[74px] bottom-5 z-40 max-w-[430px] w-full hidden md:flex flex-col pointer-events-none transition-all duration-500 ease-out ${
+          drawerPosition === "left" ? "left-5" : "right-5"
         } ${
-          isDrawerCollapsed
-            ? "opacity-0 translate-y-full pointer-events-none invisible select-none"
-            : "opacity-100 translate-y-0 pointer-events-none visible"
+          isDrawerHidden
+            ? "opacity-0 translate-y-8 pointer-events-none invisible select-none"
+            : "opacity-100 translate-y-0 pointer-events-auto visible"
         }`}
       >
-        <div className={`w-full rounded-2xl glass-panel-elevated shadow-2xl border border-border-subtle overflow-hidden max-h-[85vh] flex flex-col backdrop-blur-2xl ${
-          isDrawerCollapsed ? "pointer-events-none" : "pointer-events-auto"
+        <div className={`w-full h-full rounded-3xl glass-panel-elevated shadow-[0_25px_60px_-15px_rgba(0,0,0,0.3)] border border-border-subtle overflow-hidden flex flex-col backdrop-blur-2xl bg-surface/90 ${
+          isDrawerHidden ? "pointer-events-none" : "pointer-events-auto"
         }`}>
-          {/* Top Header Bar - Ultra Clean & Minimal */}
-          <div className="px-4 py-3 sm:px-5 sm:py-3.5 border-b border-border-subtle flex items-center justify-between bg-surface/90 backdrop-blur-md">
+          {/* Top Header Bar - Ultra Clean, Minimal & Luxury */}
+          <div className="px-5 py-3.5 border-b border-border-subtle flex items-center justify-between bg-surface/90 backdrop-blur-md shrink-0">
             <div className="flex items-center space-x-2.5 min-w-0">
               <span className="w-2.5 h-2.5 rounded-full bg-brand-accent shrink-0 shadow-[0_0_8px_rgba(230,81,0,0.6)] animate-pulse" />
               <h3 className="text-sm sm:text-base font-display font-bold uppercase text-text-primary truncate tracking-tight">
@@ -1522,24 +1671,10 @@ export const CustomizerDrawer: React.FC = () => {
             </div>
 
             <div className="flex items-center space-x-1.5 shrink-0">
-              {/* Auto Spin Toggle */}
-              <button
-                onClick={toggleRotating}
-                className={`p-2 rounded-xl border transition-all ${
-                  isRotating
-                    ? "bg-brand-accent text-canvas border-brand-accent shadow-[0_0_10px_rgba(230,81,0,0.5)]"
-                    : "bg-surface text-text-muted border-border-subtle hover:text-text-primary hover:bg-surface-elevated"
-                }`}
-                title={isRotating ? "Hentikan putaran" : "Putar otomatis 360°"}
-                aria-label="Putar otomatis 360°"
-              >
-                <RotateCcw size={14} className={isRotating ? "animate-spin" : ""} />
-              </button>
-
               {/* Dock Left / Right Toggle */}
               <button
                 onClick={toggleDrawerPosition}
-                className="p-2 rounded-xl bg-surface border border-border-subtle text-text-muted hover:text-text-primary hover:bg-surface-elevated transition-all"
+                className="p-2 rounded-xl bg-surface border border-border-subtle text-text-muted hover:text-text-primary hover:bg-surface-elevated transition-all cursor-pointer shadow-sm active:scale-95"
                 title={drawerPosition === "right" ? "Pindahkan panel ke kiri" : "Pindahkan panel ke kanan"}
                 aria-label="Pindahkan posisi panel"
               >
@@ -1549,17 +1684,17 @@ export const CustomizerDrawer: React.FC = () => {
               {/* Tutup Menu */}
               <button
                 onClick={toggleDrawerCollapsed}
-                className="p-2 rounded-xl bg-surface border border-border-subtle text-text-muted hover:text-text-primary hover:border-brand-accent/40 transition-all flex items-center justify-center"
-                title="Tutup menu"
-                aria-label="Tutup menu"
+                className="p-2 rounded-xl bg-surface border border-border-subtle text-text-muted hover:text-text-primary hover:border-brand-accent/40 transition-all flex items-center justify-center cursor-pointer shadow-sm active:scale-95"
+                title="Tutup menu kustomisasi"
+                aria-label="Tutup menu kustomisasi"
               >
                 <X size={14} />
               </button>
             </div>
           </div>
 
-          {/* 3 Primary Tabs Navigation - No text clipping, spacious & balanced */}
-          <div className="grid grid-cols-3 border-b border-border-subtle bg-canvas/80 text-xs font-mono">
+          {/* 3 Primary Tabs Navigation - Balanced Segmented Controls */}
+          <div className="grid grid-cols-3 border-b border-border-subtle bg-canvas/60 text-xs font-mono shrink-0">
             {[
               { id: "apparel", label: "PRODUK", icon: Shirt },
               { id: "decals", label: `SABLON (${decals.length})`, icon: Sliders },
@@ -1568,9 +1703,9 @@ export const CustomizerDrawer: React.FC = () => {
               <button
                 key={id}
                 onClick={() => handleTabChange(id as StudioTab)}
-                className={`py-3 px-2 flex items-center justify-center space-x-1.5 border-b-2 whitespace-nowrap transition-all ${
+                className={`py-3 px-2 flex items-center justify-center space-x-1.5 border-b-2 whitespace-nowrap transition-all cursor-pointer ${
                   activeTab === id
-                    ? "border-brand-accent text-brand-accent font-bold bg-surface/60 shadow-inner"
+                    ? "border-brand-accent text-brand-accent font-bold bg-surface/80 shadow-inner"
                     : "border-transparent text-text-muted hover:text-text-primary hover:bg-surface/30"
                 }`}
               >
@@ -1580,17 +1715,17 @@ export const CustomizerDrawer: React.FC = () => {
             ))}
           </div>
 
-          {/* Scrollable Content Body */}
-          <div className="p-4 sm:p-5 overflow-y-auto space-y-5 text-text-primary">
+          {/* Scrollable Content Body with Independent Fluid Scrolling */}
+          <div className="flex-1 overflow-y-auto min-h-0 p-4 sm:p-5 space-y-4 text-text-primary">
             {/* TAB 1: APPAREL & COLOR */}
             {activeTab === "apparel" && (
               <>
-                {/* 3D Mockup Apparel Switcher */}
+                {/* 3D Mockup Apparel Switcher - Compact 4-Col Grid */}
                 <div>
-                  <span className="block text-xs font-mono text-text-muted mb-2 font-bold uppercase tracking-wider">
+                  <span className="block text-[11px] font-mono text-text-muted mb-2 font-bold uppercase tracking-wider">
                     JENIS PAKAIAN:
                   </span>
-                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                  <div className="grid grid-cols-4 gap-1.5">
                     {(Object.keys(APPAREL_CATALOG) as ApparelType[]).map((type) => {
                       const info = APPAREL_CATALOG[type];
                       const locked = !info.mockupEnabled;
@@ -1613,6 +1748,8 @@ export const CustomizerDrawer: React.FC = () => {
                           ? "Shorts"
                           : "Celana";
 
+                      const Icon = getApparelIcon(type);
+
                       return (
                         <button
                           key={type}
@@ -1625,10 +1762,10 @@ export const CustomizerDrawer: React.FC = () => {
                               ? `${info.name} — Segera hadir`
                               : comingSoon
                                 ? `${info.name} — Mockup aktif, pemesanan segera dibuka`
-                                : info.name
+                                : `${info.name} (Mulai Rp ${info.basePriceIdr.toLocaleString("id-ID")})`
                           }
                           aria-disabled={locked}
-                          className={`relative py-3 px-2.5 rounded-xl font-mono text-xs font-bold border transition-all text-center flex flex-col items-center justify-center min-h-[46px] ${
+                          className={`relative py-2 px-1 rounded-xl font-mono text-[10px] sm:text-[11px] font-bold border transition-all text-center flex flex-col items-center justify-center min-h-[58px] cursor-pointer group ${
                             isActive
                               ? "bg-brand-accent text-canvas border-brand-accent shadow-[0_0_12px_rgba(230,81,0,0.45)] scale-[1.02]"
                               : locked
@@ -1636,9 +1773,20 @@ export const CustomizerDrawer: React.FC = () => {
                                 : "bg-surface border-border-subtle text-text-secondary hover:text-text-primary hover:border-brand-accent/50 hover:bg-surface-elevated"
                           }`}
                         >
-                          <span className="text-[11px] font-bold uppercase tracking-wider">{label}</span>
+                          <Icon
+                            size={17}
+                            className={`mb-1 transition-transform group-hover:scale-110 shrink-0 ${
+                              isActive ? "text-canvas" : "text-text-muted group-hover:text-text-primary"
+                            }`}
+                          />
+                          <span className="font-bold uppercase tracking-wider truncate w-full text-center text-[10px] leading-tight">{label}</span>
+                          <span className={`text-[8px] font-bold tracking-tight mt-0.5 leading-none ${
+                            isActive ? "text-canvas/90" : "text-brand-accent"
+                          }`}>
+                            {info.basePriceIdr > 0 ? `Rp ${(info.basePriceIdr / 1000)}k` : "Mockup"}
+                          </span>
                           {comingSoon && (
-                            <span className="mt-1 px-1.5 py-px rounded-full bg-amber-500/15 border border-amber-500/30 text-amber-300 text-[8px] font-bold tracking-wider">
+                            <span className="mt-1 px-1 py-px rounded-full bg-amber-500/15 border border-amber-500/30 text-amber-300 text-[7px] font-bold tracking-wider leading-none">
                               SEGERA
                             </span>
                           )}
@@ -1652,8 +1800,15 @@ export const CustomizerDrawer: React.FC = () => {
                 <div>
                   <div className="flex justify-between items-center text-xs font-mono mb-2">
                     <span className="text-text-muted font-bold uppercase tracking-wider">WARNA PAKAIAN:</span>
-                    <span className="text-text-primary font-bold">
-                      {activeColorName} {pricing.colorTreatmentSurchargeIdr > 0 && `(+IDR ${pricing.colorTreatmentSurchargeIdr.toLocaleString("id-ID")})`}
+                    <span className="text-text-primary font-bold flex items-center gap-1.5">
+                      <span>{activeColorName}</span>
+                      {pricing.colorTreatmentSurchargeIdr > 0 ? (
+                        <span className="text-[10px] px-1.5 py-0.5 rounded bg-brand-accent/20 border border-brand-accent/40 text-brand-accent font-bold">
+                          +IDR {pricing.colorTreatmentSurchargeIdr.toLocaleString("id-ID")}
+                        </span>
+                      ) : (
+                        <span className="text-[9px] text-text-muted font-normal">(Standar)</span>
+                      )}
                     </span>
                   </div>
 
@@ -1667,7 +1822,7 @@ export const CustomizerDrawer: React.FC = () => {
                         {[
                           { id: "body", label: "BODI" },
                           { id: "sleeves", label: "LENGAN" },
-                          { id: "collar", label: "⭕ KERAH" },
+                          { id: "collar", label: "KERAH" },
                         ].map((part) => {
                           const currentColor = partColors[part.id] || selectedColor;
                           const isActive = activePartId === part.id;
@@ -1695,57 +1850,146 @@ export const CustomizerDrawer: React.FC = () => {
 
                   {/* Colorway Palette */}
                   <div className="flex flex-wrap gap-2 mb-1">
-                    {PRODUCT_COLORS.map((c) => (
-                      <button
-                        key={c.id}
-                        onClick={() => {
-                          setSelectedColor(c.hex, c.name);
-                          if (activeColorMode === "multi-part") {
-                            setPartColor(activePartId, c.hex);
-                          }
-                        }}
-                        style={{ backgroundColor: c.hex }}
-                        aria-label={c.name}
-                        className={`w-8 h-8 rounded-full border-2 transition-all flex items-center justify-center relative ${
-                          (activeColorMode === "multi-part"
-                            ? (partColors[activePartId] || selectedColor).toLowerCase() === c.hex.toLowerCase()
-                            : selectedColor.toLowerCase() === c.hex.toLowerCase())
-                            ? "border-brand-accent scale-110 shadow-[0_0_10px_rgba(230,81,0,0.6)]"
-                            : "border-border-subtle hover:border-text-muted"
-                        }`}
-                      >
-                        {(activeColorMode === "multi-part"
+                    {PRODUCT_COLORS.map((c) => {
+                      const isSelected =
+                        activeColorMode === "multi-part"
                           ? (partColors[activePartId] || selectedColor).toLowerCase() === c.hex.toLowerCase()
-                          : selectedColor.toLowerCase() === c.hex.toLowerCase()) && (
-                          <Check size={13} className={c.id === "chalk" ? "text-neutral-900 stroke-[3]" : "text-white stroke-[3]"} />
-                        )}
-                      </button>
-                    ))}
+                          : selectedColor.toLowerCase() === c.hex.toLowerCase();
+
+                      return (
+                        <button
+                          key={c.id}
+                          onClick={() => {
+                            setSelectedColor(c.hex, c.name);
+                            if (activeColorMode === "multi-part") {
+                              setPartColor(activePartId, c.hex);
+                            }
+                          }}
+                          style={{ backgroundColor: c.hex }}
+                          aria-label={c.name}
+                          title={`${c.name}${c.isSpecialPigment ? " (+IDR 15.000 Special Pigment)" : " (Standar)"}`}
+                          className={`w-8 h-8 rounded-full border-2 transition-all flex items-center justify-center relative ${
+                            isSelected
+                              ? "border-brand-accent scale-110 shadow-[0_0_10px_rgba(230,81,0,0.6)]"
+                              : "border-border-subtle hover:border-text-muted"
+                          }`}
+                        >
+                          {isSelected && (
+                            <Check size={13} className={c.id === "chalk" ? "text-neutral-900 stroke-[3]" : "text-white stroke-[3]"} />
+                          )}
+                          {c.isSpecialPigment && (
+                            <span
+                              className="absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full bg-brand-accent border border-canvas shadow-xs"
+                              title="Special Pigment Dye (+IDR 15.000)"
+                            />
+                          )}
+                        </button>
+                      );
+                    })}
                   </div>
                 </div>
 
                 {/* Sizing Matrix */}
                 <div>
                   <div className="flex justify-between items-center text-xs font-mono mb-2">
-                    <span className="text-text-muted font-bold uppercase">UKURAN:</span>
-                    {pricing.sizeSurchargeIdr > 0 && (
-                      <span className="text-brand-accent font-bold">+IDR {pricing.sizeSurchargeIdr.toLocaleString("id-ID")}</span>
-                    )}
+                    <div className="flex items-center gap-2">
+                      <span className="text-text-muted font-bold uppercase">UKURAN:</span>
+                      <span className="font-bold text-text-primary">{selectedSize}</span>
+                      <button
+                        type="button"
+                        onClick={() => setIsSizeGuideOpen(true)}
+                        className="ml-2 flex items-center gap-1 text-[11px] font-mono text-brand-accent hover:underline font-bold cursor-pointer transition-colors"
+                        title="Buka tabel panduan ukuran fisik"
+                      >
+                        <Ruler size={12} />
+                        <span>PANDUAN UKURAN</span>
+                      </button>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      {currentVariantStock !== undefined && (
+                        <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border flex items-center gap-1.5 ${
+                          currentVariantStock <= 0
+                            ? "bg-rose-500/10 border-rose-500/30 text-rose-400"
+                            : currentVariantStock <= 10
+                            ? "bg-amber-500/10 border-amber-500/30 text-amber-400"
+                            : "bg-emerald-500/10 border-emerald-500/30 text-emerald-400"
+                        }`}>
+                          <span className={`w-1.5 h-1.5 rounded-full ${
+                            currentVariantStock === undefined ? "bg-emerald-400" : currentVariantStock <= 0 ? "bg-rose-400" : currentVariantStock <= 10 ? "bg-amber-400" : "bg-emerald-400"
+                          }`} />
+                          <span>{currentVariantStock !== undefined ? `Stok: ${currentVariantStock} pcs` : "Stok: Tersedia"}</span>
+                          {currentVariantSku && <span className="opacity-60 text-[9px]">({currentVariantSku})</span>}
+                        </span>
+                      )}
+                      {pricing.sizeSurchargeIdr > 0 && (
+                        <span className="text-brand-accent font-bold">+IDR {pricing.sizeSurchargeIdr.toLocaleString("id-ID")}</span>
+                      )}
+                    </div>
                   </div>
                   <div className="flex flex-wrap gap-2">
-                    {currentApparelInfo.sizes.map((size) => (
-                      <button
-                        key={size}
-                        onClick={() => setSelectedSize(size)}
-                        className={`py-2 px-4 rounded-lg font-mono text-xs font-bold border transition-all ${
-                          selectedSize === size
-                            ? "bg-text-primary text-canvas border-text-primary shadow-sm"
-                            : "bg-surface border-border-subtle text-text-muted hover:text-text-primary"
-                        }`}
-                      >
-                        {size}
-                      </button>
-                    ))}
+                    {currentApparelInfo.sizes.map((size) => {
+                      const vInfo = resolveVariantInfo(activeApparel, selectedColor, size);
+                      const szStock = vInfo?.stockQty;
+                      const isSzOut = szStock !== undefined && szStock <= 0;
+                      const isSzLow = szStock !== undefined && szStock > 0 && szStock <= 10;
+                      const isSelected = selectedSize === size;
+                      const szUpper = size.toUpperCase().trim();
+                      const szSurcharge = szUpper === "XXL" ? 10000 : szUpper === "XXXL" || szUpper === "3XL" ? 20000 : 0;
+
+                      return (
+                        <button
+                          key={size}
+                          onClick={() => setSelectedSize(size)}
+                          className={`relative py-1.5 px-3 min-w-[56px] rounded-xl font-mono text-xs font-bold border transition-all flex flex-col items-center justify-center ${
+                            isSelected
+                              ? "bg-text-primary text-canvas border-text-primary shadow-sm"
+                              : isSzOut
+                              ? "bg-surface/50 border-border-subtle text-text-muted/40 line-through"
+                              : "bg-surface border-border-subtle text-text-muted hover:text-text-primary hover:border-brand-accent/40"
+                          }`}
+                        >
+                          <div className="flex items-center gap-1">
+                            <span>{size}</span>
+                            {szSurcharge > 0 && (
+                              <span className={`text-[8px] font-bold px-1 py-0.2 rounded-full ${
+                                isSelected ? "bg-amber-400 text-neutral-900" : "bg-amber-500/20 text-amber-300"
+                              }`}>
+                                +{szSurcharge / 1000}k
+                              </span>
+                            )}
+                          </div>
+                          <span className={`text-[9px] font-bold mt-0.5 tracking-tight ${
+                            isSzOut
+                              ? "text-rose-400 font-bold"
+                              : isSzLow
+                              ? "text-amber-400 font-bold"
+                              : isSelected
+                              ? "text-canvas/80 font-bold"
+                              : "text-emerald-500/90 dark:text-emerald-400 font-semibold"
+                          }`}>
+                            {szStock !== undefined ? (isSzOut ? "Habis" : `${szStock} pcs`) : "Tersedia"}
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </div>
+
+                  {/* Quick Physical Dimension Strip (1-Baris Ringkas) */}
+                  <div className="mt-2.5 p-2.5 rounded-xl bg-surface/70 border border-border-subtle/80 flex items-center justify-between text-[11px] font-mono">
+                    <div className="flex items-center gap-2 truncate">
+                      <Ruler size={13} className="text-brand-accent shrink-0" />
+                      <div className="truncate">
+                        <strong className="text-text-primary font-bold">{selectedSize}: </strong>
+                        <span className="text-text-muted">{formatQuickDimensions(activeApparel, selectedSize)}</span>
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setIsSizeGuideOpen(true)}
+                      className="shrink-0 text-[10px] text-brand-accent font-bold hover:underline ml-2"
+                    >
+                      Detail
+                    </button>
                   </div>
                 </div>
               </>
@@ -2113,14 +2357,22 @@ export const CustomizerDrawer: React.FC = () => {
 
                           {/* Detail dimensi fisik terpadu di dalam kartu posisi sablon */}
                           {physicalDimensions && (
-                            <div className="flex items-center justify-between pt-1.5 border-t border-border-subtle/50 text-[10.5px] font-mono text-text-muted">
-                              <span className="flex items-center gap-1">
-                                <Ruler size={12} className="text-brand-accent" />
-                                Jarak dari kerah:
-                              </span>
-                              <span className="font-bold text-text-primary">
-                                ↓ {physicalDimensions.offsetFromCollarCm} cm
-                              </span>
+                            <div className="space-y-1 pt-1.5 border-t border-border-subtle/50 text-[10.5px] font-mono text-text-muted">
+                              <div className="flex items-center justify-between">
+                                <span className="flex items-center gap-1">
+                                  <Ruler size={12} className="text-brand-accent" />
+                                  Ukuran Cetak DTF:
+                                </span>
+                                <span className="font-bold text-brand-accent">
+                                  {physicalDimensions.widthCm.toFixed(1)} × {physicalDimensions.heightCm.toFixed(1)} cm
+                                </span>
+                              </div>
+                              <div className="flex items-center justify-between text-[10px]">
+                                <span>Jarak dari kerah:</span>
+                                <span className="font-bold text-text-primary">
+                                  ↓ {physicalDimensions.offsetFromCollarCm} cm
+                                </span>
+                              </div>
                             </div>
                           )}
 
@@ -2253,10 +2505,7 @@ export const CustomizerDrawer: React.FC = () => {
                           <div className="grid grid-cols-3 gap-1.5 font-mono text-[10px]">
                             <button
                               type="button"
-                              onClick={() => {
-                                setLogoPresetPos(0);
-                                applyLogoPreset();
-                              }}
+                              onClick={() => applyLogoPreset(0)}
                               className="py-1.5 px-1 rounded-xl bg-surface border border-border-subtle hover:border-brand-accent hover:text-brand-accent text-text-primary font-bold transition-all text-center"
                               title="Posisikan logo di saku dada kiri"
                             >
@@ -2264,10 +2513,7 @@ export const CustomizerDrawer: React.FC = () => {
                             </button>
                             <button
                               type="button"
-                              onClick={() => {
-                                setLogoPresetPos(1);
-                                applyLogoPreset();
-                              }}
+                              onClick={() => applyLogoPreset(1)}
                               className="py-1.5 px-1 rounded-xl bg-surface border border-border-subtle hover:border-brand-accent hover:text-brand-accent text-text-primary font-bold transition-all text-center"
                               title="Posisikan logo di tengah dada"
                             >
@@ -2275,10 +2521,7 @@ export const CustomizerDrawer: React.FC = () => {
                             </button>
                             <button
                               type="button"
-                              onClick={() => {
-                                setLogoPresetPos(2);
-                                applyLogoPreset();
-                              }}
+                              onClick={() => applyLogoPreset(2)}
                               className="py-1.5 px-1 rounded-xl bg-surface border border-border-subtle hover:border-brand-accent hover:text-brand-accent text-text-primary font-bold transition-all text-center"
                               title="Posisikan logo di saku dada kanan"
                             >
@@ -2357,15 +2600,27 @@ export const CustomizerDrawer: React.FC = () => {
 
                             {/* Scale / Size (Directly affects DTF print cost) */}
                             <div>
-                              <div className="flex justify-between text-[11px] font-mono text-text-muted mb-1">
-                                <span>UKURAN CETAK (DTF):</span>
+                              <div className="flex justify-between items-baseline text-[11px] font-mono text-text-muted mb-1">
+                                <span>DIMENSI SABLON (DTF):</span>
                                 <span className="text-brand-accent font-bold">
                                   {(() => {
                                     if (!activeDecal || !physicalDimensions) return "—";
                                     const tier = classifyPrintTierByCm(
                                       Math.max(physicalDimensions.widthCm, physicalDimensions.heightCm)
                                     );
-                                    return `${PRINT_TIER_LABEL[tier]} (+${printTierCost(tier) / 1000}k) • ${physicalDimensions.widthCm.toFixed(1)}cm`;
+                                    return `${PRINT_TIER_LABEL[tier]} (${physicalDimensions.widthCm.toFixed(1)} × ${physicalDimensions.heightCm.toFixed(1)} cm)`;
+                                  })()}
+                                </span>
+                              </div>
+                              <div className="flex justify-between text-[10px] font-mono text-text-muted/75 mb-1.5">
+                                <span>Kerah ke sablon: ~{physicalDimensions?.offsetFromCollarCm?.toFixed(1) ?? "0.0"} cm</span>
+                                <span className="text-emerald-400 font-semibold">
+                                  {(() => {
+                                    if (!activeDecal || !physicalDimensions) return "";
+                                    const tier = classifyPrintTierByCm(
+                                      Math.max(physicalDimensions.widthCm, physicalDimensions.heightCm)
+                                    );
+                                    return `+Rp ${(printTierCost(tier)).toLocaleString("id-ID")}`;
                                   })()}
                                 </span>
                               </div>
@@ -2555,80 +2810,31 @@ export const CustomizerDrawer: React.FC = () => {
                         aria-label="Rotasi model 3D"
                       />
 
-                      {/* Posisi Baju & Zoom */}
-                      <div className="pt-2 border-t border-border-subtle/50 space-y-2.5">
-                        <div className="flex justify-between items-center">
-                          <span className="text-[10px] font-mono text-text-muted font-bold uppercase tracking-wider">POSISI CEPAT MODEL:</span>
+                      {/* Skala Zoom Mockup */}
+                      <div className="pt-2 border-t border-border-subtle/50 space-y-1.5">
+                        <div className="flex justify-between text-[10px] font-mono text-text-muted mb-1">
+                          <span className="flex items-center space-x-1">
+                            <ZoomIn size={11} /> <span>SKALA ZOOM MOCKUP</span>
+                          </span>
                           <button
                             type="button"
-                            onClick={resetModelTransform}
-                            className="text-[10px] font-mono text-brand-accent hover:underline font-bold uppercase"
+                            onClick={() => setModelScale(1.0)}
+                            title="Klik untuk reset zoom ke 100%"
+                            className="font-bold text-text-primary hover:text-brand-accent transition-colors cursor-pointer"
                           >
-                            RESET POSISI
+                            {Math.round(modelScale * 100)}%
                           </button>
                         </div>
-                        <div className="grid grid-cols-3 gap-1.5">
-                          <button
-                            type="button"
-                            onClick={() => alignModel("left")}
-                            className={`py-2 px-2 rounded-xl border text-[10px] font-mono font-bold transition-all text-center ${
-                              modelPosX < -0.2
-                                ? "bg-brand-accent text-canvas border-brand-accent shadow-sm"
-                                : "bg-surface border-border-subtle text-text-muted hover:text-text-primary"
-                            }`}
-                          >
-                            ⬅ KIRI
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => alignModel("center")}
-                            className={`py-2 px-2 rounded-xl border text-[10px] font-mono font-bold transition-all text-center ${
-                              Math.abs(modelPosX) <= 0.2
-                                ? "bg-brand-accent text-canvas border-brand-accent shadow-sm"
-                                : "bg-surface border-border-subtle text-text-muted hover:text-text-primary"
-                            }`}
-                          >
-                            ⏺ TENGAH
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => alignModel("right")}
-                            className={`py-2 px-2 rounded-xl border text-[10px] font-mono font-bold transition-all text-center ${
-                              modelPosX > 0.2
-                                ? "bg-brand-accent text-canvas border-brand-accent shadow-sm"
-                                : "bg-surface border-border-subtle text-text-muted hover:text-text-primary"
-                            }`}
-                          >
-                            KANAN ➡
-                          </button>
-                        </div>
-
-                        {/* Zoom Model Slider */}
-                        <div className="pt-1">
-                          <div className="flex justify-between text-[10px] font-mono text-text-muted mb-1">
-                            <span className="flex items-center space-x-1">
-                              <ZoomIn size={11} /> <span>SKALA ZOOM MOCKUP</span>
-                            </span>
-                            <button
-                              type="button"
-                              onClick={() => setModelScale(1.0)}
-                              title="Klik untuk reset zoom ke 100%"
-                              className="font-bold text-text-primary hover:text-brand-accent transition-colors cursor-pointer"
-                            >
-                              {Math.round(modelScale * 100)}%
-                            </button>
-                          </div>
-                          <input
-                            type="range"
-                            min="0.6"
-                            max="1.8"
-                            step="0.02"
-                            value={modelScale}
-                            onChange={(e) => setModelScale(parseFloat(e.target.value))}
-                            className="w-full accent-brand-accent cursor-pointer"
-                            aria-label="Zoom model 3D"
-                          />
-                        </div>
+                        <input
+                          type="range"
+                          min="0.6"
+                          max="2.4"
+                          step="0.02"
+                          value={modelScale}
+                          onChange={(e) => setModelScale(parseFloat(e.target.value))}
+                          className="w-full accent-brand-accent cursor-pointer"
+                          aria-label="Zoom model 3D"
+                        />
                       </div>
                     </div>
 
@@ -2638,44 +2844,17 @@ export const CustomizerDrawer: React.FC = () => {
                     {/* GRUP 3B: INSPEKSI DESAIN 3D (toggle murni, tak ubah data) */}
                     <InspectControls />
 
-                    {/* GRUP 4: PENCAHAYAAN & TEKSTUR BAHAN */}
+                    {/* GRUP 4: PENCAHAYAAN & SPESIFIKASI BAHAN */}
                     <div className="p-4 rounded-2xl glass-panel border border-border-subtle space-y-3.5 shadow-sm">
                       <div className="flex justify-between items-center pb-2 border-b border-border-subtle/60">
                         <span className="text-xs font-mono font-bold text-text-primary flex items-center space-x-1.5">
                           <Sun size={14} className="text-brand-accent" />
-                          <span>PENCAHAYAAN & BAHAN KAIN</span>
+                          <span>SUASANA PENCAHAYAAN STUDIO</span>
                         </span>
                       </div>
 
-                      {/* Bahan Kain */}
-                      <div>
-                        <span className="block text-[10px] font-mono text-text-muted mb-1.5 font-bold uppercase">TEKSTUR BAHAN:</span>
-                        <div className="grid grid-cols-3 gap-1.5">
-                          {[
-                            { id: "combed-cotton", label: "COTTON 24S", sub: "190 GSM" },
-                            { id: "french-terry", label: "HEAVY FLEECE", sub: "380 GSM" },
-                            { id: "poplin", label: "POPLIN", sub: "130 GSM" },
-                          ].map(({ id, label, sub }) => (
-                            <button
-                              key={id}
-                              type="button"
-                              onClick={() => setMaterialFinish(id as MaterialFinish)}
-                              className={`py-2 px-1 rounded-xl font-mono text-[10px] font-bold border transition-all text-center flex flex-col items-center justify-center ${
-                                materialFinish === id
-                                  ? "bg-brand-accent text-canvas border-brand-accent shadow-sm scale-[1.02]"
-                                  : "bg-surface border-border-subtle text-text-muted hover:text-text-primary"
-                              }`}
-                            >
-                              <span>{label}</span>
-                              <span className="text-[8.5px] opacity-75 font-normal">{sub}</span>
-                            </button>
-                          ))}
-                        </div>
-                      </div>
-
-                      {/* Suasana Pencahayaan */}
-                      <div className="pt-2 border-t border-border-subtle/50">
-                        <span className="block text-[10px] font-mono text-text-muted mb-1.5 font-bold uppercase">SUASANA CAHAYA:</span>
+                      {/* Pilihan Mood Pencahayaan */}
+                      <div className="space-y-1.5">
                         <div className="grid grid-cols-3 gap-1.5">
                           {STUDIO_MOODS.map((m) => (
                             <button
@@ -2690,8 +2869,8 @@ export const CustomizerDrawer: React.FC = () => {
                                   : "bg-surface border-border-subtle text-text-muted hover:text-text-primary"
                               }`}
                             >
-                              <span className="block text-sm leading-none">{m.icon}</span>
-                              <span className="block mt-1 text-[9px] font-mono font-bold uppercase truncate">{m.label}</span>
+                              <div className="flex justify-center mb-1">{getMoodIcon(m.id)}</div>
+                              <span className="block text-[9px] font-mono font-bold uppercase truncate">{m.label}</span>
                             </button>
                           ))}
                         </div>
@@ -2739,9 +2918,6 @@ export const CustomizerDrawer: React.FC = () => {
                         </button>
                       </div>
                     </div>
-
-                    {/* Lab Kain verlet */}
-                    <ClothLabLazy />
                   </div>
                 )}
               </>
@@ -2782,32 +2958,31 @@ export const CustomizerDrawer: React.FC = () => {
                   </button>
                 </div>
 
-                {!session ? (
-                  <div className="p-6 rounded-2xl bg-surface/80 border border-brand-accent/30 shadow-xl text-center space-y-4 my-2">
-                    <div className="w-14 h-14 mx-auto rounded-full bg-brand-accent/10 border border-brand-accent/30 flex items-center justify-center text-brand-accent shadow-[0_0_20px_rgba(230,81,0,0.2)]">
-                      <Lock size={26} />
+                {/* Sub-mode: TERSIMPAN (DESAIN SAYA) */}
+                {((optionSubMode === "saved" && activeTab !== "export") || activeTab === "saved") && (
+                  !session ? (
+                    <div className="p-6 rounded-2xl bg-surface/80 border border-brand-accent/30 shadow-xl text-center space-y-4 my-2">
+                      <div className="w-14 h-14 mx-auto rounded-full bg-brand-accent/10 border border-brand-accent/30 flex items-center justify-center text-brand-accent shadow-[0_0_20px_rgba(230,81,0,0.2)]">
+                        <Lock size={26} />
+                      </div>
+                      <div className="space-y-1.5">
+                        <h4 className="text-sm font-bold text-text-primary font-mono tracking-wider">
+                          LOGIN DIPERLUKAN
+                        </h4>
+                        <p className="text-xs text-text-muted leading-relaxed max-w-xs mx-auto">
+                          Masuk ke akun Anda untuk menyimpan mockup ke koleksi akun Anda.
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setIsAuthOpen(true)}
+                        className="w-full py-3 px-4 rounded-xl bg-brand-accent hover:brightness-110 text-canvas font-mono font-bold text-xs uppercase tracking-wider transition-all shadow-[0_0_20px_rgba(230,81,0,0.35)] active:scale-98 flex items-center justify-center space-x-2"
+                      >
+                        <span>MASUK / DAFTAR SEKARANG</span>
+                      </button>
                     </div>
-                    <div className="space-y-1.5">
-                      <h4 className="text-sm font-bold text-text-primary font-mono tracking-wider">
-                        LOGIN DIPERLUKAN
-                      </h4>
-                      <p className="text-xs text-text-muted leading-relaxed max-w-xs mx-auto">
-                        Masuk ke akun Anda untuk menyimpan mockup ke koleksi dan mengunduh render HD & video 360°.
-                      </p>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => setIsAuthOpen(true)}
-                      className="w-full py-3 px-4 rounded-xl bg-brand-accent hover:brightness-110 text-canvas font-mono font-bold text-xs uppercase tracking-wider transition-all shadow-[0_0_20px_rgba(230,81,0,0.35)] active:scale-98 flex items-center justify-center space-x-2"
-                    >
-                      <span>MASUK / DAFTAR SEKARANG</span>
-                    </button>
-                  </div>
-                ) : (
-                  <>
-                    {/* Sub-mode: TERSIMPAN (DESAIN SAYA) */}
-                    {((optionSubMode === "saved" && activeTab !== "export") || activeTab === "saved") && (
-                      <div className="space-y-4">
+                  ) : (
+                    <div className="space-y-4">
                         {/* Save Current Design Box */}
                         <div className="p-4 rounded-xl glass-panel border border-border-subtle space-y-3">
                           <div className="flex items-center justify-between">
@@ -2915,7 +3090,8 @@ export const CustomizerDrawer: React.FC = () => {
                           )}
                         </div>
                       </div>
-                    )}
+                    )
+                  )}
 
                     {/* Sub-mode: EKSPOR MOCKUP */}
                     {(optionSubMode === "export" || activeTab === "export") && (
@@ -2935,7 +3111,10 @@ export const CustomizerDrawer: React.FC = () => {
                                   : "bg-surface border-border-subtle text-text-muted hover:text-text-primary"
                               }`}
                             >
-                              🏢 Latar Studio
+                              <span className="flex items-center justify-center gap-1.5">
+                                <Building2 size={13} />
+                                <span>Latar Studio</span>
+                              </span>
                             </button>
                             <button
                               type="button"
@@ -2946,7 +3125,10 @@ export const CustomizerDrawer: React.FC = () => {
                                   : "bg-surface border-border-subtle text-text-muted hover:text-text-primary"
                               }`}
                             >
-                              ✂️ Transparan (PNG)
+                              <span className="flex items-center justify-center gap-1.5">
+                                <Scissors size={13} />
+                                <span>Transparan (PNG)</span>
+                              </span>
                             </button>
                           </div>
                           <div className="grid grid-cols-3 gap-1.5">
@@ -2984,7 +3166,10 @@ export const CustomizerDrawer: React.FC = () => {
                                   : "bg-surface border-border-subtle text-text-muted hover:text-text-primary"
                               }`}
                             >
-                              ✨ Ultra HD (2K)
+                              <span className="flex items-center justify-center gap-1">
+                                <Sparkles size={11} />
+                                <span>Ultra HD (2K)</span>
+                              </span>
                             </button>
                           </div>
                         </div>
@@ -3102,14 +3287,12 @@ export const CustomizerDrawer: React.FC = () => {
                         </div>
                       </div>
                     )}
-                  </>
-                )}
               </>
             )}
           </div>
 
-          {/* Itemized Mathematical Price Calculation Footer - Clean & Compact */}
-          <div className="px-4 py-3 sm:px-5 sm:py-3 border-t border-border-subtle bg-surface/95 backdrop-blur-md flex flex-col space-y-2">
+          {/* Itemized Mathematical Price Calculation Footer - Clean & Unclipped */}
+          <div className="px-5 py-4 border-t border-border-subtle bg-surface/95 backdrop-blur-md flex flex-col space-y-2 shrink-0">
             {/* Price Breakdown Tooltip / Accordion */}
             {showPriceBreakdown && (
               <div className="p-3 rounded-xl bg-canvas border border-border-subtle text-xs font-mono space-y-1.5 mb-1 animate-in fade-in">
@@ -3153,46 +3336,53 @@ export const CustomizerDrawer: React.FC = () => {
             <div className="flex items-center justify-between gap-4">
               <div className="min-w-0">
                 <div className="flex items-center space-x-1.5">
-                  <span className="block text-[10px] font-mono text-text-muted tracking-wider uppercase">ESTIMASI TOTAL</span>
+                  <span className="block text-[10px] font-mono text-text-muted tracking-wider uppercase font-bold">ESTIMASI TOTAL</span>
                   <button
                     onClick={() => setShowPriceBreakdown(!showPriceBreakdown)}
-                    className="text-text-muted hover:text-brand-accent transition-colors"
+                    className="text-text-muted hover:text-brand-accent transition-colors cursor-pointer"
                     title="Lihat rincian kalkulasi harga"
                     aria-label="Rincian harga"
                   >
                     <Info size={11} />
                   </button>
                 </div>
-                <div className="flex items-baseline space-x-1.5">
-                  <span className="font-mono font-bold text-base sm:text-lg text-brand-accent tracking-tight">
+                <div className="flex items-baseline space-x-1.5 mt-0.5">
+                  <span className="font-mono font-black text-lg sm:text-xl text-brand-accent tracking-tight">
                     {pricing.formattedTotal}
                   </span>
                 </div>
-                {pricing.fabricThicknessSurchargeIdr > 0 && (
-                  <span className="block text-[9px] font-mono text-text-muted truncate">
-                    +Kain {pricing.fabricThicknessSlug} (IDR {pricing.fabricThicknessSurchargeIdr.toLocaleString("id-ID")})
-                  </span>
-                )}
+                <div className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5 text-[9px] font-mono text-text-muted mt-0.5 leading-snug">
+                  <span>Base Rp {(pricing.basePriceIdr / 1000)}k</span>
+                  {pricing.fabricThicknessSurchargeIdr > 0 && <span>+Kain {(pricing.fabricThicknessSurchargeIdr / 1000)}k</span>}
+                  {pricing.colorTreatmentSurchargeIdr > 0 && <span className="text-brand-accent font-bold">+Warna {(pricing.colorTreatmentSurchargeIdr / 1000)}k</span>}
+                  {pricing.sizeSurchargeIdr > 0 && <span className="text-brand-accent font-bold">+Ukuran {(pricing.sizeSurchargeIdr / 1000)}k</span>}
+                  {pricing.totalSablonCostIdr > 0 && <span className="text-brand-accent font-bold">+Sablon {(pricing.totalSablonCostIdr / 1000)}k</span>}
+                </div>
               </div>
 
               <div className="shrink-0">
                 <button
                   type="button"
                   onClick={openCheckoutWithMasterGate}
-                  className="py-2.5 px-5 rounded-xl bg-brand-accent text-canvas font-mono font-bold text-xs uppercase tracking-wider hover:brightness-110 active:scale-95 transition-all shadow-[0_0_12px_rgba(230,81,0,0.35)] flex items-center justify-center space-x-2 whitespace-nowrap"
+                  disabled={isCurrentVariantOut}
+                  className={`py-3 px-5 rounded-2xl font-mono font-bold text-xs uppercase tracking-wider transition-all flex items-center justify-center space-x-2 whitespace-nowrap ${
+                    isCurrentVariantOut
+                      ? "bg-surface border border-border-subtle text-text-muted cursor-not-allowed opacity-60"
+                      : "bg-brand-accent hover:brightness-110 active:scale-95 text-canvas shadow-[0_4px_16px_rgba(230,81,0,0.35)] cursor-pointer"
+                  }`}
                 >
                   <ShoppingCart size={14} />
-                  <span>PESAN SEKARANG</span>
+                  <span>{isCurrentVariantOut ? "STOK HABIS" : "PESAN SEKARANG"}</span>
                 </button>
               </div>
             </div>
           </div>
         </div>
-      </section>
+      </aside>
 
       {/* Mobile BottomSheet (vaul pattern) — SATU sumber: matchMedia 767px
           (useIsMobileCss), selaras `hidden md:block` drawer + `md:hidden` sheet. */}
-      {isMobileCss && !isDrawerCollapsed && (
+      {isMobileCss && !isDrawerHidden && (
         <BottomSheet onClose={toggleDrawerCollapsed}>
           <div className="space-y-3 font-mono text-xs">
             {/* Header Mobile Sheet: Nama Produk + Tutup */}
@@ -3262,6 +3452,7 @@ export const CustomizerDrawer: React.FC = () => {
                       : type === "shorts"
                       ? "Shorts"
                       : "Celana";
+                  const Icon = getApparelIcon(type as ApparelType);
                   return (
                     <button
                       key={type}
@@ -3270,7 +3461,7 @@ export const CustomizerDrawer: React.FC = () => {
                       }}
                       disabled={locked}
                       aria-disabled={locked}
-                      className={`relative min-h-[44px] px-3 py-2 rounded-xl border text-[11px] font-bold uppercase ${
+                      className={`relative min-h-[44px] px-2.5 py-1.5 rounded-xl border text-[11px] font-bold uppercase flex items-center justify-center gap-1.5 ${
                         activeApparel === type
                           ? "bg-brand-accent/15 border-brand-accent text-brand-accent"
                           : locked
@@ -3278,10 +3469,17 @@ export const CustomizerDrawer: React.FC = () => {
                             : "bg-surface border-border-subtle text-text-primary"
                       }`}
                     >
-                      {label}
+                      <Icon size={15} className="shrink-0" />
+                      <div className="flex flex-col items-start text-left">
+                        <span className="leading-tight">{label}</span>
+                        <span className="text-[9px] font-bold text-brand-accent leading-none mt-0.5">
+                          {info.basePriceIdr > 0 ? `Rp ${(info.basePriceIdr / 1000)}k` : "Mockup"}
+                        </span>
+                      </div>
                       {comingSoon && (
-                        <span className="ml-1.5 px-1.5 py-px rounded-full bg-amber-500/20 border border-amber-500/40 text-amber-300 text-[9px] font-black">
-                          {locked ? "🔒 SEGERA" : "SEGERA"}
+                        <span className="ml-1 px-1.5 py-px rounded-full bg-amber-500/20 border border-amber-500/40 text-amber-300 text-[9px] font-black inline-flex items-center gap-0.5">
+                          {locked && <Lock size={8} />}
+                          <span>SEGERA</span>
                         </span>
                       )}
                     </button>
@@ -3612,7 +3810,7 @@ export const CustomizerDrawer: React.FC = () => {
                                   : "bg-surface border-border-subtle text-text-muted"
                               }`}
                             >
-                              <span className="block text-xs leading-none">{m.icon}</span>
+                              <div className="flex justify-center mb-0.5">{getMoodIcon(m.id)}</div>
                               <span className="block mt-0.5 text-[8.5px] font-bold uppercase truncate">{m.label}</span>
                             </button>
                           ))}
@@ -3674,32 +3872,31 @@ export const CustomizerDrawer: React.FC = () => {
                   </button>
                 </div>
 
-            {!session ? (
-              <div className="p-5 rounded-2xl bg-surface/80 border border-brand-accent/30 shadow-lg text-center space-y-3 my-2">
-                <div className="w-12 h-12 mx-auto rounded-full bg-brand-accent/10 border border-brand-accent/30 flex items-center justify-center text-brand-accent shadow-[0_0_15px_rgba(230,81,0,0.2)]">
-                  <Lock size={22} />
+            {/* Sub-mode: TERSIMPAN */}
+            {((optionSubMode === "saved" && activeTab !== "export") || activeTab === "saved") && (
+              !session ? (
+                <div className="p-5 rounded-2xl bg-surface/80 border border-brand-accent/30 shadow-lg text-center space-y-3 my-2">
+                  <div className="w-12 h-12 mx-auto rounded-full bg-brand-accent/10 border border-brand-accent/30 flex items-center justify-center text-brand-accent shadow-[0_0_15px_rgba(230,81,0,0.2)]">
+                    <Lock size={22} />
+                  </div>
+                  <div className="space-y-1">
+                    <h4 className="text-sm font-bold text-text-primary font-mono tracking-wider">
+                      LOGIN DIPERLUKAN
+                    </h4>
+                    <p className="text-xs text-text-muted leading-relaxed max-w-xs mx-auto">
+                      Masuk ke akun Anda untuk menyimpan desain ke koleksi akun Anda.
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setIsAuthOpen(true)}
+                    className="w-full py-3 px-4 rounded-xl bg-brand-accent hover:brightness-110 text-canvas font-mono font-bold text-xs uppercase tracking-wider transition-all shadow-md active:scale-98"
+                  >
+                    MASUK / DAFTAR SEKARANG
+                  </button>
                 </div>
-                <div className="space-y-1">
-                  <h4 className="text-sm font-bold text-text-primary font-mono tracking-wider">
-                    LOGIN DIPERLUKAN
-                  </h4>
-                  <p className="text-xs text-text-muted leading-relaxed max-w-xs mx-auto">
-                    Masuk ke akun Anda untuk menyimpan desain & mengunduh render HD atau video 360°.
-                  </p>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => setIsAuthOpen(true)}
-                  className="w-full py-3 px-4 rounded-xl bg-brand-accent hover:brightness-110 text-canvas font-mono font-bold text-xs uppercase tracking-wider transition-all shadow-md active:scale-98"
-                >
-                  MASUK / DAFTAR SEKARANG
-                </button>
-              </div>
-            ) : (
-              <>
-                {/* Sub-mode: TERSIMPAN */}
-                {((optionSubMode === "saved" && activeTab !== "export") || activeTab === "saved") && (
-                  <div className="space-y-2">
+              ) : (
+                <div className="space-y-2">
                     <div className="flex gap-2">
                       <input
                         value={designTitleInput}
@@ -3778,7 +3975,8 @@ export const CustomizerDrawer: React.FC = () => {
                       ))
                     )}
                   </div>
-                )}
+                )
+              )}
 
                 {/* Sub-mode: EKSPOR */}
                 {(optionSubMode === "export" || activeTab === "export") && (
@@ -3870,8 +4068,6 @@ export const CustomizerDrawer: React.FC = () => {
                     </button>
                   </div>
                 )}
-              </>
-            )}
               </div>
             )}
 
@@ -3881,10 +4077,15 @@ export const CustomizerDrawer: React.FC = () => {
             </div>
             <button
               onClick={openCheckoutWithMasterGate}
-              className="w-full min-h-[44px] py-2.5 rounded-xl bg-brand-accent text-canvas font-mono font-bold text-xs uppercase tracking-wider shadow-md active:scale-98 transition-all flex items-center justify-center space-x-2"
+              disabled={isCurrentVariantOut}
+              className={`w-full min-h-[44px] py-2.5 rounded-xl font-mono font-bold text-xs uppercase tracking-wider shadow-md active:scale-98 transition-all flex items-center justify-center space-x-2 ${
+                isCurrentVariantOut
+                  ? "bg-surface border border-border-subtle text-text-muted cursor-not-allowed opacity-60"
+                  : "bg-brand-accent text-canvas"
+              }`}
             >
               <ShoppingCart size={14} />
-              <span>PESAN SEKARANG</span>
+              <span>{isCurrentVariantOut ? "STOK HABIS" : "PESAN SEKARANG"}</span>
             </button>
             <p className="text-[10px] text-text-muted text-center">Geser handle di atas untuk peek / half / full — vaul pattern aktif di mobile</p>
           </div>
@@ -3916,6 +4117,15 @@ export const CustomizerDrawer: React.FC = () => {
           }}
         />
       )}
+
+      {/* Size Guide Modal Dialog */}
+      <SizeGuideModal
+        isOpen={isSizeGuideOpen}
+        onClose={() => setIsSizeGuideOpen(false)}
+        activeApparel={activeApparel}
+        selectedSize={selectedSize}
+        onSelectSize={(sz) => setSelectedSize(sz)}
+      />
     </>
   );
 };

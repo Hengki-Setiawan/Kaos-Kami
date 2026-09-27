@@ -9,6 +9,7 @@ import {
   like,
   lt,
   notInArray,
+  notLike,
   sum,
 } from "drizzle-orm";
 import { db } from "@/lib/db";
@@ -145,6 +146,7 @@ export async function GET(req: NextRequest) {
   const validInWindow = and(
     notInArray(Order.status, EXCLUDED_FROM_GROSS),
     gte(Order.createdAt, from),
+    notLike(Order.notes, "%TEST_ORDER%"),
   );
 
   // -- Kueri utama (paralel; semua read-only) -------------------------------

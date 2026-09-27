@@ -1,46 +1,50 @@
+// scripts/e2e-kasus-1.mjs — Eksekusi Nyata Kasus 1: Kaos Boxy Hyperlocal Makassar
+// SSOT: Blueprint/BLUEPRINT-E2E-ADMIN-USER-LENGKAP.md Domain L (C-01) & Domain H (CH-01)
 import crypto from "crypto";
 import fs from "fs";
 import path from "path";
 import { createClient } from "@libsql/client/web";
+import { cookieForEmail } from "./e2e-auth.mjs";
 
-const BASE_URL = "http://localhost:3000";
-// Secret WAJIB via env (JANGAN hardcode � insiden Sep 2026).
+const BASE_URL = process.env.BASE_URL || process.env.E2E_BASE_URL || "http://127.0.0.1:3000";
+const STAMP = new Date().toISOString().replace(/[-:T]/g, "").slice(0, 12);
+const OUTPUT_DIR = path.join("Blueprint", "e2e", "hasil-pengujian-e2e", `kasus-1-${STAMP}`);
+
 function requireEnv(name) {
   const v = process.env[name];
   if (!v) throw new Error("E2E butuh env " + name + " (isi dari kaos-kami-web/.env.local, JANGAN commit)");
   return v;
 }
 
-const OUTPUT_DIR = "d:/Vibe coding Semester 7/Kaos Kami/Blueprint/hasil-pengujian-e2e/orders-invoices";
-
 const c = createClient({
-  url: process.env.TURSO_DATABASE_URL,
-  authToken: process.env.TURSO_AUTH_TOKEN
+  url: requireEnv("TURSO_DATABASE_URL"),
+  authToken: requireEnv("TURSO_AUTH_TOKEN"),
 });
 
 async function runKasus1() {
   console.log("=================================================================");
-  console.log("🚀 MEMULAI EKSEKUSI NYATA KASUS 1: KAOS BOXY HYPERLOCAL MAKASSAR");
+  console.log("MEMULAI EKSEKUSI NYATA KASUS 1: KAOS BOXY HYPERLOCAL MAKASSAR");
   console.log("=================================================================\n");
 
   // 1. Ambil Sesi Asli Pelanggan (hengkivibecoding@gmail.com)
   const custSessionRes = await c.execute({
-    sql: "SELECT s.token, u.id as userId, u.name, u.email, u.phoneNumber, u.phoneVerified FROM Session s JOIN User u ON s.userId = u.id WHERE u.email = ? ORDER BY s.createdAt DESC LIMIT 1",
-    args: ["hengkivibecoding@gmail.com"]
+    sql: 'SELECT s.token, u.id as userId, u.name, u.email, u.phoneNumber, u.phoneVerified FROM Session s JOIN User u ON s.userId = u.id WHERE u.email = ? ORDER BY s.createdAt DESC LIMIT 1',
+    args: ["hengkivibecoding@gmail.com"],
   });
 
   if (custSessionRes.rows.length === 0) {
     throw new Error("Sesi pelanggan tidak ditemukan di DB!");
   }
   const custUser = custSessionRes.rows[0];
+
   console.log("1. Data Pelanggan Terverifikasi:");
   console.log(`   - Nama: ${custUser.name}`);
   console.log(`   - Email: ${custUser.email}`);
   console.log(`   - No. WhatsApp: ${custUser.phoneNumber}`);
-  console.log(`   - Status phoneVerified: ${custUser.phoneVerified === 1 ? "✓ TERVERIFIKASI (1)" : "0"}`);
+  console.log(`   - Status phoneVerified: ${custUser.phoneVerified === 1 ? "TERVERIFIKASI (1)" : "0"}`);
   console.log(`   - Session Token: ${custUser.token.slice(0, 15)}...`);
 
-  const cookieHeader = `better-auth.session_token=${custUser.token}; kaos-kami-auth.session_token=${custUser.token}`;
+  const cookieHeader = await cookieForEmail(c, "hengkivibecoding@gmail.com");
 
   // 2. Siapkan Payload Pesanan Kasus 1 (Desain Maskot Resmi Kaos Kami)
   // Front Decal: /mascot/logo-white.png (20 cm x 28 cm)
@@ -66,7 +70,7 @@ async function runKasus1() {
           scale: 0.55,
           rotation: 0,
           opacity: 1,
-          printPx: { w: 2000, h: 2800 }
+          printPx: { w: 2000, h: 2800 },
         },
         {
           id: "decal-collar-mascot",
@@ -78,14 +82,14 @@ async function runKasus1() {
           scale: 0.15,
           rotation: 0,
           opacity: 1,
-          printPx: { w: 500, h: 500 }
-        }
+          printPx: { w: 500, h: 500 },
+        },
       ],
       masterAssetUrl: {
         front: "https://pub-5746f36a46904edc8425ecd721b0bfdc.r2.dev/master/logo-white.png",
-        back: "https://pub-5746f36a46904edc8425ecd721b0bfdc.r2.dev/master/logo-transparent.png"
-      }
-    }
+        back: "https://pub-5746f36a46904edc8425ecd721b0bfdc.r2.dev/master/logo-transparent.png",
+      },
+    },
   ];
 
   const checkoutPayload = {
@@ -97,18 +101,18 @@ async function runKasus1() {
     district: "Tamalanrea",
     fullAddress: "Jl. Perintis Kemerdekaan KM 10 No. 45, Tamalanrea Indah, Kota Makassar, Sulawesi Selatan 90245 (Koordinat GPS: -5.1353, 119.4891)",
     courierNotes: "Antar depan pagar hitam samping warkop. Titik lokasi terkalibrasi via GPS Google Maps.",
-    items: itemsPayload
+    items: itemsPayload,
   };
 
-  console.log("\n2. Mengirim Checkout Request ke http://localhost:3000/api/checkout...");
+  console.log(`\n2. Mengirim Checkout Request ke ${BASE_URL}/api/checkout...`);
   const checkoutRes = await fetch(`${BASE_URL}/api/checkout`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      "Cookie": cookieHeader,
-      "Idempotency-Key": `idem-kasus1-${Date.now()}`
+      Cookie: cookieHeader,
+      "Idempotency-Key": `idem-kasus1-${Date.now()}`,
     },
-    body: JSON.stringify(checkoutPayload)
+    body: JSON.stringify(checkoutPayload),
   });
 
   const checkoutData = await checkoutRes.json();
@@ -121,19 +125,35 @@ async function runKasus1() {
   console.log("   - Response Checkout:", checkoutData);
   const orderId = checkoutData.orderId;
   const orderNumber = checkoutData.orderNumber;
-  console.log(`\n🎉 PESANAN BERHASIL TERBIT!`);
+  console.log(`\nPESANAN BERHASIL TERBIT!`);
   console.log(`   - Order ID: ${orderId}`);
   console.log(`   - No. Pesanan: ${orderNumber}`);
   console.log(`   - Payment Reference: ${checkoutData.reference}`);
 
   // 3. Verifikasi Data Pesanan di Turso DB
   const dbOrderRes = await c.execute({
-    sql: "SELECT id, orderNumber, status, subtotalIdr, shippingCostIdr, totalIdr, deliveryMethod, courierNotes FROM \"Order\" WHERE id = ?",
-    args: [orderId]
+    sql: 'SELECT id, orderNumber, status, subtotalIdr, shippingCostIdr, totalIdr, deliveryMethod, courierNotes FROM "Order" WHERE id = ?',
+    args: [orderId],
   });
   const dbOrder = dbOrderRes.rows[0];
   console.log("\n3. Verifikasi Basis Data Turso:");
   console.log("   - Data Order DB:", dbOrder);
+
+  // 3b. Admin hengkishadow menyetujui desain (ACC)
+  console.log("\n3b. Admin hengkishadow menyetujui desain (ACC Review)...");
+  const adminCookie = await cookieForEmail(c, "hengkishadow@gmail.com");
+  const accRes = await fetch(`${BASE_URL}/api/admin/orders/${orderId}`, {
+    method: "PATCH",
+    headers: {
+      "Content-Type": "application/json",
+      Cookie: adminCookie,
+    },
+    body: JSON.stringify({
+      status: "PENDING_PAYMENT",
+      note: "Desain ACC siap sablon",
+    }),
+  });
+  console.log(`   - Status ACC Admin: ${accRes.status}`);
 
   // 4. Simulasi Pembayaran Lunas Duitku (Webhook Callback dengan Tanda Tangan MD5)
   console.log("\n4. Menjalankan Simulasi Pembayaran Lunas via Duitku Webhook...");
@@ -141,7 +161,7 @@ async function runKasus1() {
   const apiKey = requireEnv("DUITKU_API_KEY");
   const amountStr = String(dbOrder.totalIdr);
   const merchantOrderId = orderNumber;
-  
+
   // Rumus tanda tangan Duitku: MD5(merchantCode + amount + merchantOrderId + apiKey)
   const signatureRaw = merchantCode + amountStr + merchantOrderId + apiKey;
   const signature = crypto.createHash("md5").update(signatureRaw).digest("hex");
@@ -156,101 +176,63 @@ async function runKasus1() {
     resultCode: "00", // Sukses
     merchantUserId: custUser.userId,
     reference: checkoutData.reference || "DUITKU-REF-001",
-    signature
+    signature,
   };
 
   const webhookRes = await fetch(`${BASE_URL}/api/webhooks/duitku`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(duitkuCallbackPayload)
+    body: JSON.stringify(duitkuCallbackPayload),
   });
   const webhookText = await webhookRes.text();
   console.log(`   - Webhook Status: ${webhookRes.status} (${webhookText})`);
 
   // 5. Verifikasi Perubahan Status Order & Pembuatan ProductionTask di DB
   const paidOrderRes = await c.execute({
-    sql: "SELECT id, orderNumber, status FROM \"Order\" WHERE id = ?",
-    args: [orderId]
+    sql: 'SELECT id, orderNumber, status FROM "Order" WHERE id = ?',
+    args: [orderId],
   });
   console.log(`   - Status Order Pasca Bayar: ${paidOrderRes.rows[0].status}`);
 
   const taskRes = await c.execute({
-    sql: "SELECT id, orderId, stage, printWidthCm, printHeightCm, placementArea FROM ProductionTask WHERE orderId = ?",
-    args: [orderId]
+    sql: "SELECT id, orderId, stage, printWidthCm, printHeightCm, placementSide FROM ProductionTask WHERE orderId = ?",
+    args: [orderId],
   });
   console.log(`   - Production Tasks Terbit: ${taskRes.rows.length} task`);
   taskRes.rows.forEach((t, i) => {
-    console.log(`     [Task ${i+1}] Stage: ${t.stage}, Area: ${t.placementArea}, Ukuran: ${t.printWidthCm}cm x ${t.printHeightCm}cm`);
+    console.log(`     [Task ${i + 1}] Stage: ${t.stage}, Area: ${t.placementSide}, Ukuran: ${t.printWidthCm}cm x ${t.printHeightCm}cm`);
   });
 
-  // 6. Fetch Invoice HTML & Lembar SPK Job Ticket sebagai Admin
-  console.log("\n6. Mengambil Dokumen Cetak Invoice & SPK Job Ticket Workshop...");
-  const adminSessionRes = await c.execute({
-    sql: "SELECT s.token FROM Session s JOIN User u ON s.userId = u.id WHERE u.email = 'hengkishadow@gmail.com' ORDER BY s.createdAt DESC LIMIT 1"
-  });
-  const adminToken = adminSessionRes.rows[0].token;
-  const adminCookie = `better-auth.session_token=${adminToken}; kaos-kami-auth.session_token=${adminToken}`;
-
-  // Fetch Invoice Web HTML
-  const invoiceRes = await fetch(`${BASE_URL}/orders/${orderId}`, {
-    headers: { "Cookie": adminCookie }
-  });
-  const invoiceHtml = await invoiceRes.text();
-
-  // Fetch Lembar SPK Operator HTML
-  const spkRes = await fetch(`${BASE_URL}/admin/orders/${orderId}/job-ticket`, {
-    headers: { "Cookie": adminCookie }
-  });
-  const spkHtml = await spkRes.text();
-
-  // 7. Simpan Dokumen Fisik ke Blueprint/hasil-pengujian-e2e/orders-invoices/
-  if (!fs.existsSync(OUTPUT_DIR)) {
-    fs.mkdirSync(OUTPUT_DIR, { recursive: true });
-  }
+  // 6. Simpan Dokumen Hasil ke Blueprint/e2e/hasil-pengujian-e2e/
+  fs.mkdirSync(OUTPUT_DIR, { recursive: true });
 
   const orderJsonPath = path.join(OUTPUT_DIR, `KASUS-1-kaos-boxy-makassar-${orderNumber}.json`);
-  const invoiceHtmlPath = path.join(OUTPUT_DIR, `KASUS-1-invoice-web.html`);
-  const spkHtmlPath = path.join(OUTPUT_DIR, `KASUS-1-job-ticket-spk.html`);
-
-  fs.writeFileSync(orderJsonPath, JSON.stringify({
-    kasus: "KASUS 1: KAOS BOXY HYPERLOCAL MAKASSAR",
-    order: dbOrderRes.rows[0],
-    paidStatus: paidOrderRes.rows[0].status,
-    customer: {
-      name: custUser.name,
-      email: custUser.email,
-      phone: custUser.phoneNumber,
-      phoneVerified: custUser.phoneVerified === 1
-    },
-    items: itemsPayload,
-    productionTasks: taskRes.rows,
-    payment: {
-      gateway: "Duitku v2 Sandbox",
-      paymentMethod: "QRIS",
-      signature: signature,
-      resultCode: "00",
-      reference: checkoutData.reference
-    },
-    shipping: {
-      method: "FREE_MAKASSAR",
-      district: "Tamalanrea",
-      address: checkoutPayload.fullAddress,
-      notes: checkoutPayload.courierNotes
-    },
-    executedAt: new Date().toISOString()
-  }, null, 2));
-
-  fs.writeFileSync(invoiceHtmlPath, invoiceHtml);
-  fs.writeFileSync(spkHtmlPath, spkHtml);
-
-  console.log(`\n💾 Berkas Bukti Nyata Disimpan:`);
-  console.log(`   - JSON Transaksi: ${orderJsonPath}`);
-  console.log(`   - Invoice Web:    ${invoiceHtmlPath}`);
-  console.log(`   - Lembar SPK Job: ${spkHtmlPath}`);
-
-  console.log("\n=================================================================");
-  console.log(`✅ KASUS 1 SELESAI DENGAN STATUS 100% SUKSES! (Order: ${orderNumber})`);
-  console.log("=================================================================\n");
+  fs.writeFileSync(
+    orderJsonPath,
+    JSON.stringify(
+      {
+        kasus: "KASUS 1: KAOS BOXY HYPERLOCAL MAKASSAR",
+        order: dbOrderRes.rows[0],
+        paidStatus: paidOrderRes.rows[0].status,
+        customer: {
+          name: custUser.name,
+          email: custUser.email,
+          phone: custUser.phoneNumber,
+        },
+        productionTasks: taskRes.rows,
+        timestamp: new Date().toISOString(),
+      },
+      null,
+      2
+    )
+  );
+  console.log(`\nDokumen hasil terbit di: ${orderJsonPath}`);
+  console.log("=================================================================");
+  console.log("KASUS 1 SELESAI 100% SUKSES!");
+  console.log("=================================================================");
 }
 
-runKasus1().catch(console.error);
+runKasus1().catch((err) => {
+  console.error("FATAL ERROR KASUS 1:", err);
+  process.exit(1);
+});

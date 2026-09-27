@@ -44,6 +44,21 @@ export function extractApparelGeometry(
     if (geoms.length === 1) {
       merged = geoms[0] ?? null;
     } else {
+      // Harmonize attributes across all geometries so mergeGeometries never fails
+      const attrCounts: Record<string, number> = {};
+      for (const g of geoms) {
+        for (const name of Object.keys(g.attributes)) {
+          attrCounts[name] = (attrCounts[name] || 0) + 1;
+        }
+      }
+      for (const g of geoms) {
+        for (const name of Object.keys(g.attributes)) {
+          if (attrCounts[name] !== geoms.length || name === "uv1" || name === "tangent") {
+            g.deleteAttribute(name);
+          }
+        }
+      }
+
       merged = BufferGeometryUtils.mergeGeometries(geoms, false) ?? null;
       for (const g of geoms) {
         try {

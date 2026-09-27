@@ -1,0 +1,90 @@
+{
+  "stamp": "20260927-1836",
+  "base": "http://127.0.0.1:3000",
+  "tests": [
+    {
+      "id": "K-001",
+      "status": "PASS",
+      "note": "healthâ†’200 status=degraded db=true"
+    },
+    {
+      "id": "K-002",
+      "status": "SKIP",
+      "note": "DB-matiâ†’503 butuh mock/cabut env â€” tanpa mock, jujur SKIP"
+    },
+    {
+      "id": "K-003",
+      "status": "SKIP",
+      "note": "R2-404â†’degraded butuh hapus/mock favicon â€” tanpa mock, jujur SKIP"
+    },
+    {
+      "id": "K-012",
+      "status": "GAP",
+      "note": "sweep.at=null backup.at=null"
+    },
+    {
+      "id": "K-014",
+      "status": "PASS",
+      "note": "CSP=ok HSTS=ok COOP=same-origin-allow-popups"
+    },
+    {
+      "id": "K-015",
+      "status": "SKIP",
+      "note": "E2E_WORKER_URL tak diset â€” catat, bukan gagal"
+    },
+    {
+      "id": "K-016",
+      "status": "PASS",
+      "note": "cache=public, max-age=31536000, immutable cors=?"
+    },
+    {
+      "id": "K-017",
+      "status": "PASS",
+      "note": "assetlinksâ†’200 ct=application/json; charset=UTF-8"
+    },
+    {
+      "id": "K-018",
+      "status": "PASS",
+      "note": "FK violation=0 (harap 0) â€” STOP bila >0"
+    },
+    {
+      "id": "K-019",
+      "status": "GAP",
+      "note": "sweep ageSec=null (sehat <7200; ~18h+=job mati, cek cron-job.org)"
+    },
+    {
+      "id": "K-013",
+      "status": "PASS",
+      "note": "429 terlihat setelah 11 hit (harap â‰¤11)"
+    }
+  ],
+  "health": {
+    "status": "degraded",
+    "checks": {
+      "db": {
+        "ok": true,
+        "ms": 1496
+      },
+      "ratelimit": {
+        "ok": true,
+        "ms": 22,
+        "note": "memory+kv"
+      },
+      "r2": {
+        "ok": false
+      }
+    },
+    "latencyMs": 3072
+  },
+  "cron": {
+    "sweep": {
+      "at": null,
+      "ageSec": null
+    },
+    "backup": {
+      "at": null,
+      "ageSec": null
+    }
+  },
+  "at": "2026-09-27T10:39:07.688Z"
+}

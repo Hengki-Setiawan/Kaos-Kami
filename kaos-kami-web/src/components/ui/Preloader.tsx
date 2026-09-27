@@ -2,130 +2,183 @@
 
 import React, { useEffect, useMemo, useState, useRef } from "react";
 import { useProgress } from "@react-three/drei";
+import { useConfiguratorStore } from "@/store/useConfiguratorStore";
+import { APPAREL_CATALOG } from "@/lib/constants";
+import { RotateCw, Sparkles } from "lucide-react";
 
-/** Pola eksklusif Sep 2026: loading bertahap ber-copy Indonesia */
-function tahapUntuk(persen: number): { judul: string; sub: string } {
-  if (persen < 30) return { judul: "Menyiapkan kanvas studio…", sub: "Tahap 1 dari 4 · Menyiapkan kain & material" };
-  if (persen < 65) return { judul: "Memuat model kaos 3D…", sub: "Tahap 2 dari 4 · Menjahit geometri digital" };
-  if (persen < 92) return { judul: "Menyiapkan meja sablon…", sub: "Tahap 3 dari 4 · Mengatur pencahayaan studio" };
-  return { judul: "Hampir siap!", sub: "Tahap 4 dari 4 · Studio siap dibuka" };
+/** Tahapan progres studio yang jujur dan informatif */
+function tahapUntuk(persen: number, apparelName: string): { judul: string; sub: string } {
+  if (persen < 35) return { judul: "Menyiapkan grafis studio WebGL…", sub: "Tahap 1 dari 4 · Menyiapkan kanvas & shader" };
+  if (persen < 75) return { judul: `Mengunduh model ${apparelName} 3D…`, sub: "Tahap 2 dari 4 · Mengurai geometri & simpul kain" };
+  if (persen < 95) return { judul: "Merajut tekstur & pencahayaan…", sub: "Tahap 3 dari 4 · Mengatur panggung studio" };
+  return { judul: "Studio siap!", sub: "Tahap 4 dari 4 · Membuka ruang desain" };
 }
 
-// Flag tingkat modul: tandai apakah aset 3D sudah pernah sukses dimuat di sesi browser ini
-let hasStudioInitiallyLoaded = false;
-
 export const Preloader: React.FC = () => {
-  const { progress, active } = useProgress();
+  const { progress, active, total } = useProgress();
+  const isStudio3DReady = useConfiguratorStore((s) => s.isStudio3DReady);
+  const activeApparel = useConfiguratorStore((s) => s.activeApparel);
+  const apparelName = APPAREL_CATALOG[activeApparel]?.name ?? "Baju";
 
-  // Jika aset sudah berada di memori / cache dan sedang idle di 100%, jangan pernah render overlay
-  const [shouldRender, setShouldRender] = useState(() => {
-    if (hasStudioInitiallyLoaded && (!active || progress >= 100)) {
-      return false;
-    }
-    return active && progress < 100;
-  });
-
+  const [hasCompletedInitial, setHasCompletedInitial] = useState(false);
+  const [shouldRenderInitial, setShouldRenderInitial] = useState(true);
   const [keluar, setKeluar] = useState(false);
+  const [persen, setPersen] = useState(20);
+  const maxPersenRef = useRef(20);
   const mountedRef = useRef(true);
 
-  const persen = Math.max(5, Math.min(100, Math.round(progress)));
-  const tahap = useMemo(() => tahapUntuk(active ? persen : 100), [active, persen]);
+  // Progres halus berbasis aset riil
+  useEffect(() => {
+    if (hasCompletedInitial) return;
 
+    // Saat model 3D selesai dimount & dirender di WebGL
+    if (isStudio3DReady) {
+      maxPersenRef.current = 100;
+      setPersen(100);
+      return;
+    }
+
+    // Selama pengunduhan berlangsung via Drei useProgress
+    if (total > 0 || active) {
+      const scaledDrei = Math.min(88, Math.max(25, Math.round(progress * 0.88)));
+      if (scaledDrei > maxPersenRef.current) {
+        maxPersenRef.current = scaledDrei;
+        setPersen(scaledDrei);
+      }
+    } else {
+      // Indeterminate fallback trickle (20% -> 60%)
+      const timer = setInterval(() => {
+        if (maxPersenRef.current < 65 && !isStudio3DReady) {
+          maxPersenRef.current += 3;
+          setPersen(maxPersenRef.current);
+        }
+      }, 250);
+      return () => clearInterval(timer);
+    }
+  }, [progress, active, total, isStudio3DReady, hasCompletedInitial]);
+
+  // Transisi selesai saat 3D siap
   useEffect(() => {
     mountedRef.current = true;
+    if (hasCompletedInitial) return;
 
-    // Jika proses unduh aset 3D baru dimulai
-    if (active && progress < 100) {
-      setShouldRender(true);
-      setKeluar(false);
+    let exitTimer: ReturnType<typeof setTimeout> | null = null;
+    let removeTimer: ReturnType<typeof setTimeout> | null = null;
+
+    if (isStudio3DReady && persen >= 100) {
+      exitTimer = setTimeout(() => {
+        if (mountedRef.current) setKeluar(true);
+        removeTimer = setTimeout(() => {
+          if (mountedRef.current) {
+            setShouldRenderInitial(false);
+            setHasCompletedInitial(true);
+          }
+        }, 350);
+      }, 260);
     }
-
-    // Saat proses unduh Drei tuntas
-    if (!active && progress >= 100) {
-      hasStudioInitiallyLoaded = true;
-      if (shouldRender) {
-        // Transisi keluar halus dan cepat (200ms) tanpa jeda beku buatan
-        const tExit = setTimeout(() => {
-          if (mountedRef.current) setKeluar(true);
-          const tDone = setTimeout(() => {
-            if (mountedRef.current) setShouldRender(false);
-          }, 250);
-          return () => clearTimeout(tDone);
-        }, 120);
-        return () => clearTimeout(tExit);
-      }
-    }
-
-    // Safety timeout (3500ms) hanya sebagai pengaman jaringan putus/lelet ekstrem
-    const safetyTimer = setTimeout(() => {
-      if (mountedRef.current) {
-        setKeluar(true);
-        setTimeout(() => {
-          if (mountedRef.current) setShouldRender(false);
-        }, 250);
-      }
-    }, 3500);
 
     return () => {
       mountedRef.current = false;
-      clearTimeout(safetyTimer);
+      if (exitTimer) clearTimeout(exitTimer);
+      if (removeTimer) clearTimeout(removeTimer);
     };
-  }, [active, progress, shouldRender]);
+  }, [isStudio3DReady, persen, hasCompletedInitial]);
 
-  if (!shouldRender) return null;
+  const tahap = useMemo(() => tahapUntuk(persen, apparelName), [persen, apparelName]);
 
   return (
-    <div
-      role="status"
-      aria-live="polite"
-      aria-label="Memuat studio 3D"
-      className="fixed inset-0 z-[100] flex flex-col items-center justify-center bg-canvas pointer-events-none select-none transition-all duration-300"
-      style={{ opacity: keluar ? 0 : 1, transform: keluar ? "scale(1.02)" : "scale(1)" }}
-    >
-      <div
-        className="flex flex-col items-center space-y-4 transition-all duration-300"
-        style={{ opacity: keluar ? 0 : 1, transform: keluar ? "scale(0.98)" : "scale(1)" }}
-      >
-        {/* Logo adaptif: tampil hitam di mode terang, putih di mode gelap */}
-        <div className="h-12 w-auto mb-1 flex items-center justify-center">
-          <img
-            src="/brand/logo-white-clean.png"
-            alt="Kaos Kami"
-            className="h-12 w-auto object-contain logo-dark-mode"
-          />
-          <img
-            src="/brand/logo-black-clean.png"
-            alt="Kaos Kami"
-            className="h-12 w-auto object-contain logo-light-mode"
-          />
-        </div>
+    <>
+      {/* 1. Fullscreen Preloader Awal Halaman */}
+      {shouldRenderInitial && (
+        <div
+          role="status"
+          aria-live="polite"
+          aria-label="Memuat studio 3D"
+          className="fixed inset-0 z-[100] flex flex-col items-center justify-center bg-canvas pointer-events-none select-none transition-all duration-350 ease-out"
+          style={{
+            opacity: keluar ? 0 : 1,
+            transform: keluar ? "scale(1.03)" : "scale(1)",
+          }}
+        >
+          {/* Ambient Glow di belakang logo */}
+          <div className="absolute w-72 h-72 rounded-full bg-brand-accent/20 blur-3xl pointer-events-none animate-halo" />
 
-        <div className="w-56 h-[3px] bg-border-subtle overflow-hidden rounded-full">
           <div
-            className="h-full bg-brand-accent transition-[width] duration-200 ease-out shadow-[0_0_12px_rgba(230,81,0,0.8)]"
-            style={{ width: `${persen}%` }}
-          />
-        </div>
-
-        <div className="flex flex-col items-center gap-1 text-center">
-          <p className="text-xs font-bold text-text-primary">{tahap.judul}</p>
-          <p className="font-mono text-[10px] text-text-muted tracking-widest uppercase">
-            {tahap.sub} · {persen}%
-          </p>
-        </div>
-
-        <div className="flex gap-1.5" aria-hidden="true">
-          {[0, 1, 2, 3].map((i) => {
-            const aktif = persen >= [5, 30, 65, 92][i]!;
-            return (
-              <span
-                key={i}
-                className={`h-1.5 rounded-full transition-all ${aktif ? "w-6 bg-brand-accent" : "w-1.5 bg-border-subtle"}`}
+            className="relative flex flex-col items-center space-y-5 transition-all duration-350"
+            style={{
+              opacity: keluar ? 0 : 1,
+              transform: keluar ? "scale(0.97)" : "scale(1)",
+            }}
+          >
+            {/* Logo adaptif */}
+            <div className="relative h-14 w-auto flex items-center justify-center">
+              <img
+                src="/brand/logo-white-clean.png"
+                alt="Kaos Kami"
+                className="h-14 w-auto object-contain logo-dark-mode drop-shadow-md"
               />
-            );
-          })}
+              <img
+                src="/brand/logo-black-clean.png"
+                alt="Kaos Kami"
+                className="h-14 w-auto object-contain logo-light-mode drop-shadow-md"
+              />
+            </div>
+
+            {/* Living Progress Bar dengan Indeterminate Shimmer GPU-accelerated */}
+            <div className="relative w-64 h-[4px] bg-border-subtle/80 overflow-hidden rounded-full shadow-inner">
+              {/* Bar terisi proporsional */}
+              <div
+                className="h-full bg-brand-accent transition-[width] duration-300 ease-out shadow-[0_0_14px_rgba(230,81,0,0.9)]"
+                style={{ width: `${persen}%` }}
+              />
+              {/* Shimmer beam bergerak aktif (tidak pernah diam/beku) */}
+              <div className="absolute inset-y-0 w-24 bg-gradient-to-r from-transparent via-white/60 to-transparent animate-shimmer" />
+            </div>
+
+            {/* Status & Persentase */}
+            <div className="flex flex-col items-center gap-1.5 text-center">
+              <p className="text-xs sm:text-sm font-bold text-text-primary tracking-tight">
+                {tahap.judul}
+              </p>
+              <p className="font-mono text-[10px] sm:text-[11px] text-text-muted tracking-widest uppercase">
+                {tahap.sub} · <span className="text-brand-accent font-bold">{persen}%</span>
+              </p>
+            </div>
+
+            {/* Stepper Indikator 4 Tahap */}
+            <div className="flex gap-2" aria-hidden="true">
+              {[0, 1, 2, 3].map((i) => {
+                const aktif = persen >= [15, 35, 75, 95][i]!;
+                return (
+                  <span
+                    key={i}
+                    className={`h-1.5 rounded-full transition-all duration-300 ${
+                      aktif ? "w-7 bg-brand-accent shadow-[0_0_8px_rgba(230,81,0,0.6)]" : "w-2 bg-border-subtle"
+                    }`}
+                  />
+                );
+              })}
+            </div>
+          </div>
         </div>
-      </div>
-    </div>
+      )}
+
+      {/* 2. Sleek Floating Mini-Indicator Saat Berganti Model 3D di Dalam Studio */}
+      {hasCompletedInitial && !isStudio3DReady && (
+        <div
+          role="status"
+          aria-live="polite"
+          className="fixed top-20 left-1/2 -translate-x-1/2 z-[60] pointer-events-none select-none animate-in fade-in slide-in-from-top-3 duration-300"
+        >
+          <div className="flex items-center gap-2.5 px-4 py-2 rounded-2xl bg-surface/90 backdrop-blur-xl border border-brand-accent/50 text-text-primary font-mono text-xs shadow-2xl">
+            <RotateCw size={14} className="animate-spin text-brand-accent" />
+            <div className="flex items-center gap-1.5">
+              <span className="font-bold text-[11px]">Memuat {apparelName} 3D…</span>
+              <Sparkles size={11} className="text-brand-accent animate-pulse" />
+            </div>
+          </div>
+        </div>
+      )}
+    </>
   );
 };

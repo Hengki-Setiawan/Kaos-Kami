@@ -20,6 +20,7 @@ import {
   MapPin,
   TrendingUp,
   Layers,
+  MessageSquare,
 } from "lucide-react";
 import { signOut } from "@/lib/auth-client";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
@@ -47,6 +48,7 @@ const LINKS: NavLink[] = [
 
   // PILAR 3: E-COMMERCE & ADMIN
   { href: "/admin", label: "OVERVIEW & METRIK", Icon: LayoutDashboard, pillar: "admin" },
+  { href: "/admin/chat", label: "LIVE CHAT PELANGGAN", Icon: MessageSquare, pillar: "admin" },
   { href: "/admin/orders", label: "DAFTAR PESANAN", Icon: ShoppingBag, pillar: "admin" },
   { href: "/admin/catalog", label: "KATALOG & STOK", Icon: Package, pillar: "admin" },
   { href: "/admin/customers", label: "CUSTOMER & TIM DB", Icon: Users, pillar: "admin" },

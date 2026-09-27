@@ -1,0 +1,38 @@
+{
+  "kasus": "KASUS 1: KAOS BOXY HYPERLOCAL MAKASSAR",
+  "order": {
+    "id": "CpZLH8-yvt-4pqjt71Zue",
+    "orderNumber": "KK-20260927-1158",
+    "status": "PENDING_PAYMENT",
+    "subtotalIdr": 119000,
+    "shippingCostIdr": 0,
+    "totalIdr": 119000,
+    "deliveryMethod": "FREE_MAKASSAR",
+    "courierNotes": "Antar depan pagar hitam samping warkop. Titik lokasi terkalibrasi via GPS Google Maps."
+  },
+  "paidStatus": "PAYMENT_CONFIRMED",
+  "customer": {
+    "name": "hengki vibecoding1",
+    "email": "hengkivibecoding@gmail.com",
+    "phone": "0895803463032"
+  },
+  "productionTasks": [
+    {
+      "id": "-FrDm1_WtF8K587azcTOz",
+      "orderId": "CpZLH8-yvt-4pqjt71Zue",
+      "stage": "DESIGN_PREP",
+      "printWidthCm": 30,
+      "printHeightCm": 42,
+      "placementSide": "front"
+    },
+    {
+      "id": "cj6jRXhB62kj7rhQ0-wjG",
+      "orderId": "CpZLH8-yvt-4pqjt71Zue",
+      "stage": "DESIGN_PREP",
+      "printWidthCm": 30,
+      "printHeightCm": 30,
+      "placementSide": "back"
+    }
+  ],
+  "timestamp": "2026-09-27T10:43:48.635Z"
+}

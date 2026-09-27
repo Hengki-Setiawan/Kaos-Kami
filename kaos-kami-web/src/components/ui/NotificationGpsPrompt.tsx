@@ -181,14 +181,16 @@ export function NotificationGpsPrompt() {
               <span>Pengaturan Berhasil Diterapkan!</span>
             </div>
             {notifGranted && (
-              <p className="text-text-muted text-[11px]">
-                ✓ Notifikasi browser aktif untuk memantau status pesanan.
+              <p className="text-text-muted text-[11px] flex items-center gap-1.5">
+                <CheckCircle2 size={12} className="text-emerald-400 shrink-0" />
+                <span>Notifikasi browser aktif untuk memantau status pesanan.</span>
               </p>
             )}
             {gpsData && (
               <div className="space-y-1 text-[11px]">
-                <p className="text-text-muted">
-                  📍 Lokasi GPS terdeteksi: <span className="text-text-primary font-medium">{gpsData.address || `${gpsData.lat}, ${gpsData.lon}`}</span>
+                <p className="text-text-muted flex items-center gap-1.5">
+                  <MapPin size={12} className="text-brand-accent shrink-0" />
+                  <span>Lokasi GPS terdeteksi: <span className="text-text-primary font-medium">{gpsData.address || `${gpsData.lat}, ${gpsData.lon}`}</span></span>
                 </p>
                 {googleMapsUrl && (
                   <a

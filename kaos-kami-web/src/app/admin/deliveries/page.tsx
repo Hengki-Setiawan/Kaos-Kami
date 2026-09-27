@@ -2,7 +2,7 @@
 
 import React, { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
-import { Truck, MapPin, MessageSquare, CheckCircle, Package, Clock, ExternalLink, RefreshCw, Phone } from "lucide-react";
+import { Truck, MapPin, MessageSquare, CheckCircle, Package, Clock, ExternalLink, RefreshCw, Phone, Bike, Store } from "lucide-react";
 
 export const dynamic = "force-dynamic";
 
@@ -158,8 +158,9 @@ export default function AdminDeliveriesPage() {
               {makassarOrders.length}
             </span>
           </div>
-          <div className="font-display font-black text-base text-text-primary uppercase">
-            🛵 Gratis Se-Makassar
+          <div className="font-display font-black text-base text-text-primary uppercase flex items-center gap-2">
+            <Bike size={20} className="text-brand-accent shrink-0" />
+            <span>Gratis Se-Makassar</span>
           </div>
           <p className="text-[11px] text-text-muted mt-1">
             Antar langsung ke alamat pelanggan dalam kota.
@@ -180,8 +181,9 @@ export default function AdminDeliveriesPage() {
               {expeditionOrders.length}
             </span>
           </div>
-          <div className="font-display font-black text-base text-text-primary uppercase">
-            📦 JNE / J&T / SiCepat
+          <div className="font-display font-black text-base text-text-primary uppercase flex items-center gap-2">
+            <Package size={20} className="text-blue-400 shrink-0" />
+            <span>JNE / J&T / SiCepat</span>
           </div>
           <p className="text-[11px] text-text-muted mt-1">
             Input resi & pengiriman paket luar kota Makassar.
@@ -202,8 +204,9 @@ export default function AdminDeliveriesPage() {
               {pickupOrders.length}
             </span>
           </div>
-          <div className="font-display font-black text-base text-text-primary uppercase">
-            🏬 Pickup Tamalanrea
+          <div className="font-display font-black text-base text-text-primary uppercase flex items-center gap-2">
+            <Store size={20} className="text-emerald-400 shrink-0" />
+            <span>Pickup Tamalanrea</span>
           </div>
           <p className="text-[11px] text-text-muted mt-1">
             Pesanan siap diambil customer di Jl. Perintis KM 10.
@@ -303,8 +306,9 @@ export default function AdminDeliveriesPage() {
 
                     {/* Rincian Ringkas Barang */}
                     <div className="p-2.5 rounded-xl bg-canvas border border-white/5 text-[11px] text-text-muted">
-                      <span className="font-bold text-text-primary block text-[10px] uppercase mb-1">
-                        📦 Isi Paket ({order.items?.reduce((acc, i) => acc + (i.quantity || 1), 0) || 1} pcs):
+                      <span className="font-bold text-text-primary flex items-center gap-1.5 text-[10px] uppercase mb-1">
+                        <Package size={13} className="text-brand-accent shrink-0" />
+                        <span>Isi Paket ({order.items?.reduce((acc, i) => acc + (i.quantity || 1), 0) || 1} pcs):</span>
                       </span>
                       <ul className="space-y-0.5">
                         {order.items?.map((it, idx) => (

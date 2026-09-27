@@ -16,6 +16,7 @@ import { DecalGizmoMobile } from './DecalGizmoMobile';
 import { MobileSweaterModel } from './MobileSweaterModel';
 import { MobileCapModel } from './MobileCapModel';
 import { extractMobileApparelGeometry, type ExtractMobileGeometryOptions } from '@/lib/3d/extractMobileApparelGeometry';
+import { getApparelSizeScaleFactors } from '@/lib/3d/mobileApparelSizing';
 
 // KEPUTUSAN OWNER Sep 2026: mesh aktif DIGANTI — kaos→basic_t-shirt,
 // hoodie→blue_hoodie (file lama = fallback).
@@ -229,6 +230,8 @@ function GenericApparelMeshRenderer({
   const stretchIntensity = useMobileStudioStore((s) => s.stretchIntensity);
   const stretchDirection = useMobileStudioStore((s) => s.stretchDirection);
   const stretchFactors = getStretchFactors(testLabMode, stretchIntensity, stretchDirection);
+  const size = useMobileStudioStore((s) => s.size);
+  const sizeScale = useMemo(() => getApparelSizeScaleFactors(apparelType, size), [apparelType, size]);
   // Tier di sini SUDAH resolved (gate di komponen luar) — aman untuk probe.
   const { tier } = useMobileDeviceTier();
 
@@ -362,7 +365,11 @@ function GenericApparelMeshRenderer({
   return (
     <group
       ref={groupRef}
-      scale={[1.4 * stretchFactors.stretchX, 1.4 * stretchFactors.stretchY, 1.4 * stretchFactors.stretchZ]}
+      scale={[
+        1.4 * sizeScale.scaleX * stretchFactors.stretchX,
+        1.4 * sizeScale.scaleY * stretchFactors.stretchY,
+        1.4 * sizeScale.scaleZ * stretchFactors.stretchZ,
+      ]}
       position={[0, -0.15, 0]}
     >
       {extractedGeometry && material ? (

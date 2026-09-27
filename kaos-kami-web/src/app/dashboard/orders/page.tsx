@@ -63,12 +63,12 @@ export default async function CustomerDashboardPage({
     redirect("/track?needLogin=1");
   }
   const canSeeAll = sessionRole === "ADMIN" || sessionRole === "SUPER_ADMIN";
-  const orderWhere = sessionUserId && !canSeeAll ? { userId: sessionUserId } : undefined;
-  const designWhere = sessionUserId && !canSeeAll ? { userId: sessionUserId } : undefined;
-
-  // Paginasi cursor (createdAt+id) via searchParams — tanpa API baru.
-  // Tombol "Muat lagi" di view mengirim cursor halaman berikutnya sebagai link.
   const sp = searchParams ? await searchParams : {};
+  const rawScope = firstParam(sp?.scope); // "all" | "mine"
+  // Default untuk mode pengujian admin adalah "mine" agar admin melihat pesanan miliknya sendiri layaknya customer
+  const effectiveSeeAll = canSeeAll && rawScope === "all";
+  const orderWhere = sessionUserId && !effectiveSeeAll ? { userId: sessionUserId } : undefined;
+  const designWhere = sessionUserId && !effectiveSeeAll ? { userId: sessionUserId } : undefined;
   const rawOrdersCursor = firstParam(sp?.ordersCursor);
   const rawDesignsCursor = firstParam(sp?.designsCursor);
   const rawAddressesCursor = firstParam(sp?.addressesCursor);
@@ -178,6 +178,8 @@ export default async function CustomerDashboardPage({
             designsCursor: rawDesignsCursor,
             addressesCursor: rawAddressesCursor,
           }}
+          canSeeAll={canSeeAll}
+          scope={rawScope === "all" ? "all" : "mine"}
         />
       </main>
 

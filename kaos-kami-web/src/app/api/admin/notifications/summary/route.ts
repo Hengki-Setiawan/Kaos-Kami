@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { headers } from "next/headers";
 import { and, count, eq, gte, like, lt, notInArray } from "drizzle-orm";
 import { db } from "@/lib/db";
-import { Order, OrderStatusEvent } from "@/lib/drizzle-schema";
+import { Order, OrderStatusEvent, ChatMessage } from "@/lib/drizzle-schema";
 import {
   checkRateLimitAsync,
   getClientIp,
@@ -120,6 +120,7 @@ export async function GET(req: NextRequest) {
     oversellCount,
     expressOverdue,
     complaintsOpen,
+    unreadChatCount,
   ] = await Promise.all([
     safeCount(() =>
       db.select({ n: count() }).from(Order).where(eq(Order.status, "DESIGN_REVIEW")),
@@ -162,6 +163,17 @@ export async function GET(req: NextRequest) {
         .from(OrderStatusEvent)
         .where(like(OrderStatusEvent.note, "%[KOMPLAIN:%")),
     ),
+    safeCount(() =>
+      db
+        .select({ n: count() })
+        .from(ChatMessage)
+        .where(
+          and(
+            eq(ChatMessage.senderRole, "CUSTOMER"),
+            eq(ChatMessage.isRead, false),
+          ),
+        ),
+    ),
   ]);
 
   // JANGAN 500: bahkan bila semua metrik null, tetap 200 + null jujur.
@@ -174,9 +186,10 @@ export async function GET(req: NextRequest) {
       oversellCount,
       expressOverdue,
       complaintsOpen,
+      unreadChatCount,
     },
     generatedAt: now.toISOString(),
     notes:
-      "null = metrik gagal dibaca (bukan 0). needsReview 0 wajar: status DESIGN_REVIEW belum ada di enum OrderStatus (future-proof). Sumber: Order + OrderStatusEvent — tanpa tabel/kolom baru.",
+      "null = metrik gagal dibaca (bukan 0). Sumber: Order + OrderStatusEvent + ChatMessage.",
   });
 }

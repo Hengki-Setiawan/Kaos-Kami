@@ -39,6 +39,16 @@ export const APK_DOWNLOAD_URL =
   process.env.NEXT_PUBLIC_APK_URL ||
   "https://pub-5746f36a46904edc8425ecd721b0bfdc.r2.dev/aplikasi/kaos-kami.apk";
 
+export const SHOP_TIKTOK_URL =
+  process.env.NEXT_PUBLIC_TIKTOK_URL || "https://www.tiktok.com/@kaoskami";
+export const SHOP_FB_COMMUNITY_URL =
+  process.env.NEXT_PUBLIC_FB_COMMUNITY_URL || "https://www.facebook.com/groups/kaoskamimakassar";
+export const SHOP_INSTAGRAM_URL =
+  process.env.NEXT_PUBLIC_INSTAGRAM_URL || "https://www.instagram.com/kaoskami.makassar";
+export const SHOP_MAPS_URL =
+  process.env.NEXT_PUBLIC_MAPS_URL ||
+  "https://maps.google.com/?q=Jl.+Galangan+Kapal,+Lrg.+Permandian+1,+Kaluku+Bodoa,+Tallo,+Makassar";
+
 export function shopWaLink(message: string): string {
   return `https://wa.me/${SHOP_WHATSAPP}?text=${encodeURIComponent(message)}`;
 }

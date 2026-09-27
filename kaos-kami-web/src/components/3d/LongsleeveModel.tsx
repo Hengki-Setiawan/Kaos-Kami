@@ -156,7 +156,6 @@ const GltfLongsleeve: React.FC<{ path: string }> = ({ path }) => {
     }
 
     if (meshRef.current) {
-      if (isRotating) meshRef.current.rotation.y += delta * 0.75;
       if (animationPreset === "walking") {
         const t = state.clock.getElapsedTime() * animationSpeed;
         meshRef.current.position.y = Math.sin(t * 2.2) * 0.025;

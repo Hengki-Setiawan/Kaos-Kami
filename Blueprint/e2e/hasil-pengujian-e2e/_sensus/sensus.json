@@ -1,0 +1,79 @@
+{
+  "generatedAt": "2026-09-27T10:27:30.085Z",
+  "readOnly": true,
+  "via": "@libsql/client/http (SELECT+PRAGMA)",
+  "checks": {
+    "foreign_key_check": {
+      "rows": 0,
+      "data": []
+    },
+    "order_by_status": {
+      "rows": 9,
+      "data": [
+        {
+          "status": "REJECTED",
+          "n": 192
+        },
+        {
+          "status": "DESIGN_REVIEW",
+          "n": 51
+        },
+        {
+          "status": "CANCELLED",
+          "n": 45
+        },
+        {
+          "status": "PAYMENT_CONFIRMED",
+          "n": 15
+        },
+        {
+          "status": "SHIPPED",
+          "n": 3
+        },
+        {
+          "status": "PENDING_PAYMENT",
+          "n": 2
+        },
+        {
+          "status": "COMPLETED",
+          "n": 1
+        },
+        {
+          "status": "DELIVERED",
+          "n": 1
+        },
+        {
+          "status": "PROCESSING",
+          "n": 1
+        }
+      ]
+    },
+    "payment_yatim": {
+      "rows": 0,
+      "data": []
+    },
+    "stok_negatif": {
+      "rows": 0,
+      "data": []
+    },
+    "kupon_overuse": {
+      "rows": 0,
+      "data": []
+    },
+    "tabel_counts": {
+      "User": 14,
+      "Session": 59,
+      "Design": 219,
+      "Cart": 2,
+      "Order": 311,
+      "OrderItem": 344,
+      "Payment": 310,
+      "ProductionTask": 47,
+      "Coupon": 7,
+      "ExpeditionZone": 7,
+      "ProductVariant": 337,
+      "ChatMessage": 0,
+      "UserPresence": 0
+    }
+  }
+}

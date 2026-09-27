@@ -8,6 +8,7 @@ import { useShallow } from "zustand/shallow";
 import { Sun, Moon, Menu, X, User as UserIcon, ShoppingBag, ShieldCheck, Smartphone, Bell } from "lucide-react";
 import { AuthModal } from "@/components/ui/AuthModal";
 import { CartDrawer } from "@/components/ui/CartDrawer";
+import { UserNotificationBell } from "@/components/ui/UserNotificationBell";
 import { useSession } from "@/lib/auth-client";
 import { APK_DOWNLOAD_URL } from "@/lib/shop";
 
@@ -21,40 +22,6 @@ export const Navbar: React.FC = () => {
   }, []);
 
   const { data: session } = useSession();
-  // Lonceng user (TAMBAHAN SATU-SATUNYA di file ini selain badge jam toko):
-  // badge unread dari GET /api/notifications (existing), poll 60 dtk, HANYA bila login.
-  const [notifUnread, setNotifUnread] = React.useState(0);
-
-  React.useEffect(() => {
-    if (!session?.user) {
-      setNotifUnread(0);
-      return;
-    }
-    let alive = true;
-    const load = async () => {
-      try {
-        const res = await fetch("/api/notifications", { cache: "no-store" });
-        const data = await res.json().catch(() => null);
-        if (!alive || !res.ok || !data?.success || !Array.isArray(data.items)) return;
-        let seenAt = 0;
-        try {
-          seenAt = Number(localStorage.getItem("kaoskami_notif_seen") || 0);
-        } catch {}
-        const n = (data.items as any[]).filter(
-          (i) => new Date(i.createdAt).getTime() > seenAt
-        ).length;
-        setNotifUnread(n);
-      } catch {
-        /* defensif: badge diam bila fetch gagal */
-      }
-    };
-    void load();
-    const t = setInterval(() => void load(), 60000);
-    return () => {
-      alive = false;
-      clearInterval(t);
-    };
-  }, [session?.user]);
   const userRole = (session?.user as any)?.role || "CUSTOMER";
   const isAdmin =
     ["ADMIN", "SUPER_ADMIN", "PRODUCTION_STAFF"].includes(userRole) ||
@@ -95,93 +62,104 @@ export const Navbar: React.FC = () => {
         isHideWebsiteUI ? "opacity-30 hover:opacity-100" : "opacity-100"
       }`}
     >
-      {/* Brand Wordmark & Nav Links */}
-      <div className="flex items-center space-x-6">
-        <div className="flex items-center space-x-3">
-          <Link
-            href="/"
-            className="hover:opacity-85 transition-opacity flex items-center shrink-0"
-          >
-            {/* eslint-disable-next-line @next/next/no-img-element -- logo adaptif tema via CSS; kedua img ada di SSR sehingga 0 hydration mismatch */}
-            <img
-              src="/brand/logo-white-clean.png"
-              alt="Kaos Kami"
-              className="h-8 sm:h-9 w-auto object-contain logo-dark-mode"
-            />
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src="/brand/logo-black-clean.png"
-              alt="Kaos Kami"
-              className="h-8 sm:h-9 w-auto object-contain logo-light-mode"
-            />
-          </Link>
-        </div>
-
-        {/* E-Commerce Navigation Links */}
-        <nav className="hidden md:flex items-center space-x-5 text-xs font-mono" aria-label="Navigasi utama">
-          <Link
-            href="/catalog"
-            className="text-text-muted hover:text-text-primary transition-colors font-bold uppercase tracking-wider"
-          >
-            KATALOG PRODUK
-          </Link>
-          <Link
-            href="/studio"
-            className="text-text-muted hover:text-text-primary transition-colors font-bold uppercase tracking-wider"
-          >
-            STUDIO 3D
-          </Link>
-          <Link
-            href="/track"
-            className="text-text-muted hover:text-text-primary transition-colors font-bold uppercase tracking-wider"
-          >
-            LACAK PESANAN
-          </Link>
-          {session?.user && (
-            <Link
-              href="/dashboard/orders"
-              className="text-text-muted hover:text-text-primary transition-colors font-bold uppercase tracking-wider"
-            >
-              PESANANKU
-            </Link>
-          )}
-          <a
-            href={APK_DOWNLOAD_URL}
-            target="_blank"
-            rel="noopener noreferrer"
-            download="kaos-kami.apk"
-            className="text-brand-accent hover:brightness-125 transition-all font-bold uppercase tracking-wider flex items-center gap-1.5"
-            title="Download Aplikasi Android Kaos Kami (Capacitor APK)"
-          >
-            <Smartphone size={13} />
-            <span>UNDUH APK</span>
-          </a>
-        </nav>
+      {/* Left: Brand Logo */}
+      <div className="flex items-center shrink-0">
+        <Link
+          href="/"
+          className="hover:opacity-85 transition-opacity flex items-center"
+        >
+          {/* eslint-disable-next-line @next/next/no-img-element -- logo adaptif tema via CSS; kedua img ada di SSR sehingga 0 hydration mismatch */}
+          <img
+            src="/brand/logo-white-clean.png"
+            alt="Kaos Kami"
+            className="h-8 sm:h-9 w-auto object-contain logo-dark-mode"
+          />
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src="/brand/logo-black-clean.png"
+            alt="Kaos Kami"
+            className="h-8 sm:h-9 w-auto object-contain logo-light-mode"
+          />
+        </Link>
       </div>
 
-      {/* Right Control Bar (Clean, Minimal, Non-Cluttered) */}
-      <div className="flex items-center space-x-2 sm:space-x-3">
-        {/* Badge BUKA/TUTUP dihapus keputusan owner (website tak perlu). */}
-        {/* Lonceng user: HANYA bila login; badge dari /api/notifications. */}
+      {/* Center: Perfectly Balanced Navigation Links (Spaced Out) */}
+      <nav
+        className="hidden md:flex items-center justify-center space-x-10 lg:space-x-12 text-xs font-mono absolute left-1/2 -translate-x-1/2 pointer-events-auto"
+        aria-label="Navigasi utama"
+      >
+        <Link
+          href="/"
+          onClick={(e) => {
+            if (window.location.pathname === "/") {
+              e.preventDefault();
+              window.scrollTo({ top: 0, behavior: "smooth" });
+            }
+          }}
+          className="text-text-muted hover:text-text-primary transition-colors font-bold uppercase tracking-wider py-1"
+        >
+          HOME
+        </Link>
+        <Link
+          href="/#etalase"
+          onClick={(e) => {
+            if (window.location.pathname === "/") {
+              const el = document.getElementById("etalase");
+              if (el) {
+                e.preventDefault();
+                el.scrollIntoView({ behavior: "smooth" });
+              }
+            }
+          }}
+          className="text-text-muted hover:text-text-primary transition-colors font-bold uppercase tracking-wider py-1"
+        >
+          KATALOG
+        </Link>
+        <Link
+          href="/#tentang-kami"
+          onClick={(e) => {
+            if (window.location.pathname === "/") {
+              const el = document.getElementById("tentang-kami");
+              if (el) {
+                e.preventDefault();
+                el.scrollIntoView({ behavior: "smooth" });
+              }
+            }
+          }}
+          className="text-text-muted hover:text-text-primary transition-colors font-bold uppercase tracking-wider py-1"
+        >
+          ABOUT
+        </Link>
         {session?.user && (
           <Link
             href="/dashboard/orders"
-            className="relative p-2.5 rounded-full bg-surface border border-border-subtle text-text-muted hover:text-brand-accent hover:border-brand-accent/40 transition-all flex items-center justify-center"
-            title="Notifikasi pesanan"
-            aria-label={`Notifikasi pesanan${notifUnread > 0 ? ` (${notifUnread} belum dibaca)` : ""}`}
+            className="text-text-muted hover:text-text-primary transition-colors font-bold uppercase tracking-wider py-1"
           >
-            <Bell size={16} />
-            {notifUnread > 0 && (
-              <span className="absolute -top-1 -right-1 min-w-4 h-4 px-0.5 rounded-full bg-rose-500 text-white text-[9px] font-mono font-bold flex items-center justify-center">
-                {notifUnread > 99 ? "99+" : notifUnread}
-              </span>
-            )}
+            PESANANKU
           </Link>
         )}
-        {/* Shopping Cart Button */}
+        <a
+          href={APK_DOWNLOAD_URL}
+          target="_blank"
+          rel="noopener noreferrer"
+          download="kaos-kami.apk"
+          className="text-brand-accent hover:brightness-125 transition-all font-bold uppercase tracking-wider flex items-center gap-1.5 py-1"
+          title="Download Aplikasi Android Kaos Kami (Capacitor APK)"
+        >
+          <Smartphone size={13} />
+          <span>UNDUH APK</span>
+        </a>
+      </nav>
+
+      {/* Right Control Bar (Clean, Minimal, Height-Unified h-10) */}
+      <div className="flex items-center space-x-2 sm:space-x-3">
+        {/* Lonceng notifikasi interaktif user: HANYA bila login */}
+        {session?.user && <UserNotificationBell />}
+
+        {/* Shopping Cart Button (Unified w-10 h-10) */}
         <button
           onClick={openCart}
-          className="relative p-2.5 rounded-full bg-surface border border-border-subtle text-text-muted hover:text-brand-accent hover:border-brand-accent/40 transition-all flex items-center justify-center"
+          className="relative w-10 h-10 rounded-full bg-surface border border-border-subtle text-text-muted hover:text-brand-accent hover:border-brand-accent/40 transition-all flex items-center justify-center shrink-0"
           title="Keranjang Belanja"
           aria-label="Keranjang Belanja"
         >
@@ -193,26 +171,26 @@ export const Navbar: React.FC = () => {
           )}
         </button>
 
-        {/* Light / Dark Mode Quick Toggle (sembunyi <380px agar muat) */}
+        {/* Light / Dark Mode Quick Toggle (Unified w-10 h-10, sembunyi <380px) */}
         <button
           onClick={() => setStudioTheme(isLight ? "obsidian" : "gallery")}
-          className="max-[379px]:hidden p-2.5 rounded-full bg-surface border border-border-subtle text-text-muted hover:text-text-primary transition-all"
+          className="max-[379px]:hidden w-10 h-10 rounded-full bg-surface border border-border-subtle text-text-muted hover:text-text-primary transition-all flex items-center justify-center shrink-0"
           title={mounted ? (isLight ? "Mode Gelap (Obsidian)" : "Mode Terang (Gallery)") : "Ganti Tema"}
           aria-label="Toggle Light/Dark Mode"
           suppressHydrationWarning
         >
           {mounted ? (
-            isLight ? <Moon size={15} className="text-neutral-800" /> : <Sun size={15} className="text-brand-accent" />
+            isLight ? <Moon size={16} className="text-neutral-800" /> : <Sun size={16} className="text-brand-accent" />
           ) : (
-            <Sun size={15} className="text-brand-accent" />
+            <Sun size={16} className="text-brand-accent" />
           )}
         </button>
 
-        {/* Admin Quick Jump Pill (Executive Dual-Tone Badge) */}
+        {/* Admin Quick Jump Pill */}
         {isAdmin && (
           <Link
             href="/admin"
-            className="group relative flex items-center gap-2 px-3.5 py-1.5 rounded-full font-mono text-xs font-bold border transition-all duration-200 active:scale-95 shadow-sm
+            className="group relative h-10 flex items-center gap-2 px-3.5 rounded-full font-mono text-xs font-bold border transition-all duration-200 active:scale-95 shadow-sm
               bg-white text-neutral-900 border-amber-500/70 hover:bg-amber-500 hover:text-black hover:border-amber-600 hover:shadow-[0_0_16px_rgba(245,158,11,0.35)]
               dark:bg-amber-500/15 dark:text-amber-300 dark:border-amber-500/50 dark:hover:bg-amber-500 dark:hover:text-black dark:hover:border-amber-400 dark:shadow-[0_0_12px_rgba(245,158,11,0.2)]"
             title="Buka Dashboard Admin & Workshop DTF"
@@ -227,10 +205,10 @@ export const Navbar: React.FC = () => {
           </Link>
         )}
 
-        {/* User Account / Login Button */}
+        {/* User Account / Login Button (Unified h-10, Label LOGIN) */}
         <button
           onClick={() => setIsAuthOpen(true)}
-          className={`flex items-center gap-1.5 px-3.5 py-2 rounded-full font-mono text-xs border transition-all ${
+          className={`h-10 flex items-center gap-2 px-4 rounded-full font-mono text-xs border transition-all ${
             session?.user
               ? "bg-surface border-brand-accent/40 text-brand-accent font-bold"
               : "bg-surface border-border-subtle text-text-muted hover:text-text-primary"
@@ -238,28 +216,29 @@ export const Navbar: React.FC = () => {
           title={session?.user ? `Akun: ${session.user.name}` : "Masuk / Daftar Akun"}
           aria-label="Akun Pengguna"
         >
-          <UserIcon size={14} />
-          <span className="hidden sm:inline font-bold">{session?.user ? session.user.name?.split(" ")[0] : "MASUK"}</span>
+          <UserIcon size={15} />
+          <span className="hidden sm:inline font-bold uppercase tracking-wider">
+            {session?.user ? session.user.name?.split(" ")[0] : "LOGIN"}
+          </span>
         </button>
 
-        {/* Mobile hamburger (audit #15): nav desktop disembunyikan di HP */}
+        {/* Mobile hamburger: nav desktop disembunyikan di HP */}
         <button
           onClick={() => setIsMenuOpen((v) => !v)}
-          className="md:hidden p-2.5 rounded-full bg-surface border border-border-subtle text-text-muted hover:text-text-primary transition-all"
+          className="md:hidden w-10 h-10 rounded-full bg-surface border border-border-subtle text-text-muted hover:text-text-primary transition-all flex items-center justify-center"
           aria-label={isMenuOpen ? "Tutup menu" : "Buka menu"}
           aria-expanded={isMenuOpen}
         >
           {isMenuOpen ? <X size={16} /> : <Menu size={16} />}
         </button>
 
-        {/* Enter 3D Sandbox Dedicated Page (Clean CTA, No Sparkles) */}
+        {/* Enter 3D Sandbox Dedicated Page (Unified h-10, Label KOSTUM) */}
         <Link
           href="/studio"
-          className="inline-flex items-center min-h-[44px] px-4 py-2 rounded-full font-mono text-xs uppercase tracking-wider bg-brand-accent text-canvas font-bold shadow-[0_0_16px_rgba(230,81,0,0.3)] hover:brightness-110 active:scale-95 transition-all"
-          aria-label="Enter 3D Studio"
+          className="inline-flex items-center justify-center h-10 px-5 rounded-full font-mono text-xs uppercase tracking-wider bg-brand-accent text-canvas font-bold shadow-[0_0_16px_rgba(230,81,0,0.3)] hover:brightness-110 active:scale-95 transition-all shrink-0"
+          aria-label="Buka Studio Kostum 3D"
         >
-          <span className="hidden sm:inline">CUSTOM 3D</span>
-          <span className="sm:hidden">3D</span>
+          <span>KOSTUM</span>
         </Link>
       </div>
 
@@ -283,10 +262,10 @@ export const Navbar: React.FC = () => {
             </Link>
           )}
           {[
-            { href: "/catalog", label: "KATALOG PRODUK" },
-            { href: "/studio", label: "STUDIO 3D" },
-            { href: "/track", label: "LACAK PESANAN" },
-            { href: "/dashboard/orders", label: "PESANANKU" },
+            { href: "/", label: "HOME" },
+            { href: "/#etalase", label: "KATALOG ETALASE" },
+            { href: "/#tentang-kami", label: "ABOUT WORKSHOP" },
+            ...(session?.user ? [{ href: "/dashboard/orders", label: "PESANANKU" }] : []),
           ].map((l) => (
             <Link
               key={l.href}

@@ -1,0 +1,39 @@
+{
+  "stamp": "20260927-1836",
+  "base": "http://127.0.0.1:3000",
+  "warn": "Sweep BISA cancel PENDING basi + reconcile yatim â€” efek samping sah, terverifikasi di atas",
+  "tests": [
+    {
+      "id": "K-004",
+      "status": "PASS",
+      "note": "salahâ†’401 tanpaâ†’401 (harap 401+401)"
+    },
+    {
+      "id": "K-005",
+      "status": "PASS",
+      "note": "sweepâ†’200 checked=2 cancelled=2 reconciled=0 created=0"
+    },
+    {
+      "id": "K-006",
+      "status": "SKIP",
+      "note": "order PENDING 1h butuh fixture U-021 â€” JANGAN fixture palsu; cek checked tanpa cancelled di atas"
+    },
+    {
+      "id": "K-007",
+      "status": "SKIP",
+      "note": "REVIEW basi dilewati (machine.ts:52) â€” tanpa fixture basi, jujur SKIP"
+    },
+    {
+      "id": "K-008",
+      "status": "SKIP",
+      "note": "yatim nominal-samaâ†’SETTLEMENT via sweep-reconcile (0); nominal-beda mock = SKIP"
+    }
+  ],
+  "result": {
+    "checked": 2,
+    "cancelled": 2,
+    "reconciled": 0,
+    "created": 0
+  },
+  "at": "2026-09-27T10:39:07.681Z"
+}

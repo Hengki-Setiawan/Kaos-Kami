@@ -22,9 +22,11 @@ export async function getHeroContent(): Promise<HeroContent> {
     const res = await fetch(url, { next: { revalidate: 300 } });
     if (!res.ok) return DEFAULT_HERO;
     const data = (await res.json()) as Partial<HeroContent>;
+    const title = typeof data.heroTitle === "string" && data.heroTitle && !data.heroTitle.startsWith("E2E ") ? data.heroTitle.slice(0, 80) : DEFAULT_HERO.heroTitle;
+    const sub = typeof data.heroSubtitle === "string" && data.heroSubtitle && data.heroSubtitle !== "subtitle E2E" ? data.heroSubtitle.slice(0, 200) : DEFAULT_HERO.heroSubtitle;
     const out: HeroContent = {
-      heroTitle: typeof data.heroTitle === "string" && data.heroTitle ? data.heroTitle.slice(0, 80) : DEFAULT_HERO.heroTitle,
-      heroSubtitle: typeof data.heroSubtitle === "string" ? data.heroSubtitle.slice(0, 200) : DEFAULT_HERO.heroSubtitle,
+      heroTitle: title,
+      heroSubtitle: sub,
       updatedAt: typeof data.updatedAt === "string" ? data.updatedAt : "",
     };
     cache = { at: Date.now(), data: out };

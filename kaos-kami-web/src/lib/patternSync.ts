@@ -23,6 +23,8 @@ import {
   unitsToCm,
   getPanelOrigin,
   getPrintBounds,
+  getPanelGeometry,
+  getPanelsForApparel,
   type PanelOrigin,
   type PrintBounds,
   type PatternPanel,
@@ -31,6 +33,8 @@ import {
 export {
   getPanelOrigin,
   getPrintBounds,
+  getPanelGeometry,
+  getPanelsForApparel,
   type PanelOrigin,
   type PrintBounds,
   type PatternPanel,
@@ -54,16 +58,50 @@ export function normalizeRotation(deg: number): number {
   return ((((deg + 180) % 360) + 360) % 360) - 180;
 }
 
-/** DecalLayer 3D -> posisi Fabric (butuh rasio aspek gambar w/h). */
+/** DecalLayer 3D -> posisi Fabric (butuh rasio aspek gambar w/h, panel opsional). */
 export function decalToFabric(
   apparel: ApparelType,
   d: DecalLayer,
-  aspectWoverH: number
+  aspectWoverH: number,
+  panelOverride?: PatternPanel
 ): FabricPlacement {
+  const panel = panelOverride || (d.targetSide as PatternPanel) || "front";
+  const geo = getPanelGeometry(apparel, panel);
   const longCm = unitsToCm(apparel, d.scale);
   const aspect = aspectWoverH > 0 ? aspectWoverH : 1;
   const wCm = aspect >= 1 ? longCm : longCm * aspect;
   const hCm = aspect >= 1 ? longCm / aspect : longCm;
+
+  // Kalibrasi Khusus Panel Lengan (Kiri & Kanan):
+  // Di 3D (scaleCalibration.ts):
+  // - decalY berkisar dari +0.35 (pangkal bahu / top) hingga -0.35 (ujung manset / bottom).
+  // - decalX adalah geser melingkar [-0.12, +0.12].
+  // Di 2D (PatternStudio & patternGeometry):
+  // - origin berada tepat di tengah kanvas pola lengan (wCm/2, hCm/2).
+  // - Kita petakan decalY normalized [-1, 1] ke tinggi panel lengan secara proporsional,
+  //   sehingga sablon di bahu, lengan tengah, maupun manset selalu berada 100% di dalam pola 2D!
+  if (panel === "left_sleeve" || panel === "right_sleeve") {
+    const normY = Math.max(-1, Math.min(1, d.y / 0.35));
+    const maxAvailableHPx = Math.max(10, (geo.hCm * EDITOR_PX_PER_CM - hCm * EDITOR_PX_PER_CM) / 2);
+    const usableHalfHeightPx = maxAvailableHPx * 0.88;
+    const cyPx = -normY * usableHalfHeightPx;
+
+    const normX = Math.max(-1, Math.min(1, d.x / 0.12));
+    const maxAvailableWPx = Math.max(10, (geo.wCm * EDITOR_PX_PER_CM - wCm * EDITOR_PX_PER_CM) / 2);
+    const usableHalfWidthPx = maxAvailableWPx * 0.88;
+    const cxPx = normX * usableHalfWidthPx;
+
+    return {
+      cxPx,
+      cyPx,
+      wPx: wCm * EDITOR_PX_PER_CM,
+      hPx: hCm * EDITOR_PX_PER_CM,
+      rotation: normalizeRotation(d.rotation),
+      opacity: d.opacity,
+    };
+  }
+
+  // Panel Standar (Depan, Belakang, Tudung)
   return {
     cxPx: unitsToCm(apparel, d.x) * EDITOR_PX_PER_CM,
     cyPx: -unitsToCm(apparel, d.y) * EDITOR_PX_PER_CM,
@@ -75,6 +113,8 @@ export function decalToFabric(
 }
 
 export interface FabricToDecalOptions {
+  /** Panel target di PatternStudio */
+  panel?: PatternPanel;
   /** Rasio aspek SUMBER artwork (w/h). Bila diisi, sumbu acuan skala dipilih
    * dari sisi panjang SUMBER — tahan terhadap bbox Fabric yang mengembang
    * saat objek terotasi (getScaledWidth/Height = AABB, bukan ukuran riil). */
@@ -110,7 +150,7 @@ export function fabricToDecal(
   rotation: number,
   options: FabricToDecalOptions = {}
 ): { x: number; y: number; scale: number; rotation: number; opacity?: number } {
-  const { aspectWoverH, opacity } = options;
+  const { panel, aspectWoverH, opacity } = options;
   const w = Math.max(1, wPx);
   const h = Math.max(1, hPx);
 
@@ -136,13 +176,27 @@ export function fabricToDecal(
     );
   }
 
+  let finalX = cmToUnits(apparel, cxPx / EDITOR_PX_PER_CM);
+  let finalY = cmToUnits(apparel, -cyPx / EDITOR_PX_PER_CM);
+
+  // Kalibrasi Khusus Panel Lengan (Kiri & Kanan):
+  if (panel === "left_sleeve" || panel === "right_sleeve") {
+    const geo = getPanelGeometry(apparel, panel);
+    const maxAvailableHPx = Math.max(10, (geo.hCm * EDITOR_PX_PER_CM - h) / 2);
+    const usableHalfHeightPx = maxAvailableHPx * 0.88;
+    const normY = usableHalfHeightPx > 0 ? -cyPx / usableHalfHeightPx : 0;
+    finalY = Math.max(-0.35, Math.min(0.35, Number((normY * 0.35).toFixed(4))));
+
+    const maxAvailableWPx = Math.max(10, (geo.wCm * EDITOR_PX_PER_CM - w) / 2);
+    const usableHalfWidthPx = maxAvailableWPx * 0.88;
+    const normX = usableHalfWidthPx > 0 ? cxPx / usableHalfWidthPx : 0;
+    finalX = Math.max(-0.12, Math.min(0.12, Number((normX * 0.12).toFixed(4))));
+  }
+
   const patch: { x: number; y: number; scale: number; rotation: number; opacity?: number } = {
-    x: cmToUnits(apparel, cxPx / EDITOR_PX_PER_CM),
-    y: cmToUnits(apparel, -cyPx / EDITOR_PX_PER_CM),
+    x: finalX,
+    y: finalY,
     scale: cmToUnits(apparel, longPx / EDITOR_PX_PER_CM),
-    // KEMBALIKAN rotasi (audit #19 — sebelumnya parameter rotation dibuang,
-    // putar 45° di pola 2D tak pernah sampai ke 3D). Bentuk return ini
-    // assignable ke updateDecal(id, patch) (Partial<DecalLayer>).
     rotation: normalizeRotation(rotation),
   };
   if (opacity !== undefined && Number.isFinite(opacity)) {

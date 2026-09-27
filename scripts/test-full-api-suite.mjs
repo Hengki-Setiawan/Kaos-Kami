@@ -1,5 +1,5 @@
 // Comprehensive parallel API and logic test suite
-const BASE = "http://localhost:3000";
+const BASE = process.env.BASE_URL || process.env.E2E_BASE_URL || "http://127.0.0.1:3000";
 
 async function test(name, fn) {
   const start = Date.now();
@@ -60,7 +60,7 @@ async function runSuite() {
     }),
 
     test("Auth: Send OTP to Email Validation", async () => {
-      const testEmail = `makassar.audit.${Date.now()}@example.com`;
+      const testEmail = "delivered@resend.dev";
       const res = await fetch(`${BASE}/api/auth/send-email-otp`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },

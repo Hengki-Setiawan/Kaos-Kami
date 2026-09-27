@@ -124,8 +124,8 @@ function SceneDisposer() {
 }
 
 interface CanvasStageProps {
-  camPos: THREE.Vector3;
-  lookAtPos: THREE.Vector3;
+  camPos?: THREE.Vector3;
+  lookAtPos?: THREE.Vector3;
 }
 
 export const CanvasStage: React.FC<CanvasStageProps> = ({ camPos, lookAtPos }) => {
@@ -279,6 +279,7 @@ export const CanvasStage: React.FC<CanvasStageProps> = ({ camPos, lookAtPos }) =
         const prevClearColor = new THREE.Color();
         gl.getClearColor(prevClearColor);
         const prevAspect = (camera as any).aspect;
+        const prevView = (camera as any).view ? { ...(camera as any).view } : null;
         const hiddenObjects: THREE.Object3D[] = [];
 
         if (isTransparent) {
@@ -298,6 +299,7 @@ export const CanvasStage: React.FC<CanvasStageProps> = ({ camPos, lookAtPos }) =
 
         try {
           gl.setSize(w, h, false);
+          (camera as any).clearViewOffset?.();
           if ((camera as any).aspect !== undefined) {
             (camera as any).aspect = w / h;
             camera.updateProjectionMatrix();
@@ -312,6 +314,16 @@ export const CanvasStage: React.FC<CanvasStageProps> = ({ camPos, lookAtPos }) =
             gl.setClearColor(prevClearColor, prevClearAlpha);
           }
           gl.setSize(rect.width || 800, rect.height || 600, false);
+          if (prevView && prevView.enabled) {
+            (camera as any).setViewOffset?.(
+              prevView.fullWidth,
+              prevView.fullHeight,
+              prevView.offsetX,
+              prevView.offsetY,
+              prevView.width,
+              prevView.height
+            );
+          }
           if ((camera as any).aspect !== undefined && prevAspect !== undefined) {
             (camera as any).aspect = prevAspect;
             camera.updateProjectionMatrix();
@@ -400,17 +412,27 @@ export const CanvasStage: React.FC<CanvasStageProps> = ({ camPos, lookAtPos }) =
   // KUNCI 2 via handleCreated di bawah — tak tersentuh.
   const cappedMaxDpr = deviceTier.tier === "high" ? 1.5 : deviceTier.maxDpr;
 
+  const isFlashlightMode = testLabMode === "flashlight";
+
   const themeBgHex =
-    studioTheme === "gallery"
-      ? "#EFECE6"
-      : studioTheme === "concrete"
-        ? "#222326"
-        : "#121214";
+    isFlashlightMode
+      ? "#050505"
+      : studioTheme === "gallery"
+        ? "#EFECE6"
+        : studioTheme === "concrete"
+          ? "#222326"
+          : "#121214";
   // M2.6: gradient gelap bawah via CSS (nol biaya GPU, semua tier — ganti
   // plane gradient 3D yang butuh draw call + depth tuning). Lantai 3D
   // (lingkaran matte + reflektor high-tier) ada di StudioLighting.
   const themeGradientTo =
-    studioTheme === "gallery" ? "#DDD9D0" : studioTheme === "concrete" ? "#131415" : "#080809";
+    isFlashlightMode
+      ? "#000000"
+      : studioTheme === "gallery"
+        ? "#DDD9D0"
+        : studioTheme === "concrete"
+          ? "#131415"
+          : "#080809";
 
   const isInteractive = viewMode === "studio" || isHideWebsiteUI;
 
@@ -459,8 +481,8 @@ export const CanvasStage: React.FC<CanvasStageProps> = ({ camPos, lookAtPos }) =
             shadows={deviceTier.enableShadows}
             dpr={[1, cappedMaxDpr]}
             frameloop={needsContinuous ? "always" : "demand"}
-            // M2.10: fov 40 TETAP (klaim skala cm/DPI tak boleh drift).
-            camera={{ position: [0, 0, 2.9], fov: 40 }}
+            // M2.10: fov 40 TETAP (klaim skala cm/DPI tak boleh drift). Z=1.46 untuk tampilan megah dengan elevasi aman dari HUD dock. near 0.02 anti-clipping macro zoom
+            camera={{ position: [0, 0.01, 1.46], fov: 40, near: 0.02, far: 20 }}
             gl={{
               // PERF: antialias:false saat composer aktif — MSAA bawaan tak
               // berlaku di buffer EffectComposer (mubazir penuh), SMAA di

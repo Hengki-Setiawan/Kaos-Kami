@@ -3,7 +3,7 @@
 import React, { useEffect, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
-import { ShoppingBag, Sparkles, ArrowRight } from "lucide-react";
+import { ShoppingBag, Sparkles, ArrowRight, Check, Plus } from "lucide-react";
 import { useCartStore } from "@/store/useCartStore";
 import { useConfiguratorStore } from "@/store/useConfiguratorStore";
 import { useShallow } from "zustand/shallow";
@@ -211,7 +211,21 @@ export const HomeCatalogSection: React.FC = () => {
                   className="min-h-[44px] py-2.5 px-3 rounded-xl bg-surface border border-border-subtle text-text-primary font-bold hover:bg-brand-accent hover:text-canvas transition-all flex items-center justify-center space-x-1 disabled:opacity-40 min-w-0"
                 >
                   <ShoppingBag size={12} className="shrink-0" />
-                  <span className="truncate">{(p.stockQty ?? 0) <= 0 ? "HABIS" : addedId === p.id ? "✓ DITAMBAH" : "+ BELI"}</span>
+                  <span className="truncate inline-flex items-center gap-1">
+                    {(p.stockQty ?? 0) <= 0 ? (
+                      "HABIS"
+                    ) : addedId === p.id ? (
+                      <>
+                        <Check size={12} className="text-emerald-400" />
+                        <span>DITAMBAH</span>
+                      </>
+                    ) : (
+                      <>
+                        <Plus size={12} />
+                        <span>BELI</span>
+                      </>
+                    )}
+                  </span>
                 </button>
 
                 <Link

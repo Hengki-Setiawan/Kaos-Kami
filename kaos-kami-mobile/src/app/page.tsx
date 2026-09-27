@@ -21,6 +21,7 @@ import {
   Eye,
   FileText,
   Lock,
+  Ruler,
 } from 'lucide-react';
 import {
   NativeHeader,
@@ -34,6 +35,9 @@ import {
   Toast,
   ApparelVectorIcon,
 } from '@/components/ui';
+import { MobileKamitoChatWidget } from '@/components/chat/MobileKamitoChatWidget';
+import { MobileNotificationBell } from '@/components/ui/MobileNotificationBell';
+import { MobileSizeGuideModal } from '@/components/studio/MobileSizeGuideModal';
 import {
   initEdgeToEdgeStatusBar,
   haptic,
@@ -138,7 +142,8 @@ export default function MobileApp() {
   const [ordersViewMode, setOrdersViewMode] = useState<'live' | 'history'>('live');
   // Q2+Q8: size picker (S–XL) + material/teks/opasitas dasar — dikirim ke cart
   // & checkout (server hitung ulang harga; label estimasi di UI).
-  const [pickedSize, setPickedSize] = useState<'S' | 'M' | 'L' | 'XL'>('L');
+  const [pickedSize, setPickedSize] = useState<'S' | 'M' | 'L' | 'XL' | 'XXL'>('L');
+  const [sizeGuideOpen, setSizeGuideOpen] = useState(false);
   const [pickedMaterial, setPickedMaterial] = useState<string>('combed-24s');
   const [artworkText, setArtworkText] = useState('');
   const [decalOpacity, setDecalOpacity] = useState(1);
@@ -224,6 +229,8 @@ export default function MobileApp() {
     offsetFromCollarCm,
     decalDpi,
     resetStudio,
+    size,
+    setSize,
   } = useMobileStudioStore(
     useShallow((s) => ({
       apparelType: s.apparelType,
@@ -245,6 +252,8 @@ export default function MobileApp() {
       offsetFromCollarCm: s.offsetFromCollarCm,
       decalDpi: s.decalDpi,
       resetStudio: s.resetStudio,
+      size: s.size,
+      setSize: s.setSize,
     }))
   );
 
@@ -359,7 +368,14 @@ export default function MobileApp() {
               credentials: 'include',
             });
             const d = await r.json().catch(() => null);
-            const who = (d as any)?.user?.name || (d as any)?.user?.email;
+            const user = (d as any)?.user;
+            if (user?.id) {
+              try {
+                localStorage.setItem('kaoskami_user_id', user.id);
+                localStorage.setItem('kaoskami_auth_session_cache', JSON.stringify(d));
+              } catch {}
+            }
+            const who = user?.name || user?.email;
             setToastMessage(
               who
                 ? `Login berhasil sebagai ${who}.`
@@ -792,6 +808,7 @@ export default function MobileApp() {
         }
         actions={
           <div className="flex items-center gap-2">
+            <MobileNotificationBell />
             <button
               onClick={() => {
                 haptic.tap();
@@ -831,10 +848,10 @@ export default function MobileApp() {
               </div>
 
               <h2 className="text-xl font-extrabold text-white font-['Syne'] leading-tight mb-1">
-                Kustom Kaos 3D Impianmu
+                Kustom Kaos 3D
               </h2>
-              <p className="text-xs text-zinc-400 mb-4 leading-relaxed">
-                Pilih bahan katun combed adem, pasang desain/logo DTF kualitas tajam, dan simulasikan langsung lewat mockup 3D.
+              <p className="text-xs text-zinc-400 mb-4 leading-relaxed font-mono">
+                Katun Combed 24s · Sablon DTF Presisi · Simulasi 360°
               </p>
 
               {/* Color Swatch Preview */}
@@ -886,7 +903,7 @@ export default function MobileApp() {
                   <ShoppingBag className="w-5 h-5" />
                 </div>
                 <h3 className="text-sm font-bold text-white font-['Syne']">Katalog Baju</h3>
-                <p className="text-[11px] text-zinc-400 mt-0.5">Katun Combed 24s / 30s</p>
+                <p className="text-[10px] text-zinc-400 mt-0.5 font-mono">Apparel Ready Stock</p>
               </GlassCard>
 
               <GlassCard
@@ -901,7 +918,7 @@ export default function MobileApp() {
                   <ClipboardList className="w-5 h-5" />
                 </div>
                 <h3 className="text-sm font-bold text-white font-['Syne']">Lacak Pesanan</h3>
-                <p className="text-[11px] text-zinc-400 mt-0.5">Live Sablon & Bayar QRIS</p>
+                <p className="text-[10px] text-zinc-400 mt-0.5 font-mono">Status & Bayar QRIS</p>
               </GlassCard>
             </div>
 
@@ -912,8 +929,8 @@ export default function MobileApp() {
                   <ShieldCheck className="w-5 h-5" />
                 </div>
                 <div>
-                  <h4 className="text-xs font-bold text-white font-['Syne']">Admin Mobile Workshop</h4>
-                  <p className="text-[10px] text-zinc-400">ACC desain & moderasi sablon dari HP</p>
+                  <h4 className="text-xs font-bold text-white font-['Syne']">Admin Workshop</h4>
+                  <p className="text-[10px] text-zinc-400 font-mono">ACC Desain & Antrean Cetak</p>
                 </div>
               </div>
               <HapticButton
@@ -1383,22 +1400,33 @@ export default function MobileApp() {
           </div>
 
           <div>
-            <label className="text-xs font-semibold text-white mb-2 block font-['Syne']">
-              Ukuran:
-            </label>
-            <div className="grid grid-cols-4 gap-2">
-              {(['S', 'M', 'L', 'XL'] as const).map((sz) => (
+            <div className="flex items-center justify-between mb-2">
+              <label className="text-xs font-semibold text-white block font-['Syne']">
+                Ukuran:
+              </label>
+              <button
+                type="button"
+                onClick={() => setSizeGuideOpen(true)}
+                className="text-[11px] text-[#FF6B35] font-mono hover:underline flex items-center gap-1"
+              >
+                <Ruler className="w-3.5 h-3.5" />
+                <span>Panduan Ukuran</span>
+              </button>
+            </div>
+            <div className="grid grid-cols-5 gap-1.5">
+              {(['S', 'M', 'L', 'XL', 'XXL'] as const).map((sz) => (
                 <button
                   key={sz}
                   type="button"
                   onClick={() => {
                     haptic.selection();
                     setPickedSize(sz);
+                    setSize(sz);
                   }}
                   className={`py-2.5 rounded-xl border text-xs font-bold transition-all ${
                     pickedSize === sz
                       ? 'bg-[#FF6B35]/15 border-[#FF6B35] text-white'
-                      : 'bg-zinc-900 border-zinc-800 text-zinc-400'
+                      : 'bg-zinc-900 border-zinc-800 text-zinc-400 hover:text-white'
                   }`}
                 >
                   {sz}
@@ -1644,6 +1672,22 @@ export default function MobileApp() {
         activeTab={activeTab}
         onTabChange={setActiveTab}
         orderBadgeCount={items.length}
+      />
+
+      {/* Live Chat Kamito Realtime Widget & Mascot */}
+      <MobileKamitoChatWidget />
+
+      {/* Size Guide Modal & Dimension Chart */}
+      <MobileSizeGuideModal
+        isOpen={sizeGuideOpen}
+        onClose={() => setSizeGuideOpen(false)}
+        activeApparel={apparelType}
+        selectedSize={pickedSize}
+        onSelectSize={(sz) => {
+          setPickedSize(sz);
+          setSize(sz);
+          setSizeGuideOpen(false);
+        }}
       />
     </div>
   );

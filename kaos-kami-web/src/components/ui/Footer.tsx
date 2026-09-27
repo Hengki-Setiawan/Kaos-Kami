@@ -2,22 +2,24 @@ import React from "react";
 import Link from "next/link";
 import {
   SHOP_WORKSHOP_ADDRESS,
-  SHOP_WHATSAPP,
   SHOP_EMAIL,
-  SHOP_SUPPORT_EMAIL,
   SHOP_PHONE_DISPLAY,
   SHOP_HOURS,
+  SHOP_TIKTOK_URL,
+  SHOP_FB_COMMUNITY_URL,
+  SHOP_INSTAGRAM_URL,
+  SHOP_MAPS_URL,
   shopWaLink,
 } from "@/lib/shop";
-import { Mail, Phone, MapPin, Clock, ShieldCheck, CreditCard } from "lucide-react";
+import { Mail, Phone, MapPin, Clock, CreditCard, Video, Users, Instagram } from "lucide-react";
 
 export const Footer: React.FC = () => {
   return (
-    <footer className="relative z-20 border-t border-border-subtle bg-canvas px-6 md:px-12 py-12">
+    <footer className="relative z-20 border-t border-border-subtle bg-canvas px-6 md:px-12 py-12 font-mono text-xs">
       <div className="max-w-7xl mx-auto space-y-10">
-        <div className="flex flex-col lg:flex-row justify-between items-start gap-10">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8 items-start">
           {/* Brand Info & Mission */}
-          <div className="max-w-sm space-y-3">
+          <div className="space-y-4 lg:col-span-1">
             {/* eslint-disable-next-line @next/next/no-img-element -- logo mungil lokal; images.unoptimized=true */}
             <img
               src="/brand/logo-white-clean.png"
@@ -29,91 +31,114 @@ export const Footer: React.FC = () => {
               alt="Kaos Kami"
               className="h-9 w-auto object-contain mb-2 logo-light-mode"
             />
-            <p suppressHydrationWarning className="text-xs font-mono text-text-muted leading-relaxed">
+            <p suppressHydrationWarning className="text-xs text-text-muted leading-relaxed font-sans">
               Platform Sablon DTF 3D Interaktif & Kaos Polos Komunitas Makassar. Melayani pesanan custom satuan dan partai besar dengan jaminan bahan katun combed adem dan presisi cetak digital.
             </p>
-            <a
-              href={shopWaLink("Halo Kaos Kami, saya mau tanya-tanya seputar pemesanan.")}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center gap-2 mt-2 px-4 py-2 rounded-xl bg-[#052e16] border border-[#25D366]/40 text-[#86efac] font-mono text-xs font-bold hover:bg-[#25D366] hover:text-white transition-all"
-            >
-              <Phone size={13} />
-              <span>WHATSAPP CS: {SHOP_PHONE_DISPLAY}</span>
-            </a>
+            {/* Social Media Links */}
+            <div className="flex items-center gap-2 pt-1">
+              <a
+                href={SHOP_TIKTOK_URL}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="w-8 h-8 rounded-xl bg-surface border border-border-subtle hover:border-brand-accent hover:text-brand-accent flex items-center justify-center text-text-muted transition-colors"
+                title="TikTok @kaoskami"
+              >
+                <Video size={14} />
+              </a>
+              <a
+                href={SHOP_FB_COMMUNITY_URL}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="w-8 h-8 rounded-xl bg-surface border border-border-subtle hover:border-[#1877F2] hover:text-[#1877F2] flex items-center justify-center text-text-muted transition-colors"
+                title="Grup Komunitas Facebook"
+              >
+                <Users size={14} />
+              </a>
+              <a
+                href={SHOP_INSTAGRAM_URL}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="w-8 h-8 rounded-xl bg-surface border border-border-subtle hover:border-[#E4405F] hover:text-[#E4405F] flex items-center justify-center text-text-muted transition-colors"
+                title="Instagram @kaoskami.makassar"
+              >
+                <Instagram size={14} />
+              </a>
+              <a
+                href={shopWaLink("Halo Kaos Kami CS, saya ingin bertanya seputar produk.")}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="w-8 h-8 rounded-xl bg-surface border border-border-subtle hover:border-[#25D366] hover:text-[#25D366] flex items-center justify-center text-text-muted transition-colors"
+                title="WhatsApp Resmi"
+              >
+                <Phone size={14} />
+              </a>
+            </div>
           </div>
 
-          {/* Duitku Verified Merchant Support Card */}
-          <div className="p-4 rounded-2xl bg-surface border border-border-subtle space-y-2.5 font-mono text-xs max-w-md w-full">
-            <div className="flex items-center gap-2 text-brand-accent font-bold text-[11px] uppercase tracking-wider pb-2 border-b border-border-subtle">
-              <ShieldCheck size={15} />
-              <span>KONTAK SUPPORT & ALAMAT USAHA RESMI</span>
-            </div>
-            <div className="space-y-2 text-text-muted text-[11px]">
-              <div className="flex items-start gap-2.5">
-                <Mail size={14} className="text-brand-accent shrink-0 mt-0.5" />
-                <div>
-                  <span className="text-text-primary font-bold block">Email Support & Kemitraan:</span>
-                  <a href={`mailto:${SHOP_EMAIL}`} className="text-text-muted hover:text-brand-accent transition-colors block">
-                    {SHOP_EMAIL}
-                  </a>
-                  <a href={`mailto:${SHOP_SUPPORT_EMAIL}`} className="text-text-muted hover:text-brand-accent transition-colors block">
-                    {SHOP_SUPPORT_EMAIL}
-                  </a>
-                </div>
-              </div>
-              <div className="flex items-start gap-2.5">
-                <Phone size={14} className="text-brand-accent shrink-0 mt-0.5" />
-                <div>
-                  <span className="text-text-primary font-bold block">Nomor Telepon / WhatsApp:</span>
-                  <span className="text-text-muted">{SHOP_PHONE_DISPLAY} (+{SHOP_WHATSAPP})</span>
-                </div>
-              </div>
-              <div className="flex items-start gap-2.5">
+          {/* Workshop & Contact Summary (Clean, Integrated with Theme) */}
+          <div className="space-y-3 lg:col-span-1">
+            <span className="block text-[10px] text-brand-accent font-bold uppercase tracking-widest">
+              WORKSHOP & KANTOR RESMI
+            </span>
+            <div className="space-y-2.5 text-text-muted text-[11px] leading-relaxed">
+              <div className="flex items-start gap-2">
                 <MapPin size={14} className="text-brand-accent shrink-0 mt-0.5" />
-                <div>
-                  <span className="text-text-primary font-bold block">Alamat Usaha / Workshop:</span>
-                  <span className="text-text-muted leading-tight block">{SHOP_WORKSHOP_ADDRESS}</span>
-                </div>
+                <a
+                  href={SHOP_MAPS_URL}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="hover:text-brand-accent transition-colors"
+                >
+                  {SHOP_WORKSHOP_ADDRESS}
+                </a>
               </div>
-              <div className="flex items-center gap-2.5 pt-1">
+              <div className="flex items-center gap-2">
                 <Clock size={14} className="text-brand-accent shrink-0" />
-                <div>
-                  <span className="text-text-primary font-bold inline mr-1.5">Jam Layanan:</span>
-                  <span className="text-text-muted">{SHOP_HOURS}</span>
-                </div>
+                <span>{SHOP_HOURS}</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <Phone size={14} className="text-brand-accent shrink-0" />
+                <a
+                  href={shopWaLink("Halo CS Kaos Kami, saya ingin memesan.")}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="hover:text-brand-accent transition-colors"
+                >
+                  {SHOP_PHONE_DISPLAY}
+                </a>
+              </div>
+              <div className="flex items-center gap-2">
+                <Mail size={14} className="text-brand-accent shrink-0" />
+                <a href={`mailto:${SHOP_EMAIL}`} className="hover:text-brand-accent transition-colors">
+                  {SHOP_EMAIL}
+                </a>
               </div>
             </div>
           </div>
 
           {/* Navigation Links */}
-          <nav className="flex flex-wrap gap-8 text-xs font-mono uppercase tracking-wider" aria-label="Navigasi footer">
-            <div className="space-y-2">
-              <span className="block text-[10px] text-brand-accent font-bold">BELANJA</span>
-              <Link href="/catalog" className="block text-text-muted hover:text-text-primary transition-colors">Katalog Produk</Link>
-              <Link href="/studio" className="block text-text-muted hover:text-text-primary transition-colors">Studio 3D</Link>
-              <Link href="/track" className="block text-text-muted hover:text-text-primary transition-colors">Lacak Pesanan</Link>
-            </div>
-            <div className="space-y-2">
-              <span className="block text-[10px] text-brand-accent font-bold">BANTUAN</span>
-              <Link href="/kalkulator-sablon" className="block text-text-muted hover:text-text-primary transition-colors">Kalkulator Sablon</Link>
-              <Link href="/privacy" className="block text-text-muted hover:text-text-primary transition-colors">Kebijakan Privasi</Link>
-              <Link href="/kredit" className="block text-text-muted hover:text-text-primary transition-colors">Kredit Aset 3D</Link>
-              <a href={shopWaLink("Halo Kaos Kami, saya butuh bantuan pesanan.")} target="_blank" rel="noopener noreferrer" className="block text-text-muted hover:text-text-primary transition-colors">
-                Hubungi Workshop
-              </a>
-            </div>
-            <div className="space-y-2">
-              <span className="block text-[10px] text-brand-accent font-bold">PENGIRIMAN</span>
-              <span className="block text-text-muted">Gratis se-Makassar</span>
-              <span className="block text-text-muted">Ekspedisi nasional</span>
-              <span className="block text-text-muted">Workshop Pick-up</span>
-            </div>
+          <nav className="space-y-2 uppercase tracking-wider text-xs" aria-label="Navigasi belanja">
+            <span className="block text-[10px] text-brand-accent font-bold">BELANJA & PRODUK</span>
+            <Link href="/catalog" className="block text-text-muted hover:text-text-primary transition-colors">Katalog Produk</Link>
+            <Link href="/studio" className="block text-text-muted hover:text-text-primary transition-colors">Studio 3D Mockup</Link>
+            <Link href="/track" className="block text-text-muted hover:text-text-primary transition-colors">Lacak Pesanan</Link>
+            <Link href="/#etalase" className="block text-text-muted hover:text-text-primary transition-colors">Etalase Ready Stock</Link>
+          </nav>
+
+          <nav className="space-y-2 uppercase tracking-wider text-xs" aria-label="Navigasi bantuan & info">
+            <span className="block text-[10px] text-brand-accent font-bold">TENTANG & BANTUAN</span>
+            <Link href="/#tentang-kami" className="block text-text-muted hover:text-text-primary transition-colors">Tentang Kami & Workshop</Link>
+            <Link href="/kalkulator-sablon" className="block text-text-muted hover:text-text-primary transition-colors">Kalkulator Sablon</Link>
+            <Link href="/privacy" className="block text-text-muted hover:text-text-primary transition-colors">Kebijakan Privasi</Link>
+            <Link href="/kredit" className="block text-text-muted hover:text-text-primary transition-colors">Kredit Aset 3D</Link>
+            <a href={shopWaLink("Halo Kaos Kami, saya butuh bantuan pesanan.")} target="_blank" rel="noopener noreferrer" className="block text-text-muted hover:text-text-primary transition-colors">
+              Hubungi Workshop
+            </a>
           </nav>
         </div>
 
         {/* Payment Gateway Compliance & Security Badge */}
-        <div className="pt-6 border-t border-border-subtle flex flex-col sm:flex-row items-center justify-between gap-4 font-mono text-[11px] text-text-muted">
+        <div className="pt-6 border-t border-border-subtle flex flex-col sm:flex-row items-center justify-between gap-4 text-[11px] text-text-muted">
           <div className="flex items-center gap-2 flex-wrap">
             <CreditCard size={14} className="text-brand-accent" />
             <span>Pembayaran Aman Didukung <strong>Duitku Payment Gateway</strong> (QRIS, VA Bank Mandiri, BCA, BNI, BRI, Permata & E-Wallet)</span>

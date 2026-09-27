@@ -232,9 +232,10 @@ export const ClothLab: React.FC = () => {
     return (
       <button
         onClick={() => setOpen(true)}
-        className="w-full py-2.5 rounded-xl bg-surface border border-white/10 hover:border-brand-accent text-[11px] font-mono font-bold text-text-primary transition-all"
+        className="w-full py-2.5 rounded-xl bg-surface border border-white/10 hover:border-brand-accent text-[11px] font-mono font-bold text-text-primary transition-all flex items-center justify-center gap-2 group"
       >
-        🧪 BUKA LAB KAIN (cubit & tarik)
+        <FlaskConical size={14} className="text-brand-accent group-hover:rotate-12 transition-transform" />
+        <span>BUKA LAB KAIN (cubit & tarik)</span>
       </button>
     );
   }

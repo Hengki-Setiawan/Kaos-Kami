@@ -1,0 +1,45 @@
+{
+  "stamp": "20260927-1836",
+  "base": "http://127.0.0.1:3000",
+  "tests": [
+    {
+      "id": "K-001",
+      "status": "PASS",
+      "note": "healthâ†’200 status=degraded db=true"
+    },
+    {
+      "id": "K-009",
+      "status": "PASS",
+      "note": "backupâ†’200 key=backups/kaos-kami-202609271037.sql bytes=1393933 tables=24 rows=3046"
+    },
+    {
+      "id": "K-010",
+      "status": "SKIP",
+      "note": "dump>25MBâ†’413 butuh mock raksasa â€” aktual 1393933 vs ambang 25jt, jujur SKIP"
+    },
+    {
+      "id": "K-011",
+      "status": "PASS",
+      "note": "statusâ†’200 latest=null ageSec=null count=0"
+    },
+    {
+      "id": "K-020",
+      "status": "GAP",
+      "note": "backup ageSec=null (sehat <691200=8hri)"
+    }
+  ],
+  "result": {
+    "key": "backups/kaos-kami-202609271037.sql",
+    "bytes": 1393933,
+    "tables": 24,
+    "rows": 3046,
+    "status": {
+      "success": true,
+      "latestFile": null,
+      "at": null,
+      "ageSec": null,
+      "count": 0
+    }
+  },
+  "at": "2026-09-27T10:39:07.687Z"
+}

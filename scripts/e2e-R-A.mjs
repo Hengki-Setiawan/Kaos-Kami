@@ -430,6 +430,11 @@ async function f12_cmsShipNotif() {
   else {
     let r = await POST(`/api/admin/cms`, { heroTitle: `E2E ${STAMP}`, heroSubtitle: "subtitle E2E" });
     expectStatus("A-059", "CMS hero POST (kembalikan teks semula!)", r, [200, 400]);
+    // Kembalikan teks asli segera agar tidak mengotori hero production
+    await POST(`/api/admin/cms`, {
+      heroTitle: "BIKIN KAOS IMPIANMU\nDENGAN MOCKUP 3D",
+      heroSubtitle: "Platform sablon DTF kustom satuan & kaos polos katun combed berkualitas di Makassar. Simulasikan desainmu 360° secara akurat."
+    });
     r = await POST(`/api/admin/cms/lookbook`, { imageBase64: `data:image/png;base64,${TINY_PNG_B64}`, ext: "png" });
     if (r.status === 200) {
       ok("A-060", "lookbook upload+hapus (+traversal ../x ditolak)");

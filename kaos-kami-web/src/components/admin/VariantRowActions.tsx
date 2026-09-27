@@ -3,22 +3,27 @@
 import React, { useState } from "react";
 import { useRouter } from "next/navigation";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
+import { EditProductModal } from "@/components/admin/EditProductModal";
 
 // Batas harga selaras API (POST = PATCH): floor Rp 1.000, cap Rp 100 jt.
 const PRICE_FLOOR_IDR = 1000;
 const PRICE_CAP_IDR = 100_000_000;
 
-/** Kelola varian: stok +/- (delta server-side), harga, aktif/nonaktif, hapus (soft-off). */
+/** Kelola varian: stok +/- (delta server-side), harga, aktif/nonaktif, edit detail, hapus (soft-off). */
 export function VariantRowActions({
   id,
   stockQty,
   priceIdr,
   isActive,
+  variant,
+  categories,
 }: {
   id: string;
   stockQty: number;
   priceIdr: number;
   isActive: boolean;
+  variant?: any;
+  categories?: any[];
 }) {
   const router = useRouter();
   const [busy, setBusy] = useState(false);
@@ -128,6 +133,9 @@ export function VariantRowActions({
       >
         {isActive ? "AKTIF" : "MATI"}
       </button>
+      {variant && categories && (
+        <EditProductModal variant={variant} categories={categories} />
+      )}
       <button
         onClick={() => setAskingDelete(true)}
         disabled={busy}

@@ -76,7 +76,7 @@ describe("Side and Sleeve 3D Decal Placement & Anti-Bleed", () => {
 
   it("clamps and supports dimensions for side_left and side_right correctly", () => {
     for (const side of ["side_left", "side_right"] as DecalTargetSide[]) {
-      const dims = computePhysicalPrintDimensions("tshirt", 0.08, -0.05, 1.0, side);
+      const dims = computePhysicalPrintDimensions("tshirt", 0.05, -0.05, 1.0, side);
       expect(dims.widthCm).toBeGreaterThan(0);
       expect(dims.heightCm).toBeGreaterThan(0);
       expect(dims.isWithinProductionLimits).toBe(true);

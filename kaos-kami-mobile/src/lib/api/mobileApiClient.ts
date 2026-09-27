@@ -208,7 +208,12 @@ export const mobileApiClient = {
       });
       const user = (response.data as any)?.user;
       if (response.status === 200 && user?.id) {
-        return { id: user.id, name: user.name || '', email: user.email || '', role: (user as any).role || 'CUSTOMER' };
+        const u = { id: user.id, name: user.name || '', email: user.email || '', role: (user as any).role || 'CUSTOMER' };
+        try {
+          localStorage.setItem('kaoskami_cached_admin_session', JSON.stringify(u));
+          localStorage.setItem('kaoskami_user_id', user.id);
+        } catch {}
+        return u;
       }
     } catch {}
     // 2) Fallback PWA/web same-origin: fetch + credentials (WebView cookie).
@@ -218,7 +223,24 @@ export const mobileApiClient = {
         if (r.ok) {
           const d = await r.json().catch(() => null);
           const user = (d as any)?.user;
-          if (user?.id) return { id: user.id, name: user.name || '', email: user.email || '', role: (user as any).role || 'CUSTOMER' };
+          if (user?.id) {
+            const u = { id: user.id, name: user.name || '', email: user.email || '', role: (user as any).role || 'CUSTOMER' };
+            try {
+              localStorage.setItem('kaoskami_cached_admin_session', JSON.stringify(u));
+              localStorage.setItem('kaoskami_user_id', user.id);
+            } catch {}
+            return u;
+          }
+        }
+      }
+    } catch {}
+    // 3) Fallback Offline: jika perangkat offline atau sinyal mati, baca cache lokal
+    try {
+      if (typeof localStorage !== 'undefined') {
+        const cached = localStorage.getItem('kaoskami_cached_admin_session');
+        if (cached) {
+          const parsed = JSON.parse(cached);
+          if (parsed?.id) return parsed;
         }
       }
     } catch {}
@@ -263,6 +285,11 @@ export const mobileApiClient = {
   },
 
   adminSignOut: async (): Promise<void> => {
+    try {
+      localStorage.removeItem('kaoskami_cached_admin_session');
+      localStorage.removeItem('kaoskami_user_id');
+      localStorage.removeItem('kaoskami_auth_session_cache');
+    } catch {}
     try {
       await CapacitorHttp.post({
         url: `${BASE_API_URL}/api/auth/sign-out`,

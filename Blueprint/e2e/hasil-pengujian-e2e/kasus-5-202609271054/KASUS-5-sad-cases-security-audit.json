@@ -1,0 +1,48 @@
+{
+  "kasus": "KASUS 5: PENETRATION & SAD CASES",
+  "results": [
+    {
+      "id": "SEC-IDEMPOTENCY-01",
+      "name": "Double-Click Idempotency Collision Protection",
+      "passed": true,
+      "notes": "Sistem berhasil mencegah pembuatan order ganda berulang dengan Idempotency-Key yang sama."
+    },
+    {
+      "id": "SEC-WEBHOOK-02",
+      "name": "Duitku Webhook MD5 Signature Tampering Rejection",
+      "passed": true,
+      "notes": "Server menolak callback dengan tanda tangan MD5 tidak sah (HTTP 400/401)."
+    },
+    {
+      "id": "SEC-OTP-03",
+      "name": "Wrong / Fake OTP Verification Blocked",
+      "passed": true,
+      "notes": "Server menolak verifikasi OTP salah dengan kode status 400/401."
+    },
+    {
+      "id": "SEC-RBAC-04",
+      "name": "Customer Blocked from Workshop Admin Portal (RBAC)",
+      "passed": true,
+      "notes": "Gerbang RBAC memblokir akun non-admin secara ketat (HTTP 403 Forbidden)."
+    },
+    {
+      "id": "SEC-UNDERPAY-05",
+      "name": "Underpayment Callback Rejection",
+      "passed": true,
+      "notes": "Server mendeteksi ketidaksesuaian nominal order dan menolak update lunas (HTTP 400 Amount mismatch)."
+    },
+    {
+      "id": "SEC-SHIP-06",
+      "name": "Non-Makassar Subdistrict Rejected for Free Delivery",
+      "passed": true,
+      "notes": "Server menolak opsi FREE_MAKASSAR untuk kecamatan di luar wilayah resmi Kota Makassar (HTTP 400)."
+    },
+    {
+      "id": "SEC-PRICE-07",
+      "name": "Server-Side Anti-Tamper Price Recalculation",
+      "passed": true,
+      "notes": "Server mengabaikan manipulasi harga Rp 500 dari browser dan menetapkan nominal asli Rp 89000."
+    }
+  ],
+  "timestamp": "2026-09-27T10:55:47.113Z"
+}

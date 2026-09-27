@@ -150,5 +150,47 @@ describe("Gizmo and 360 Orbit Interaction Verification", () => {
     expect(elongationPercent("horizontal", 0.5)).toBeCloseTo(15, 4);
     expect(elongationPercent("vertical", 0)).toBeCloseTo(0, 4);
   });
+
+  it("verifies Camera ViewOffset synchronization formula translates Drei Html wrapper exactly to WebGL shift", () => {
+    // Simulasi: Lebar layar 1440px, tinggi 900px
+    const W = 1440;
+    const H = 900;
+    const camera = new THREE.PerspectiveCamera(40, W / H, 0.1, 100);
+    const targetPixelOffset = 280; // Drawer terbuka di kiri -> t-shirt digeser +280px ke kanan
+
+    // CameraRig menerapkan setViewOffset(W, H, -targetPixelOffset, 0, W, H)
+    camera.setViewOffset(W, H, -targetPixelOffset, 0, W, H);
+    expect(camera.view?.enabled).toBe(true);
+    expect(camera.view?.offsetX).toBe(-280);
+
+    // Titik pusat sablon di dunia 3D (0, 0, 0)
+    const worldPoint = new THREE.Vector3(0, 0, -2.0); // di depan kamera
+
+    // 1. Proyeksi WebGL (Three.js camera.project)
+    const ndcPoint = worldPoint.clone().project(camera);
+    // Konversi NDC ke koordinat piksel layar: (ndc + 1) / 2 * W
+    const screenPixelX = ((ndcPoint.x + 1) / 2) * W;
+
+    // Kamera tanpa viewOffset
+    const cameraUnshifted = new THREE.PerspectiveCamera(40, W / H, 0.1, 100);
+    const ndcUnshifted = worldPoint.clone().project(cameraUnshifted);
+    const unshiftedPixelX = ((ndcUnshifted.x + 1) / 2) * W;
+
+    // Selisih pergeseran WebGL harus PERSIS 280 piksel ke kanan
+    const webglShiftX = screenPixelX - unshiftedPixelX;
+    expect(webglShiftX).toBeCloseTo(280, 2);
+
+    // 2. Drei <Html transform> wrapper compensation:
+    // Drei secara native memproyeksikan dari unshifted center (W/2, H/2).
+    // Rumus fix di DecalGizmo.tsx:
+    // offX = -camera.view.offsetX
+    const offX = -(camera.view?.offsetX ?? 0);
+    expect(offX).toBe(280);
+
+    // Total posisi layar gizmo setelah kompensasi: unshiftedPixelX + offX
+    const compensatedGizmoScreenX = unshiftedPixelX + offX;
+    expect(compensatedGizmoScreenX).toBeCloseTo(screenPixelX, 2);
+  });
 });
+
 
