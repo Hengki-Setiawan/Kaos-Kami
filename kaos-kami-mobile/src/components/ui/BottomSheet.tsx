@@ -2,6 +2,7 @@
 
 import React from 'react';
 import { Drawer } from 'vaul';
+import { Z_CLASS_DRAWER, Z_CLASS_MODAL } from '@/lib/zIndex';
 
 export interface BottomSheetProps {
   open: boolean;
@@ -43,8 +44,8 @@ export function BottomSheet({
       repositionInputs={true}
     >
       <Drawer.Portal>
-        <Drawer.Overlay className="fixed inset-0 bg-black/60 backdrop-blur-sm z-40" />
-        <Drawer.Content className="fixed bottom-0 left-0 right-0 sm:max-w-lg sm:mx-auto bg-surface border-t border-border-subtle rounded-t-[28px] outline-none h-[88dvh] flex flex-col pb-[env(safe-area-inset-bottom)] z-50 shadow-2xl transition-colors">
+        <Drawer.Overlay className={`fixed inset-0 bg-black/60 backdrop-blur-sm ${Z_CLASS_DRAWER}`} />
+        <Drawer.Content className={`fixed bottom-0 left-0 right-0 sm:max-w-lg sm:mx-auto bg-surface border-t border-border-subtle rounded-t-[28px] outline-none h-[88dvh] flex flex-col pb-[env(safe-area-inset-bottom)] ${Z_CLASS_MODAL} shadow-2xl transition-colors`}>
           {/* Native Grab Handle */}
           <div className="pt-3 pb-2 flex-shrink-0 cursor-grab active:cursor-grabbing">
             <div className="mx-auto w-12 h-1.5 rounded-full bg-white/25" />
@@ -52,7 +53,7 @@ export function BottomSheet({
 
           {(title || description) && (
             <div className="px-5 pb-3 border-b border-border-subtle flex-shrink-0 transition-colors">
-              {title && <h3 className="text-base font-bold text-text-primary font-['Syne']">{title}</h3>}
+              {title && <h3 className="text-base font-bold text-text-primary font-sans">{title}</h3>}
               {description && <p className="text-xs text-text-muted mt-0.5">{description}</p>}
             </div>
           )}

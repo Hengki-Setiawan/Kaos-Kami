@@ -262,7 +262,7 @@ async function f04_cancelRefundCompleted(oPendingCoupon, oPaidEarly, oShipped, o
   if (!oPaidEarly) skip("A-017", "cancel lunas -> 400", "order PAYMENT_CONFIRMED tak ada â€” SKIP.");
   else { r = await PATCH(`/api/admin/orders/${oPaidEarly.id}`, { cancel: true }); expectStatus("A-017", "cancel lunas -> 400", r, 400); }
   if (!oShipped) skip("A-018", "refund rantai SHIPPED (DESTRUKTIF)", "order SHIPPED stamp-sendiri tak ada â€” SKIP.");
-  else { await guardDestructive(oShipped.orderNumber); r = await PATCH(`/api/admin/orders/${oShipped.id}`, { refund: true }); expectStatus("A-018", `refund ${oShipped.orderNumber} -> REFUNDED + kupon restore (dana manual via dashboard Duitku, catat!)`, r, 200); }
+  else { await guardDestructive(oShipped.orderNumber); r = await PATCH(`/api/admin/orders/${oShipped.id}`, { refund: true }); expectStatus("A-018", `refund ${oShipped.orderNumber} -> REFUNDED + kupon restore (dana manual via dashboard iPaymu, catat!)`, r, 200); }
   if (!oCompleted) skip("A-019", "refund COMPLETED -> 400", "order COMPLETED tak ada â€” SKIP.");
   else { r = await PATCH(`/api/admin/orders/${oCompleted.id}`, { refund: true }); expectStatus("A-019", "refund terminal -> 400", r, 400); }
   if (!oTaskOpen) skip("A-020", "COMPLETED saat task PRINTING -> 400", "order task-terbuka tak ada â€” SKIP.");
@@ -449,8 +449,8 @@ async function f12_cmsShipNotif() {
     expectStatus("A-062", "notif summary null-safe 6 metrik (tak pernah 500)", r, 200);
   }
   report.manualUi.push(
-    "A-009: /admin/review badge overdue >24h + submit approve+reject via ReviewCard.",
-    "A-010: AdminBell polling needsReview+needsReviewOverdue24h -> klik ke antrean.",
+    "A-009: /admin/orders filter status=DESIGN_REVIEW + badge overdue >24h, buka detail /admin/orders/<id>, submit approve + reject (catat reviewNote tampil di invoice).",
+    "A-010: AdminBell polling needsReview+needsReviewOverdue24h -> klik ke /admin/orders?status=DESIGN_REVIEW.",
     "A-065: /admin/catalog tambah via AddProductModal + stok/harga via VariantRowActions + hapus 1 jalur.",
     "A-066: /admin/coupons buat expiresAt/maxUses/isActive + paginasi + usedCount live.",
     "A-067: /admin/shipping CRUD zona + toggle + bar % usage + ConfirmDialog.",

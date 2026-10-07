@@ -2,7 +2,6 @@
 
 import React from "react";
 import {
-  RotateCw,
   ScanEye,
   Crosshair,
 } from "lucide-react";
@@ -67,22 +66,12 @@ export const InspectControls: React.FC = () => {
           <ScanEye size={15} className="text-brand-accent" />
           <span>INSPEKSI DESAIN 3D</span>
         </span>
-        <span className="text-[10px] font-mono font-bold uppercase px-2 py-0.5 rounded-full border border-border-subtle text-text-muted">
+        <span className="text-[10px] font-sans font-bold uppercase px-2 py-0.5 rounded-full border border-border-subtle text-text-muted">
           {getModeLabel()}
         </span>
       </div>
 
-      <div className="grid grid-cols-3 gap-1.5">
-        <button
-          type="button"
-          onClick={() => pick("turntable")}
-          aria-pressed={inspectMode === "turntable"}
-          className={btn(inspectMode === "turntable")}
-        >
-          <RotateCw size={15} className={inspectMode === "turntable" ? "animate-spin" : ""} />
-          <span>TURNTABLE</span>
-        </button>
-
+      <div className="grid grid-cols-2 gap-1.5">
         <button
           type="button"
           onClick={() => pick("bleed")}

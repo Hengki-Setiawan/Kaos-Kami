@@ -81,7 +81,7 @@ export class DuitkuPaymentProvider {
    * MD5(merchantCode + merchantOrderId + paymentAmount + apiKey)
    */
   public generateInquirySignature(orderNumber: string, amount: number): string {
-    // FAIL-CLOSED: jangan pernah tanda-tangani dengan secret kosong.
+    // Validasi konfigurasi sebelum menandatangani (secret wajib terisi).
     this.assertConfigured();
     const raw = `${this.merchantCode}${orderNumber}${amount}${this.apiKey}`;
     return crypto.createHash("md5").update(raw).digest("hex");
@@ -91,7 +91,7 @@ export class DuitkuPaymentProvider {
    * Verifies MD5 signature from Duitku Callback Webhook:
    * MD5(merchantCode + amount + merchantOrderId + apiKey)
    * PLUS HMAC-SHA256 varian dokumentasi baru (merchantCode+amount+orderId).
-   * Dua-duanya diterima: jika Duitku migrasi format, callback asli tetap lolos
+   * Dua-duanya diterima: jika format callback bermigrasi, callback asli tetap lolos
    * (terverifikasi: sandbox masih MD5; HMAC disiapkan untuk rotasi).
    */
   public verifyCallbackSignature(
@@ -100,9 +100,8 @@ export class DuitkuPaymentProvider {
     merchantOrderId: string,
     signature: string
   ): boolean {
-    // FAIL-CLOSED: jangan pernah verifikasi dengan secret kosong — callback
-    // palsu bisa dibuat dari MD5(merchantCode+amount+orderId+""). Webhook
-    // wajib cek assertDuitkuConfigured() dulu (503), ini pertahanan lapis-2.
+    // Validasi konfigurasi sebelum verifikasi — callback dengan secret kosong
+    // ditolak. Webhook wajib cek assertDuitkuConfigured() dulu (503).
     if (!this.apiKey || !this.merchantCode) return false;
     const sig = (signature || "").toLowerCase();
     const md5 = crypto
@@ -181,7 +180,7 @@ export class DuitkuPaymentProvider {
       const data = await response.json();
 
       // Sandbox mengembalikan {"Message": "..."} + HTTP 4xx bila item tidak
-      // balance (paymentAmount != Σ item) — teruskan pesannya apa adanya.
+      // balance (paymentAmount != Σ item) — pesan diteruskan apa adanya.
       if (data.statusCode && data.statusCode !== "00") {
         throw new Error(data.statusMessage || `Duitku Error: ${data.statusCode}`);
       }
@@ -202,8 +201,7 @@ export class DuitkuPaymentProvider {
         statusMessage: data.statusMessage || "SUCCESS",
       };
     } catch (err: any) {
-      // FAIL-CLOSED: jangan pernah return SUCCESS palsu. Caller (checkout) akan
-      // mengubahnya jadi 502 + Sentry, order tetap PENDING_PAYMENT dan bisa retry.
+      // Teruskan error ke caller (checkout): order tetap PENDING_PAYMENT dan bisa retry.
       console.error("Duitku createCharge error:", err);
       throw new Error(`Duitku charge gagal: ${err?.message || "unknown error"}`);
     }

@@ -3,12 +3,13 @@
 import React, { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 
+import { DirectQrisModal } from "@/components/ui/DirectQrisModal";
+
 /**
  * Bayar ulang (repay) dengan gerbang OTP WA — backend
  * POST /api/orders/:id/repay mewajibkan {phoneNumber, otpCode} milik
  * pemilik order (401/403 tanpa itu). Alur: nomor WA → kirim kode →
- * masukkan 6 digit → link baru. Link lama yang masih berlaku TIDAK
- * diputar (409) — user diarahkan pakai link lama.
+ * masukkan 6 digit → link baru / Direct QRIS modal.
  */
 type Step = "idle" | "phone" | "code" | "busy" | "error";
 
@@ -38,12 +39,28 @@ async function postJson<T>(url: string, body: unknown, timeoutMs = 25000): Promi
   }
 }
 
-export function RepayButton({ orderId }: { orderId: string }) {
+export function RepayButton({
+  orderId,
+  orderNumber,
+  totalAmountIdr,
+}: {
+  orderId: string;
+  orderNumber?: string;
+  totalAmountIdr?: number;
+}) {
   const [step, setStep] = useState<Step>("idle");
   const [phone, setPhone] = useState("");
   const [code, setCode] = useState("");
   const [msg, setMsg] = useState("");
   const [busy, setBusy] = useState(false);
+  const [qrisData, setQrisData] = useState<{
+    orderId: string;
+    orderNumber: string;
+    amountIdr: number;
+    qrImage?: string;
+    qrString?: string;
+    invoiceUrl?: string;
+  } | null>(null);
 
   const sendCode = async () => {
     const p = phone.trim();
@@ -72,7 +89,13 @@ export function RepayButton({ orderId }: { orderId: string }) {
     setBusy(true);
     setMsg("");
     try {
-      const data = await postJson<{ paymentUrl?: string; alreadyPaid?: boolean }>(
+      const data = await postJson<{
+        paymentUrl?: string;
+        qrString?: string;
+        qrImage?: string;
+        alreadyPaid?: boolean;
+        reference?: string;
+      }>(
         `/api/orders/${orderId}/repay`,
         { phoneNumber: phone.trim(), otpCode: code.trim() },
         30000
@@ -81,6 +104,21 @@ export function RepayButton({ orderId }: { orderId: string }) {
         window.location.reload();
         return;
       }
+
+      // Jika Direct QRIS tersedia, buka modal in-app langsung tanpa lempar ke web luar!
+      if (data.qrImage || data.qrString) {
+        setQrisData({
+          orderId,
+          orderNumber: orderNumber || orderId,
+          amountIdr: totalAmountIdr || 0,
+          qrImage: data.qrImage,
+          qrString: data.qrString,
+          invoiceUrl: `/orders/${orderId}`,
+        });
+        setStep("idle");
+        return;
+      }
+
       if (!data.paymentUrl) throw new Error("Link bayar tidak tersedia");
       window.location.href = data.paymentUrl;
     } catch (e: any) {
@@ -105,7 +143,7 @@ export function RepayButton({ orderId }: { orderId: string }) {
             setStep("phone");
             setMsg("");
           }}
-          className="w-full py-3 px-4 rounded-xl bg-brand-accent text-canvas font-mono font-bold text-xs uppercase tracking-wider hover:brightness-110 active:scale-[0.99] transition-all"
+          className="w-full py-3 px-4 rounded-xl bg-brand-accent text-canvas font-sans font-bold text-xs uppercase tracking-wider hover:brightness-110 active:scale-[0.99] transition-all"
         >
           💳 BAYAR ULANG SEKARANG
         </button>
@@ -129,7 +167,7 @@ export function RepayButton({ orderId }: { orderId: string }) {
             <button
               onClick={sendCode}
               disabled={busy}
-              className="w-full py-2.5 px-4 rounded-xl bg-white/10 font-mono font-bold text-xs uppercase tracking-wider hover:bg-white/20 disabled:opacity-50 transition-all"
+              className="w-full py-2.5 px-4 rounded-xl bg-white/10 font-sans font-bold text-xs uppercase tracking-wider hover:bg-white/20 disabled:opacity-50 transition-all"
             >
               {busy ? "MENGIRIM…" : "KIRIM KODE OTP"}
             </button>
@@ -148,7 +186,7 @@ export function RepayButton({ orderId }: { orderId: string }) {
               <button
                 onClick={repay}
                 disabled={busy}
-                className="w-full py-2.5 px-4 rounded-xl bg-brand-accent text-canvas font-mono font-bold text-xs uppercase tracking-wider hover:brightness-110 disabled:opacity-50 transition-all"
+                className="w-full py-2.5 px-4 rounded-xl bg-brand-accent text-canvas font-sans font-bold text-xs uppercase tracking-wider hover:brightness-110 disabled:opacity-50 transition-all"
               >
                 {busy ? "MEMBUAT LINK…" : "VERIFIKASI & BAYAR ULANG"}
               </button>
@@ -174,6 +212,22 @@ export function RepayButton({ orderId }: { orderId: string }) {
         <p role="status" className="font-mono text-[11px] text-amber-300 text-center">
           {msg}
         </p>
+      )}
+
+      {qrisData && (
+        <DirectQrisModal
+          isOpen={Boolean(qrisData)}
+          onClose={() => setQrisData(null)}
+          orderId={qrisData.orderId}
+          orderNumber={qrisData.orderNumber}
+          amountIdr={qrisData.amountIdr}
+          qrImage={qrisData.qrImage}
+          qrString={qrisData.qrString}
+          invoiceUrl={qrisData.invoiceUrl}
+          onPaymentSuccess={() => {
+            window.location.reload();
+          }}
+        />
       )}
     </div>
   );

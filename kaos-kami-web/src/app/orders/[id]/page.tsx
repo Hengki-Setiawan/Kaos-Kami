@@ -18,6 +18,7 @@ import {
   Truck,
   Smartphone,
   Download,
+  AlertCircle,
 } from "lucide-react";
 
 interface OrderReceiptPageProps {
@@ -76,7 +77,7 @@ export default async function OrderReceiptPage({ params, searchParams }: OrderRe
     return maskEmailLib(e) || "-";
   };
 
-  // Banner status server (+ ?status=error/pending dari redirect Duitku — dulu diabaikan).
+  // Banner status server (+ ?status=error/pending dari redirect provider).
   const isPaid = !["PENDING_PAYMENT", "CANCELLED", "REFUNDED"].includes(order.status);
   const isSuccess = sp.status === "success" && isPaid;
   const queryFlag = typeof sp.status === "string" ? sp.status : null;
@@ -140,10 +141,20 @@ export default async function OrderReceiptPage({ params, searchParams }: OrderRe
         <PrintInvoiceButton />
       </div>
 
+      {/* Tautan invoice kanonis (UI-only, tanpa ubah logika invoice existing). */}
+      <div className="print:hidden">
+        <Link
+          href={`/invoices/${order.id}`}
+          className="font-mono text-[11px] text-brand-accent hover:underline"
+        >
+          Buka invoice kanonis →
+        </Link>
+      </div>
+
       {/* Official Workshop Letterhead (Visible ONLY during Printing) */}
       <div className="hidden print:block pb-4 mb-4 border-b-2 border-black text-center font-mono">
         <h1 className="text-xl font-black uppercase tracking-wider text-black">
-          KAOS KAMI MAKASSAR — DTF PRINT & SABLON WORKSHOP
+          KAOS KAMI MAKASSAR · DTF PRINT & SABLON WORKSHOP
         </h1>
         <p className="text-xs text-black mt-1">
           Spesialis Sablon Digital Transfer Film & Interactive 3D Customizer
@@ -160,25 +171,60 @@ export default async function OrderReceiptPage({ params, searchParams }: OrderRe
           <div className="w-16 h-16 rounded-full bg-brand-accent/20 border border-brand-accent/40 text-brand-accent flex items-center justify-center mx-auto mb-3 print:hidden">
             {isSuccess ? <CheckCircle2 size={32} /> : <Clock size={32} />}
           </div>
-          <span className="inline-block px-3 py-1 rounded-full font-mono text-[11px] font-bold uppercase tracking-wider bg-brand-accent/15 text-brand-accent border border-brand-accent/30 print:bg-gray-100 print:text-black print:border-black">
+          <span className="inline-block px-3 py-1 rounded-full font-sans text-[11px] font-bold uppercase tracking-wider bg-brand-accent/15 text-brand-accent border border-brand-accent/30 print:bg-gray-100 print:text-black print:border-black">
             STATUS: {order.status.replace(/_/g, " ")}
           </span>
-          <h1 className="font-display text-2xl sm:text-3xl font-black uppercase tracking-tight text-text-primary print:text-black print:text-2xl">
+          <h1 className="font-sans text-2xl sm:text-3xl font-bold uppercase tracking-tight text-text-primary print:text-black print:text-2xl">
             {isSuccess ? "PESANAN BERHASIL DITERIMA" : "INVOICE RESMI PEMESANAN"}
           </h1>
           {showPayError && (
             <p className="font-mono text-xs text-rose-400 font-bold print:hidden">
-              ⚠️ Pembayaran gagal/dibatalkan — pesanan masih PENDING. Klik BAYAR ULANG di bawah atau minta link baru via WhatsApp.
+              ⚠️ Pembayaran gagal/dibatalkan: pesanan masih PENDING. Klik BAYAR ULANG di bawah atau minta link baru via WhatsApp.
             </p>
           )}
           {showPayPending && (
             <p className="font-mono text-xs text-amber-400 font-bold print:hidden">
-              ⏳ Pembayaran masih diproses — status berubah otomatis bila lunas (tunggu ~1 menit lalu muat ulang).
+              ⏳ Pembayaran masih diproses: status berubah otomatis bila lunas (tunggu ~1 menit lalu muat ulang).
             </p>
           )}
           <p className="font-mono text-xs text-text-muted print:text-black">
             Nomor Pesanan: <span className="text-text-primary print:text-black font-bold font-mono text-sm">{order.orderNumber}</span>
           </p>
+
+          {/* Banner Alasan Khusus: REJECTED, CANCELLED, REFUNDED */}
+          {(order.status === "REJECTED" || order.status === "CANCELLED" || order.status === "REFUNDED") && (
+            <div className={`mt-4 p-4 rounded-xl text-left font-sans space-y-2 border print:border-black ${
+              order.status === "REFUNDED"
+                ? "bg-amber-500/10 border-amber-500/30 text-amber-200"
+                : "bg-rose-500/10 border-rose-500/30 text-rose-200"
+            }`}>
+              <div className="flex items-center gap-2 font-bold text-xs uppercase tracking-wider">
+                <AlertCircle size={16} className={order.status === "REFUNDED" ? "text-amber-400 shrink-0" : "text-rose-400 shrink-0"} />
+                <span>
+                  {order.status === "REJECTED" && "Desain Ditolak oleh Tim Kaos Kami"}
+                  {order.status === "CANCELLED" && "Pesanan Dibatalkan oleh Workshop"}
+                  {order.status === "REFUNDED" && "Dana Telah Dikembalikan (Refund)"}
+                </span>
+              </div>
+              <div className="pl-6 text-xs text-text-primary space-y-1">
+                <p className="text-text-muted font-medium text-[11px] uppercase tracking-wider">Catatan & Alasan dari Tim Workshop:</p>
+                <p className="font-semibold text-sm text-white bg-black/30 p-2.5 rounded-lg border border-white/5">
+                  {order.reviewNote || "Tidak ada catatan spesifik. Silakan hubungi CS WhatsApp kami untuk bantuan lebih lanjut."}
+                </p>
+              </div>
+              <div className="pl-6 pt-1">
+                <a
+                  href={waLink}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1.5 text-xs font-bold text-brand-accent hover:underline uppercase"
+                >
+                  <MessageCircle size={13} />
+                  <span>Hubungi CS WhatsApp Terkait Pesanan Ini →</span>
+                </a>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Order Details Grid */}
@@ -237,7 +283,7 @@ export default async function OrderReceiptPage({ params, searchParams }: OrderRe
 
         {/* Line Items List */}
         <div className="space-y-3 pt-2">
-          <h3 className="font-mono text-xs font-bold uppercase tracking-wider text-text-muted print:text-black">
+          <h3 className="font-sans text-xs font-bold uppercase tracking-wider text-text-muted print:text-black">
             RINCIAN ITEM SABLON DTF
           </h3>
           <div className="divide-y divide-border-subtle border border-border-subtle rounded-xl bg-surface/30 overflow-hidden font-mono text-xs print:bg-white print:border-black print:divide-black">
@@ -281,7 +327,7 @@ export default async function OrderReceiptPage({ params, searchParams }: OrderRe
           </div>
           {order.payment && (
             <div className="flex justify-between text-text-muted pt-1 print:text-black">
-              <span>Pembayaran ({order.payment.method || "Duitku"})</span>
+              <span>Pembayaran ({order.payment.method || "iPaymu QRIS"})</span>
               <span className="font-bold text-text-primary print:text-black">{order.payment.status}</span>
             </div>
           )}
@@ -347,7 +393,11 @@ export default async function OrderReceiptPage({ params, searchParams }: OrderRe
         <div className="pt-2 flex flex-col sm:flex-row gap-3 print:hidden">
           {needsPayLink && (
             <div className="flex-1 space-y-2">
-              <RepayButton orderId={order.id} />
+              <RepayButton
+                orderId={order.id}
+                orderNumber={order.orderNumber}
+                totalAmountIdr={order.totalIdr}
+              />
               <a
                 href={waPayLink}
                 target="_blank"
@@ -362,7 +412,7 @@ export default async function OrderReceiptPage({ params, searchParams }: OrderRe
             href={waLink}
             target="_blank"
             rel="noopener noreferrer"
-            className="flex-1 py-3 px-4 rounded-xl bg-[#25D366] text-white font-mono font-bold text-xs uppercase tracking-wider hover:brightness-110 active:scale-95 transition-all dark:shadow-[0_0_16px_rgba(37,211,102,0.3)] flex items-center justify-center gap-2 text-center"
+            className="flex-1 py-3 px-4 rounded-xl bg-[#25D366] text-white font-sans font-bold text-xs uppercase tracking-wider hover:brightness-110 active:scale-95 transition-all dark:shadow-[0_0_16px_rgba(37,211,102,0.3)] flex items-center justify-center gap-2 text-center"
           >
             <MessageCircle size={15} />
             <span>KONFIRMASI VIA WHATSAPP (MANUAL)</span>
@@ -396,7 +446,7 @@ export default async function OrderReceiptPage({ params, searchParams }: OrderRe
 
           <Link
             href="/studio"
-            className="py-3 px-5 rounded-xl bg-surface border border-border-subtle text-text-primary hover:border-brand-accent hover:text-brand-accent font-mono font-bold text-xs uppercase tracking-wider transition-all text-center flex items-center justify-center"
+            className="py-3 px-5 rounded-xl bg-surface border border-border-subtle text-text-primary hover:border-brand-accent hover:text-brand-accent font-sans font-bold text-xs uppercase tracking-wider transition-all text-center flex items-center justify-center"
           >
             BUAT DESAIN LAIN
           </Link>

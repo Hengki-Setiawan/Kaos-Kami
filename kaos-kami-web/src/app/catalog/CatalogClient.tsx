@@ -42,6 +42,10 @@ export function CatalogClient() {
   const [notice, setNotice] = useState<string | null>(null);
   const [selectedFilter, setSelectedFilter] = useState<string>("ALL");
   const [selectedSizeFilter, setSelectedSizeFilter] = useState<string>("ALL");
+  // Filter pill kategori model (client-side, cermin StoreShowcase):
+  // KAOS = tshirt/longsleeve, HOODIE = hoodie/crewneck, JAKET = shirt
+  // (alias legacy "jacket"), AKSESORI = cap/pants/shorts (mockup-saja).
+  const [selectedCategory, setSelectedCategory] = useState<string>("ALL");
 
   const addItem = useCartStore((s) => s.addItem);
   const { setActiveApparel, setSelectedColor, setSelectedSize, setViewMode } = useConfiguratorStore(
@@ -74,10 +78,31 @@ export function CatalogClient() {
     fetchProducts();
   }, []);
 
+  // Normalisasi slug → kanonis APPAREL_CATALOG (cermin handleOpenInStudio).
+  const canonicalSlugOf = (p: ProductVariantItem): string => {
+    const raw = (p.category?.slug || "").trim().toLowerCase();
+    if ((Object.keys(APPAREL_CATALOG) as string[]).includes(raw)) return raw;
+    return APPAREL_SLUG_ALIASES[raw] || "tshirt";
+  };
+  const matchesCategory = (p: ProductVariantItem): boolean => {
+    if (selectedCategory === "ALL") return true;
+    const slug = canonicalSlugOf(p);
+    if (selectedCategory === "KAOS") return slug === "tshirt" || slug === "longsleeve";
+    if (selectedCategory === "HOODIE") return slug === "hoodie" || slug === "crewneck";
+    if (selectedCategory === "JAKET") return slug === "shirt";
+    if (selectedCategory === "AKSESORI") return slug === "cap" || slug === "pants" || slug === "shorts";
+    return true;
+  };
+
   const filteredProducts = products.filter((p) => {
-    if (selectedFilter === "READY_MADE" && p.isPreDesigned) return false;
-    if (selectedFilter === "LIMITED_DROP" && !p.isPreDesigned) return false;
-    if (selectedSizeFilter !== "ALL" && p.size !== selectedSizeFilter) return false;
+    if (selectedSizeFilter !== "ALL") {
+      const sizesArr = (p as any).sizes;
+      const hasSize = Array.isArray(sizesArr) && sizesArr.length > 0
+        ? sizesArr.some((s: any) => s.size === selectedSizeFilter && (s.stockQty ?? 0) > 0)
+        : p.size === selectedSizeFilter;
+      if (!hasSize) return false;
+    }
+    if (!matchesCategory(p)) return false;
     return true;
   });
 
@@ -137,41 +162,38 @@ export function CatalogClient() {
         {/* Page Header */}
         <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-4 pb-6 border-b border-border-subtle">
           <div>
-            <span className="block text-xs font-mono text-brand-accent uppercase tracking-widest mb-1 font-bold">
+            <span className="block text-xs font-sans text-brand-accent uppercase tracking-widest mb-1 font-bold">
               KATALOG RESMI MAKASSAR
             </span>
-            <h1 className="text-3xl sm:text-4xl md:text-5xl font-display font-black uppercase tracking-tight text-text-primary">
+            <h1 className="font-sans font-bold text-2xl tracking-tight text-text-primary">
               KOLEKSI PAKAIAN JADI
             </h1>
-            <p className="font-mono text-xs text-text-muted mt-2 max-w-xl leading-relaxed">
-              Pilihan pakaian siap kirim hari ini di Makassar. Kaos polos combed 24s & 30s berkualitas tinggi serta pakaian edisi sablon DTF.
+            <p className="font-sans text-xs text-text-muted mt-2 max-w-xl leading-relaxed">
+              Pilihan pakaian siap kirim hari ini di Makassar. Kaos katun combed 24s premium berkualitas tinggi serta pakaian edisi sablon DTF siap pakai.
             </p>
           </div>
-
-          <Link
-            href="/studio"
-            className="flex items-center space-x-2 px-5 py-3 rounded-full bg-brand-accent text-canvas font-mono font-bold text-xs uppercase tracking-wider hover:brightness-110 active:scale-95 transition-all dark:shadow-[0_0_20px_rgba(230,81,0,0.35)]"
-          >
-            <span>KUSTOM SABLON DTF</span>
-          </Link>
         </div>
 
         {/* Filter Bar */}
-        <div className="flex flex-wrap items-center justify-between gap-4 font-mono text-xs">
+        <div className="flex flex-wrap items-center justify-between gap-4 font-sans text-xs">
+          {/* Filter pill kategori model (client-side, cermin StoreShowcase) */}
           <div className="flex items-center gap-2 overflow-x-auto max-w-full pb-1 -mx-1 px-1">
             <Filter size={13} className="text-text-muted" />
-            <span className="text-text-muted font-bold mr-1">KATEGORI:</span>
+            <span className="text-text-muted font-bold mr-1">KOLEKSI:</span>
             {[
               { id: "ALL", label: "SEMUA PRODUK" },
-              { id: "READY_MADE", label: "KAOS POLOS" },
-              { id: "LIMITED_DROP", label: "EDISI SABLON" },
+              { id: "KAOS", label: "KAOS" },
+              { id: "HOODIE", label: "HOODIE" },
+              { id: "JAKET", label: "JAKET" },
+              { id: "AKSESORI", label: "AKSESORI" },
             ].map((f) => (
               <button
                 key={f.id}
-                onClick={() => setSelectedFilter(f.id)}
-                aria-pressed={selectedFilter === f.id}
+                onClick={() => setSelectedCategory(f.id)}
+                aria-pressed={selectedCategory === f.id}
+                aria-label={f.id === "ALL" ? "Semua koleksi" : `Kategori ${f.label}`}
                 className={`shrink-0 whitespace-nowrap min-h-[44px] px-3 py-1.5 rounded-full border transition-all ${
-                  selectedFilter === f.id
+                  selectedCategory === f.id
                     ? "bg-brand-accent text-canvas border-brand-accent font-bold"
                     : "bg-surface border-border-subtle text-text-muted hover:text-text-primary"
                 }`}
@@ -210,7 +232,7 @@ export function CatalogClient() {
 
         {/* Products Grid */}
         {notice && (
-          <div className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/30 font-mono text-xs text-amber-300 flex justify-between items-center">
+          <div className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/30 font-sans text-xs text-amber-300 flex justify-between items-center">
             <span>{notice}</span>
             <button onClick={() => setNotice(null)} className="font-bold px-2" aria-label="Tutup peringatan">
               ✕
@@ -234,7 +256,7 @@ export function CatalogClient() {
             ))}
           </div>
         ) : fetchError ? (
-          <div className="py-24 text-center font-mono text-xs text-rose-300 p-8 rounded-2xl bg-rose-500/5 border border-rose-500/20 space-y-3">
+          <div className="py-24 text-center font-sans text-xs text-rose-300 p-8 rounded-2xl bg-rose-500/5 border border-rose-500/20 space-y-3">
             <p className="font-bold">Katalog tidak bisa dimuat</p>
             <p className="text-text-muted">{fetchError}</p>
             <button
@@ -245,7 +267,7 @@ export function CatalogClient() {
             </button>
           </div>
         ) : filteredProducts.length === 0 ? (
-          <div className="py-24 text-center font-mono text-xs text-text-muted p-8 rounded-2xl bg-surface/50 border border-border-subtle">
+          <div className="py-24 text-center font-sans text-xs text-text-muted p-8 rounded-2xl bg-surface/50 border border-border-subtle">
             <p>Belum ada produk yang sesuai dengan filter pilihan Anda.</p>
           </div>
         ) : (
@@ -257,9 +279,8 @@ export function CatalogClient() {
               >
                 {/* Product Image & Badges */}
                 <div className="relative aspect-[4/5] bg-surface overflow-hidden">
-                  {/* CWV: next/image + sizes responsif; kartu pertama priority (LCP). */}
                   <Image
-                    src={(Array.isArray(p.images) && p.images[0]) || "/lookbook/look-01.jpg"}
+                    src={(Array.isArray(p.images) && p.images[0]) || "/products/tshirt-orange-makassar.jpg"}
                     alt={p.name}
                     width={800}
                     height={1000}
@@ -267,24 +288,32 @@ export function CatalogClient() {
                     sizes="(max-width: 768px) 100vw, 33vw"
                     priority={idx === 0}
                     loading={idx === 0 ? undefined : "lazy"}
+                    unoptimized={true}
+                    onError={(e) => {
+                      const t = e.target as HTMLImageElement;
+                      const fallback = "/products/tshirt-orange-makassar.jpg";
+                      if (!t.src.endsWith(fallback)) t.src = fallback;
+                    }}
                   />
                   <div className="absolute inset-0 bg-gradient-to-t from-black/40 dark:from-black/80 via-transparent to-transparent opacity-60 group-hover:opacity-40 transition-opacity" />
 
                   {/* Top Badges (Clean, No Emoji Slop) */}
                   <div className="absolute top-3 left-3 right-3 flex justify-between items-center">
-                    <span className="px-2.5 py-1 rounded-full bg-canvas/60 backdrop-blur-md border border-border-subtle font-mono text-[10px] text-text-primary font-bold uppercase">
-                      {p.isPreDesigned ? "EDISI SABLON" : "KAOS POLOS COMBED"}
+                    <span className="px-2.5 py-1 rounded-full bg-canvas/60 backdrop-blur-md border border-border-subtle font-sans text-[10px] text-text-primary font-bold uppercase tracking-wide">
+                      PRODUK JADI
                     </span>
                     <span className="w-5 h-5 rounded-full border border-border-strong dark:shadow-md" style={{ backgroundColor: p.colorHex }} title={p.colorName} />
                   </div>
 
                   {/* Bottom Stock & Size Overlay */}
-                  <div className="absolute bottom-3 left-3 right-3 flex justify-between items-end font-mono text-[11px]">
-                    <span className="px-2 py-0.5 rounded bg-canvas/60 backdrop-blur-md text-brand-accent font-bold border border-border-subtle">
-                      SIZE: {p.size}
+                  <div className="absolute bottom-3 left-3 right-3 flex justify-between items-end font-sans text-[11px]">
+                    <span className="px-2 py-0.5 rounded bg-canvas/60 backdrop-blur-md text-brand-accent font-bold border border-border-subtle text-[10px]">
+                      {Array.isArray((p as any).sizes) && (p as any).sizes.length > 0
+                        ? (p as any).sizes.map((s: any) => s.size).join(" · ")
+                        : `SIZE: ${p.size}`}
                     </span>
-                    <span className="text-text-muted text-[10px]">
-                      Stok: {p.stockQty} pcs
+                    <span className="text-text-muted text-[10px] bg-canvas/60 backdrop-blur-md px-1.5 py-0.5 rounded border border-border-subtle">
+                      Total: {p.stockQty} pcs
                     </span>
                   </div>
                 </div>
@@ -292,13 +321,13 @@ export function CatalogClient() {
                 {/* Card Body & Purchase Actions */}
                 <div className="p-5 space-y-4 flex-1 flex flex-col justify-between">
                   <div>
-                    <span className="block text-[10px] font-mono text-text-muted uppercase">
+                    <span className="block text-[10px] font-sans text-text-muted uppercase">
                       {p.colorName} · Ready Makassar
                     </span>
-                    <h3 className="font-display font-black text-lg uppercase text-text-primary mt-1 group-hover:text-brand-accent transition-colors line-clamp-2">
+                    <h3 className="font-sans font-bold text-lg uppercase text-text-primary mt-1 group-hover:text-brand-accent transition-colors line-clamp-2">
                       {p.name}
                     </h3>
-                    <div className="mt-2 text-xl font-mono font-bold text-brand-accent">
+                    <div className="mt-2 text-xl font-mono tabular-nums font-bold text-brand-accent">
                       Rp {p.priceIdr.toLocaleString("id-ID")}
                     </div>
                   </div>
@@ -308,7 +337,7 @@ export function CatalogClient() {
                     <button
                       onClick={() => handleQuickBuy(p)}
                       disabled={(p.stockQty ?? 0) <= 0}
-                      className="min-h-[44px] py-2.5 px-3 rounded-xl bg-surface border border-border-subtle hover:border-brand-accent hover:text-brand-accent text-text-primary font-mono text-[11px] font-bold uppercase transition-all flex items-center justify-center space-x-1.5 active:scale-95 disabled:opacity-40 disabled:pointer-events-none"
+                      className="min-h-[44px] py-2.5 px-3 rounded-xl bg-surface border border-border-subtle hover:border-brand-accent hover:text-brand-accent text-text-primary font-sans text-[11px] font-bold uppercase transition-all flex items-center justify-center space-x-1.5 active:scale-95 disabled:opacity-40 disabled:pointer-events-none"
                     >
                       <ShoppingBag size={13} />
                       <span>{(p.stockQty ?? 0) <= 0 ? "HABIS" : "+ KERANJANG"}</span>
@@ -317,7 +346,7 @@ export function CatalogClient() {
                     <Link
                       href="/studio"
                       onClick={() => handleOpenInStudio(p)}
-                      className="min-h-[44px] py-2.5 px-3 rounded-xl bg-brand-accent/15 border border-brand-accent/30 text-brand-accent hover:bg-brand-accent hover:text-canvas font-mono text-[11px] font-bold uppercase transition-all flex items-center justify-center space-x-1.5 active:scale-95"
+                      className="min-h-[44px] py-2.5 px-3 rounded-xl bg-brand-accent/15 border border-brand-accent/30 text-brand-accent hover:bg-brand-accent hover:text-canvas font-sans text-[11px] font-bold uppercase transition-all flex items-center justify-center space-x-1.5 active:scale-95"
                     >
                       <span>KUSTOM SABLON</span>
                     </Link>

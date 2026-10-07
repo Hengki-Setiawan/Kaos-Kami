@@ -48,7 +48,7 @@ export function DynamicIslandPreview({
           <Icon className={`w-4 h-4 ${info.color}`} />
         </div>
         <div className="min-w-0">
-          <p className="text-[11px] font-bold tracking-tight truncate leading-tight font-['Syne']">
+          <p className="text-[11px] font-bold tracking-tight truncate leading-tight font-sans">
             {orderNumber} • {info.label}
           </p>
           <p className="text-[9px] text-zinc-400 truncate mt-0.5">{apparelTitle}</p>

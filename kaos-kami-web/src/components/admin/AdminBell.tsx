@@ -199,8 +199,8 @@ export function AdminBell({ pollMs = 60000 }: { pollMs?: number }) {
 
   const rows: Array<{ label: string; value: number | null; href: string; danger: boolean }> = [
     { label: "Chat masuk pelanggan", value: summary?.unreadChatCount ?? null, href: "/admin/chat", danger: (summary?.unreadChatCount ?? 0) > 0 },
-    { label: "Perlu review desain", value: summary?.needsReview ?? null, href: "/admin/review", danger: (summary?.needsReview ?? 0) > 0 },
-    { label: "Review >24 jam", value: summary?.needsReviewOverdue24h ?? null, href: "/admin/review", danger: (summary?.needsReviewOverdue24h ?? 0) > 0 },
+    { label: "Perlu review desain", value: summary?.needsReview ?? null, href: "/admin/orders", danger: (summary?.needsReview ?? 0) > 0 },
+    { label: "Review >24 jam", value: summary?.needsReviewOverdue24h ?? null, href: "/admin/orders", danger: (summary?.needsReviewOverdue24h ?? 0) > 0 },
     { label: "Order baru 1 jam terakhir", value: summary?.newOrdersLastHour ?? null, href: "/admin/orders", danger: false },
     { label: "Indikasi oversell", value: summary?.oversellCount ?? null, href: "/admin/catalog", danger: (summary?.oversellCount ?? 0) > 0 },
     { label: "Express overdue", value: summary?.expressOverdue ?? null, href: "/admin/orders", danger: (summary?.expressOverdue ?? 0) > 0 },
@@ -208,7 +208,7 @@ export function AdminBell({ pollMs = 60000 }: { pollMs?: number }) {
   ];
 
   return (
-    <div className="relative font-mono text-xs">
+    <div className="relative font-sans text-xs">
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
@@ -237,16 +237,17 @@ export function AdminBell({ pollMs = 60000 }: { pollMs?: number }) {
             onClick={() => setOpen(false)}
             className="fixed inset-0 z-40 cursor-default bg-transparent border-0 p-0"
           />
-          <div className="absolute right-0 mt-2 w-80 max-w-[90vw] z-50 rounded-2xl bg-surface border border-border-subtle shadow-2xl overflow-hidden">
-            <div className="px-4 py-3 border-b border-border-subtle flex items-center justify-between">
-              <span className="font-bold uppercase text-text-primary">Notifikasi workshop</span>
+          {/* Dropdown diposisikan left-0 agar melebar ke kanan (area terbuka), tidak kepotong di sisi kiri monitor */}
+          <div className="absolute left-0 mt-2 w-80 max-w-[90vw] z-50 rounded-xl bg-white dark:bg-neutral-900 border border-neutral-300 dark:border-neutral-700 shadow-2xl overflow-hidden">
+            <div className="px-4 py-3 bg-neutral-50 dark:bg-neutral-800/60 border-b border-border-subtle flex items-center justify-between">
+              <span className="font-bold text-xs text-text-primary">Notifikasi Workshop</span>
               {fallbackRingkas && (
-                <span className="text-[10px] text-text-muted">mode ringkas</span>
+                <span className="text-[10px] text-text-muted font-medium">mode ringkas</span>
               )}
             </div>
             {summary === null ? (
-              <div className="px-4 py-6 text-center text-text-muted">
-                {unavailable ? "data belum tersedia — API summary + antrean 404" : "memuat…"}
+              <div className="px-4 py-6 text-center text-text-muted text-xs">
+                {unavailable ? "Data belum tersedia" : "Memuat notifikasi..."}
               </div>
             ) : (
               <div className="divide-y divide-border-subtle">
@@ -255,16 +256,16 @@ export function AdminBell({ pollMs = 60000 }: { pollMs?: number }) {
                     key={r.label}
                     href={r.href}
                     onClick={() => setOpen(false)}
-                    className="flex items-center justify-between px-4 py-2.5 hover:bg-black/5 dark:hover:bg-white/5 transition-colors"
+                    className="flex items-center justify-between px-4 py-2.5 hover:bg-black/[0.04] dark:hover:bg-white/[0.04] transition-colors"
                   >
-                    <span className={r.danger ? "font-bold text-amber-600 dark:text-amber-300" : "text-text-muted"}>
+                    <span className={`text-xs ${r.danger ? "font-semibold text-amber-700 dark:text-amber-300" : "text-text-muted font-medium"}`}>
                       {r.label}
                     </span>
                     <span
-                      className={`px-2 py-0.5 rounded-full text-[10px] font-black border ${
+                      className={`px-2 py-0.5 rounded-full text-[10px] font-bold border ${
                         r.danger
-                          ? "bg-rose-500/15 text-rose-600 dark:text-rose-300 border-rose-500/40"
-                          : "bg-black/5 dark:bg-white/5 text-text-primary border-border-subtle"
+                          ? "bg-rose-500/15 text-rose-600 dark:text-rose-300 border-rose-500/30"
+                          : "bg-black/[0.04] dark:bg-white/[0.04] text-text-primary border-border-subtle"
                       }`}
                     >
                       {r.value === null ? "…" : r.value}
@@ -272,8 +273,8 @@ export function AdminBell({ pollMs = 60000 }: { pollMs?: number }) {
                   </Link>
                 ))}
                 {fallbackRingkas && (
-                  <p className="px-4 py-2.5 text-[10px] text-text-muted border-t border-border-subtle">
-                    Ringkas: summary 404 → angka dari antrean DESIGN_REVIEW saja.
+                  <p className="px-4 py-2 text-[10px] text-text-muted border-t border-border-subtle">
+                    Ringkas: Angka dari antrean DESIGN_REVIEW.
                   </p>
                 )}
               </div>

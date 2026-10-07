@@ -3,7 +3,7 @@ import { nanoid } from "nanoid";
 import { z } from "zod";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
-import { Order, OrderStatusEvent } from "@/lib/drizzle-schema";
+import { Order, OrderComplaint, OrderStatusEvent } from "@/lib/drizzle-schema";
 import { checkRateLimitAsync, getClientIp, rateLimitHeaders } from "@/lib/security/rateLimiter";
 
 const CATEGORIES = ["SABLON_CACAT", "SALAH_UKURAN", "WARNA_BEDA", "KETERLAMBATAN", "LAINNYA"] as const;
@@ -16,9 +16,8 @@ const ComplaintSchema = z.object({
 });
 
 /**
- * U15: komplain terstruktur customer. TANPA migrasi: tercatat sebagai
- * OrderStatusEvent note `[KOMPLAIN:<kategori>]` (follow-up: tabel dedicated).
- * Hanya pemilik order + status SHIPPED/DELIVERED/COMPLETED.
+ * U15: Komplain terstruktur customer tersimpan resmi di tabel OrderComplaint.
+ * Dual-write ke OrderStatusEvent dipertahankan untuk kompatibilitas riwayat order.
  */
 export async function POST(req: NextRequest) {
   try {
@@ -48,28 +47,63 @@ export async function POST(req: NextRequest) {
         { status: 400 }
       );
     }
-    const [row] = await db
-      .insert(OrderStatusEvent)
-      .values({
-        id: nanoid(),
-        orderId: order.id,
-        status: order.status,
-        note: `[KOMPLAIN:${parsed.data.category}] ${parsed.data.message}${parsed.data.photoUrl ? ` | Foto: ${parsed.data.photoUrl}` : ""}`,
-        actorUserId: uid,
-      })
-      .returning({ id: OrderStatusEvent.id });
-    return NextResponse.json({ success: true, id: row?.id, message: "Komplain tercatat. Workshop menindaklanjuti via WhatsApp." });
+    const complaintId = nanoid();
+    // 1. Simpan ke tabel resmi OrderComplaint
+    await db.insert(OrderComplaint).values({
+      id: complaintId,
+      orderId: order.id,
+      userId: uid,
+      category: parsed.data.category,
+      message: parsed.data.message,
+      photoUrls: parsed.data.photoUrl ? JSON.stringify([parsed.data.photoUrl]) : null,
+      status: "OPEN",
+    });
+
+    // 2. Jejak audit di OrderStatusEvent
+    await db.insert(OrderStatusEvent).values({
+      id: nanoid(),
+      orderId: order.id,
+      status: order.status,
+      note: `[KOMPLAIN:${parsed.data.category}] ${parsed.data.message}${parsed.data.photoUrl ? ` | Foto: ${parsed.data.photoUrl}` : ""}`,
+      actorUserId: uid,
+    });
+
+    return NextResponse.json({ success: true, id: complaintId, message: "Komplain resmi tercatat di sistem. Tim workshop segera menindaklanjuti." });
   } catch (e: any) {
     return NextResponse.json({ error: e?.message || "Gagal" }, { status: 500 });
   }
 }
 
-/** Daftar komplain milik sendiri (dari event bertanda KOMPLAIN). */
+/** Daftar komplain milik sendiri dari tabel resmi OrderComplaint. */
 export async function GET(req: NextRequest) {
   try {
     const session = await auth.api.getSession({ headers: req.headers }).catch(() => null);
     const uid = (session?.user as any)?.id as string | undefined;
     if (!uid) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+    const complaints = await db.query.OrderComplaint.findMany({
+      where: (t, { eq }: any) => eq(t.userId, uid),
+      orderBy: (t, { desc }: any) => desc(t.createdAt),
+      limit: 30,
+    });
+
+    if (complaints.length > 0) {
+      return NextResponse.json({
+        success: true,
+        items: complaints.map((c: any) => ({
+          id: c.id,
+          orderId: c.orderId,
+          category: c.category,
+          status: c.status,
+          message: c.message,
+          note: `[KOMPLAIN:${c.category}] ${c.message}`,
+          resolutionNote: c.resolutionNote,
+          createdAt: c.createdAt,
+        })),
+      });
+    }
+
+    // Fallback riwayat lama (dari event OrderStatusEvent bertanda [KOMPLAIN:)
     const mine = await db.query.Order.findMany({
       where: (t, { eq }: any) => eq(t.userId, uid),
       columns: { id: true },

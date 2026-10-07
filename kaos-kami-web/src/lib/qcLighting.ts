@@ -18,10 +18,10 @@ export interface QcGrazingPreset {
 }
 
 export const QC_GRAZING_PRESETS: QcGrazingPreset[] = [
-  { id: "g15", deg: 15, label: "Raking 15° — kupas cacat permukaan" },
-  { id: "g30", deg: 30, label: "Raking 30° — serat & cracking" },
-  { id: "g45", deg: 45, label: "Raking 45° — noda & misprint" },
-  { id: "diffuse", deg: 90, label: "Difus 90° — warna jujur" },
+  { id: "g15", deg: 15, label: "Raking 15° · kupas cacat permukaan" },
+  { id: "g30", deg: 30, label: "Raking 30° · serat & cracking" },
+  { id: "g45", deg: 45, label: "Raking 45° · noda & misprint" },
+  { id: "diffuse", deg: 90, label: "Difus 90° · warna jujur" },
 ];
 
 /**

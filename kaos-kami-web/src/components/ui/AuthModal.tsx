@@ -27,11 +27,13 @@ import {
 } from "lucide-react";
 import { TurnstileWidget } from "@/components/ui/TurnstileWidget";
 import { shopWaLink } from "@/lib/shop";
+import { useConfiguratorStore } from "@/store/useConfiguratorStore";
+import { Z_CLASS_AUTH } from "@/lib/zIndex";
 
 interface AuthModalProps {
   isOpen: boolean;
   onClose: () => void;
-  defaultMode?: "login" | "register";
+  defaultMode?: "login" | "register" | "forgot-password";
   onSuccess?: () => void;
 }
 
@@ -42,7 +44,9 @@ export const AuthModal: React.FC<AuthModalProps> = ({
   onSuccess,
 }) => {
   const { data: session } = useSession();
-  const [mode, setMode] = useState<"login" | "register">(defaultMode);
+  const adminViewMode = useConfiguratorStore((s) => s.adminViewMode);
+  const setAdminViewMode = useConfiguratorStore((s) => s.setAdminViewMode);
+  const [mode, setMode] = useState<"login" | "register" | "forgot-password">(defaultMode);
   const [registerStep, setRegisterStep] = useState<1 | 2>(1); // 1 = Form Input, 2 = OTP Email
   const [loading, setLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -65,6 +69,16 @@ export const AuthModal: React.FC<AuthModalProps> = ({
   const [otpCooldown, setOtpCooldown] = useState(0);
   const [registerTurnstileToken, setRegisterTurnstileToken] = useState<string | null>(null);
 
+  // Forgot Password Form States (Email-First + OTP Reset)
+  const [forgotStep, setForgotStep] = useState<1 | 2>(1); // 1 = Input Email, 2 = OTP + New Password
+  const [forgotEmail, setForgotEmail] = useState("");
+  const [forgotOtp, setForgotOtp] = useState("");
+  const [forgotNewPassword, setForgotNewPassword] = useState("");
+  const [forgotConfirmPassword, setForgotConfirmPassword] = useState("");
+  const [showForgotNewPassword, setShowForgotNewPassword] = useState(false);
+  const [forgotCooldown, setForgotCooldown] = useState(0);
+  const [forgotTurnstileToken, setForgotTurnstileToken] = useState<string | null>(null);
+
   const [isClient, setIsClient] = useState(false);
   const mounted = useRef(true);
   const turnstileEnabled = !!process.env.NEXT_PUBLIC_CLOUDFLARE_TURNSTILE_SITE_KEY;
@@ -77,7 +91,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
     };
   }, []);
 
-  // Cooldown countdown untuk kirim ulang OTP
+  // Cooldown countdown untuk kirim ulang OTP Register
   useEffect(() => {
     if (otpCooldown <= 0) return;
     const timer = setInterval(() => {
@@ -85,6 +99,15 @@ export const AuthModal: React.FC<AuthModalProps> = ({
     }, 1000);
     return () => clearInterval(timer);
   }, [otpCooldown]);
+
+  // Cooldown countdown untuk kirim ulang OTP Reset Password
+  useEffect(() => {
+    if (forgotCooldown <= 0) return;
+    const timer = setInterval(() => {
+      setForgotCooldown((c) => Math.max(0, c - 1));
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [forgotCooldown]);
 
   const prevIsOpenRef = useRef(false);
   const onCloseRef = useRef(onClose);
@@ -393,13 +416,109 @@ export const AuthModal: React.FC<AuthModalProps> = ({
     }
   };
 
+  // -------------------------------------------------------------------
+  // 4. FORGOT PASSWORD STEP 1: KIRIM KODE OTP RESET KE EMAIL
+  // -------------------------------------------------------------------
+  const handleSendForgotOtp = async (e: React.FormEvent) => {
+    e.preventDefault();
+    resetMessages();
+
+    const cleanEmail = forgotEmail.trim().toLowerCase();
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(cleanEmail)) {
+      setErrorMessage("Masukkan alamat email yang valid untuk menerima kode verifikasi.");
+      return;
+    }
+
+    try {
+      setLoading(true);
+
+      const res = await fetch("/api/auth/reset-password/send-otp", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          email: cleanEmail,
+          turnstileToken: forgotTurnstileToken || undefined,
+        }),
+      });
+
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        setErrorMessage(data.error || "Gagal mengirim kode verifikasi reset password.");
+        return;
+      }
+
+      setForgotStep(2);
+      setForgotCooldown(60);
+      setSuccessMessage(data.message || `Kode OTP verifikasi telah dikirim ke ${cleanEmail}.`);
+    } catch (err: any) {
+      setErrorMessage(err?.message || "Gagal menghubungi server reset password.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // -------------------------------------------------------------------
+  // 5. FORGOT PASSWORD STEP 2: VERIFIKASI OTP & SIMPAN PASSWORD BARU
+  // -------------------------------------------------------------------
+  const handleConfirmForgotOtp = async (e: React.FormEvent) => {
+    e.preventDefault();
+    resetMessages();
+
+    const cleanOtp = forgotOtp.trim();
+    if (!/^\d{6}$/.test(cleanOtp)) {
+      setErrorMessage("Masukkan 6 digit angka kode verifikasi OTP.");
+      return;
+    }
+    if (forgotNewPassword.length < 6) {
+      setErrorMessage("Password baru minimal 6 karakter.");
+      return;
+    }
+    if (forgotNewPassword !== forgotConfirmPassword) {
+      setErrorMessage("Konfirmasi password baru tidak cocok.");
+      return;
+    }
+
+    try {
+      setLoading(true);
+
+      const res = await fetch("/api/auth/reset-password/confirm", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          email: forgotEmail.trim().toLowerCase(),
+          code: cleanOtp,
+          newPassword: forgotNewPassword,
+        }),
+      });
+
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        setErrorMessage(data.error || "Gagal memperbarui password.");
+        return;
+      }
+
+      setSuccessMessage(data.message || "Password berhasil diubah! Silakan masuk dengan password baru.");
+      setLoginIdentifier(forgotEmail.trim().toLowerCase());
+      setLoginPassword("");
+      setMode("login");
+      setForgotStep(1);
+      setForgotOtp("");
+      setForgotNewPassword("");
+      setForgotConfirmPassword("");
+    } catch (err: any) {
+      setErrorMessage(err?.message || "Gagal memperbarui password.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return createPortal(
     <div
-      className="fixed inset-0 z-[120] flex items-center justify-center p-3 sm:p-4 md:p-6 bg-canvas/70 dark:bg-black/85 backdrop-blur-md animate-fadeIn overflow-y-auto"
+      className={`fixed inset-0 ${Z_CLASS_AUTH} flex items-center justify-center p-3 sm:p-4 md:p-6 bg-canvas/70 dark:bg-black/85 backdrop-blur-md animate-fadeIn overflow-y-auto`}
       onClick={(e) => {
         if (e.target === e.currentTarget) {
-          // Jika sedang di Step 2 (verifikasi OTP), jangan tutup karena user mungkin tidak sengaja klik saat kembali dari tab email
-          if (registerStep === 2) return;
+          // Jangan tutup bila sedang mengisi OTP untuk mencegah hilangnya form
+          if (registerStep === 2 || (mode === "forgot-password" && forgotStep === 2)) return;
           onClose();
         }
       }}
@@ -411,12 +530,12 @@ export const AuthModal: React.FC<AuthModalProps> = ({
       <div className="min-h-full flex items-center justify-center w-full py-4 text-center">
         {/* Modal Dialog Card */}
         <div
-          className="relative w-full max-w-md max-h-[min(90dvh,700px)] flex flex-col bg-surface border border-border-subtle rounded-2xl shadow-2xl text-text-primary my-auto overflow-hidden text-left"
+          className="relative w-full max-w-md max-h-[min(85vh,560px)] flex flex-col bg-surface border border-border-subtle rounded-2xl shadow-2xl text-text-primary my-auto overflow-hidden text-left"
           onClick={(e) => e.stopPropagation()}
           data-lenis-prevent="true"
         >
-          {/* Decorative Top Accent Glow */}
-          <div className="absolute top-0 left-1/2 -translate-x-1/2 w-48 h-1 bg-gradient-to-r from-transparent via-brand-accent to-transparent z-20 pointer-events-none" />
+          {/* Garis aksen atas standar */}
+          <div className="absolute top-0 left-0 right-0 h-px bg-border-subtle z-20 pointer-events-none" />
 
           {/* Close Button */}
           <button
@@ -458,17 +577,17 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                     )}
                   </div>
                   <div>
-                    <h3 className="font-display text-xl font-bold tracking-tight text-text-primary">
+                    <h3 className="font-sans text-xl font-bold tracking-tight text-text-primary">
                       Halo, {session.user.name || "Pelanggan Kaos Kami"}
                     </h3>
-                    <p className="font-mono text-xs text-text-muted mt-1">
+                    <p className="font-sans text-xs text-text-muted mt-1">
                       {(session.user.email || "").includes("@kaoskami.phone")
                         ? "Akun WhatsApp terverifikasi"
                         : session.user.email}
                     </p>
                   </div>
 
-                  <div className="bg-surface/50 border border-border-subtle rounded-xl p-3 text-left space-y-2 font-mono text-xs">
+                  <div className="bg-surface/50 border border-border-subtle rounded-xl p-3 text-left space-y-2 font-sans text-xs">
                     <div className="flex items-center justify-between text-text-muted">
                       <span>Status Akun</span>
                       <span className="flex items-center gap-1 text-emerald-400 font-bold">
@@ -484,10 +603,50 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                             : "bg-surface-elevated text-text-primary"
                         }`}
                       >
-                        {isAdmin ? `🛡️ ${userRole.replace(/_/g, " ")}` : "👤 PELANGGAN"}
+                        {isAdmin ? userRole.replace(/_/g, " ") : "PELANGGAN"}
                       </span>
                     </div>
                   </div>
+
+                  {/* Mode Tampilan Switcher (Khusus Admin / Staff) */}
+                  {isAdmin && (
+                    <div className="p-3 rounded-xl bg-surface/80 border border-border-subtle flex items-center justify-between font-sans text-xs text-left">
+                      <div>
+                        <span className="font-bold text-text-primary block text-[11px] uppercase tracking-wide">
+                          Mode Tampilan
+                        </span>
+                        <span className="text-[10px] text-text-muted block mt-0.5">
+                          {adminViewMode === "admin"
+                            ? "Mode Admin (Panel & Akses Penuh)"
+                            : "Mode Pelanggan (Simulasi Pembeli)"}
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-1 bg-canvas p-1 rounded-lg border border-border-subtle shrink-0">
+                        <button
+                          type="button"
+                          onClick={() => setAdminViewMode("admin")}
+                          className={`px-2.5 py-1 rounded text-[10px] font-bold transition-all ${
+                            adminViewMode === "admin"
+                              ? "bg-amber-500 text-black shadow-sm"
+                              : "text-text-muted hover:text-text-primary"
+                          }`}
+                        >
+                          Admin
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setAdminViewMode("customer")}
+                          className={`px-2.5 py-1 rounded text-[10px] font-bold transition-all ${
+                            adminViewMode === "customer"
+                              ? "bg-emerald-500 text-black shadow-sm"
+                              : "text-text-muted hover:text-text-primary"
+                          }`}
+                        >
+                          Pelanggan
+                        </button>
+                      </div>
+                    </div>
+                  )}
 
                   {/* NAVIGASI MENU / PORTAL */}
                   <div className="space-y-2.5 pt-1 text-left">
@@ -504,10 +663,10 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                           </div>
                           <div>
                             <div className="flex items-center gap-1.5">
-                              <span className="font-display font-black text-xs uppercase tracking-wide text-amber-400 group-hover:text-amber-300">
+                              <span className="font-sans font-bold text-xs uppercase tracking-wide text-amber-400 group-hover:text-amber-300">
                                 BUKA PANEL ADMIN
                               </span>
-                              <span className="text-[9px] px-1.5 py-0.2 rounded bg-amber-500 text-black font-mono font-bold">
+                              <span className="text-[9px] px-1.5 py-0.2 rounded bg-amber-500 text-black font-sans font-bold">
                                 OPS
                               </span>
                             </div>
@@ -531,7 +690,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                           <ShoppingBag size={17} />
                         </div>
                         <div>
-                          <span className="font-display font-bold text-xs tracking-tight block">
+                          <span className="font-sans font-semibold text-xs tracking-tight block">
                             DASHBOARD PESANAN SAYA
                           </span>
                           <p className="font-sans text-[11px] text-text-muted mt-0.5">
@@ -552,7 +711,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                         <div className="w-7 h-7 rounded-lg bg-surface-elevated text-text-muted flex items-center justify-center shrink-0">
                           <Sparkles size={14} />
                         </div>
-                        <span className="font-mono text-xs font-semibold text-text-secondary">
+                        <span className="font-sans text-xs font-semibold text-text-secondary">
                           Studio Kustom 3D Mockup
                         </span>
                       </div>
@@ -572,13 +731,13 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                         onClose();
                       }}
                       disabled={loading}
-                      className="flex-1 flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl font-mono text-xs font-bold border border-red-500/30 text-red-400 hover:bg-red-500/10 transition-all cursor-pointer"
+                      className="flex-1 flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl font-sans text-xs font-bold border border-red-500/30 text-red-400 hover:bg-red-500/10 transition-all cursor-pointer"
                     >
                       <LogOut size={14} /> KELUAR
                     </button>
                     <button
                       onClick={onClose}
-                      className="flex-1 py-2.5 px-4 rounded-xl font-mono text-xs font-bold bg-brand-accent text-canvas hover:brightness-110 transition-all cursor-pointer"
+                      className="flex-1 py-2.5 px-4 rounded-xl font-sans text-xs font-bold bg-brand-accent text-canvas hover:brightness-110 transition-all cursor-pointer"
                     >
                       SELESAI
                     </button>
@@ -592,9 +751,19 @@ export const AuthModal: React.FC<AuthModalProps> = ({
               <>
                 {/* Header & Brand */}
                 <div className="mb-3 text-left">
-                  <h2 className="font-display text-xl sm:text-2xl font-black tracking-tight text-text-primary uppercase">
+                  {mode === "forgot-password" && (
+                    <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-brand-accent/15 border border-brand-accent/30 text-brand-accent text-[10px] font-mono font-bold tracking-wider uppercase mb-1.5">
+                      <KeyRound size={11} />
+                      <span>PEMULIHAN AKUN</span>
+                    </div>
+                  )}
+                  <h2 className="font-sans text-xl sm:text-2xl font-bold tracking-tight text-text-primary uppercase">
                     {mode === "login"
                       ? "Masuk Akun"
+                      : mode === "forgot-password"
+                      ? forgotStep === 1
+                        ? "Lupa Password"
+                        : "Atur Password Baru"
                       : registerStep === 2
                       ? "Verifikasi Email"
                       : "Daftar Akun Baru"}
@@ -602,14 +771,32 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                   <p className="font-sans text-xs text-text-muted mt-0.5">
                     {mode === "login"
                       ? "Masuk dengan Email, Username, atau No. WhatsApp Anda."
+                      : mode === "forgot-password"
+                      ? forgotStep === 1
+                        ? "Masukkan email terdaftar untuk menerima kode verifikasi OTP pemulihan."
+                        : `Kode verifikasi 6-digit telah dikirim ke ${forgotEmail}. Silakan buat password baru.`
                       : registerStep === 2
                       ? `Masukkan 6-digit kode verifikasi yang dikirim ke ${registerEmail}.`
                       : "Daftar dengan Email utama Anda untuk verifikasi aman dan cepat."}
                   </p>
                 </div>
 
-                {/* Google OAuth (Hanya muncul saat mode login atau register step 1) */}
-                {registerStep === 1 && (
+                {/* Sub Navigation jika Mode Lupa Password */}
+                {mode === "forgot-password" ? (
+                  <div className="mb-2">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setMode("login");
+                        resetMessages();
+                      }}
+                      className="inline-flex items-center gap-1.5 text-xs text-text-muted hover:text-brand-accent transition-colors cursor-pointer py-1 font-medium"
+                    >
+                      <ArrowLeft size={14} />
+                      <span>Kembali ke Halaman Masuk</span>
+                    </button>
+                  </div>
+                ) : registerStep === 1 ? (
                   <>
                     <button
                       type="button"
@@ -625,7 +812,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                           setLoading(false);
                         }
                       }}
-                      className="w-full py-2.5 rounded-xl bg-white text-black font-mono font-bold text-xs flex items-center justify-center gap-2 hover:bg-zinc-100 active:scale-[0.99] transition-all dark:shadow-md border border-black/10 dark:border-white/25 cursor-pointer"
+                      className="w-full py-2.5 rounded-xl bg-white text-black font-sans font-bold text-xs flex items-center justify-center gap-2 hover:bg-zinc-100 active:scale-[0.99] transition-all dark:shadow-md border border-black/10 dark:border-white/25 cursor-pointer"
                     >
                       <Chrome size={16} className="text-[#4285F4]" />
                       <span>LANJUT DENGAN GOOGLE</span>
@@ -633,14 +820,14 @@ export const AuthModal: React.FC<AuthModalProps> = ({
 
                     <div className="flex items-center gap-3 my-2">
                       <div className="h-px flex-1 bg-border-subtle" />
-                      <span className="text-[10px] font-mono text-text-muted uppercase">
+                      <span className="text-[10px] font-sans text-text-muted uppercase">
                         ATAU KREDENSIAL AKUN
                       </span>
                       <div className="h-px flex-1 bg-border-subtle" />
                     </div>
 
                     {/* Mode Switcher Tabs */}
-                    <div className="flex p-1 bg-surface-elevated/50 rounded-xl border border-border-subtle mb-3 font-mono text-xs">
+                    <div className="flex p-1 bg-surface-elevated/50 rounded-xl border border-border-subtle mb-3 font-sans text-xs">
                       <button
                         type="button"
                         onClick={() => {
@@ -672,7 +859,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                       </button>
                     </div>
                   </>
-                )}
+                ) : null}
 
                 {/* Notifications */}
                 {errorMessage && (
@@ -693,7 +880,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                 {mode === "login" && (
                   <form onSubmit={handleLogin} className="space-y-3">
                     <div>
-                      <label className="block font-mono text-[11px] uppercase tracking-wider text-text-muted mb-1">
+                      <label className="block font-sans text-[11px] uppercase tracking-wider text-text-muted mb-1">
                         Email, Username, atau No. WhatsApp
                       </label>
                       <div className="relative">
@@ -710,7 +897,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                     </div>
 
                     <div>
-                      <label className="block font-mono text-[11px] uppercase tracking-wider text-text-muted mb-1">
+                      <label className="block font-sans text-[11px] uppercase tracking-wider text-text-muted mb-1">
                         Password
                       </label>
                       <div className="relative">
@@ -722,7 +909,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                           onChange={(e) => setLoginPassword(e.target.value)}
                           placeholder="Masukkan password Anda"
                           autoComplete="current-password"
-                          className="w-full pl-10 pr-11 py-2 rounded-xl bg-surface border border-border-subtle focus:border-brand-accent text-sm text-text-primary placeholder:text-neutral-600 focus:outline-none transition-all font-mono"
+                          className="w-full pl-10 pr-11 py-2 rounded-xl bg-surface border border-border-subtle focus:border-brand-accent text-sm text-text-primary placeholder:text-neutral-600 focus:outline-none transition-all font-sans"
                         />
                         <button
                           type="button"
@@ -733,17 +920,24 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                           {showLoginPassword ? <EyeOff size={15} /> : <Eye size={15} />}
                         </button>
                       </div>
-                      <p className="mt-1 font-mono text-[11px] text-text-muted">
-                        Lupa password?{" "}
-                        <a
-                          href={shopWaLink("Halo Kaos Kami, saya lupa password akun. Mohon bantuan reset password.")}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="text-brand-accent hover:underline font-bold"
+                      <div className="flex items-center justify-between mt-1.5 font-sans text-[11px]">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setMode("forgot-password");
+                            setForgotStep(1);
+                            if (loginIdentifier.includes("@")) {
+                              setForgotEmail(loginIdentifier.trim());
+                            }
+                            resetMessages();
+                          }}
+                          className="text-brand-accent hover:underline font-semibold flex items-center gap-1 cursor-pointer"
                         >
-                          Reset via WhatsApp
-                        </a>
-                      </p>
+                          <KeyRound size={12} className="shrink-0" />
+                          <span>Lupa password?</span>
+                        </button>
+                        <span className="text-text-muted text-[10px]">Reset via Email OTP</span>
+                      </div>
                     </div>
 
                     {/* Turnstile Captcha untuk Login */}
@@ -760,12 +954,12 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                     <button
                       type="submit"
                       disabled={loading}
-                      className="w-full mt-2 py-2.5 px-4 rounded-xl font-mono text-xs font-bold tracking-wider uppercase bg-brand-accent text-canvas dark:shadow-[0_0_20px_rgba(230,81,0,0.35)] hover:brightness-110 active:scale-[0.99] disabled:opacity-50 transition-all flex items-center justify-center gap-2 cursor-pointer"
+                      className="w-full mt-2 py-2.5 px-4 rounded-xl font-sans text-xs font-bold tracking-wider uppercase bg-brand-accent text-canvas dark:shadow-[0_0_20px_rgba(230,81,0,0.35)] hover:brightness-110 active:scale-[0.99] disabled:opacity-50 transition-all flex items-center justify-center gap-2 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-accent focus-visible:ring-offset-2 focus-visible:ring-offset-canvas"
                     >
                       {loading ? (
                         <>
                           <Loader2 size={16} className="animate-spin" />
-                          <span>MEMPROSES...</span>
+                          <span>Memverifikasi...</span>
                         </>
                       ) : (
                         <>
@@ -783,7 +977,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                 {mode === "register" && registerStep === 1 && (
                   <form onSubmit={handleSendRegisterOtp} className="space-y-3">
                     <div>
-                      <label className="block font-mono text-[11px] uppercase tracking-wider text-text-muted mb-1">
+                      <label className="block font-sans text-[11px] uppercase tracking-wider text-text-muted mb-1">
                         Nama Lengkap <span className="text-brand-accent">*</span>
                       </label>
                       <div className="relative">
@@ -800,7 +994,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                     </div>
 
                     <div>
-                      <label className="block font-mono text-[11px] uppercase tracking-wider text-text-muted mb-1">
+                      <label className="block font-sans text-[11px] uppercase tracking-wider text-text-muted mb-1">
                         Email Utama <span className="text-brand-accent">*</span>
                       </label>
                       <div className="relative">
@@ -817,7 +1011,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                     </div>
 
                     <div>
-                      <label className="block font-mono text-[11px] uppercase tracking-wider text-text-muted mb-1">
+                      <label className="block font-sans text-[11px] uppercase tracking-wider text-text-muted mb-1">
                         Nomor WhatsApp <span className="text-brand-accent">*</span>
                       </label>
                       <div className="relative">
@@ -828,14 +1022,14 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                           value={registerPhone}
                           onChange={(e) => setRegisterPhone(e.target.value)}
                           placeholder="081234567890"
-                          className="w-full pl-10 pr-4 py-2 rounded-xl bg-surface border border-border-subtle focus:border-brand-accent text-sm text-text-primary placeholder:text-neutral-600 focus:outline-none transition-all font-mono"
+                          className="w-full pl-10 pr-4 py-2 rounded-xl bg-surface border border-border-subtle focus:border-brand-accent text-sm text-text-primary placeholder:text-neutral-600 focus:outline-none transition-all font-sans"
                         />
                       </div>
                     </div>
 
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
                       <div>
-                        <label className="block font-mono text-[11px] uppercase tracking-wider text-text-muted mb-1">
+                        <label className="block font-sans text-[11px] uppercase tracking-wider text-text-muted mb-1">
                           Password <span className="text-brand-accent">*</span>
                         </label>
                         <div className="relative">
@@ -847,7 +1041,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                             value={registerPassword}
                             onChange={(e) => setRegisterPassword(e.target.value)}
                             placeholder="Min. 6 char"
-                            className="w-full pl-10 pr-10 py-2 rounded-xl bg-surface border border-border-subtle focus:border-brand-accent text-sm text-text-primary placeholder:text-neutral-600 focus:outline-none transition-all font-mono"
+                            className="w-full pl-10 pr-10 py-2 rounded-xl bg-surface border border-border-subtle focus:border-brand-accent text-sm text-text-primary placeholder:text-neutral-600 focus:outline-none transition-all font-sans"
                           />
                           <button
                             type="button"
@@ -860,7 +1054,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                       </div>
 
                       <div>
-                        <label className="block font-mono text-[11px] uppercase tracking-wider text-text-muted mb-1">
+                        <label className="block font-sans text-[11px] uppercase tracking-wider text-text-muted mb-1">
                           Konfirmasi <span className="text-brand-accent">*</span>
                         </label>
                         <div className="relative">
@@ -872,7 +1066,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                             value={registerConfirmPassword}
                             onChange={(e) => setRegisterConfirmPassword(e.target.value)}
                             placeholder="Ulangi password"
-                            className="w-full pl-10 pr-4 py-2 rounded-xl bg-surface border border-border-subtle focus:border-brand-accent text-sm text-text-primary placeholder:text-neutral-600 focus:outline-none transition-all font-mono"
+                            className="w-full pl-10 pr-4 py-2 rounded-xl bg-surface border border-border-subtle focus:border-brand-accent text-sm text-text-primary placeholder:text-neutral-600 focus:outline-none transition-all font-sans"
                           />
                         </div>
                       </div>
@@ -892,7 +1086,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                     <button
                       type="submit"
                       disabled={loading}
-                      className="w-full mt-2 py-2.5 px-4 rounded-xl font-mono text-xs font-bold tracking-wider uppercase bg-brand-accent text-canvas dark:shadow-[0_0_20px_rgba(230,81,0,0.35)] hover:brightness-110 active:scale-[0.99] disabled:opacity-50 transition-all flex items-center justify-center gap-2 cursor-pointer"
+                      className="w-full mt-2 py-2.5 px-4 rounded-xl font-sans text-xs font-bold tracking-wider uppercase bg-brand-accent text-canvas dark:shadow-[0_0_20px_rgba(230,81,0,0.35)] hover:brightness-110 active:scale-[0.99] disabled:opacity-50 transition-all flex items-center justify-center gap-2 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-accent focus-visible:ring-offset-2 focus-visible:ring-offset-canvas"
                     >
                       {loading ? (
                         <>
@@ -915,13 +1109,13 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                 {mode === "register" && registerStep === 2 && (
                   <form onSubmit={handleVerifyRegisterOtp} className="space-y-4 pt-1 animate-fadeIn">
                     <div className="p-3.5 rounded-xl bg-surface-elevated/60 border border-border-subtle text-left space-y-2">
-                      <div className="flex items-center gap-2 text-brand-accent font-mono text-xs font-bold">
+                      <div className="flex items-center gap-2 text-brand-accent font-sans text-xs font-bold">
                         <KeyRound size={16} />
                         <span>KODE OTP 6-DIGIT EMAIL</span>
                       </div>
                       <p className="text-xs text-text-muted leading-relaxed">
                         Masukkan 6-digit kode OTP yang kami kirim ke email{" "}
-                        <strong className="text-text-primary font-mono">{registerEmail}</strong>.
+                        <strong className="text-text-primary font-sans">{registerEmail}</strong>.
                       </p>
                     </div>
 
@@ -936,11 +1130,11 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                         value={registerOtpCode}
                         onChange={(e) => setRegisterOtpCode(e.target.value.replace(/[^0-9]/g, ""))}
                         placeholder="••••••"
-                        className="w-full text-center tracking-[12px] text-2xl font-mono py-3 rounded-xl bg-surface border-2 border-brand-accent/40 focus:border-brand-accent text-brand-accent placeholder:text-neutral-700 focus:outline-none transition-all shadow-inner"
+                        className="w-full text-center tracking-[12px] text-2xl font-mono tabular-nums py-3 rounded-xl bg-surface border-2 border-brand-accent/40 focus:border-brand-accent text-brand-accent placeholder:text-neutral-700 focus:outline-none transition-all shadow-inner"
                       />
                     </div>
 
-                    <div className="flex items-center justify-between text-xs font-mono pt-1">
+                    <div className="flex items-center justify-between text-xs font-sans pt-1">
                       <button
                         type="button"
                         onClick={() => {
@@ -1012,7 +1206,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                     <button
                       type="submit"
                       disabled={loading || registerOtpCode.length !== 6}
-                      className="w-full mt-2 py-3 px-4 rounded-xl font-mono text-xs font-bold tracking-wider uppercase bg-brand-accent text-canvas dark:shadow-[0_0_20px_rgba(230,81,0,0.35)] hover:brightness-110 active:scale-[0.99] disabled:opacity-50 transition-all flex items-center justify-center gap-2 cursor-pointer"
+                      className="w-full mt-2 py-3 px-4 rounded-xl font-sans text-xs font-bold tracking-wider uppercase bg-brand-accent text-canvas dark:shadow-[0_0_20px_rgba(230,81,0,0.35)] hover:brightness-110 active:scale-[0.99] disabled:opacity-50 transition-all flex items-center justify-center gap-2 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-accent focus-visible:ring-offset-2 focus-visible:ring-offset-canvas"
                     >
                       {loading ? (
                         <>
@@ -1029,21 +1223,204 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                   </form>
                 )}
 
-                {/* Guest Checkout Notice */}
-                {registerStep === 1 && (
-                  <div className="mt-4 pt-3 border-t border-border-subtle text-center">
-                    <p className="font-mono text-[11px] text-text-muted">
-                      Pemesanan tanpa akun?{" "}
+                {/* ======================================================= */}
+                {/* TAB 3: FORGOT PASSWORD (STEP 1: INPUT EMAIL)            */}
+                {/* ======================================================= */}
+                {mode === "forgot-password" && forgotStep === 1 && (
+                  <form onSubmit={handleSendForgotOtp} className="space-y-3">
+                    <div>
+                      <label className="block font-sans text-[11px] uppercase tracking-wider text-text-muted mb-1">
+                        Email Terdaftar <span className="text-brand-accent">*</span>
+                      </label>
+                      <div className="relative">
+                        <Mail size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-text-muted" />
+                        <input
+                          type="email"
+                          required
+                          value={forgotEmail}
+                          onChange={(e) => setForgotEmail(e.target.value)}
+                          placeholder="nama@email.com"
+                          className="w-full pl-10 pr-4 py-2 rounded-xl bg-surface border border-border-subtle focus:border-brand-accent focus:ring-2 focus:ring-brand-accent/20 text-sm text-text-primary placeholder:text-neutral-600 focus:outline-none transition-all font-sans"
+                        />
+                      </div>
+                    </div>
+
+                    {turnstileEnabled && (
+                      <div className="py-1">
+                        <TurnstileWidget
+                          onVerify={(t) => setForgotTurnstileToken(t)}
+                          onExpire={() => setForgotTurnstileToken(null)}
+                          onError={() => setForgotTurnstileToken(null)}
+                        />
+                      </div>
+                    )}
+
+                    <button
+                      type="submit"
+                      disabled={loading || !forgotEmail.trim()}
+                      className="w-full mt-2 py-2.5 px-4 rounded-xl font-sans text-xs font-bold tracking-wider uppercase bg-brand-accent text-canvas dark:shadow-[0_0_20px_rgba(230,81,0,0.35)] hover:brightness-110 active:scale-[0.99] disabled:opacity-50 transition-all flex items-center justify-center gap-2 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-accent focus-visible:ring-offset-2 focus-visible:ring-offset-canvas"
+                    >
+                      {loading ? (
+                        <>
+                          <Loader2 size={16} className="animate-spin" />
+                          <span>MENGIRIM KODE OTP...</span>
+                        </>
+                      ) : (
+                        <>
+                          <span>KIRIM KODE VERIFIKASI</span>
+                          <ArrowRight size={14} />
+                        </>
+                      )}
+                    </button>
+                  </form>
+                )}
+
+                {/* ======================================================= */}
+                {/* TAB 3: FORGOT PASSWORD (STEP 2: OTP + NEW PASSWORD)      */}
+                {/* ======================================================= */}
+                {mode === "forgot-password" && forgotStep === 2 && (
+                  <form onSubmit={handleConfirmForgotOtp} className="space-y-3">
+                    {/* Info email sasaran */}
+                    <div className="p-2.5 rounded-xl bg-surface-elevated/60 border border-border-subtle flex items-center justify-between font-sans text-xs">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <Mail size={14} className="text-brand-accent shrink-0" />
+                        <span className="truncate text-text-primary font-medium">{forgotEmail}</span>
+                      </div>
                       <button
                         type="button"
-                        onClick={onClose}
-                        className="text-brand-accent hover:underline font-bold ml-1 cursor-pointer"
+                        onClick={() => {
+                          setForgotStep(1);
+                          resetMessages();
+                        }}
+                        className="text-brand-accent hover:underline text-[11px] font-semibold shrink-0 cursor-pointer ml-2"
                       >
-                        Lanjut sebagai Tamu (Guest)
+                        Ganti Email
                       </button>
-                    </p>
-                  </div>
+                    </div>
+
+                    <div>
+                      <label className="block font-sans text-[11px] uppercase tracking-wider text-text-muted mb-1">
+                        6-Digit Kode OTP Email <span className="text-brand-accent">*</span>
+                      </label>
+                      <div className="relative">
+                        <KeyRound size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-text-muted" />
+                        <input
+                          type="text"
+                          required
+                          maxLength={6}
+                          inputMode="numeric"
+                          pattern="[0-9]*"
+                          value={forgotOtp}
+                          onChange={(e) => setForgotOtp(e.target.value.replace(/\D/g, ""))}
+                          placeholder="123456"
+                          className="w-full pl-10 pr-4 py-2 rounded-xl bg-surface border border-border-subtle focus:border-brand-accent focus:ring-2 focus:ring-brand-accent/20 text-center tracking-[0.4em] font-mono text-base text-text-primary placeholder:text-neutral-600 focus:outline-none transition-all"
+                        />
+                      </div>
+                      <div className="flex justify-end mt-1 font-sans text-[11px]">
+                        <button
+                          type="button"
+                          disabled={loading || forgotCooldown > 0}
+                          onClick={async () => {
+                            if (forgotCooldown > 0) return;
+                            try {
+                              setLoading(true);
+                              resetMessages();
+                              const res = await fetch("/api/auth/reset-password/send-otp", {
+                                method: "POST",
+                                headers: { "Content-Type": "application/json" },
+                                body: JSON.stringify({
+                                  email: forgotEmail.trim().toLowerCase(),
+                                  turnstileToken: forgotTurnstileToken || undefined,
+                                }),
+                              });
+                              const data = await res.json();
+                              if (res.ok && data.success) {
+                                setForgotCooldown(60);
+                                setSuccessMessage(data.message || "Kode OTP baru telah dikirim.");
+                              } else {
+                                setErrorMessage(data.error || "Gagal mengirim ulang OTP");
+                              }
+                            } catch {
+                              setErrorMessage("Gagal menghubungi server");
+                            } finally {
+                              setLoading(false);
+                            }
+                          }}
+                          className="text-brand-accent hover:underline disabled:text-text-muted disabled:no-underline flex items-center gap-1 cursor-pointer"
+                        >
+                          <RefreshCw size={12} className={loading ? "animate-spin" : ""} />
+                          <span>{forgotCooldown > 0 ? `Kirim Ulang (${forgotCooldown}s)` : "Kirim Ulang Kode OTP"}</span>
+                        </button>
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="block font-sans text-[11px] uppercase tracking-wider text-text-muted mb-1">
+                        Password Baru <span className="text-brand-accent">*</span>
+                      </label>
+                      <div className="relative">
+                        <Lock size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-text-muted" />
+                        <input
+                          type={showForgotNewPassword ? "text" : "password"}
+                          required
+                          value={forgotNewPassword}
+                          onChange={(e) => setForgotNewPassword(e.target.value)}
+                          placeholder="Minimal 6 karakter"
+                          className="w-full pl-10 pr-11 py-2 rounded-xl bg-surface border border-border-subtle focus:border-brand-accent focus:ring-2 focus:ring-brand-accent/20 text-sm text-text-primary placeholder:text-neutral-600 focus:outline-none transition-all font-sans"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setShowForgotNewPassword((v) => !v)}
+                          aria-label={showForgotNewPassword ? "Sembunyikan password" : "Tampilkan password"}
+                          className="absolute right-3 top-1/2 -translate-y-1/2 text-text-muted hover:text-text-primary p-1 cursor-pointer"
+                        >
+                          {showForgotNewPassword ? <EyeOff size={15} /> : <Eye size={15} />}
+                        </button>
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="block font-sans text-[11px] uppercase tracking-wider text-text-muted mb-1">
+                        Konfirmasi Password Baru <span className="text-brand-accent">*</span>
+                      </label>
+                      <div className="relative">
+                        <Lock size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-text-muted" />
+                        <input
+                          type={showForgotNewPassword ? "text" : "password"}
+                          required
+                          value={forgotConfirmPassword}
+                          onChange={(e) => setForgotConfirmPassword(e.target.value)}
+                          placeholder="Ulangi password baru"
+                          className="w-full pl-10 pr-11 py-2 rounded-xl bg-surface border border-border-subtle focus:border-brand-accent focus:ring-2 focus:ring-brand-accent/20 text-sm text-text-primary placeholder:text-neutral-600 focus:outline-none transition-all font-sans"
+                        />
+                      </div>
+                    </div>
+
+                    <button
+                      type="submit"
+                      disabled={loading || forgotOtp.length !== 6 || forgotNewPassword.length < 6}
+                      className="w-full mt-2 py-3 px-4 rounded-xl font-sans text-xs font-bold tracking-wider uppercase bg-brand-accent text-canvas dark:shadow-[0_0_20px_rgba(230,81,0,0.35)] hover:brightness-110 active:scale-[0.99] disabled:opacity-50 transition-all flex items-center justify-center gap-2 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-accent focus-visible:ring-offset-2 focus-visible:ring-offset-canvas"
+                    >
+                      {loading ? (
+                        <>
+                          <Loader2 size={16} className="animate-spin" />
+                          <span>MENYIMPAN PASSWORD...</span>
+                        </>
+                      ) : (
+                        <>
+                          <span>SIMPAN PASSWORD BARU</span>
+                          <CheckCircle2 size={15} />
+                        </>
+                      )}
+                    </button>
+                  </form>
                 )}
+
+                {/* Security Guarantee */}
+                <div className="mt-4 pt-3 border-t border-border-subtle flex items-center justify-center gap-1.5 text-center">
+                  <ShieldCheck size={12} className="text-emerald-500 shrink-0" />
+                  <span className="text-[10px] text-text-muted">Enkripsi 256-bit · Keamanan Data Terjamin</span>
+                </div>
               </>
             )}
           </div>

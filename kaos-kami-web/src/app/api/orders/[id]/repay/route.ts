@@ -5,7 +5,7 @@ import { eq } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { Payment, Verification } from "@/lib/drizzle-schema";
 import { hashOtp } from "@/lib/otp";
-import { duitkuProvider } from "@/lib/payments/duitku";
+import { ipaymuProvider } from "@/lib/payments/ipaymu";
 import { confirmOrderPaid } from "@/lib/payments/confirmOrder";
 import { PRODUCTION_TURNAROUND_OPTIONS } from "@/lib/shipping/deliveryOptions";
 import { checkRateLimitAsync, getClientIp, rateLimitHeaders } from "@/lib/security/rateLimiter";
@@ -51,8 +51,8 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       return NextResponse.json({ error: "Order ini sudah lunas" }, { status: 400 });
     }
 
-    // Gerbang bukti kepemilikan via OTP WA — SEBELUM sentuh Duitku / bikin
-    // charge. Mekanisme SAMA seperti verify-otp & track/orders (tabel
+    // Gerbang bukti kepemilikan via OTP WA — sebelum membuat charge.
+    // Mekanisme sama seperti verify-otp & track/orders (tabel
     // Verification, hashOtp, kedaluarsa 5 menit, satu-pakai). Body:
     // { phoneNumber: "0812...", otpCode: "123456" } (alias code/otp/
     // otpToken/proof diterima untuk nilai kodenya).
@@ -100,61 +100,16 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     // owner terbukti cocok).
     await db.delete(Verification).where(eq(Verification.identifier, `otp:${cleanProofPhone}`)).catch(() => {});
 
-    // Tanya Duitku langsung: kalau ternyata SUDAH lunas (webhook telat/hilang),
-    // sahkan di sini, JANGAN bikin tagihan baru (anti tagih ganda).
-    // Kalau tagihan lama MASIH PROSES ("01"), link lama masih berlaku —
-    // kembalikan referensi lama, JANGAN rotasi buta (setiap inquiry baru =
-    // spam dashboard merchant). paymentUrl lama tak disimpan di DB, jadi
-    // client memakai link yang sudah diterima via WA/riwayat browser.
-    // Gagal tanya (jaringan) → lanjut hati-hati seperti biasa.
-    try {
-      const remote = await duitkuProvider.checkTransactionStatus(order.orderNumber);
-      if (remote.statusCode === "00") {
-        // Nominal remote WAJIB sama dengan total order (paritas webhook:
-        // tolak underpayment / sukses-tanpa-nominal). Mismatch → JANGAN
-        // auto-confirm, lanjut bikin charge baru di bawah.
-        const remoteAmount = remote.amount !== undefined && remote.amount !== null && String(remote.amount) !== ""
-          ? Number(remote.amount)
-          : NaN;
-        if (!Number.isFinite(remoteAmount) || remoteAmount !== order.totalIdr) {
-          console.warn("Repay: nominal remote mismatch, skip auto-confirm", {
-            orderNumber: order.orderNumber,
-            remoteAmount: remote.amount,
-            total: order.totalIdr,
-          });
-        } else {
-          await db
-            .update(Payment)
-            .set({ status: "SETTLEMENT", paidAt: new Date() })
-            .where(eq(Payment.orderId, order.id));
-          await confirmOrderPaid(order.id, {
-            paymentCode: order.payment?.method || "DUITKU",
-            reference: remote.reference || order.payment?.providerRef,
-            via: "repay-check",
-          });
-          return NextResponse.json({ success: true, alreadyPaid: true });
-        }
-      }
-      if (remote.statusCode === "01") {
-        return NextResponse.json(
-          {
-            error:
-              "Link bayar sebelumnya masih berlaku. Gunakan link yang sudah dikirim (cek WA / riwayat browser). Minta link baru hanya bila link lama kedaluarsa.",
-            reused: true,
-            reference: remote.reference || order.payment?.providerRef,
-          },
-          { status: 409 }
-        );
-      }
-    } catch (e: any) {
-      console.warn("Repay status-check gagal, lanjut bikin charge baru:", e?.message);
-    }
+    // Status-check remote dinonaktifkan — jalur charge aktif selalu iPaymu
+    // (createCharge di bawah). Guard lunas tetap: order.payment SETTLEMENT
+    // ditolak di atas + webhook idempoten. Tanpa remote-check, kontrak response
+    // sukses/502 di bawah tetap.
 
-    // Update-in-place (B1-2): Payment.orderId UNIQUE → JANGAN insert baris
-    // kedua. Timpa ref lama dengan yang baru; link lama ikut mati saat
-    // expiry Duitku. Akses dijaga gerbang OTP WA di atas + rate-limit ketat
+    // Update-in-place (B1-2): Payment.orderId UNIQUE → timpa ref lama dengan
+    // yang baru; link lama ikut mati saat kedaluwarsa. Akses dijaga gerbang
+    // OTP WA di atas + rate-limit ketat
     // (tamu pemegang nomor WA pemilik tetap bisa bayar ulang).
-    // Susun ulang rincian agar balance dengan total (syarat Duitku).
+    // Susun ulang rincian agar balance dengan total (syarat provider).
     const itemLines = order.items.map((it) => ({
       name: it.snapshotName.slice(0, 60),
       price: it.unitPriceIdr,
@@ -169,7 +124,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     // Paritas checkout (checkout/route.ts:410-411,764-766): order EXPRESS
     // menyimpan surcharge di totalIdr + marker [TIER:EXPRESS_24H] di
     // courierNotes (tanpa kolom khusus). Tanpa baris ini Σ(item) < amount
-    // → Duitku tolak imbalance untuk order express.
+    // → provider menolak imbalance untuk order express.
     if (order.courierNotes?.includes("[TIER:EXPRESS_24H]")) {
       const expressSurcharge =
         PRODUCTION_TURNAROUND_OPTIONS.find((t) => t.tier === "EXPRESS_24H")?.surchargeIdr ?? 25000;
@@ -178,9 +133,10 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       }
     }
 
-    let charge;
+    let charge: any;
     try {
-      charge = await duitkuProvider.createCharge({
+      // Bab 55: selalu iPaymu Direct QRIS (pola request-payment).
+      charge = await ipaymuProvider.createCharge({
         orderId: order.id,
         orderNumber: order.orderNumber,
         amountIdr: order.totalIdr,
@@ -189,7 +145,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
           phone: order.user?.phoneNumber || "-",
           email: order.user?.email || "customer@kaoskami.biz.id",
         },
-        itemDetails: itemLines,
+        paymentMethod: "qris",
       });
     } catch (chargeErr: any) {
       return NextResponse.json(
@@ -198,13 +154,13 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       );
     }
 
-    // I5: kanal asli DIPERTAHANKAN (dulu ditimpa "RETRY" → jejak hilang).
-    // Info retry dicatat di event, bukan dgn merusak kolom method.
+    const providerKey = "IPAYMU";
     const origMethod = (order.payment as any)?.method || "QRIS";
     if (order.payment) {
       await db
         .update(Payment)
         .set({
+          provider: providerKey,
           providerRef: charge.reference,
           amountIdr: order.totalIdr,
           status: "PENDING",
@@ -216,7 +172,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       await db.insert(Payment).values({
         id: nanoid(),
         orderId: order.id,
-        provider: "DUITKU",
+        provider: providerKey,
         providerRef: charge.reference,
         method: origMethod,
         amountIdr: order.totalIdr,
@@ -229,11 +185,17 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
         id: nanoid(),
         orderId: order.id,
         status: order.status,
-        note: `Link bayar baru diminta (kanal ${origMethod}, ref ${charge.reference}).`,
+        note: `Link bayar baru diminta (kanal ${origMethod}, ref ${charge.reference}, provider ${providerKey}).`,
       });
     } catch {}
 
-    return NextResponse.json({ success: true, paymentUrl: charge.paymentUrl, reference: charge.reference });
+    return NextResponse.json({
+      success: true,
+      paymentUrl: charge.paymentUrl,
+      qrString: charge.qrString,
+      qrImage: charge.qrImage,
+      reference: charge.reference,
+    });
   } catch (e: any) {
     return NextResponse.json({ error: e?.message || "Internal error" }, { status: 500 });
   }

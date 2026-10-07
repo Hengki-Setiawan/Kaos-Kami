@@ -110,4 +110,31 @@ kaos-kami-web/tests/e2e/.auth/
 **/public/mascot/raw/
 Blueprint/hasil-pengujian-e2e/gang-sheets/
 
+# Dokumen Skripsi & Data Akademik Pribadi (Local Only — JANGAN PERNAH PUSH KE GITHUB)
+Skripsi/
+local.db
+kaos-kami-web/local.db
+scratch/
+kaos-kami-web/scratch/
+kaos-kami-web/scratch-inspect.mjs
+*.docx
+*.pdf
+Screenshot/
+.claude/
+.commandcode/
+1_infrastruktur/
+agent/
+skills-lock.json
+scripts/*_skripsi*
+scripts/ai_detector*
+scripts/plagiarism*
+scripts/analyze_*
+scripts/inspect_*
+scripts/download_all_drive_files*
+scripts/generate_mendeley*
+scripts/generate_seminar*
+scripts/generate_uat*
+scripts/deep_analyze*
+scripts/write_master*
+scripts/check_citations*
 

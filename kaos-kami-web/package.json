@@ -35,7 +35,6 @@
     "better-auth": "^1.7.2",
     "clsx": "^2.1.1",
     "drizzle-orm": "^0.45.2",
-    "fabric": "^7.4.0",
     "gifenc": "^1.0.3",
     "gsap": "^3.12.5",
     "jspdf": "^4.2.1",

@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import Link from "next/link";
+import { ChatQuickMacros } from "@/components/admin/ChatQuickMacros";
 import {
   MessageSquare,
   Search,
@@ -80,6 +81,9 @@ export function AdminChatManager() {
   const [loadingThreads, setLoadingThreads] = useState(true);
   const [loadingMessages, setLoadingMessages] = useState(false);
   const [sending, setSending] = useState(false);
+  // Mode CS lokal saja (tanpa ubah API/DB): false = Kamito AI aktif,
+  // true = Human CS ambil alih balasan thread ini.
+  const [humanTakeover, setHumanTakeover] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
 
@@ -192,7 +196,7 @@ export function AdminChatManager() {
   const activeThread = threads.find((t) => t.userId === selectedUserId);
 
   return (
-    <div className="flex flex-col h-[calc(100vh-5rem)] bg-canvas border border-border-subtle rounded-2xl overflow-hidden font-sans shadow-lg">
+    <div className="flex flex-col h-[calc(100dvh-5rem)] bg-canvas border border-border-subtle rounded-2xl overflow-hidden font-sans shadow-lg">
       <div className="flex flex-1 min-h-0 divide-x divide-border-subtle">
         {/* Kolom Kiri: Daftar Threads Pelanggan */}
         <div className="w-full md:w-80 lg:w-96 flex flex-col shrink-0 bg-surface">
@@ -200,7 +204,7 @@ export function AdminChatManager() {
           <div className="p-4 border-b border-border-subtle space-y-3">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <span className="font-display font-black text-sm uppercase tracking-tight text-text-primary">
+                <span className="font-sans font-bold text-xs uppercase tracking-tight text-text-primary">
                   PESAN PELANGGAN
                 </span>
                 <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-brand-accent/20 text-brand-accent font-bold">
@@ -254,7 +258,7 @@ export function AdminChatManager() {
                     type="button"
                     onClick={() => setSelectedUserId(t.userId)}
                     className={`w-full p-3.5 text-left transition-colors flex items-start gap-3 hover:bg-canvas/50 ${
-                      isSelected ? "bg-canvas border-l-4 border-l-brand-accent" : ""
+                      isSelected ? "bg-canvas border-l border-l-brand-accent/50" : ""
                     }`}
                   >
                     {/* Avatar with presence */}
@@ -369,6 +373,30 @@ export function AdminChatManager() {
                 </div>
 
                 <div className="flex items-center gap-2">
+                  {/* Status mode CS (state lokal saja — tanpa ubah API/DB) */}
+                  <span
+                    className={`text-[10px] font-mono px-2 py-1 rounded-full font-bold border ${
+                      humanTakeover
+                        ? "bg-sky-500/15 text-sky-600 dark:text-sky-300 border-sky-500/30"
+                        : "bg-emerald-500/15 text-emerald-600 dark:text-emerald-300 border-emerald-500/30"
+                    }`}
+                    title={humanTakeover ? "Balasan manual Human CS (lokal)" : "Balasan otomatis Kamito AI aktif (lokal)"}
+                  >
+                    {humanTakeover ? "Human CS Aktif" : "Kamito AI Aktif"}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setHumanTakeover((v) => !v)}
+                    aria-pressed={humanTakeover}
+                    title="Alihkan balasan antara Kamito AI dan Human CS (lokal saja)"
+                    className={`px-3 py-1.5 rounded-xl border text-xs font-bold transition-colors ${
+                      humanTakeover
+                        ? "bg-canvas border-border-subtle text-text-muted hover:text-text-primary"
+                        : "bg-brand-accent/15 border-brand-accent/40 text-brand-accent hover:brightness-110"
+                    }`}
+                  >
+                    {humanTakeover ? "Kembalikan ke Kamito AI" : "Ambil Alih Human CS"}
+                  </button>
                   <Link
                     href={`/admin/orders?search=${encodeURIComponent(activeThread.userName)}`}
                     className="px-3 py-1.5 rounded-xl bg-canvas border border-border-subtle hover:border-brand-accent text-xs font-bold text-text-primary flex items-center gap-1.5 transition-colors"
@@ -404,7 +432,7 @@ export function AdminChatManager() {
                             {isFromBot ? (
                               // eslint-disable-next-line @next/next/no-img-element
                               <img
-                                src="/mascot/mascot-primary.png"
+                                src="/mascot/kamito-avatar.png"
                                 alt="Kamito"
                                 className="w-full h-full object-cover rounded-full"
                               />
@@ -426,7 +454,7 @@ export function AdminChatManager() {
                               {isFromAdmin
                                 ? "Kamito / Admin Workshop"
                                 : isFromBot
-                                ? "Kamito Bot"
+                                ? "Kamito (CS Kaos Kami)"
                                 : activeThread.userName}
                             </span>
                             <span className="text-text-muted">
@@ -454,9 +482,17 @@ export function AdminChatManager() {
                 <div ref={messagesEndRef} />
               </div>
 
+              {/* Macro cepat: isi composer saja (kirim tetap via handleSend existing) */}
+              <ChatQuickMacros
+                disabled={!activeThread}
+                onPick={(t) => {
+                  setInputText(t);
+                  setTimeout(() => inputRef.current?.focus(), 50);
+                }}
+              />
               {/* Template Balasan Cepat */}
               <div className="px-4 py-2 bg-surface/70 border-t border-border-subtle flex items-center gap-1.5 overflow-x-auto no-scrollbar shrink-0">
-                <span className="text-[10px] font-mono text-text-muted uppercase font-bold shrink-0">
+                <span className="text-[10px] font-sans text-text-muted uppercase font-bold shrink-0">
                   TEMPLATE:
                 </span>
                 {ADMIN_TEMPLATES.map((tmpl, idx) => (
@@ -507,7 +543,7 @@ export function AdminChatManager() {
               <div className="w-16 h-16 rounded-full overflow-hidden bg-brand-accent/20 border border-brand-accent/40 flex items-center justify-center">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
-                  src="/mascot/mascot-primary.png"
+                  src="/mascot/kamito-avatar.png"
                   alt="Kamito Mascot"
                   className="w-full h-full object-cover"
                 />

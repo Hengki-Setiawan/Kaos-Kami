@@ -27,8 +27,8 @@
  * (keputusan owner, paritas web non-Draco): default kini non-Draco;
  * varian *.draco.glb + decoder diarsipkan ke backups/draco-archive/.
  *
- * OWNER: untuk mengubah daftar, cukup ubah array di bawah — halaman
- * `/admin/assets` ikut otomatis (satu sumber kebenaran).
+ * OWNER: untuk mengubah daftar, cukup ubah array di bawah — tabel
+ * inventaris ikut otomatis (satu sumber kebenaran).
  */
 
 // prettier-ignore

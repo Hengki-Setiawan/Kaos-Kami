@@ -622,19 +622,20 @@ export async function requoteAndSyncCart(timeoutMs = 10000): Promise<RequoteResu
 // INTEGRASI UNTUK PEMILIK CheckoutSheet.tsx (JANGAN edit file ini —
 // tempel potongan berikut ke CheckoutSheet oleh pemiliknya)
 //
-// Jangkar presisi (audit 21 Sep 2026, JANGAN edit CheckoutSheet dari misi ini):
-// - `handlePlaceOrder` = CheckoutSheet.tsx:256 (async; validasi → R2 → checkout)
-// - `getDecalForItem` = CheckoutSheet.tsx:321 (builder 1-decal front/back —
+// Jangkar presisi (audit 06 Okt 2026, JANGAN edit CheckoutSheet dari misi ini):
+// - `handlePlaceOrder` = CheckoutSheet.tsx:289 (async; validasi → R2 → checkout)
+// - `getDecalForItem` = CheckoutSheet.tsx:377 (builder 1-decal front/back —
 //   TARGET GANTI §4)
-// - Loop draft-R2 per item = CheckoutSheet.tsx:344-398 (`createDesignDraft`
-//   dipanggil di :360; hasil 1 URL/item di `resolvedDecalUrls`)
-// - POST checkout = CheckoutSheet.tsx:413 (`mobileApiClient.checkout`, payload
-//   `items:` dibangun di :431-455 via `items.map((it, mapIdx) => …)`)
-// - Guard orderable ≈400 = :282-290; ekspedisi tanpa quote = :291-296;
-//   OTP 6-digit = :300-302; whitelist kecamatan = :304-306
-// - State form = :74-78 (`customerName/Phone/Address`, `couponCode`,
-//   `turnaroundTier`); Step 1 = :624, Step 2 = :729, Step 3 = :966;
-//   tombol submit = :1070 (`handlePlaceOrder`)
+// - Loop draft-R2 per item = CheckoutSheet.tsx:403-454 (`createDesignDraft`
+//   dipanggil di :416; hasil 1 URL/item di `resolvedDecalUrls` (:400))
+// - POST checkout = CheckoutSheet.tsx:469 (`mobileApiClient.checkout`, payload
+//   `items:` dibangun di :489-513 via `items.map((it, mapIdx) => …)`)
+// - Guard orderable ≈400 = :315-323; ekspedisi tanpa quote = :324-329;
+//   OTP 6-digit = :333-335; whitelist kecamatan = :337-339
+// - State form = :75-83 (`customerName/Phone/Address`, `couponCode`,
+//   `turnaroundTier`, `email`, `courierNotes`, `priceNotice`);
+//   Step 1 = :692, Step 2 = :809, Step 3 = :1058;
+//   tombol submit = :1167-1176 (`handlePlaceOrder` via HapticButton :1172)
 // ---------------------------------------------------------------------------
 /**
  * LANGKAH 1 — Re-quote saat sheet dibuka (ganti pola "harga cart apa adanya"):
@@ -650,12 +651,12 @@ export async function requoteAndSyncCart(timeoutMs = 10000): Promise<RequoteResu
  *   })();
  *   return () => { alive = false; };
  * }, [open]);
- * // + tampilkan priceNotice di Step 3 (CheckoutSheet.tsx:966, banner amber)
- * // SEBELUM tombol PESAN (:1070).
+ * // + tampilkan priceNotice di Step 3 (CheckoutSheet.tsx:1058, banner amber)
+ * // SEBELUM tombol PESAN (:1167-1176).
  * ```
  *
  * LANGKAH 2 — Validasi varian+stok sebelum submit (di `handlePlaceOrder`
- * (:256), setelah guard orderable (:282-290), sebelum cek ongkir (:291-296)):
+ * (:289), setelah guard orderable (:315-323), sebelum cek ongkir (:324-329)):
  * ```tsx
  * import { validateCartAgainstCatalog } from '@/lib/checkoutParity';
  * const cats = await mobileApiClient.getCatalog().then(r => r.data?.categories ?? []);
@@ -666,34 +667,34 @@ export async function requoteAndSyncCart(timeoutMs = 10000): Promise<RequoteResu
  * // v.stockUnknown SELALU true — JANGAN klaim "stok aman" di UI.
  * ```
  *
- * LANGKAH 3 — Ganti builder items tunggal → N-decal (di `handlePlaceOrder`,
- * ganti `getDecalForItem` (:321) + `decals:[{...1 item}]` di peta
- * `items.map` (:431-455) dengan):
+ * LANGKAH 3 — Ganti builder items tunggal → N-decal (di `handlePlaceOrder`
+ * (:289), ganti `getDecalForItem` (:377) + `decals:[{...1 item}]` di peta
+ * `items.map` (:489-513) dengan):
  * ```tsx
  * import { buildMobileCheckoutItems } from '@/lib/checkoutParity';
  * const built = buildMobileCheckoutItems(items);
  * if (built.warnings.length > 0) onNotify?.(built.warnings.join(' '));
  * // pakai built.items[i].decals untuk payload + alur draft-R2 per decal
- * // (loop :344-398 jadi NESTED: per item → per decal; `createDesignDraft`
- * //  (:360) dipanggil per decal, URL per-index-decal masuk
- * //  `decals:[...N...]` di `items.map` (:431-455)).
+ * // (loop :403-454 jadi NESTED: per item → per decal; `createDesignDraft`
+ * //  (:416) dipanggil per decal, URL per-index-decal masuk
+ * //  `decals:[...N...]` di `items.map` (:489-513)).
  * ```
  * CATATAN: alur R2 kini kirim 1 decal/item — dengan N-decal, draft per item
  * harus membawa N url (ubah decals:[...1...] di createDesignDraft jadi map
  * dari built.items[i].decals + resolvedDecalUrls per-index-decal).
  *
  * LANGKAH 4 — Field wajib baru (state + UI + payload; state tetangga
- * ada di :74-78, sisipkan di sebelahnya):
- * - `const [email, setEmail] = useState('')` + input opsional Step 1 (:624) +
+ * ada di :75-83, sisipkan di sebelahnya):
+ * - `const [email, setEmail] = useState('')` + input opsional Step 1 (:692) +
  *   payload `email: email.trim().slice(0,254) || undefined`
  *   (kunci = CHECKOUT_EMAIL_PAYLOAD_KEY).
  * - `const [courierNotes, setCourierNotes] = useState('')` + textarea
- *   opsional (maks 500) Step 2 (:729) + payload
+ *   opsional (maks 500) Step 2 (:809) + payload
  *   `courierNotes: v.slice(0,500) || undefined`
  *   (kunci = CHECKOUT_COURIER_NOTES_PAYLOAD_KEY).
  * - Size-breakdown: toggle "Bagi Ukuran (S–XXL)" + stepper per size di Step 3
- *   (:966), lalu `expandSizeBreakdown(base, dist)` → ganti `items:` payload
- *   (:431-455). Kunci konsep = CHECKOUT_SIZE_BREAKDOWN_KEY (client-only,
+ *   (:1058), lalu `expandSizeBreakdown(base, dist)` → ganti `items:` payload
+ *   (:489-513). Kunci konsep = CHECKOUT_SIZE_BREAKDOWN_KEY (client-only,
  *   BUKAN field server; hasil = N items ≤20).
  * - Turnstile: `shouldAttachTurnstile({ otpVerified: otpLifetimeOk })` —
  *   bila true, render widget + kirim `turnstileToken`.

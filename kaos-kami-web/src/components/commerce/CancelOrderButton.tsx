@@ -40,7 +40,7 @@ export function CancelOrderButton({ orderId }: { orderId: string }) {
       <button
         onClick={() => setAsking(true)}
         disabled={state === "busy"}
-        className="w-full py-2.5 px-4 rounded-xl bg-surface border border-white/10 text-text-muted hover:text-red-300 hover:border-red-500/40 font-mono font-bold text-[11px] uppercase tracking-wider disabled:opacity-50 transition-all"
+        className="w-full py-2.5 px-4 rounded-xl bg-surface border border-white/10 text-text-muted hover:text-red-300 hover:border-red-500/40 font-sans font-bold text-[11px] uppercase tracking-wider disabled:opacity-50 transition-all"
       >
         {state === "busy" ? "MEMBATALKAN…" : "Batalkan pesanan ini"}
       </button>

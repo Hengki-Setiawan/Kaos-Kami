@@ -139,15 +139,15 @@ export function UserProfileCard({ user, onProfileUpdated }: UserProfileProps) {
   };
 
   return (
-    <div className="p-5 sm:p-6 rounded-2xl bg-surface border border-border-subtle shadow-sm transition-all font-mono">
+    <div className="p-5 sm:p-6 rounded-2xl bg-surface border border-border-subtle shadow-sm transition-all font-sans">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-border-subtle">
         <div className="flex items-center gap-3.5">
-          <div className="w-12 h-12 rounded-xl bg-brand-accent/20 border border-brand-accent/40 text-brand-accent flex items-center justify-center font-display font-black text-xl shadow-inner shrink-0">
+          <div className="w-12 h-12 rounded-xl bg-brand-accent/20 border border-brand-accent/40 text-brand-accent flex items-center justify-center font-sans font-bold text-lg shadow-inner shrink-0">
             {(name || user?.name || "K")[0]?.toUpperCase()}
           </div>
           <div>
             <div className="flex items-center gap-2">
-              <h2 className="font-display text-base sm:text-lg font-black uppercase tracking-tight text-text-primary">
+              <h2 className="font-sans text-base sm:text-lg font-bold uppercase tracking-tight text-text-primary">
                 {name || user?.name || "Pelanggan Kaos Kami"}
               </h2>
               <span className="px-2 py-0.5 rounded-full text-[9px] font-bold uppercase bg-brand-accent/15 text-brand-accent border border-brand-accent/30">
@@ -349,7 +349,7 @@ export function UserProfileCard({ user, onProfileUpdated }: UserProfileProps) {
           </div>
         </form>
       ) : (
-        <div className="pt-4 grid grid-cols-1 sm:grid-cols-3 gap-4 text-xs font-mono">
+        <div className="pt-4 grid grid-cols-1 sm:grid-cols-3 gap-4 text-xs font-sans">
           <div className="p-3 rounded-xl bg-surface-elevated/40 border border-border-subtle/70">
             <div className="text-[10px] uppercase text-text-muted flex items-center gap-1.5 mb-1">
               <User size={12} className="text-brand-accent" />

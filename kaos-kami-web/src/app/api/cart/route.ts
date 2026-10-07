@@ -3,6 +3,7 @@ import { nanoid } from 'nanoid';
 import { db } from '@/lib/db';
 import { Cart } from '@/lib/drizzle-schema';
 import { assertResourceOwnerOrAdmin } from '@/lib/security/authGuard';
+import { checkRateLimitAsync, getClientIp, rateLimitHeaders } from '@/lib/security/rateLimiter';
 
 async function getCartWithItems(userId: string) {
   return db.query.Cart.findFirst({
@@ -13,6 +14,10 @@ async function getCartWithItems(userId: string) {
 
 export async function GET(req: NextRequest) {
   try {
+    const rl = await checkRateLimitAsync(`cart:ip:${getClientIp(req)}`, 60, 60);
+    if (rl.isLimited) {
+      return NextResponse.json({ error: 'Terlalu sering. Tunggu sebentar.' }, { status: 429, headers: rateLimitHeaders(rl, 60) });
+    }
     const { searchParams } = new URL(req.url);
     const userId = searchParams.get('userId');
     if (!userId) return NextResponse.json({ error: 'Missing userId' }, { status: 400 });

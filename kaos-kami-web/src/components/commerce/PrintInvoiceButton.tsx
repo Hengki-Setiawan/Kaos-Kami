@@ -24,7 +24,7 @@ export function PrintInvoiceButton({
       onClick={handlePrint}
       className={
         className ||
-        "py-2.5 px-4 rounded-xl bg-surface border border-border-subtle hover:border-brand-accent text-text-primary hover:text-brand-accent font-mono font-bold text-xs uppercase tracking-wider transition-all flex items-center justify-center gap-2 print:hidden"
+        "py-2.5 px-4 rounded-xl bg-surface border border-border-subtle hover:border-brand-accent text-text-primary hover:text-brand-accent font-sans font-bold text-xs uppercase tracking-wider transition-all flex items-center justify-center gap-2 print:hidden"
       }
       title="Cetak nota atau simpan sebagai PDF"
     >

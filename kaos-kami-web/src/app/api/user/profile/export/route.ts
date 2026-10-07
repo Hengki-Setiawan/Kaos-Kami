@@ -1,10 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { getAuthenticatedUser } from "@/lib/security/authGuard";
+import { checkRateLimitAsync, getClientIp, rateLimitHeaders } from "@/lib/security/rateLimiter";
 
 /** GET /api/user/profile/export — unduh data saya (UU PDP: hak akses data). */
 export async function GET(req: NextRequest) {
   try {
+    const rl = await checkRateLimitAsync(`profile-export:ip:${getClientIp(req)}`, 10, 60);
+    if (rl.isLimited) {
+      return NextResponse.json({ error: "Terlalu sering. Tunggu sebentar." }, { status: 429, headers: rateLimitHeaders(rl, 10) });
+    }
     const viewer = await getAuthenticatedUser().catch(() => null);
     if (!viewer) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     const me = await db.query.User.findFirst({

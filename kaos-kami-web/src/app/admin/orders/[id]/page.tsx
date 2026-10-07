@@ -117,8 +117,8 @@ export default async function AdminOrderDetailPage({ params }: AdminOrderDetailP
       <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-4 pb-4 border-b border-white/5">
         <div>
           <div className="flex items-center space-x-2">
-            <h1 className="font-display text-2xl sm:text-3xl font-black uppercase tracking-tight text-white">
-              ORDER #{order.orderNumber}
+            <h1 className="font-sans text-2xl sm:text-3xl font-bold uppercase tracking-tight text-white">
+              ORDER <span className="font-mono">#{order.orderNumber}</span>
             </h1>
             <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase bg-brand-accent/15 text-brand-accent border border-brand-accent/30">
               {order.status}
@@ -443,8 +443,8 @@ export default async function AdminOrderDetailPage({ params }: AdminOrderDetailP
                 return (
                   <p className="text-[11px] font-mono text-text-muted">
                     Belum ada catatan review — putuskan via{" "}
-                    <Link href="/admin/review" className="text-brand-accent hover:underline font-bold">
-                      ANTREAN REVIEW
+                    <Link href="/admin/orders" className="text-brand-accent hover:underline font-bold">
+                      DAFTAR PESANAN
                     </Link>
                     .
                   </p>

@@ -69,7 +69,7 @@ Seluruh 6 skenario integrasi end-to-end terverifikasi dengan berkas audit resmi:
    - Terbit 2 ProductionTask sablon DTF dengan lebar terkunci maksimal 30.0 cm.
 2. **Kasus 2 — Hoodie Pickup KM 10**:
    - Checkout hoodie fleece abu-abu XL metode ambil sendiri di workshop Jl. Perintis Kemerdekaan KM 10.
-   - Pengecekan decal skala 0.85 terkoreksi ke batas fisik printhead.
+   - Pengecekan decal skala 0.85 terkoreksi ke batas sablon DTF (maksimal 30.0 cm).
 3. **Kasus 3 — Bulk Merch 12 Pcs Komunitas**:
    - Pemesanan grosir 12 pcs kaos komunitas (total Rp 1.356.600).
    - Penerapan diskon kupon bertingkat dan pembayaran via QRIS Duitku.

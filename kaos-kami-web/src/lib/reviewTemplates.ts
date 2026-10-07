@@ -28,7 +28,7 @@ export const REVIEW_REJECT_TEMPLATES: ReviewRejectTemplate[] = [
   {
     id: "resolusi-kurang",
     label: "Resolusi kurang",
-    text: "Resolusi gambar terlalu rendah untuk cetak DTF 300 DPI — pecah saat diperbesar. Kirim ulang file beresolusi tinggi (min. 3000px sisi terpanjang) atau pilih desain lain.",
+    text: "Resolusi gambar terlalu rendah untuk cetak DTF 300 DPI (pecah saat diperbesar). Kirim ulang file beresolusi tinggi (min. 3000px sisi terpanjang) atau pilih desain lain.",
   },
   {
     id: "luar-area-cetak",
@@ -38,12 +38,12 @@ export const REVIEW_REJECT_TEMPLATES: ReviewRejectTemplate[] = [
   {
     id: "warna-tak-cetak",
     label: "Warna tak tercetak",
-    text: "Warna desain tidak tercetak akurat di mesin DTF (neon/gradasi sangat tipis). Ganti ke warna solid atau konsultasi via WA workshop.",
+    text: "Warna desain tidak tercetak akurat di mesin DTF (warna menyala/gradasi sangat tipis). Ganti ke warna solid atau konsultasi via WA workshop.",
   },
   {
     id: "font-tipis",
     label: "Font/garis terlalu tipis",
-    text: "Font atau garis terlalu tipis (< 2pt) — berisiko rontok setelah press & cuci. Tebalkan elemen atau ganti font lalu checkout ulang.",
+    text: "Font atau garis terlalu tipis (< 2pt) sehingga berisiko rontok setelah press & cuci. Tebalkan elemen atau ganti font lalu checkout ulang.",
   },
   {
     id: "lainnya",

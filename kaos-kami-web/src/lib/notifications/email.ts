@@ -126,3 +126,62 @@ export async function sendEmailOtp(toEmail: string, otpCode: string, name?: stri
   const res = await sendEmail({ to: toEmail, subject, html });
   return { ...res, code: otpCode };
 }
+
+/**
+ * Template Khusus Pengiriman Kode OTP Reset Password Akun Kaos Kami
+ */
+export async function sendEmailPasswordResetOtp(toEmail: string, otpCode: string, name?: string): Promise<SendEmailResult> {
+  const greeting = name ? `Halo ${name},` : "Halo Pelanggan Kaos Kami,";
+  const subject = `${otpCode} adalah Kode Verifikasi Reset Password Akun Kaos Kami`;
+
+  console.log(`\n=========================================================`);
+  console.log(`[EMAIL OTP RESET PASSWORD KAOS KAMI]`);
+  console.log(`Kepada: ${toEmail}`);
+  console.log(`Nama: ${name || "-"}`);
+  console.log(`Kode OTP: ${otpCode}`);
+  console.log(`Berlaku: 10 Menit`);
+  console.log(`=========================================================\n`);
+
+  const html = `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <style>
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #0E0E10; color: #ECECED; margin: 0; padding: 20px; }
+    .card { max-width: 500px; margin: 0 auto; background-color: #18181B; border: 1px solid #27272A; border-radius: 16px; padding: 32px; box-shadow: 0 10px 25px rgba(0,0,0,0.5); }
+    .brand { color: #FF6D00; font-weight: 900; font-size: 20px; letter-spacing: 2px; text-transform: uppercase; margin-bottom: 24px; text-align: center; }
+    .title { font-size: 18px; font-weight: 700; color: #FFFFFF; margin-bottom: 12px; }
+    .text { font-size: 14px; line-height: 1.6; color: #A1A1AA; margin-bottom: 24px; }
+    .otp-box { background-color: #0E0E10; border: 2px dashed #E65100; border-radius: 12px; padding: 18px; text-align: center; margin-bottom: 24px; }
+    .otp-code { font-family: 'Courier New', Courier, monospace; font-size: 36px; font-weight: 900; letter-spacing: 8px; color: #FF6D00; }
+    .footer { font-size: 12px; color: #71717A; text-align: center; border-top: 1px solid #27272A; padding-top: 16px; margin-top: 24px; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="brand">KAOS KAMI · MAKASSAR DTF SABLON</div>
+    <div class="title">Permintaan Reset Password Akun</div>
+    <div class="text">
+      ${greeting}<br><br>
+      Kami menerima permintaan untuk mereset password akun Kaos Kami Anda. Gunakan 6-digit kode verifikasi berikut untuk melanjutkan proses reset password:
+    </div>
+    <div class="otp-box">
+      <div class="otp-code">${otpCode}</div>
+    </div>
+    <div class="text" style="font-size: 12px; color: #71717A;">
+      Kode verifikasi ini hanya berlaku selama <strong>10 menit</strong>. Jika Anda tidak merasa meminta reset password, amankan akun Anda atau abaikan email ini.
+    </div>
+    <div class="footer">
+      Kaos Kami — Platform 3D Interactive Apparel & DTF Sablon Hyperlocal Makassar.<br>
+      Pemberitahuan keamanan otomatis. Jangan membalas email ini secara langsung.
+    </div>
+  </div>
+</body>
+</html>
+  `.trim();
+
+  const res = await sendEmail({ to: toEmail, subject, html });
+  return { ...res, code: otpCode };
+}
+

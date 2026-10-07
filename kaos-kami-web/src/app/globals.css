@@ -17,6 +17,31 @@
   }
 }
 
+/* Safe Area Insets for Mobile (iPhone Notch / Dynamic Island / Android Gesture Bar) */
+.pt-safe {
+  padding-top: max(env(safe-area-inset-top, 0px), 16px);
+}
+.pb-safe {
+  padding-bottom: max(env(safe-area-inset-bottom, 0px), 16px);
+}
+.pl-safe {
+  padding-left: max(env(safe-area-inset-left, 0px), 16px);
+}
+.pr-safe {
+  padding-right: max(env(safe-area-inset-right, 0px), 16px);
+}
+
+.h-dvh {
+  height: 100dvh;
+}
+.min-h-dvh {
+  min-height: 100dvh;
+}
+.max-h-dvh {
+  max-height: 100dvh;
+}
+
+
 :root,
 [data-theme="obsidian"] {
   color-scheme: dark;
@@ -193,4 +218,76 @@ body {
 .animate-halo {
   animation: pulseHalo 2.4s ease-in-out infinite;
   will-change: transform, opacity;
+}
+
+/* Navbar sliding-underline (presentasi saja, tanpa lib — hormati reduced-motion). */
+.nav-sliding-underline {
+  position: relative;
+}
+.nav-sliding-underline::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 2px;
+  border-radius: 9999px;
+  background: var(--color-brand-accent);
+  transform: scaleX(0);
+  transform-origin: left;
+  transition: transform 0.25s ease;
+}
+.nav-sliding-underline:hover::after,
+.nav-sliding-underline[data-active="true"]::after {
+  transform: scaleX(1);
+}
+@media (prefers-reduced-motion: reduce) {
+  .nav-sliding-underline::after {
+    transition: none;
+  }
+}
+
+/* Token easing out-expo (SSOT transisi modal/drawer) + caret brand. */
+:root {
+  --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
+}
+input,
+textarea {
+  caret-color: var(--color-brand-accent);
+}
+.ease-out-expo {
+  transition-timing-function: var(--ease-out-expo);
+}
+/* Spring masuk dialog: scale .95→1 + fade, 200ms out-expo (ganti animate-in). */
+@keyframes dialog-spring-in {
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+@keyframes dialog-fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+.dialog-spring-in {
+  animation: dialog-spring-in 200ms var(--ease-out-expo);
+  will-change: transform, opacity;
+}
+.dialog-overlay-expo {
+  animation: dialog-fade-in 200ms var(--ease-out-expo);
+  will-change: opacity;
+}
+@media (prefers-reduced-motion: reduce) {
+  .dialog-spring-in,
+  .dialog-overlay-expo {
+    animation: none;
+  }
 }

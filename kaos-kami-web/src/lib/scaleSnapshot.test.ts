@@ -16,9 +16,9 @@ describe("scale calibration snapshot (TL-07)", () => {
     expect(APPAREL_PHYSICAL_SPECS.shirt?.meshMultiplier).toBe(69.5);
   });
 
-  it("batas cetak DTF 30.0 x 42.0 cm", () => {
-    expect(REAL_WORLD_PRINT_LIMITS.maxPrintWidthCm).toBe(30.0);
-    expect(REAL_WORLD_PRINT_LIMITS.maxPrintHeightCm).toBe(42.0);
+  it("batas cetak DTF 35.0 x 45.0 cm", () => {
+    expect(REAL_WORLD_PRINT_LIMITS.maxPrintWidthCm).toBe(35.0);
+    expect(REAL_WORLD_PRINT_LIMITS.maxPrintHeightCm).toBe(45.0);
   });
 
   it("surfaceZ SSOT per apparel", () => {

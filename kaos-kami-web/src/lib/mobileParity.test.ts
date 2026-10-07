@@ -59,7 +59,7 @@ describe("mobileParitySpec: snapshot = SSOT web", () => {
   it("maxWidth depan per apparel sama dengan maxFrontWidthCm + dalam batas printhead", () => {
     const g = S.maxWidthCm["_globalPrintheadMax"];
     expect(g).toBe(REAL_WORLD_PRINT_LIMITS.maxPrintWidthCm);
-    expect(g).toBe(30.0);
+    expect(g).toBe(35.0);
     expect(S.maxWidthCm["_globalMaxHeight"]).toBe(REAL_WORLD_PRINT_LIMITS.maxPrintHeightCm);
     expect(S.maxWidthCm["_minDecalScaleUnits"]).toBe(REAL_WORLD_PRINT_LIMITS.minDecalScaleUnits);
     for (const [slug, box] of Object.entries(S.maxWidthCm)) {
@@ -68,7 +68,7 @@ describe("mobileParitySpec: snapshot = SSOT web", () => {
       expect(box.front, `maxWidth.${slug}.front`).toBe(specRow.maxFrontWidthCm);
       expect(box.back, `maxWidth.${slug}.back`).toBe(specRow.maxBackWidthCm);
       expect(box.sleeve, `maxWidth.${slug}.sleeve`).toBe(specRow.maxSleeveWidthCm);
-      expect(box.front).toBeLessThanOrEqual(30.0);
+      expect(box.front).toBeLessThanOrEqual(35.0);
     }
     // Kasus khusus yang disengaja (bukan drift): kantong kangaroo & pullover.
     expect(S.maxWidthCm["hoodie"].front).toBe(28.0);

@@ -356,7 +356,7 @@ function cmForDecal(apparel: ApparelType, decal: MobileDecalLayer | null): { w: 
   const mult = MOBILE_UNITS_TO_CM[apparel as ApparelType] ?? 100;
   const rawW = decal.scale * mult;
   // Aspek tak diketahui di store (ada di tekstur GPU) → kotak 1:1 + clamp
-  // printhead DTF 30.0 cm (angka pasti dihitung renderer per aspek).
+  // batas DTF 30.0 cm (angka pasti dihitung renderer per aspek).
   return {
     w: Number(Math.min(30.0, Math.max(5.0, rawW)).toFixed(1)),
     h: Number(Math.min(42.0, Math.max(5.0, rawW)).toFixed(1)),
@@ -561,7 +561,7 @@ export const useMobileStudioStore = create<MobileStudioState>((set) => ({
 
   setDecalTransform: (decalPosition, decalScale, decalRotation, widthCm, heightCm) =>
     set((state) => {
-      // Kalibrasi terukur per apparel (selaras web) — clamped ke printhead DTF 30.0 cm.
+      // Kalibrasi terukur per apparel (selaras web) — clamped ke batas DTF 30.0 cm.
       const mult = MOBILE_UNITS_TO_CM[state.apparelType] ?? 100;
       const rawWidth = widthCm ?? decalScale[0] * mult;
       const rawHeight = heightCm ?? decalScale[1] * mult;

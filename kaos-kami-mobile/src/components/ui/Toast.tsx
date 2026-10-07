@@ -3,6 +3,7 @@
 import React, { useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { CheckCircle2, AlertTriangle, AlertCircle, Info, X } from 'lucide-react';
+import { Z_CLASS_TOAST } from '@/lib/zIndex';
 
 export type ToastType = 'success' | 'warning' | 'error' | 'info';
 
@@ -53,7 +54,7 @@ export function Toast({
           animate={{ opacity: 1, y: 0, scale: 1 }}
           exit={{ opacity: 0, y: -20, scale: 0.92 }}
           transition={{ type: 'spring', stiffness: 500, damping: 30 }}
-          className="fixed top-[max(1rem,env(safe-area-inset-top))] inset-x-4 z-50 flex justify-center pointer-events-none"
+          className={`fixed top-[max(1rem,env(safe-area-inset-top))] inset-x-4 ${Z_CLASS_TOAST} flex justify-center pointer-events-none`}
         >
           <div
             className={`pointer-events-auto max-w-sm w-full p-3.5 rounded-2xl border shadow-2xl backdrop-blur-2xl flex items-start justify-between gap-3 ${color.bg}`}

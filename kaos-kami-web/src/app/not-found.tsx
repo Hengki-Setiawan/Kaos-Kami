@@ -8,7 +8,7 @@ export default function NotFound() {
       <Navbar />
       <div className="flex-1 flex flex-col items-center justify-center gap-4 p-6 text-center">
       <p className="text-brand-accent font-black text-6xl">404</p>
-      <h1 className="font-display text-xl font-bold uppercase">Halaman tidak ketemu</h1>
+      <h1 className="font-sans text-xl font-bold uppercase">Halaman tidak ketemu</h1>
       <p className="text-text-muted text-sm max-w-sm">
         Alamatnya salah ketik atau sudah dipindah. Balik ke beranda, katalog, atau studio desain.
       </p>

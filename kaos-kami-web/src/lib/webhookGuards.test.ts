@@ -3,7 +3,7 @@ import crypto from "node:crypto";
 import { DuitkuPaymentProvider } from "@/lib/payments/duitku";
 
 // R5 (Bab 8): guard webhook S-033–S-037 + U-049/U-058 — signature/nominal/
-// idempotency TANPA hit Duitku asli (hit asli tetap milik R3 sandbox).
+// idempotency tanpa hit gateway asli (hit asli tetap milik R3 sandbox).
 const MERCHANT = "DSB_TEST_MERCHANT";
 const APIKEY = "test-api-key-32-char-minimum-xxxx";
 let oldMerchant: string | undefined;

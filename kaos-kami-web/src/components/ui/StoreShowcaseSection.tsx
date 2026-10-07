@@ -5,7 +5,7 @@ import { createPortal } from "react-dom";
 import dynamic from "next/dynamic";
 import Link from "next/link";
 import Image from "next/image";
-import { ShoppingBag, Eye, ArrowRight, X, Check, ShieldCheck, Truck, RotateCw, Sparkles, AlertCircle } from "lucide-react";
+import { ShoppingBag, Eye, ArrowRight, X, Check, ShieldCheck, Truck, RotateCw, Sparkles, AlertCircle, Shirt } from "lucide-react";
 import { useCartStore } from "@/store/useCartStore";
 import { APPAREL_CATALOG, type ApparelType } from "@/lib/constants";
 import { isSafeImageUrl } from "@/lib/safeUrl";
@@ -56,17 +56,26 @@ const PRODUCT_IMAGE_MAP: Record<string, string> = {
 };
 
 function getProductPhoto(id: string, apparelSlug: ApparelType, colorHex: string, rawImg?: string): string {
-  if (rawImg && (rawImg.startsWith("/") || isSafeImageUrl(rawImg))) return rawImg;
   if (PRODUCT_IMAGE_MAP[id]) return PRODUCT_IMAGE_MAP[id];
+  if (rawImg && rawImg.startsWith("/products/")) return rawImg;
+
+  const hex = (colorHex || "").toLowerCase();
   if (apparelSlug === "shirt") return "/products/coach-jacket-olive.jpg";
   if (apparelSlug === "hoodie") return "/products/hoodie-black.jpg";
   if (apparelSlug === "crewneck") return "/products/crewneck-grey.jpg";
-  if (colorHex?.toLowerCase() === "#efece6") return "/products/tshirt-white-ecru.jpg";
-  if (colorHex?.toLowerCase() === "#e65100") return "/products/tshirt-orange-makassar.jpg";
+  if (hex === "#efece6" || hex === "#ffffff" || hex === "#f7f5f0") return "/products/tshirt-white-ecru.jpg";
+  if (hex === "#e65100") return "/products/tshirt-orange-makassar.jpg";
+  if (hex === "#3b4435") return "/products/coach-jacket-olive.jpg";
+  if (hex === "#9e9e9e" || hex === "#2a2b2e") return "/products/crewneck-grey.jpg";
+
+  if (rawImg && (rawImg.startsWith("/") || isSafeImageUrl(rawImg)) && !rawImg.includes("look-01")) {
+    return rawImg;
+  }
   return "/products/tshirt-black.jpg";
 }
 
 function buildDefaultSizes(basePrice: number, baseStock: number, baseId: string): ShowcaseSizeOption[] {
+
   const sizes = ["S", "M", "L", "XL", "XXL"];
   return sizes.map((sz, idx) => {
     const delta = sz === "XL" ? 10000 : sz === "XXL" ? 20000 : 0;
@@ -84,7 +93,7 @@ function buildDefaultSizes(basePrice: number, baseStock: number, baseId: string)
 const DEFAULT_SHOWCASE: ShowcaseProduct[] = [
   {
     id: "cmtgx5tee000sush0grpi0mxp",
-    name: "Jaket Coach Urban - Hijau Olive",
+    name: "Coach Jacket Tactical - Hijau Olive",
     colorHex: "#3B4435",
     colorName: "Hijau Olive",
     size: "L",
@@ -110,7 +119,7 @@ const DEFAULT_SHOWCASE: ShowcaseProduct[] = [
   },
   {
     id: "cmtgx5t5b000oush0pgpjop1g",
-    name: "Kaos Streetwear Grafis Makassar - Oranye",
+    name: "Kaos Combed Grafis Makassar - Oranye",
     colorHex: "#E65100",
     colorName: "Oranye",
     size: "M",
@@ -149,7 +158,7 @@ const DEFAULT_SHOWCASE: ShowcaseProduct[] = [
   },
   {
     id: "cmtgx5tkk000wush019ak44op",
-    name: "Crewneck Classic Pullover - Abu Misty",
+    name: "Crewneck Fleece Classic - Abu Misty",
     colorHex: "#9E9E9E",
     colorName: "Abu Misty",
     size: "L",
@@ -174,6 +183,35 @@ export const StoreShowcaseSection: React.FC = () => {
   const [selectedSize, setSelectedSize] = useState<string>("L");
   const [quantity, setQuantity] = useState<number>(1);
   const [modalAdded, setModalAdded] = useState(false);
+  const [selectedCategory, setSelectedCategory] = useState<string>("all");
+
+  const filteredProducts = products.filter((p) => {
+    if (selectedCategory === "all") return true;
+    if (selectedCategory === "tshirt") return p.apparelSlug === "tshirt" || p.apparelSlug === "longsleeve";
+    if (selectedCategory === "hoodie") return p.apparelSlug === "hoodie" || p.apparelSlug === "crewneck";
+    if (selectedCategory === "shirt") return p.apparelSlug === "shirt";
+    if (selectedCategory === "accessory")
+      return p.apparelSlug === "cap" || p.apparelSlug === "pants" || p.apparelSlug === "shorts";
+    return true;
+  });
+
+  // ── Swatch warna interaktif per kartu (state lokal): varian 1 nama dasar
+  // digabung jadi 1 kartu; klik lingkaran → ganti varian tampil (foto, warna,
+  // harga, stok). Tampilan saja — fetch katalog & cart store TAK diubah. ──
+  const baseKeyOf = (name: string) =>
+    name.replace(/\s*-\s*[^-]+$/, "").trim().toLowerCase();
+  const groupedProducts = React.useMemo(() => {
+    const map = new Map<string, ShowcaseProduct[]>();
+    for (const p of filteredProducts) {
+      const k = baseKeyOf(p.name);
+      const arr = map.get(k) || [];
+      arr.push(p);
+      map.set(k, arr);
+    }
+    return [...map.entries()];
+  }, [filteredProducts]);
+  // key = baseKey, value = id varian tampil. Belum diklik → varian pertama.
+  const [swatchSel, setSwatchSel] = useState<Record<string, string>>({});
 
   // Scroll Container Refs & Focus Management
   const scrollBodyRef = useRef<HTMLDivElement>(null);
@@ -264,7 +302,10 @@ export const StoreShowcaseSection: React.FC = () => {
               ? "shirt"
               : "tshirt";
 
-            const groupKey = `${(v.name || "").trim().toLowerCase()}__${(v.colorHex || "").toLowerCase()}__${apparelSlug}`;
+            const cleanName = (v.name || "")
+              .replace(/\s*\((?:S|M|L|XL|XXL|XXXL|3XL|All\s*Size|\d+)\)\s*$/i, "")
+              .trim();
+            const groupKey = `${cleanName.toLowerCase()}__${(v.colorHex || "").toLowerCase()}__${apparelSlug}`;
             if (seenGroupKeys.has(groupKey)) continue;
             seenGroupKeys.add(groupKey);
 
@@ -287,7 +328,7 @@ export const StoreShowcaseSection: React.FC = () => {
 
             uniqueProducts.push({
               id: v.id,
-              name: v.name || "Produk Kaos Kami",
+              name: cleanName || v.name || "Produk Kaos Kami",
               colorHex: v.colorHex || "#121214",
               colorName: v.colorName || "Varian",
               size: defaultOpt?.size || v.size || "L",
@@ -300,8 +341,9 @@ export const StoreShowcaseSection: React.FC = () => {
             });
           }
 
-          setTotalCount(uniqueProducts.length);
-          setProducts(uniqueProducts);
+          setTotalCount(data.variants.length);
+          // Di etalase beranda, tampilkan 6 model busana kurasi utama (2 baris x 3 kolom)
+          setProducts(uniqueProducts.slice(0, 6));
         }
       } catch {
         clearTimeout(t);
@@ -361,47 +403,76 @@ export const StoreShowcaseSection: React.FC = () => {
   };
 
   return (
-    <section id="etalase" className="relative z-20 bg-canvas px-6 md:px-12 py-24 border-t border-border-subtle scroll-mt-20">
+    <section id="etalase" className="relative z-20 bg-canvas px-6 md:px-12 py-24 border-t border-border-subtle scroll-mt-24">
       <div className="max-w-7xl mx-auto space-y-10">
         {/* Section Header (Minimalist & Premium) */}
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-end gap-6 pb-4 border-b border-border-subtle">
           <div>
-            <span className="block text-[10px] font-mono text-brand-accent uppercase tracking-widest mb-1 font-bold">
+            <span className="block text-[10px] font-sans text-brand-accent uppercase tracking-widest mb-1 font-bold">
               READY STOCK // MAKASSAR HYPERLOCAL
             </span>
-            <h2 className="text-3xl sm:text-5xl font-display font-black uppercase text-text-primary">
+            <h2 className="text-3xl sm:text-5xl font-sans font-extrabold uppercase text-text-primary">
               ETALASE PRODUK
             </h2>
-            <p className="font-mono text-xs text-text-muted mt-1.5 max-w-xl leading-relaxed">
+            <p className="font-sans text-xs text-text-muted mt-1.5 max-w-xl leading-relaxed">
               Streetwear kurasi Kaos Kami dengan bahan katun combed adem & sablon DTF presisi.
             </p>
           </div>
 
           <Link
             href="/catalog"
-            className="inline-flex items-center justify-center space-x-2 font-mono text-xs font-bold text-brand-accent hover:underline uppercase tracking-wider shrink-0 py-2.5 px-5 rounded-xl border border-brand-accent/30 bg-brand-accent/5 hover:bg-brand-accent/10 transition-colors shadow-sm"
+            className="inline-flex items-center justify-center space-x-2 font-sans text-xs font-bold text-brand-accent hover:underline uppercase tracking-wider shrink-0 py-2.5 px-5 rounded-xl border border-brand-accent/30 bg-brand-accent/5 hover:bg-brand-accent/10 transition-colors shadow-sm"
           >
-            <span>LIHAT SEMUA KATALOG ({totalCount}+)</span>
+            <span>LIHAT SEMUA KOLEKSI</span>
             <ArrowRight size={14} />
           </Link>
         </div>
 
-        {/* 3-Column Editorial Store Showcase Grid (Products Display) */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 font-mono">
-          {products.map((p, idx) => (
+        {/* Category Filter Pills */}
+        <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-none">
+          {[
+            { id: "all", label: "Semua" },
+            { id: "tshirt", label: "Kaos Combed 24s" },
+            { id: "hoodie", label: "Hoodie & Sweater" },
+            { id: "shirt", label: "Coach Jacket" },
+            { id: "accessory", label: "Aksesori" },
+          ].map((cat) => {
+            const isActive = selectedCategory === cat.id;
+            return (
+              <button
+                key={cat.id}
+                onClick={() => setSelectedCategory(cat.id)}
+                className={`px-4 py-2 rounded-xl text-xs font-sans font-bold whitespace-nowrap transition-all border ${
+                  isActive
+                    ? "bg-brand-accent text-canvas border-brand-accent shadow-sm"
+                    : "bg-surface/80 text-text-muted border-border-subtle hover:text-text-primary hover:border-brand-accent/40"
+                }`}
+              >
+                {cat.label}
+              </button>
+            );
+          })}
+        </div>
+
+        {/* Compact & Balanced Store Showcase Grid (Products Display) */}
+        <div className="w-full max-w-5xl mx-auto">
+        <div className="grid grid-cols-2 md:grid-cols-3 gap-3.5 sm:gap-5 font-sans">
+          {groupedProducts.map(([gkey, variants], idx) => {
+            const p = variants.find((v) => v.id === swatchSel[gkey]) || variants[0]!;
+            return (
             <div
-              key={p.id}
-              className="group relative rounded-2xl bg-surface border border-border-subtle hover:border-brand-accent/50 transition-all duration-300 flex flex-col justify-between overflow-hidden shadow-sm hover:shadow-md cursor-pointer"
+              key={gkey}
+              className="group relative rounded-xl bg-surface border border-border-subtle hover:border-brand-accent/50 transition-all duration-300 flex flex-col justify-between overflow-hidden shadow-sm hover:shadow-md cursor-pointer"
               onClick={() => openDetailModal(p, "photo")}
             >
               {/* Product Visual Mockup */}
-              <div className="relative aspect-[3/4] overflow-hidden bg-surface">
+              <div className="relative aspect-[4/5] overflow-hidden bg-surface">
                 <Image
                   src={p.image}
                   alt={p.name}
                   width={600}
-                  height={800}
-                  sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 25vw"
+                  height={750}
+                  sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
                   className="w-full h-full object-cover transition-transform duration-700 ease-out group-hover:scale-105"
                   priority={idx === 0}
                   loading={idx === 0 ? undefined : "lazy"}
@@ -413,34 +484,19 @@ export const StoreShowcaseSection: React.FC = () => {
                   }}
                 />
 
-                {/* Top Left Badge: Color & Size */}
-                <div className="absolute top-3 left-3 flex items-center space-x-1.5 px-2.5 py-1 rounded-full bg-canvas/75 backdrop-blur-md text-[10px] text-text-primary font-bold border border-border-subtle">
-                  <span
-                    className="w-2.5 h-2.5 rounded-full border border-border-subtle"
-                    style={{ backgroundColor: p.colorHex }}
-                  />
-                  <span>{p.colorName} · Size {p.size}</span>
-                </div>
-
-                {/* Top Right Badge: 3D 360° Ready */}
-                <div className="absolute top-3 right-3 flex items-center space-x-1 px-2.5 py-1 rounded-full bg-black/70 backdrop-blur-md text-[10px] text-brand-accent font-bold border border-brand-accent/40 shadow-sm">
-                  <RotateCw size={11} className="animate-spin-slow" />
-                  <span>3D 360°</span>
-                </div>
-
                 {/* Hover Quick-View Hint */}
                 <div className="absolute inset-0 bg-canvas/30 backdrop-blur-[2px] opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                  <span className="py-2 px-4 rounded-full bg-canvas/90 text-text-primary font-bold text-[11px] border border-border-subtle flex items-center gap-1.5 shadow-lg">
-                    <RotateCw size={13} className="text-brand-accent" />
-                    <span>PREVIEW 3D (360°)</span>
+                  <span className="py-1.5 px-3 rounded-full bg-canvas/90 text-text-primary font-bold text-[10px] border border-border-subtle flex items-center gap-1.5 shadow-lg">
+                    <RotateCw size={12} className="text-brand-accent" />
+                    <span>PREVIEW 3D</span>
                   </span>
                 </div>
               </div>
 
               {/* Product Meta Info */}
-              <div className="p-4 flex-1 flex flex-col justify-between space-y-3">
+              <div className="p-3 sm:p-3.5 flex-1 flex flex-col justify-between space-y-2">
                 <div>
-                  <span className="text-[10px] tracking-wider text-text-muted uppercase block mb-1">
+                  <span className="text-[9px] tracking-wider text-text-muted uppercase block mb-0.5">
                     {`#0${idx + 1} · ${
                       p.apparelSlug === "shirt"
                         ? "JAKET COACH"
@@ -453,12 +509,43 @@ export const StoreShowcaseSection: React.FC = () => {
                         : "KAOS COMBED"
                     }`}
                   </span>
-                  <h3 className="font-display font-bold text-sm text-text-primary line-clamp-2 leading-snug group-hover:text-brand-accent transition-colors">
+                  <h3 className="font-sans font-semibold text-xs sm:text-sm text-text-primary line-clamp-1 leading-snug group-hover:text-brand-accent transition-colors">
                     {p.name}
                   </h3>
-                  <div className="mt-1.5 text-base font-bold text-brand-accent">
+                  <div className="mt-1 text-xs sm:text-sm font-bold text-brand-accent">
                     Rp {Number(p.priceIdr).toLocaleString("id-ID")}
                   </div>
+                  {/* Swatch warna: klik lingkaran → ganti varian tampil (state lokal) */}
+                  {variants.length > 1 && (
+                    <div
+                      className="mt-2 flex items-center gap-1.5"
+                      onClick={(e) => e.stopPropagation()}
+                      role="group"
+                      aria-label={`Pilihan warna ${p.name}`}
+                    >
+                      <span className="text-[10px] text-text-muted mr-0.5">Warna:</span>
+                      {variants.map((v) => {
+                        const aktif = v.id === p.id;
+                        return (
+                          <button
+                            key={v.id}
+                            type="button"
+                            onClick={() => setSwatchSel((s) => ({ ...s, [gkey]: v.id }))}
+                            title={v.colorName}
+                            aria-label={`Tampilkan varian ${v.colorName}`}
+                            aria-pressed={aktif}
+                            className={`w-6 h-6 rounded-full border-2 transition-all ${
+                              aktif
+                                ? "border-brand-accent ring-2 ring-brand-accent/30 scale-110"
+                                : "border-border-subtle hover:border-brand-accent/60 hover:scale-105"
+                            }`}
+                            style={{ backgroundColor: v.colorHex }}
+                          />
+                        );
+                      })}
+                      <span className="text-[10px] font-bold text-text-primary">{p.colorName}</span>
+                    </div>
+                  )}
                 </div>
 
                 {/* Direct Action Buttons */}
@@ -486,7 +573,25 @@ export const StoreShowcaseSection: React.FC = () => {
                 </div>
               </div>
             </div>
-          ))}
+            );
+          })}
+          {groupedProducts.length === 0 && (
+            <div className="col-span-full p-8 text-center rounded-2xl bg-surface border border-border-subtle space-y-2">
+              <p className="font-sans text-sm font-semibold text-text-primary">
+                Belum ada produk ready stock pada kategori ini
+              </p>
+              <p className="font-sans text-xs text-text-muted">
+                Kategori aksesori (topi & celana) masih tahap mockup 3D, atau kustom sablon desain sendiri di 3D Studio.
+              </p>
+              <button
+                onClick={() => setSelectedCategory("all")}
+                className="font-sans text-xs font-bold text-brand-accent hover:underline uppercase tracking-wider"
+              >
+                Tampilkan Semua Produk
+              </button>
+            </div>
+          )}
+        </div>
         </div>
       </div>
 
@@ -508,7 +613,7 @@ export const StoreShowcaseSection: React.FC = () => {
             {/* Fixed Sticky Modal Header (Never scrolls off screen) */}
             <div className="flex items-center justify-between px-5 sm:px-7 py-3.5 border-b border-border-subtle bg-surface/95 backdrop-blur-md shrink-0 z-20">
               <div className="flex items-center gap-2">
-                <span className="font-display font-black text-xs sm:text-sm uppercase tracking-wider text-text-primary">
+                <span className="font-sans font-bold text-xs sm:text-sm uppercase tracking-wider text-text-primary">
                   DETAIL PRODUK READY STOCK // {activeModalProduct.apparelSlug.toUpperCase()}
                 </span>
                 <span className="text-[10px] text-brand-accent font-bold bg-brand-accent/10 px-2.5 py-0.5 rounded-full border border-brand-accent/20">
@@ -624,7 +729,7 @@ export const StoreShowcaseSection: React.FC = () => {
                         <span className="text-[10px] tracking-widest text-brand-accent uppercase font-bold block mb-1">
                           READY STOCK MAKASSAR // {activeModalProduct.apparelSlug.toUpperCase()}
                         </span>
-                        <h2 className="font-display font-black text-xl sm:text-2xl uppercase text-text-primary leading-tight">
+                        <h2 className="font-sans font-bold text-xl sm:text-2xl uppercase text-text-primary leading-tight">
                           {activeModalProduct.name}
                         </h2>
                         <div className="mt-2 flex items-baseline gap-2">

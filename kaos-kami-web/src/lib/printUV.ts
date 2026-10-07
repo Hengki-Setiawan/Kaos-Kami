@@ -23,7 +23,7 @@ import * as THREE from "three";
  *    lengan terentang) bbox mencakup bagian non-badan → v artwork badan
  *    terkompresi/bergeser bila satu texture dipakai mentah-mentah.
  * KONSEKUENSI: fungsi ini HANYA untuk panel depan/belakang badan. Master
- * lengan/hood WAJIB lewat jalur PatternStudio per-panel (exportPanelMaster)
+ * lengan/hood WAJIB lewat jalur per-panel (exportPanelMaster)
  * yang memetakan cm→px eksplisit per sisi. Jangan pakai uvPrint untuk
  * menagih posisi lengan — selalu meleset di seam.
  */

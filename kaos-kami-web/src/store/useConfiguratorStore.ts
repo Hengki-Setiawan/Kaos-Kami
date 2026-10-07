@@ -85,6 +85,10 @@ interface ConfiguratorState {
   activeViewSide: DecalTargetSide;
   isStudio3DReady: boolean;
 
+  // Mode Tampilan Admin vs Pelanggan (Simulasi / Pratinjau Pembeli)
+  adminViewMode: "admin" | "customer";
+  setAdminViewMode: (mode: "admin" | "customer") => void;
+
   // Actions
   setIsStudio3DReady: (ready: boolean) => void;
   setActiveViewSide: (side: DecalTargetSide) => void;
@@ -165,6 +169,12 @@ interface ConfiguratorState {
   isSizeGuideOpen: boolean;
   setIsSizeGuideOpen: (open: boolean) => void;
   toggleSizeGuide: () => void;
+  isClothLabOpen: boolean;
+  setIsClothLabOpen: (open: boolean) => void;
+  toggleClothLab: () => void;
+  isExportModalOpen: boolean;
+  setIsExportModalOpen: (open: boolean) => void;
+  toggleExportModal: () => void;
   animationPreset: "static" | "wind" | "walking" | "knit";
   animationSpeed: number;
   setAnimationPreset: (p: "static" | "wind" | "walking" | "knit") => void;
@@ -308,6 +318,8 @@ export const useConfiguratorStore = create<ConfiguratorState>((set, get) => ({
   isGizmoDragging: false,
   isGizmoVisible: true,
   isSizeGuideOpen: false,
+  isClothLabOpen: false,
+  isExportModalOpen: false,
   animationPreset: "static" as const,
   animationSpeed: 1.0,
 
@@ -334,6 +346,13 @@ export const useConfiguratorStore = create<ConfiguratorState>((set, get) => ({
   cameraPreset: null,
   activeViewSide: "front",
   isStudio3DReady: false,
+  adminViewMode: (typeof window !== "undefined" && (localStorage.getItem("kaoskami_admin_view_mode") as any)) || "admin",
+  setAdminViewMode: (mode) => {
+    try {
+      localStorage.setItem("kaoskami_admin_view_mode", mode);
+    } catch {}
+    set({ adminViewMode: mode });
+  },
 
   setIsStudio3DReady: (ready) => set({ isStudio3DReady: ready }),
   setActiveViewSide: (side) => set({ activeViewSide: side }),
@@ -704,6 +723,10 @@ export const useConfiguratorStore = create<ConfiguratorState>((set, get) => ({
   toggleGizmoVisible: () => set((state) => ({ isGizmoVisible: !state.isGizmoVisible })),
   setIsSizeGuideOpen: (open) => set({ isSizeGuideOpen: open }),
   toggleSizeGuide: () => set((state) => ({ isSizeGuideOpen: !state.isSizeGuideOpen })),
+  setIsClothLabOpen: (open) => set({ isClothLabOpen: open }),
+  toggleClothLab: () => set((state) => ({ isClothLabOpen: !state.isClothLabOpen })),
+  setIsExportModalOpen: (open) => set({ isExportModalOpen: open }),
+  toggleExportModal: () => set((state) => ({ isExportModalOpen: !state.isExportModalOpen })),
   setAnimationPreset: (p) => set({ animationPreset: p }),
   setAnimationSpeed: (s) => set({ animationSpeed: s }),
   setTestLabMode: (mode) => set({ testLabMode: mode }),

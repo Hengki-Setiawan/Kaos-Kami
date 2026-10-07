@@ -15,6 +15,7 @@ import { useMobileStudioStore } from '@/store/useMobileStudioStore';
 import { useMobileDeviceTier } from '@/hooks/useMobileDeviceTier';
 import { registerARSnapshot, renderARNow } from '@/lib/3d/exportStudio';
 import { useShallow } from 'zustand/shallow';
+import { Z_CLASS_CANVAS, Z_CLASS_HUD, Z_CLASS_MODAL } from '@/lib/zIndex';
 
 export function ARPreviewStage({ onClose, onNotify }: { onClose: () => void; onNotify?: (msg: string) => void }) {
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -249,7 +250,7 @@ export function ARPreviewStage({ onClose, onNotify }: { onClose: () => void; onN
   };
 
   return (
-    <div className="fixed inset-0 z-50 bg-black flex flex-col select-none overflow-hidden">
+    <div className={`fixed inset-0 ${Z_CLASS_MODAL} bg-black flex flex-col select-none overflow-hidden`}>
       {/* Video Background Passthrough */}
       <video
         ref={videoRef}
@@ -261,11 +262,11 @@ export function ARPreviewStage({ onClose, onNotify }: { onClose: () => void; onN
       />
 
       {/* Snapshot Flash Overlay */}
-      {snapshotTaken && <div className="absolute inset-0 bg-white z-40 animate-out fade-out duration-300" />}
+      {snapshotTaken && <div className={`absolute inset-0 bg-white ${Z_CLASS_HUD} animate-out fade-out duration-300`} />}
 
       {/* Silhouette Guide (Visible when AI tracking is off or searching) */}
       {(!useAITracking || !poseTransform.detected) && (
-        <div className="absolute inset-0 pointer-events-none flex flex-col items-center justify-center z-10">
+        <div className={`absolute inset-0 pointer-events-none flex flex-col items-center justify-center ${Z_CLASS_CANVAS}`}>
           {/* HP kecil 360px: guide muat (min 72vw / 320px), tak overflow. */}
           <div className="w-[min(72vw,320px)] h-80 border-2 border-dashed border-white/40 rounded-t-[100px] rounded-b-[40px] flex items-center justify-center relative animate-pulse">
             <span className="absolute top-4 px-3 py-1 rounded-full bg-black/60 backdrop-blur-md text-[10px] font-bold text-white border border-white/20">
@@ -321,7 +322,7 @@ export function ARPreviewStage({ onClose, onNotify }: { onClose: () => void; onN
             aiTouched.current = true;
             setUseAITracking((prev) => !prev);
           }}
-          className={`px-3.5 py-1.5 rounded-full backdrop-blur-xl border text-xs font-bold font-['Syne'] flex items-center gap-1.5 transition-all ${
+          className={`px-3.5 py-1.5 rounded-full backdrop-blur-xl border text-xs font-bold font-sans flex items-center gap-1.5 transition-all ${
             useAITracking
               ? 'bg-[#FF6B35]/30 border-[#FF6B35] text-white shadow-lg shadow-orange-500/30'
               : 'bg-black/60 border-white/20 text-zinc-400'

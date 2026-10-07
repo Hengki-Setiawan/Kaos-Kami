@@ -6,7 +6,7 @@ import { useCartStore } from "@/store/useCartStore";
 
 /**
  * A7: samakan fallback redirect dgn Pop — cart dikosongkan HANYA saat kembali
- * dgn ?status=success (konfirmasi sukses sisi Duitku). Pending/close/error =
+ * dgn ?status=success (konfirmasi sukses sisi provider). Pending/close/error =
  * cart utuh agar retry tak kehilangan isi keranjang.
  */
 export function ClearCartOnSuccess() {
@@ -24,7 +24,7 @@ export function ClearCartOnSuccess() {
   return null;
 }
 
-/** Batas bayar Duitku 24 jam sejak order dibuat. */
+/** Batas bayar 24 jam sejak order dibuat. */
 export const PAYMENT_EXPIRY_MS = 24 * 60 * 60 * 1000;
 
 function fmtLeft(ms: number): string {

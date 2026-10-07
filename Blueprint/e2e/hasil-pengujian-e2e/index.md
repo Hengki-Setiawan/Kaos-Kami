@@ -64,7 +64,7 @@ Dokumen ini merupakan register resmi dari seluruh artefak pengujian end-to-end y
 #### Suite 5: Rantai Integrasi Nyata Kasus 2 (`scripts/e2e-kasus-2.mjs`)
 - Pesanan: Hoodie Heavyweight Fleece Jet Black (Ukuran XL)
 - Penyerahan: PICKUP (Ambil Mandiri di Workshop KM 10 Makassar)
-- Clamp Printhead: Decal skala 0.85 dikunci ke batas fisik 30.0 cm (Task 1: 30x36cm, Task 2: 23.2x23.2cm).
+- Batas Sablon DTF: Decal skala 0.85 dikunci ke batas fisik 30.0 cm (Task 1: 30x36cm, Task 2: 23.2x23.2cm).
 - Nomor Pesanan Terbit: `KK-20260927-8914` (Total Rp 215.000)
 - Duitku Webhook: Callback sukses status 200 OK, transisi status `PAYMENT_CONFIRMED`.
 

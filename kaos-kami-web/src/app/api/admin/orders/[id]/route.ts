@@ -3,7 +3,7 @@ import { z } from "zod";
 import { and, eq } from "drizzle-orm";
 import { nanoid } from "nanoid";
 import { db } from "@/lib/db";
-import { Order, OrderStatusEvent, Payment } from "@/lib/drizzle-schema";
+import { Order, OrderRefund, OrderStatusEvent, Payment } from "@/lib/drizzle-schema";
 import { headers } from "next/headers";
 import { checkRateLimitAsync, getClientIp, rateLimitHeaders } from "@/lib/security/rateLimiter";
 import { assertTransition, type Role } from "@/lib/orders/machine";
@@ -15,9 +15,11 @@ const RESI_RE = /^[A-Za-z0-9][A-Za-z0-9 .\-/]{3,62}[A-Za-z0-9]$/;
 const PatchSchema = z.object({
   trackingNumber: z.string().max(64).nullable().optional(),
   cancel: z.boolean().optional(),
-  // Tandai refund: uang dikembalikan MANUAL via dashboard Duitku (tidak ada
-  // API refund publik) — tombol ini hanya mencatat status + riwayat.
+  cancelReason: z.string().max(500).optional(),
+  // Tandai refund: dana dikembalikan manual via dashboard provider / transfer
+  // (mencatat status + alasan + riwayat audit terstruktur).
   refund: z.boolean().optional(),
+  refundReason: z.string().max(500).optional(),
   status: z
     .enum([
       "PAYMENT_CONFIRMED",
@@ -69,7 +71,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
 
   // Otorisasi per aksi (bukan sekadar lolos gerbang workshop):
   // - cancel/refund = dampak finansial (status final CANCELLED/REFUNDED +
-  //   restore kuota kupon + catatan refund manual Duitku) → HANYA
+  //   restore kuota kupon + catatan refund manual via dashboard iPaymu) → HANYA
   //   ADMIN/SUPER_ADMIN. PRODUCTION_STAFF tak boleh membatalkan uang pelanggan.
   // - trackingNumber/resi = operasional harian kirim paket → boleh
   //   PRODUCTION_STAFF (tanpa dampak finansial).
@@ -105,7 +107,8 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   });
   if (!order) return NextResponse.json({ error: "Order tidak ditemukan" }, { status: 404 });
 
-  // Sinkronisasi status pembayaran langsung dari gateway Duitku (server-to-server)
+  // Sinkronisasi status pembayaran langsung dari gateway iPaymu (server-to-server).
+  // Cek via transactionId iPaymu.
   if (syncPayment) {
     if (order.status !== "PENDING_PAYMENT") {
       return NextResponse.json({
@@ -116,18 +119,41 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     }
 
     try {
-      const { duitkuProvider } = await import("@/lib/payments/duitku");
-      const remote = await duitkuProvider.checkTransactionStatus(order.orderNumber);
-      if (remote.statusCode === "00") {
-        const remoteAmount = remote.amount !== undefined && remote.amount !== null && String(remote.amount) !== ""
-          ? Number(remote.amount)
-          : NaN;
-        if (!Number.isFinite(remoteAmount) || remoteAmount !== order.totalIdr) {
-          return NextResponse.json({
-            success: false,
-            error: `Nominal Duitku (Rp ${remote.amount}) tidak cocok dengan total pesanan (Rp ${order.totalIdr}).`,
-          }, { status: 400 });
-        }
+      const payRow = await db.query.Payment.findFirst({
+        where: (t, { eq }) => eq(t.orderId, order.id),
+        columns: { provider: true, providerRef: true },
+      });
+      const ref = payRow?.providerRef || "";
+      // Hanya baris IPAYMU dengan transactionId angka yang bisa dicek; legacy
+      // DUITKU / ref semu dilewati ke sweep 24 jam.
+      if (payRow?.provider !== "IPAYMU" || !/^\d+$/.test(ref)) {
+        return NextResponse.json({
+          success: true,
+          synced: false,
+          message: "Baris payment bukan IPAYMU valid — sinkronisasi manual dilewati.",
+        });
+      }
+      const { ipaymuProvider } = await import("@/lib/payments/ipaymu");
+      const remote = await ipaymuProvider.checkTransactionStatus(ref);
+      const ok = /^(berhasil|success|paid|settle)/i.test(`${remote.status} ${remote.statusDesc}`);
+      if (!ok) {
+        return NextResponse.json({
+          success: true,
+          synced: false,
+          message: `Status remote iPaymu: ${remote.status} ${remote.statusDesc}`.trim(),
+        });
+      }
+      if (
+        remote.amount !== undefined &&
+        remote.amount !== null &&
+        String(remote.amount) !== "" &&
+        Number(remote.amount) !== order.totalIdr
+      ) {
+        return NextResponse.json({
+          success: false,
+          error: `Nominal iPaymu (Rp ${remote.amount}) tidak cocok dengan total pesanan (Rp ${order.totalIdr}).`,
+        }, { status: 400 });
+      }
 
         await db
           .update(Payment)
@@ -136,8 +162,8 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
 
         const { confirmOrderPaid } = await import("@/lib/payments/confirmOrder");
         await confirmOrderPaid(order.id, {
-          paymentCode: remote.reference || "DUITKU",
-          reference: remote.reference,
+          paymentCode: "IPAYMU",
+          reference: ref,
           via: "admin-manual-sync",
         });
 
@@ -145,29 +171,12 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
           success: true,
           synced: true,
           status: "PAYMENT_CONFIRMED",
-          message: "Pembayaran terverifikasi lunas di Duitku! Status pesanan kini PAYMENT_CONFIRMED.",
+          message: "Pembayaran terverifikasi lunas di iPaymu! Status pesanan kini PAYMENT_CONFIRMED.",
         });
-      }
-
-      if (remote.statusCode === "01") {
-        return NextResponse.json({
-          success: true,
-          synced: false,
-          status: "PENDING_PAYMENT",
-          message: "Transaksi masih berstatus pending di Duitku.",
-        });
-      }
-
-      return NextResponse.json({
-        success: true,
-        synced: false,
-        status: "PENDING_PAYMENT",
-        message: `Duitku: ${remote.statusMessage || "Belum dibayar / kedaluwarsa"} (kode: ${remote.statusCode || "-"}).`,
-      });
     } catch (e: any) {
       return NextResponse.json({
         success: false,
-        error: `Gagal menghubungi Duitku: ${e?.message || "error tidak diketahui"}`,
+        error: `Gagal menghubungi iPaymu: ${e?.message || "error tidak diketahui"}`,
       }, { status: 502 });
     }
   }
@@ -233,9 +242,15 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
         { status: 400 }
       );
     }
+    const finalCancelReason = parsed.data.cancelReason?.trim() || "Dibatalkan oleh workshop via admin.";
     const race = await db
       .update(Order)
-      .set({ status: "CANCELLED" })
+      .set({ 
+        status: "CANCELLED",
+        reviewNote: finalCancelReason,
+        reviewedBy: actorUserId,
+        reviewedAt: new Date(),
+      })
       .where(and(eq(Order.id, order.id), eq(Order.status, order.status)));
     if ((race.rowsAffected ?? 0) === 0) {
       return NextResponse.json({ error: "Status berubah, muat ulang dulu" }, { status: 409 });
@@ -244,7 +259,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
       id: nanoid(),
       orderId: order.id,
       status: "CANCELLED",
-      note: "Dibatalkan oleh workshop via admin.",
+      note: `Dibatalkan oleh workshop: ${finalCancelReason}`,
       actorUserId,
     });
     await restoreOrderCoupon();
@@ -264,19 +279,34 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
         { status: 400 }
       );
     }
+    const finalRefundReason = parsed.data.refundReason?.trim() || "Dana dikembalikan via transfer manual/QRIS oleh admin.";
     const race = await db
       .update(Order)
-      .set({ status: "REFUNDED" })
+      .set({ 
+        status: "REFUNDED",
+        reviewNote: finalRefundReason,
+        reviewedBy: actorUserId,
+        reviewedAt: new Date(),
+      })
       .where(and(eq(Order.id, order.id), eq(Order.status, order.status)));
     if ((race.rowsAffected ?? 0) === 0) {
       return NextResponse.json({ error: "Status berubah, muat ulang dulu" }, { status: 409 });
     }
     await db.update(Payment).set({ status: "REFUNDED" }).where(eq(Payment.orderId, order.id));
+    await db.insert(OrderRefund).values({
+      id: nanoid(),
+      orderId: order.id,
+      amountIdr: order.totalIdr,
+      reason: finalRefundReason,
+      status: "COMPLETED",
+      processedByUserId: actorUserId,
+      refundedAt: new Date(),
+    });
     await db.insert(OrderStatusEvent).values({
       id: nanoid(),
       orderId: order.id,
       status: "REFUNDED",
-      note: "Dana dikembalikan manual via dashboard Duitku; status dicatat admin.",
+      note: `Dana dikembalikan (Refund): ${finalRefundReason}`,
       actorUserId,
     });
     await restoreOrderCoupon();

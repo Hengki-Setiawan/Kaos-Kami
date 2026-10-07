@@ -1,4 +1,3 @@
-import crypto from "crypto";
 import fs from "fs";
 import path from "path";
 import { auth } from "../kaos-kami-web/src/lib/auth.ts";
@@ -7,7 +6,7 @@ import { Order, ProductionTask } from "../kaos-kami-web/src/lib/drizzle-schema.t
 import { eq } from "drizzle-orm";
 
 const BASE_URL = "http://localhost:3000";
-// Secret WAJIB via env (JANGAN hardcode � insiden Sep 2026).
+// Secret WAJIB via env (JANGAN hardcode � insiden Sep 2026).
 function requireEnv(name) {
   const v = process.env[name];
   if (!v) throw new Error("E2E butuh env " + name + " (isi dari kaos-kami-web/.env.local, JANGAN commit)");
@@ -180,34 +179,42 @@ async function runKasus3() {
   console.log(`   - Ongkir Ekspedisi: Rp ${dbOrder?.shippingCostIdr.toLocaleString("id-ID")}`);
   console.log(`   - Total Transaksi: Rp ${dbOrder?.totalIdr.toLocaleString("id-ID")}`);
 
-  // 4. Simulasi Pembayaran Lunas Duitku
-  console.log("\n4. Menjalankan Simulasi Pembayaran Lunas Duitku Gateway...");
-  const merchantCode = requireEnv("DUITKU_MERCHANT_CODE");
-  const apiKey = requireEnv("DUITKU_API_KEY");
-  const amountStr = String(dbOrder?.totalIdr);
-  const signatureRaw = merchantCode + amountStr + orderNumber + apiKey;
-  const signature = crypto.createHash("md5").update(signatureRaw).digest("hex");
-
-  const duitkuCallbackPayload = {
-    merchantCode,
-    amount: amountStr,
-    merchantOrderId: orderNumber,
-    productDetail: "Bulk Merch Order 12 Pcs Kaos Komunitas Sablon DTF",
-    additionalParam: "",
-    paymentCode: "QRIS",
-    resultCode: "00",
-    merchantUserId: custUser.id,
-    reference: checkoutData.reference || "DUITKU-REF-003",
-    signature
+  // 4. Simulasi Pembayaran Lunas via Webhook Resmi iPaymu (migrasi Bab 55 — Duitku 410 Gone).
+  // SSOT sukses: Blueprint/BUILD-PROGRESS-TRACKER.md Gelombang 7 (KK-20261004-5473 Rp 89000:
+  // POST /api/webhooks/ipaymu {reference_id, status:"berhasil", amount, via:"QRIS"}
+  // → 200 "Payment successfully confirmed", Order=PAYMENT_CONFIRMED, Payment=SETTLEMENT/IPAYMU_QRIS).
+  console.log("\n4. Menjalankan Simulasi Pembayaran Lunas via Webhook iPaymu...");
+  const ipaymuCallbackPayload = {
+    trx_id: `IPAYMU-MOCK-${Date.now()}`,
+    sid: `SID-${Date.now()}`,
+    reference_id: orderNumber,
+    reference: orderNumber,
+    status: "berhasil",
+    status_code: "00",
+    amount: Number(dbOrder?.totalIdr),
+    via: "QRIS",
+    channel: "qris"
   };
 
-  const webhookRes = await fetch(`${BASE_URL}/api/webhooks/duitku`, {
+  const webhookRes = await fetch(`${BASE_URL}/api/webhooks/ipaymu`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(duitkuCallbackPayload)
+    body: JSON.stringify(ipaymuCallbackPayload)
   });
   const webhookText = await webhookRes.text();
   console.log(`   - Webhook Status: ${webhookRes.status} (${webhookText})`);
+  if (webhookRes.status !== 200 || !/successfully confirmed/i.test(webhookText)) {
+    throw new Error(`Webhook iPaymu gagal melunaskan ${orderNumber}: HTTP ${webhookRes.status} (${webhookText})`);
+  }
+
+  // 4b. Asersi lunas: status order HARUS PAYMENT_CONFIRMED.
+  const paidOrder = await db.query.Order.findFirst({
+    where: eq(Order.id, orderId)
+  });
+  if (paidOrder?.status !== "PAYMENT_CONFIRMED") {
+    throw new Error(`Asersi lunas GAGAL: status ${paidOrder?.status} (mau PAYMENT_CONFIRMED)`);
+  }
+  console.log(`   - Status Order Pasca Bayar: PAYMENT_CONFIRMED (asersi lunas LULUS)`);
 
   // 5. Verifikasi Pembuatan 24+ ProductionTasks di Database
   console.log("\n5. AUDIT PRODUKSI WORKSHOP (Tugas Sablon Terbit):");
@@ -215,6 +222,9 @@ async function runKasus3() {
     where: eq(ProductionTask.orderId, orderId)
   });
   console.log(`   - Total Production Tasks Terbit: ${taskRows.length} antrean cetak sablon!`);
+  if (taskRows.length === 0) {
+    throw new Error("Asersi ProductionTask GAGAL: 0 task terbit untuk order lunas");
+  }
   taskRows.forEach((t, i) => {
     console.log(`     [Task ${i+1}] Stage: ${t.stage}, Ukuran: ${t.printWidthCm} cm x ${t.printHeightCm} cm`);
   });
@@ -267,10 +277,10 @@ async function runKasus3() {
     items: itemsPayload,
     productionTasks: taskRows,
     payment: {
-      gateway: "Duitku v2 Sandbox",
+      gateway: "iPaymu Direct QRIS",
       paymentMethod: "QRIS",
-      resultCode: "00",
-      reference: checkoutData.reference
+      status: "berhasil",
+      reference: ipaymuCallbackPayload.trx_id
     },
     shipping: {
       method: "EXPEDITION_MANUAL",

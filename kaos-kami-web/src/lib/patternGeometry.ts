@@ -112,7 +112,7 @@ export const PRINT_DPI = 300;
 export const PX_PER_CM_300DPI = PRINT_DPI / 2.54;
 
 /** Resolusi kanvas EDITOR (px per cm) — snap 1,25mm, masih ringan untuk HP.
- * Dipakai simetris (× dan ÷) di patternSync + PatternStudio sehingga aman naik
+ * Dipakai simetris (× dan ÷) di patternSync + editor per-panel sehingga aman naik
  * dari 6 (audit #17). Ekspor 300 DPI tak terpengaruh (faktor k terpisah). */
 export const EDITOR_PX_PER_CM = 8;
 

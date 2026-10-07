@@ -52,7 +52,7 @@ const DTF_PRINT_TIERS = [
     tier: "A3 (MAKSIMAL DTF)",
     sizeCm: "29.7 × 42.0 cm",
     usage: "Grafis poster penuh punggung atau dada depan oversized.",
-    recommended: "Dibatasi printhead DTF fisik maksimal 30.0 cm untuk menjaga serat pakaian.",
+    recommended: "Dibatasi batas DTF maksimal 30.0 cm untuk menjaga serat pakaian.",
   },
 ];
 
@@ -663,7 +663,7 @@ export function SizeGuideModal({
               <Ruler size={16} />
             </div>
             <div>
-              <h2 id="size-guide-title" className="text-sm sm:text-base font-bold font-mono tracking-tight uppercase">
+              <h2 id="size-guide-title" className="text-sm sm:text-base font-bold font-sans tracking-tight uppercase">
                 Panduan Ukuran Fisik & Skala DTF
               </h2>
               <p className="text-[11px] text-text-muted font-mono">
@@ -771,7 +771,7 @@ export function SizeGuideModal({
               {/* Quick Size Switcher */}
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3.5 rounded-2xl bg-canvas/60 border border-border-subtle">
                 <div className="flex items-center gap-2">
-                  <span className="text-xs font-mono font-bold text-text-muted uppercase">PILIH UKURAN:</span>
+                  <span className="text-xs font-sans font-bold text-text-muted uppercase">PILIH UKURAN:</span>
                   <span className="text-xs font-mono font-black text-brand-accent px-2 py-0.5 rounded-md bg-brand-accent/15 border border-brand-accent/30">
                     {previewSize}
                   </span>
@@ -804,7 +804,7 @@ export function SizeGuideModal({
               <div className="grid grid-cols-1 md:grid-cols-12 gap-5 items-stretch">
                 {/* Left: Vector Silhouette Blueprint */}
                 <div className="md:col-span-5 p-5 rounded-2xl bg-canvas/80 border border-border-subtle flex flex-col items-center justify-center relative overflow-hidden">
-                  <div className="absolute top-3 left-3 text-[10px] font-mono text-text-muted font-bold uppercase tracking-wider">
+                  <div className="absolute top-3 left-3 text-[10px] font-sans text-text-muted font-bold uppercase tracking-wider">
                     DIAGRAM FISIK ({previewSize})
                   </div>
 
@@ -936,12 +936,12 @@ export function SizeGuideModal({
               <div className="p-4 rounded-2xl bg-brand-accent/10 border border-brand-accent/30 flex items-start gap-3">
                 <Maximize2 size={18} className="text-brand-accent shrink-0 mt-0.5" />
                 <div className="space-y-1 text-xs">
-                  <h4 className="font-mono font-bold text-text-primary uppercase tracking-tight">
+                  <h4 className="font-sans font-bold text-text-primary uppercase tracking-tight">
                     Standar Kalibrasi DTF Kaos Kami (Presisi 1:1 Skala Centimeter)
                   </h4>
                   <p className="text-text-muted leading-relaxed font-sans">
                     Seluruh desain yang Anda tempel di 3D Studio ditampilkan dalam ukuran fisik asli centimeter dunia nyata. 
-                    Lebar maksimum cetak dibatasi secara aman pada <strong>30.0 cm</strong> (lebar printhead DTF fisik kami) 
+                    Lebar maksimum cetak dibatasi secara aman pada <strong>30.0 cm</strong> (batas DTF kami) 
                     agar sablon tidak terpotong jahitan samping dan tahan dicuci berulang kali.
                   </p>
                 </div>
@@ -1005,7 +1005,7 @@ export function SizeGuideModal({
           <button
             type="button"
             onClick={onClose}
-            className="px-5 py-2 rounded-xl bg-text-primary text-canvas font-mono text-xs font-bold hover:opacity-90 active:scale-95 transition-all cursor-pointer shadow-sm"
+            className="px-5 py-2 rounded-xl bg-text-primary text-canvas font-sans text-xs font-bold hover:opacity-90 active:scale-95 transition-all cursor-pointer shadow-sm"
           >
             TERAPKAN & KEMBALI KE STUDIO
           </button>

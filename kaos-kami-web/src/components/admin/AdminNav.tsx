@@ -4,27 +4,18 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import {
   LayoutDashboard,
-  ClipboardList,
-  LayoutGrid,
-  ShoppingBag,
-  Eye,
-  Package,
-  Users,
-  TicketPercent,
   Truck,
-  FileText,
-  Boxes,
   Settings,
   LogOut,
   ExternalLink,
-  MapPin,
-  TrendingUp,
   Layers,
   MessageSquare,
+  Sparkles,
 } from "lucide-react";
 import { signOut } from "@/lib/auth-client";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
-import { useState } from "react";
+import { AdminCommandBar } from "@/components/admin/AdminCommandBar";
+import { useState, useEffect } from "react";
 
 export type PillarId = "all" | "production" | "delivery" | "admin";
 
@@ -35,59 +26,115 @@ interface NavLink {
   pillar: "production" | "delivery" | "admin";
 }
 
+const SECTIONS = [
+  {
+    id: "core" as const,
+    title: "5 Modul Utama",
+    pillar: "admin" as const,
+  },
+];
+
 const LINKS: NavLink[] = [
-  // PILAR 1: PRODUKSI WORKSHOP DTF
-  { href: "/admin/production", label: "KANBAN PRODUKSI DTF", Icon: ClipboardList, pillar: "production" },
-  { href: "/admin/gang-sheet", label: "GANG SHEET 100×58", Icon: LayoutGrid, pillar: "production" },
-  { href: "/admin/review", label: "REVIEW DESAIN", Icon: Eye, pillar: "production" },
-  { href: "/admin/assets", label: "ASET 3D APPAREL", Icon: Boxes, pillar: "production" },
-
-  // PILAR 2: PENGIRIMAN & KURIR
-  { href: "/admin/deliveries", label: "HUB KURIR & PENGIRIMAN", Icon: Truck, pillar: "delivery" },
-  { href: "/admin/shipping", label: "ONGKIR & ZONA", Icon: MapPin, pillar: "delivery" },
-
-  // PILAR 3: E-COMMERCE & ADMIN
-  { href: "/admin", label: "OVERVIEW & METRIK", Icon: LayoutDashboard, pillar: "admin" },
-  { href: "/admin/chat", label: "LIVE CHAT PELANGGAN", Icon: MessageSquare, pillar: "admin" },
-  { href: "/admin/orders", label: "DAFTAR PESANAN", Icon: ShoppingBag, pillar: "admin" },
-  { href: "/admin/catalog", label: "KATALOG & STOK", Icon: Package, pillar: "admin" },
-  { href: "/admin/customers", label: "CUSTOMER & TIM DB", Icon: Users, pillar: "admin" },
-  { href: "/admin/coupons", label: "VOUCHER DISKON", Icon: TicketPercent, pillar: "admin" },
-  { href: "/admin/cms", label: "CMS WEBSITE", Icon: FileText, pillar: "admin" },
-  { href: "/admin/laporan", label: "LAPORAN KEUANGAN", Icon: TrendingUp, pillar: "admin" },
-  { href: "/admin/settings", label: "INFO SISTEM", Icon: Settings, pillar: "admin" },
+  // 5 MODUL UTAMA (BAB 38 & BAB 47 SSOT) — satu-satunya isi sidebar.
+  // 8 sub-modul (orders, gang-sheet, shipping, catalog, coupons, laporan,
+  // cms, customers) TIDAK ada di sidebar; akses via /admin/settings (kartu link).
+  {
+    href: "/admin",
+    label: "Pesanan & Analitik",
+    Icon: LayoutDashboard,
+    pillar: "admin",
+  },
+  {
+    href: "/admin/production",
+    label: "Workshop Sablon DTF",
+    Icon: Layers,
+    pillar: "production",
+  },
+  {
+    href: "/admin/deliveries",
+    label: "Hub Pengiriman & Kurir",
+    Icon: Truck,
+    pillar: "delivery",
+  },
+  {
+    href: "/admin/chat",
+    label: "Live Chat CS (Kamito)",
+    Icon: MessageSquare,
+    pillar: "admin",
+  },
+  {
+    href: "/admin/settings",
+    label: "Pengaturan Toko & CMS",
+    Icon: Settings,
+    pillar: "admin",
+  },
 ];
 
-const PILLAR_CONFIG = [
-  { id: "production" as const, title: "PRODUKSI WORKSHOP", icon: Layers, badge: "DTF" },
-  { id: "delivery" as const, title: "LOGISTIK & KURIR", icon: Truck, badge: "KIRIM" },
-  { id: "admin" as const, title: "E-COMMERCE & ADMIN", icon: LayoutDashboard, badge: "STORE" },
-];
-
-/** Sidebar internal: 3 Pilar Operasional (Produksi, Pengiriman, Admin E-Commerce). */
+/**
+ * Sidebar Admin (Bab 38/47 SSOT):
+ * - HANYA 5 modul utama, tanpa seksi/collapsible sub-modul
+ * - 8 sub-modul diakses via /admin/settings (kartu link)
+ * - Tipografi sans-serif proporsional (Sentence Case, anti-lelah membaca)
+ * - Filter pilar cepat (Semua / Produksi / Kurir / Toko)
+ * - 0 Emoticon, 100% Lucide Icons profesional
+ */
 export function AdminNav({ role }: { role?: string | null }) {
   const pathname = usePathname();
   const router = useRouter();
   const [busy, setBusy] = useState(false);
   const [askingLogout, setAskingLogout] = useState(false);
   const [selectedPillar, setSelectedPillar] = useState<PillarId>("all");
+  const [navigatingTo, setNavigatingTo] = useState<string | null>(null);
+
+  // Reset status navigasi ketika halaman baru sudah aktif
+  useEffect(() => {
+    setNavigatingTo(null);
+  }, [pathname]);
+
+  // Shortcut pilar 1/2/3/4 + Esc (UI-only, tanpa ubah API/DB).
+  // Guard: abaikan saat mengetik di input/textarea/select/contentEditable
+  // dan saat palet perintah (role=dialog) terbuka agar tak rebut ketikan.
+  useEffect(() => {
+    const onPillarKey = (e: KeyboardEvent) => {
+      const t = e.target as HTMLElement | null;
+      if (t) {
+        const tag = (t.tagName || "").toUpperCase();
+        if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT" || t.isContentEditable) return;
+      }
+      if (document.querySelector('[role="dialog"]')) return;
+      if (e.ctrlKey || e.metaKey || e.altKey) return;
+      const map: Record<string, PillarId> = {
+        "1": "all",
+        "2": "production",
+        "3": "delivery",
+        "4": "admin",
+      };
+      if (e.key === "Escape") {
+        setSelectedPillar("all");
+        return;
+      }
+      const next = map[e.key];
+      if (next) setSelectedPillar(next);
+    };
+    document.addEventListener("keydown", onPillarKey);
+    return () => document.removeEventListener("keydown", onPillarKey);
+  }, []);
 
   const safeRole = (role || "").toUpperCase();
   const isSuperOrAdmin = safeRole === "ADMIN" || safeRole === "SUPER_ADMIN";
   const isProdStaff = safeRole === "PRODUCTION_STAFF";
   const isCourier = safeRole === "COURIER";
 
-  // Filter berdasarkan Peran (RBAC strict display)
+  // Filter RBAC ketat
   const allowedLinks = LINKS.filter((l) => {
     if (isProdStaff) return l.pillar === "production";
     if (isCourier) return l.pillar === "delivery";
-    // Admin / Super Admin melihat semua link, disaring bila tab filter aktif
     if (selectedPillar !== "all") return l.pillar === selectedPillar;
     return true;
   });
 
   const roleShort = (safeRole || "?").slice(0, 3);
-  const roleLabel = (safeRole || "TANPA ROLE").replace(/_/g, " ");
+  const roleLabel = (safeRole || "STAFF").replace(/_/g, " ");
 
   const logout = async () => {
     if (busy) return;
@@ -96,7 +143,7 @@ export function AdminNav({ role }: { role?: string | null }) {
     try {
       await signOut();
     } catch {
-      // Tetap keluar sisi client walau server gagal.
+      // Fallback redirect client
     } finally {
       setBusy(false);
     }
@@ -105,49 +152,65 @@ export function AdminNav({ role }: { role?: string | null }) {
   };
 
   return (
-    <div className="flex flex-col justify-between h-full font-mono text-xs">
-      <div className="p-3 space-y-3">
-        {/* Banner Identitas Pilar Peran */}
+    <div className="flex flex-col justify-between h-full font-sans text-[13px]">
+      <div className="p-3 md:px-2 xl:p-3 space-y-3">
+        {/* Palet perintah Ctrl+K — mode rail (≤1280px): tombol ikon saja via CSS */}
+        <div
+          className="md:[&_button]:justify-center xl:[&_button]:justify-start md:[&_span]:hidden xl:[&_span]:inline md:[&_kbd]:hidden"
+          title="Cari menu / no. order (Ctrl+K)"
+        >
+          <AdminCommandBar role={role} />
+        </div>
+
+        {/* Banner Khusus Peran Non-Superadmin */}
         {isProdStaff && (
-          <div className="px-3 py-2 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-600 dark:text-amber-400">
-            <div className="flex items-center gap-1.5 font-bold uppercase text-[10px] tracking-wider">
-              <Layers size={13} />
-              <span>DIVISI PRODUKSI WORKSHOP</span>
+          <div
+            className="px-3 md:px-0 xl:px-3 py-2 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-700 dark:text-amber-300 md:flex md:justify-center xl:block"
+            title="Divisi Produksi Sablon DTF — Meja cetak DTF & heat press workshop."
+          >
+            <div className="flex items-center gap-1.5 font-semibold text-xs">
+              <Layers size={14} />
+              <span className="hidden xl:inline">Divisi Produksi Sablon DTF</span>
             </div>
-            <p className="text-[10px] text-text-muted mt-0.5">Meja cetak DTF & heat press.</p>
+            <p className="text-[11px] text-text-muted mt-0.5 hidden xl:block">Meja cetak DTF & heat press workshop.</p>
           </div>
         )}
 
         {isCourier && (
-          <div className="px-3 py-2 rounded-xl bg-blue-500/10 border border-blue-500/30 text-blue-600 dark:text-blue-400">
-            <div className="flex items-center gap-1.5 font-bold uppercase text-[10px] tracking-wider">
-              <Truck size={13} />
-              <span>DIVISI PENGIRIMAN & KURIR</span>
+          <div
+            className="px-3 md:px-0 xl:px-3 py-2 rounded-xl bg-blue-500/10 border border-blue-500/20 text-blue-700 dark:text-blue-300 md:flex md:justify-center xl:block"
+            title="Divisi Pengiriman & Kurir — Antar lokal Makassar & resi nasional."
+          >
+            <div className="flex items-center gap-1.5 font-semibold text-xs">
+              <Truck size={14} />
+              <span className="hidden xl:inline">Divisi Pengiriman & Kurir</span>
             </div>
-            <p className="text-[10px] text-text-muted mt-0.5">Antar Makassar & resi nasional.</p>
+            <p className="text-[11px] text-text-muted mt-0.5 hidden xl:block">Antar lokal Makassar & resi nasional.</p>
           </div>
         )}
 
-        {/* Tab Switcher Pilar untuk Admin/Super Admin */}
+        {/* Tab Filter Pilar untuk Admin/Super Admin */}
         {isSuperOrAdmin && (
-          <div className="space-y-1.5">
-            <span className="block text-[9px] text-text-muted/70 uppercase font-black tracking-wider px-1">
-              Pilar Operasional
-            </span>
-            <div className="grid grid-cols-4 gap-1 p-1 rounded-xl bg-black/5 dark:bg-white/5 border border-border-subtle text-[10px] font-bold">
+          <div className="space-y-1 hidden xl:block">
+            <div className="flex items-center justify-between px-1 text-[11px] text-text-muted font-medium">
+              <span>Filter Fokus</span>
+              <span className="text-[10px] text-text-muted/60" title="Shortcut: 1 Semua · 2 Produksi · 3 Kurir · 4 Toko · Esc reset">{allowedLinks.length} Menu · 1/2/3/4</span>
+            </div>
+            <div className="grid grid-cols-4 gap-1 p-0.5 rounded-lg bg-black/[0.04] dark:bg-white/[0.04] border border-border-subtle text-xs">
               {[
-                { id: "all", label: "SEMUA" },
-                { id: "production", label: "PROD" },
-                { id: "delivery", label: "KURIR" },
-                { id: "admin", label: "TOKO" },
+                { id: "all", label: "Semua", key: "1" },
+                { id: "production", label: "Produksi", key: "2" },
+                { id: "delivery", label: "Kurir", key: "3" },
+                { id: "admin", label: "Toko", key: "4" },
               ].map((p) => (
                 <button
                   key={p.id}
                   type="button"
                   onClick={() => setSelectedPillar(p.id as PillarId)}
-                  className={`py-1 rounded-lg transition-all text-center ${
+                  title={`Pilar ${p.label} (shortcut ${p.key}, Esc reset)`}
+                  className={`py-1 px-1 rounded-md transition-all text-center text-xs font-medium ${
                     selectedPillar === p.id
-                      ? "bg-brand-accent text-canvas font-black shadow-sm"
+                      ? "bg-surface text-text-primary shadow-xs font-semibold border border-border-subtle"
                       : "text-text-muted hover:text-text-primary"
                   }`}
                 >
@@ -158,67 +221,66 @@ export function AdminNav({ role }: { role?: string | null }) {
           </div>
         )}
 
-        {/* Daftar Navigasi per Pilar */}
-        <nav className="space-y-4">
-          {PILLAR_CONFIG.map((group) => {
-            const groupLinks = allowedLinks.filter((l) => l.pillar === group.id);
-            if (groupLinks.length === 0) return null;
-
-            return (
-              <div key={group.id} className="space-y-1">
-                {/* Section Header hanya tampil jika Admin melihat mode 'SEMUA' */}
-                {isSuperOrAdmin && selectedPillar === "all" && (
-                  <div className="flex items-center justify-between px-3 pt-2 pb-1 text-[10px] font-black uppercase tracking-wider text-text-muted/60">
-                    <span className="flex items-center gap-1.5">
-                      <group.icon size={12} />
-                      <span>{group.title}</span>
-                    </span>
-                    <span className="px-1.5 py-0.2 rounded text-[8px] bg-white/5 border border-border-subtle">
-                      {group.badge}
-                    </span>
-                  </div>
-                )}
-
-                {groupLinks.map(({ href, label, Icon }) => {
-                  const active = href === "/admin" ? pathname === href : pathname.startsWith(href);
-                  return (
-                    <Link
-                      key={href}
-                      href={href}
-                      aria-current={active ? "page" : undefined}
-                      className={`flex items-center space-x-3 px-3 py-2 rounded-xl transition-all ${
-                        active
-                          ? "bg-brand-accent/15 text-brand-accent font-bold border border-brand-accent/30 shadow-sm"
-                          : "text-text-muted hover:text-text-primary hover:bg-black/5 dark:hover:bg-white/5"
-                      }`}
-                    >
-                      <Icon size={15} />
-                      <span className="truncate">{label}</span>
-                    </Link>
-                  );
-                })}
+        {/* Daftar Navigasi: HANYA 5 modul utama, tanpa seksi sub-modul */}
+        <nav className="space-y-3 pt-1">
+          <div className="space-y-0.5">
+            {isSuperOrAdmin && selectedPillar === "all" && (
+              <div className="hidden xl:block px-2.5 pt-2 pb-1 text-[10px] font-semibold text-text-muted/70 uppercase tracking-wider">
+                {SECTIONS[0]?.title ?? "5 Modul Utama"}
               </div>
-            );
-          })}
+            )}
+            {allowedLinks.map(({ href, label, Icon }) => {
+              const active = href === "/admin" ? pathname === href : pathname.startsWith(href);
+              const isNavigating = navigatingTo === href;
+              return (
+                <Link
+                  key={href}
+                  href={href}
+                  prefetch={false}
+                  onClick={() => {
+                    if (pathname !== href) {
+                      setNavigatingTo(href);
+                    }
+                  }}
+                  aria-current={active ? "page" : undefined}
+                  title={label}
+                  className={`flex items-center md:justify-center xl:justify-between px-2.5 md:px-0 xl:px-2.5 py-1.5 rounded-lg transition-all text-[13px] ${
+                    active
+                      ? "bg-brand-accent/10 text-brand-accent font-semibold border-l-2 border-brand-accent"
+                      : "text-text-muted hover:text-text-primary hover:bg-black/[0.03] dark:hover:bg-white/[0.03]"
+                  }`}
+                >
+                  <div className="flex items-center md:space-x-0 xl:space-x-2.5 space-x-2.5 min-w-0">
+                    <Icon size={15} className={active ? "text-brand-accent" : "text-text-muted shrink-0"} />
+                    <span className="truncate hidden xl:inline">{label}</span>
+                  </div>
+                  {isNavigating && (
+                    <div className="hidden xl:block w-3 h-3 rounded-full border-2 border-brand-accent border-t-transparent animate-spin shrink-0" />
+                  )}
+                </Link>
+              );
+            })}
+          </div>
 
           {/* Akses Cepat Eksternal */}
-          <div className="pt-2 px-0 border-t border-border-subtle">
-            <span className="block text-[9px] text-text-muted/60 uppercase font-bold tracking-wider px-3 pb-1">
-              Portal Eksternal
+          <div className="pt-2 border-t border-border-subtle">
+            <span className="hidden xl:block text-[10px] font-semibold text-text-muted/70 uppercase tracking-wider px-2.5 pb-1">
+              Pratinjau Eksternal
             </span>
             {[
-              { href: "/studio", label: "3D MOCKUP STUDIO" },
-              { href: "/", label: "HALAMAN DEPAN" },
-            ].map(({ href, label }) => (
+              { href: "/studio", label: "Studio 3D Mockup", icon: Sparkles },
+              { href: "/", label: "Halaman Depan Toko", icon: ExternalLink },
+            ].map(({ href, label, icon: Icon }) => (
               <a
                 key={href}
                 href={href}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="flex items-center justify-between px-3 py-2 rounded-xl text-text-muted hover:text-brand-accent hover:bg-black/5 dark:hover:bg-white/5 transition-all text-[11px]"
+                title={label}
+                className="flex items-center md:justify-center xl:justify-between px-2.5 md:px-0 xl:px-2.5 py-1.5 rounded-lg text-text-muted hover:text-text-primary hover:bg-black/[0.03] dark:hover:bg-white/[0.03] transition-all text-xs"
               >
-                <span>{label}</span>
-                <ExternalLink size={11} />
+                <span className="hidden xl:inline">{label}</span>
+                <Icon size={12} className="opacity-70" />
               </a>
             ))}
           </div>
@@ -226,29 +288,33 @@ export function AdminNav({ role }: { role?: string | null }) {
       </div>
 
       {/* Profil Pengguna & Keluar Panel */}
-      <div className="p-4 border-t border-border-subtle space-y-2">
-        <div className="flex items-center space-x-2.5">
-          <div className="w-8 h-8 rounded-full bg-brand-accent/20 border border-brand-accent/40 flex items-center justify-center text-brand-accent font-bold">
+      <div className="p-3 md:px-2 xl:p-3 border-t border-border-subtle space-y-2">
+        <div className="flex items-center md:justify-center xl:justify-start md:space-x-0 xl:space-x-2.5 space-x-2.5 px-1" title={roleLabel}>
+          <div className="w-8 h-8 rounded-full bg-brand-accent/15 border border-brand-accent/30 flex items-center justify-center text-brand-accent font-semibold text-xs shrink-0">
             {roleShort}
           </div>
-          <div className="overflow-hidden">
-            <span className="block text-text-primary font-bold truncate">{roleLabel}</span>
-            <span className="block text-[10px] text-emerald-700 dark:text-emerald-400">● Online / Aktif</span>
+          <div className="overflow-hidden min-w-0 flex-1 hidden xl:block">
+            <span className="block text-text-primary font-medium text-xs truncate">{roleLabel}</span>
+            <span className="flex items-center gap-1.5 text-[11px] text-emerald-600 dark:text-emerald-400">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse shrink-0" />
+              <span>Online / Aktif</span>
+            </span>
           </div>
         </div>
         <button
           onClick={() => setAskingLogout(true)}
           disabled={busy}
-          className="w-full flex items-center justify-center gap-2 px-3 py-2 rounded-xl bg-black/5 dark:bg-white/5 border border-border-subtle text-text-muted hover:text-rose-700 dark:hover:text-rose-300 hover:border-rose-500/40 transition-all disabled:opacity-50"
+          title="Keluar Panel"
+          className="w-full flex items-center justify-center gap-2 px-3 md:px-0 xl:px-3 py-1.5 rounded-lg bg-black/[0.03] dark:bg-white/[0.03] border border-border-subtle text-text-muted hover:text-rose-600 dark:hover:text-rose-400 hover:border-rose-500/30 transition-all text-xs font-medium disabled:opacity-50"
         >
           <LogOut size={13} />
-          <span>{busy ? "KELUAR…" : "KELUAR PANEL"}</span>
+          <span className="hidden xl:inline">{busy ? "Memproses Keluar..." : "Keluar Panel"}</span>
         </button>
         <ConfirmDialog
           open={askingLogout}
-          title="Keluar panel?"
-          message="Sesi operasional internal akan diakhiri di perangkat ini."
-          confirmLabel="YA, KELUAR"
+          title="Keluar dari Panel Admin?"
+          message="Sesi operasional internal Anda akan diakhiri di perangkat ini."
+          confirmLabel="Ya, Keluar"
           busy={busy}
           onConfirm={() => void logout()}
           onCancel={() => setAskingLogout(false)}

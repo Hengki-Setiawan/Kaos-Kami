@@ -66,11 +66,12 @@ import { MOBILE_DECAL_SIDE_LABELS, SERVER_ACCEPTED_SIDES, validSidesForMobile, t
 import { useShallow } from 'zustand/shallow';
 import {
   CheckoutSheet,
+  MobileCartDrawer,
   UserOrderTrackerLive,
   TechPackModal,
   UserOrderHistory,
 } from '@/components/commerce';
-import { openDuitkuPaymentModal, parseDuitkuReturnUrl } from '@/lib/payments/duitkuMobile';
+import { parsePaymentReturnUrl, openPaymentBrowser } from '@/lib/payments/ipaymuMobile';
 import { AdminMobileDashboard } from '@/components/admin';
 import { SavedDesignsGallery } from '@/components/offline';
 import { BiometricLockPrompt } from '@/components/security';
@@ -132,6 +133,7 @@ function BiometricBadge() {
 export default function MobileApp() {
   const [activeTab, setActiveTab] = useState<TabKey>('home');
   const [sheetOpen, setSheetOpen] = useState(false);
+  const [cartOpen, setCartOpen] = useState(false);
   const [checkoutOpen, setCheckoutOpen] = useState(false);
   const [adminModeOpen, setAdminModeOpen] = useState(false);
   const [biometricPromptOpen, setBiometricPromptOpen] = useState(false);
@@ -322,7 +324,7 @@ export default function MobileApp() {
     // `startsWith` longgar SENGAJA dihapus (lolos `kaoskami://studio-evil`,
     // `kaoskami://payment@evil.com`, dsb). INVARIAN: isi deep-link TAK PERNAH
     // dipakai sebagai target navigasi/browser — hanya switch tab internal +
-    // baca query orderId/status via parseDuitkuReturnUrl. Host tak dikenal →
+    // baca query orderId/status via parsePaymentReturnUrl. Host tak dikenal →
     // abaikan diam-diam (tanpa toast/navigasi).
     // Allowlist:
     //   kaoskami://studio                     → tab Studio
@@ -335,7 +337,7 @@ export default function MobileApp() {
     //   xcrun simctl openurl booted "kaoskami://studio" (→ tab Studio)
     //   xcrun simctl openurl booted "kaoskami://auth/callback" (→ tutup browser + tab Profil)
     //   xcrun simctl openurl booted "kaoskami://payment?orderId=X&status=COMPLETED" (→ tab Pesanan + toast lunas)
-    //   xcrun simctl openurl booted "kaoskami://payment/callback?merchantOrderId=X&resultCode=00" (→ sama, varian Duitku)
+    //   xcrun simctl openurl booted "kaoskami://payment/callback?merchantOrderId=X&resultCode=00" (→ sama, varian iPaymu)
     // Status payment: COMPLETED → pending dibersihkan; CANCELLED → toast batal; PENDING/UNKNOWN → pending DIPERTAHANKAN + toast generik.
     let appUrlListener: { remove: () => void } | null = null;
     try {
@@ -386,9 +388,9 @@ export default function MobileApp() {
           }
         } else if (host === 'payment' && (path === '/' || path === '/callback')) {
           try {
-            // parseDuitkuReturnUrl: orderId|merchantOrderId + status|resultCode
+            // parsePaymentReturnUrl: orderId|merchantOrderId + status|resultCode
             // (00=lunas → COMPLETED, 01 → PENDING, 02/FAILED/EXPIRED → CANCELLED).
-            const { orderId: oid, status: st } = parseDuitkuReturnUrl(url);
+            const { orderId: oid, status: st } = parsePaymentReturnUrl(url);
             if (oid) {
               persistActiveOrder(oid);
               setActiveTab('orders');
@@ -486,6 +488,10 @@ export default function MobileApp() {
             setCheckoutOpen(false);
             return;
           }
+          if (cartOpen) {
+            setCartOpen(false);
+            return;
+          }
           if (sheetOpen) {
             setSheetOpen(false);
             return;
@@ -515,7 +521,7 @@ export default function MobileApp() {
     return () => {
       try { h?.remove(); } catch {}
     };
-  }, [activeTab, sheetOpen, checkoutOpen, adminModeOpen, techPackOpen, arOpen, biometricPromptOpen]);
+  }, [activeTab, sheetOpen, cartOpen, checkoutOpen, adminModeOpen, techPackOpen, arOpen, biometricPromptOpen]);
 
   const triggerToast = (msg: string) => {
     setToastMessage(msg);
@@ -780,6 +786,9 @@ export default function MobileApp() {
     } catch {}
 
     setSheetOpen(false);
+    // PESAN→cart: buka drawer keranjang (daftar item + tombol checkout),
+    // bukan langsung checkout — paritas web CartDrawer. Pricing tak diubah.
+    setCartOpen(true);
     triggerToast('Desain disimpan ke keranjang & galeri offline!');
   };
 
@@ -812,7 +821,9 @@ export default function MobileApp() {
             <button
               onClick={() => {
                 haptic.tap();
-                setCheckoutOpen(true);
+                // Buka drawer keranjang dulu (daftar item + checkout) —
+                // paritas web CartDrawer; JANGAN langsung buka checkout.
+                setCartOpen(true);
               }}
               className="relative w-8 h-8 rounded-xl bg-zinc-850 bg-[#18181B] border border-zinc-700/60 flex items-center justify-center text-white"
             >
@@ -847,7 +858,7 @@ export default function MobileApp() {
                 <Badge variant="production">DTF 30.0 cm Max</Badge>
               </div>
 
-              <h2 className="text-xl font-extrabold text-white font-['Syne'] leading-tight mb-1">
+              <h2 className="text-xl font-extrabold text-white font-sans leading-tight mb-1">
                 Kustom Kaos 3D
               </h2>
               <p className="text-xs text-zinc-400 mb-4 leading-relaxed font-mono">
@@ -902,7 +913,7 @@ export default function MobileApp() {
                 <div className="w-10 h-10 rounded-2xl bg-orange-500/10 flex items-center justify-center text-[#FF6B35] mb-2.5">
                   <ShoppingBag className="w-5 h-5" />
                 </div>
-                <h3 className="text-sm font-bold text-white font-['Syne']">Katalog Baju</h3>
+                <h3 className="text-sm font-bold text-white font-sans">Katalog Baju</h3>
                 <p className="text-[10px] text-zinc-400 mt-0.5 font-mono">Apparel Ready Stock</p>
               </GlassCard>
 
@@ -917,7 +928,7 @@ export default function MobileApp() {
                 <div className="w-10 h-10 rounded-2xl bg-blue-500/10 flex items-center justify-center text-blue-400 mb-2.5">
                   <ClipboardList className="w-5 h-5" />
                 </div>
-                <h3 className="text-sm font-bold text-white font-['Syne']">Lacak Pesanan</h3>
+                <h3 className="text-sm font-bold text-white font-sans">Lacak Pesanan</h3>
                 <p className="text-[10px] text-zinc-400 mt-0.5 font-mono">Status & Bayar QRIS</p>
               </GlassCard>
             </div>
@@ -929,7 +940,7 @@ export default function MobileApp() {
                   <ShieldCheck className="w-5 h-5" />
                 </div>
                 <div>
-                  <h4 className="text-xs font-bold text-white font-['Syne']">Admin Workshop</h4>
+                  <h4 className="text-xs font-bold text-white font-sans">Admin Workshop</h4>
                   <p className="text-[10px] text-zinc-400 font-mono">ACC Desain & Antrean Cetak</p>
                 </div>
               </div>
@@ -1000,7 +1011,7 @@ export default function MobileApp() {
         {activeTab === 'catalog' && (
           <div className="space-y-3">
             <div className="flex items-center justify-between">
-              <h2 className="text-lg font-bold font-['Syne']">Katalog Apparel Makassar</h2>
+              <h2 className="text-lg font-bold font-sans">Katalog Apparel Makassar</h2>
               {serverCatalog && (
                 <Badge variant="success">Live Server</Badge>
               )}
@@ -1047,7 +1058,7 @@ export default function MobileApp() {
                       </span>
                     )}
                   </div>
-                  <h4 className="text-xs font-bold text-white truncate font-['Syne']">{item.label}</h4>
+                  <h4 className="text-xs font-bold text-white truncate font-sans">{item.label}</h4>
                   <p className="text-[11px] text-zinc-400">{item.gsm}</p>
                   <p className="text-[11px] text-[#FF6B35] font-semibold mt-1">
                     {locked ? 'Segera' : `Rp ${item.price.toLocaleString('id-ID')}`}
@@ -1072,7 +1083,7 @@ export default function MobileApp() {
         {activeTab === 'orders' && (
           <div className="space-y-3">
             <div className="flex items-center justify-between">
-              <h2 className="text-lg font-bold font-['Syne']">Status Sablon DTF</h2>
+              <h2 className="text-lg font-bold font-sans">Status Sablon DTF</h2>
               <Badge variant="production">Makassar Workshop</Badge>
             </div>
 
@@ -1140,7 +1151,7 @@ export default function MobileApp() {
                       <HapticButton
                         variant="primary"
                         onClick={() =>
-                          openDuitkuPaymentModal(pendingPaymentUrl, () => {
+                          openPaymentBrowser(pendingPaymentUrl, () => {
                             // A8: browser ditutup → paksa poll status segera (bukan tunggu interval).
                             try {
                               window.dispatchEvent(new Event("kaoskami:refresh-order"));
@@ -1196,11 +1207,11 @@ export default function MobileApp() {
         {activeTab === 'profile' && (
           <div className="space-y-4 py-2">
             <GlassCard className="p-4 flex items-center gap-3">
-              <div className="w-14 h-14 rounded-2xl bg-gradient-to-tr from-[#FF6B35] to-orange-400 flex items-center justify-center text-white text-xl font-bold font-['Syne'] shadow-lg shadow-orange-500/25">
+              <div className="w-14 h-14 rounded-2xl bg-gradient-to-tr from-[#FF6B35] to-orange-400 flex items-center justify-center text-white text-xl font-bold font-sans shadow-lg shadow-orange-500/25">
                 H
               </div>
               <div>
-                <h3 className="text-sm font-bold text-white font-['Syne']">Pelanggan Kaos Kami</h3>
+                <h3 className="text-sm font-bold text-white font-sans">Pelanggan Kaos Kami</h3>
                 <p className="text-[11px] text-zinc-400">Mode tamu • Kaluku Bodoa, Tallo, Makassar 90211</p>
                 <div className="flex gap-2 mt-1.5">
                   {/* A9: badge jujur dari kemampuan perangkat (bukan klaim statis). */}
@@ -1221,7 +1232,7 @@ export default function MobileApp() {
             {/* Workshop & Default Lokasi Makassar */}
             <GlassCard className="p-4 space-y-2 border-zinc-800 bg-zinc-900/60">
               <div className="flex items-center justify-between">
-                <h4 className="text-xs font-bold text-white font-['Syne'] flex items-center gap-1.5">
+                <h4 className="text-xs font-bold text-white font-sans flex items-center gap-1.5">
                   <span className="text-[#FF6B35]">📍</span>
                   Workshop Kaos Kami Makassar
                 </h4>
@@ -1253,7 +1264,7 @@ export default function MobileApp() {
             {/* Google OAuth & Akun Login Card */}
             <GlassCard className="p-4 space-y-3 border-zinc-800 bg-zinc-900/60">
               <div>
-                <h4 className="text-xs font-bold text-white font-['Syne']">Autentikasi Akun Cloud</h4>
+                <h4 className="text-xs font-bold text-white font-sans">Autentikasi Akun Cloud</h4>
                 <p className="text-[10px] text-zinc-400 mt-0.5">
                   Sinkronkan desain 3D & riwayat pesanan dengan akun web Kaos Kami
                 </p>
@@ -1312,7 +1323,7 @@ export default function MobileApp() {
       >
         <div className="space-y-5 py-2">
           <div>
-            <label className="text-xs font-semibold text-white mb-2 block font-['Syne']">
+            <label className="text-xs font-semibold text-white mb-2 block font-sans">
               Jenis Pakaian:
             </label>
             <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
@@ -1401,7 +1412,7 @@ export default function MobileApp() {
 
           <div>
             <div className="flex items-center justify-between mb-2">
-              <label className="text-xs font-semibold text-white block font-['Syne']">
+              <label className="text-xs font-semibold text-white block font-sans">
                 Ukuran:
               </label>
               <button
@@ -1436,7 +1447,7 @@ export default function MobileApp() {
           </div>
 
           <div>
-            <label className="text-xs font-semibold text-white mb-2 block font-['Syne']">
+            <label className="text-xs font-semibold text-white mb-2 block font-sans">
               Bahan (standar — tanpa biaya premium):
             </label>
             <div className="grid grid-cols-2 gap-2">
@@ -1466,7 +1477,7 @@ export default function MobileApp() {
           </div>
 
           <div>
-            <label className="text-xs font-semibold text-white mb-2 block font-['Syne']">
+            <label className="text-xs font-semibold text-white mb-2 block font-sans">
               Teks artwork (opsional):
             </label>
             <input
@@ -1480,7 +1491,7 @@ export default function MobileApp() {
 
           <div>
             <div className="flex justify-between items-center mb-2">
-              <label className="text-xs font-semibold text-white font-['Syne']">
+              <label className="text-xs font-semibold text-white font-sans">
                 Opasitas sablon:
               </label>
               <span className="text-xs font-mono font-bold text-[#FF6B35]">{Math.round(decalOpacity * 100)}%</span>
@@ -1580,6 +1591,14 @@ export default function MobileApp() {
           </p>
         </div>
       </BottomSheet>
+
+      {/* CART DRAWER (paritas web CartDrawer: daftar item + checkout) */}
+      <MobileCartDrawer
+        open={cartOpen}
+        onOpenChange={setCartOpen}
+        onCheckout={() => setCheckoutOpen(true)}
+        onNotify={(msg) => triggerToast(msg)}
+      />
 
       {/* CHECKOUT SHEET */}
       <CheckoutSheet

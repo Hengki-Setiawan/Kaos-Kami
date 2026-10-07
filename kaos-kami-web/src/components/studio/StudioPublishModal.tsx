@@ -5,6 +5,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { Sparkles, X, Check, AlertCircle, ShoppingBag, Box, ArrowRight, Loader2, RefreshCw } from "lucide-react";
 import { useConfiguratorStore } from "@/store/useConfiguratorStore";
+import { useSession } from "@/lib/auth-client";
 import { APPAREL_CATALOG } from "@/lib/constants";
 import { calculate6VariablePrice, materialFinishToPricing } from "@/lib/pricingEngine";
 import { PRODUCT_COLORS } from "@/lib/constants";
@@ -26,6 +27,17 @@ export function StudioPublishModal() {
 
   // Snapshot canvas 3D
   const [snapshotUrl, setSnapshotUrl] = useState<string>("");
+
+  // Role-guard (Bab 38/47): tombol PAJANG DI ETALASE hanya untuk admin.
+  // Pola sama dengan StudioClient.tsx: useSession dari @/lib/auth-client +
+  // allowlist role ADMIN/SUPER_ADMIN/PRODUCTION_STAFF + 2 email owner.
+  // Fail-closed: sesi null/loading = tombol disembunyikan.
+  const { data: session } = useSession();
+  const userRole = String((session?.user as any)?.role || "");
+  const isAdmin =
+    ["ADMIN", "SUPER_ADMIN", "PRODUCTION_STAFF"].includes(userRole.toUpperCase()) ||
+    session?.user?.email === "hengkishadow@gmail.com" ||
+    session?.user?.email === "admin@kaoskami.biz.id";
 
   // Form Fields
   const [productName, setProductName] = useState("");
@@ -161,17 +173,19 @@ export function StudioPublishModal() {
 
   return (
     <>
+      {isAdmin && (
       <button
         onClick={handleOpen}
         type="button"
-        className="px-3.5 py-2 rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 text-canvas font-mono font-bold text-xs uppercase tracking-wider flex items-center gap-1.5 shadow-lg hover:brightness-110 active:scale-95 transition-all border border-amber-400/40"
+        className="px-3.5 py-2 rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 text-canvas font-sans font-bold text-xs uppercase tracking-wider flex items-center gap-1.5 shadow-lg hover:brightness-110 active:scale-95 transition-all border border-amber-400/40"
         title="Admin: Pajang hasil desain 3D ini langsung ke etalase toko sebagai produk ready stock"
       >
         <Sparkles size={14} className="animate-spin text-canvas" style={{ animationDuration: "4s" }} />
         <span>PAJANG DI ETALASE</span>
       </button>
+      )}
 
-      {isOpen && (
+      {isOpen && isAdmin && (
         <div
           className="fixed inset-0 z-[150] flex items-center justify-center p-3 sm:p-5 bg-black/80 backdrop-blur-md animate-in fade-in duration-200"
           onClick={() => !busy && setIsOpen(false)}
@@ -186,7 +200,7 @@ export function StudioPublishModal() {
                 <span className="text-[10px] text-brand-accent tracking-widest uppercase font-bold block mb-1">
                   ADMIN STUDIO 3D // PUBLISH TO SHOWCASE
                 </span>
-                <h2 className="font-display font-black text-lg sm:text-xl uppercase text-text-primary">
+                <h2 className="font-sans font-bold text-lg sm:text-xl uppercase text-text-primary">
                   PAJANG DESAIN KE ETALASE TOKO
                 </h2>
                 <p className="text-text-muted mt-0.5 text-[11px]">
@@ -209,7 +223,7 @@ export function StudioPublishModal() {
                   <Check size={28} />
                 </div>
                 <div>
-                  <h3 className="font-display font-black text-lg uppercase text-text-primary">
+                  <h3 className="font-sans font-bold text-lg uppercase text-text-primary">
                     PRODUK RESMI TAYANG DI ETALASE!
                   </h3>
                   <p className="text-text-muted text-xs mt-1 max-w-md mx-auto">

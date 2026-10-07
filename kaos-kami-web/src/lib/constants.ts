@@ -29,21 +29,21 @@ export const STUDIO_MOODS: StudioMoodMeta[] = [
   {
     id: "golden",
     label: "Golden",
-    desc: "Hangat keemasan — warna kain terlihat hidup",
+    desc: "Hangat keemasan · warna kain terlihat hidup",
     tint: "#ffcf9e",
     icon: "golden",
   },
   {
     id: "sunset",
     label: "Sunset",
-    desc: "Senja oranye — cek sablon di cahaya hangat",
+    desc: "Senja oranye · cek sablon di cahaya hangat",
     tint: "#ff9a6a",
     icon: "sunset",
   },
   {
     id: "gallery",
     label: "Galeri",
-    desc: "Putih bersih galeri — warna paling jujur",
+    desc: "Putih bersih galeri · warna paling jujur",
     tint: "#ffffff",
     icon: "gallery",
   },
@@ -156,6 +156,11 @@ export interface DecalLayer {
   opacity: number; // 0 to 1
   /** Dimensi master cetak 300 DPI (px) — opsional, backwards-compatible di JSON lama. */
   printPx?: { w: number; h: number };
+  /** Bab 52/53 — metadata teks re-editable (client-only, opsional).
+   * Disimpan saat teks dibuat via textDecalGenerator/FONT_PRESETS agar tombol
+   * "Edit Teks" bisa membuka kembali generator terisi. Server Zod strip
+   * unknown keys → tak mengubah kontrak DB/API/pricing. */
+  textMetadata?: { text: string; fontId: string; color: string };
 }
 
 export interface SavedMockupDesign {
@@ -255,7 +260,7 @@ export const APPAREL_CATALOG: Record<ApparelType, ApparelOption> = {
   cap: {
     id: "cap",
     name: "Topi Baseball Kaos Kami (Mockup)",
-    tagline: "Mockup 3D — pemesanan segera hadir",
+    tagline: "Mockup 3D · pemesanan segera hadir",
     weightGsm: "Cotton Twill",
     basePriceIdr: 35000,
     formattedPrice: "SEGERA",
@@ -267,7 +272,7 @@ export const APPAREL_CATALOG: Record<ApparelType, ApparelOption> = {
   pants: {
     id: "pants",
     name: "Celana Cargo Kaos Kami (Mockup)",
-    tagline: "Mockup 3D — pemesanan segera hadir",
+    tagline: "Mockup 3D · pemesanan segera hadir",
     weightGsm: "Twill Ripstop",
     basePriceIdr: 139000,
     formattedPrice: "SEGERA",
@@ -279,7 +284,7 @@ export const APPAREL_CATALOG: Record<ApparelType, ApparelOption> = {
   shorts: {
     id: "shorts",
     name: "Celana Pendek Denim Kaos Kami (Mockup)",
-    tagline: "Mockup 3D — pemesanan segera hadir",
+    tagline: "Mockup 3D · pemesanan segera hadir",
     weightGsm: "Denim Ringan",
     basePriceIdr: 79000,
     formattedPrice: "SEGERA",
@@ -414,8 +419,8 @@ export function calculateCustomMockupPrice(
 export const TECHNICAL_SPECS = [
   {
     label: "BAHAN KAOS",
-    value: "Katun Combed 24s & 30s",
-    detail: "100% serat katun alami pilihan yang halus, sejuk di kulit, menyerap keringat, dan nyaman dipakai harian.",
+    value: "Katun Combed 24s Premium",
+    detail: "100% serat katun murni berkualitas yang halus, sejuk di kulit, menyerap keringat, dan berkarakter tebal pas harian.",
   },
   {
     label: "SABLON DIGITAL",

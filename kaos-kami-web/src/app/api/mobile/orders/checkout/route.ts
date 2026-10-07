@@ -7,9 +7,8 @@ import { siteUrl } from "@/lib/siteUrl";
 import { Address, ApparelCategory, Design, Order, OrderItem, OrderStatusEvent, Payment, User, Verification } from "@/lib/drizzle-schema";
 import { calculate6VariablePrice, materialFinishToPricing } from "@/lib/pricingEngine";
 import { PRODUCT_COLORS, APPAREL_CATALOG, type ApparelType } from "@/lib/constants";
-// ALUR BARU (owner Sep 2026): charge Duitku PINDAH ke
-// POST /api/orders/[id]/request-payment — import duitkuProvider DICABUT dari
-// route ini (JANGAN dipakai lagi di sini; lihat request-payment/route.ts).
+// Alur pembayaran: charge via POST /api/orders/[id]/request-payment.
+// Provider pembayaran diimpor di route tersebut (lihat request-payment/route.ts).
 import { hashOtp } from "@/lib/otp";
 // Kebijakan Fonnte owner 20 Sep 2026: HANYA OTP — route ini tak kirim WA lain.
 import { MAKASSAR_DELIVERY_OPTIONS, MAKASSAR_SUBDISTRICTS, PRODUCTION_TURNAROUND_OPTIONS } from "@/lib/shipping/deliveryOptions";
@@ -98,7 +97,7 @@ const MobileCheckoutSchema = z.object({
 /**
  * M10.2 — POST /api/mobile/orders/checkout
  * Checkout ringkas untuk aplikasi Capacitor: validasi Zod + re-hitung server-side
- * (jangan percaya total dari HP) + Duitku fail-closed seperti web checkout.
+ * (jangan percaya total dari HP) + validasi pembayaran seperti web checkout.
  */
 export async function POST(req: NextRequest) {
   let idemKey: string | null = null;
@@ -119,8 +118,8 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // KEPUTUSAN OWNER Sep 2026: tamu DILARANG checkout — wajib login.
-    // Gate sesi di awal (sebelum idem/Duitku/validasi) — 401 konsisten.
+    // Kebijakan akses: tamu wajib login untuk checkout.
+    // Gate sesi di awal (sebelum idem/validasi) — 401 konsisten.
     // Mobile Capacitor meneruskan cookie sesi ke API ini; tanpa sesi = 401.
     let sessionUser: any = null;
     try {
@@ -180,11 +179,9 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // ALUR BARU (keputusan owner Sep 2026 — checkout → DESIGN_REVIEW tanpa
-    // charge; gerbang OTP/Turnstile di bawah ini MILIK alur mobile, SENGAJA tak
-    // diubah): fail-closed Duitku di sini DICABUT — charge dibuat NANTI saat
-    // user klik bayar via POST /api/orders/[id]/request-payment (setelah admin
-    // ACC). Order TANPA secret Duitku tetap boleh masuk antrean review.
+    // Alur checkout: order masuk DESIGN_REVIEW tanpa charge.
+    // Charge dibuat saat user membayar via POST /api/orders/[id]/request-payment
+    // (setelah persetujuan admin). Order tanpa secret tetap masuk antrean review.
 
     const rawBody = await req.text();
     // Cap body mentah dulu (paritas web: anti OOM sebelum Zod).
@@ -686,13 +683,12 @@ export async function POST(req: NextRequest) {
       items: validatedItems,
     };
 
-    // P0-1 (alur baru owner Sep 2026 — paritas web): Payment PENDING dengan ref
-    // sementara TANPA charge Duitku. Charge dibuat NANTI via
-    // POST /api/orders/[id]/request-payment (setelah admin ACC) yang menimpa
-    // providerRef ini (update-in-place, Payment.orderId UNIQUE). Webhook tetap
-    // kompatibel (lookup via orderNumber). CATATAN M2 (13 Sep): deep-link APK
-    // `kaoskami://payment/callback?orderId=` DITERUSKAN di request-payment via
-    // body { returnUrlOverride } — JANGAN hapus dukungan itu di sana.
+    // Payment PENDING dengan ref sementara tanpa charge. Charge dibuat via
+    // POST /api/orders/[id]/request-payment (setelah persetujuan admin) yang
+    // menimpa providerRef ini (update-in-place, Payment.orderId UNIQUE).
+    // Webhook tetap kompatibel (lookup via orderNumber). Catatan: deep-link APK
+    // `kaoskami://payment/callback?orderId=` diteruskan di request-payment via
+    // body { returnUrlOverride }.
     const pendingRef = `pending-${order.id}`;
     await db.insert(Payment).values({
       id: nanoid(),
@@ -704,12 +700,11 @@ export async function POST(req: NextRequest) {
       status: "PENDING",
     });
 
-    // 7. CHARGE DITUNDA (alur baru owner Sep 2026): JANGAN createCharge di
-    // sini. Rincian item Duitku DIBANGUN ULANG di
+    // 7. Charge ditunda: rincian item dibangun ulang di
     // POST /api/orders/[id]/request-payment dari baris Order tersimpan
     // (paritas pola createCharge lama + repay/route.ts). Baris Payment PENDING
     // (ref `pending-*`) di atas jadi jangkar update-in-place saat user klik
-    // bayar pasca-ACC (klien mobile kirim returnUrlOverride deep-link APK).
+    // bayar pasca-persetujuan (klien mobile kirim returnUrlOverride deep-link APK).
 
     // KEBIJAKAN FONNTE (owner 20 Sep 2026): Fonnte HANYA untuk OTP sekali seumur
     // hidup. Notifikasi "order confirmed" via WA DIMATIKAN (paritas web checkout;
@@ -721,9 +716,9 @@ export async function POST(req: NextRequest) {
       orderId: order.id,
       orderNumber: order.orderNumber,
       userId: user.id,
-      // ALUR BARU: tanpa paymentUrl/reference — charge dibuat saat user klik
-      // bayar pasca-ACC (POST /api/orders/[id]/request-payment). APK WAJIB
-      // arahkan ke invoice/tracker (bukan ke Duitku) bila field ini absen.
+      // Alur: tanpa paymentUrl/reference — charge dibuat saat user klik
+      // bayar pasca-persetujuan (POST /api/orders/[id]/request-payment). APK
+      // mengarahkan ke invoice/tracker bila field ini absen.
       status: "DESIGN_REVIEW",
       invoiceUrl,
       discountIdr,

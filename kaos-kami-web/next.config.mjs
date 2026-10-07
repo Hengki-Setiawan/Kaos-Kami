@@ -12,7 +12,17 @@ const nextConfig = {
   // Terbukti via build warning Next 15.5: kunci ini HANYA dikenali di bawah
   // `experimental` (komentar lama yang klaim "stabil" keliru).
   experimental: {
-    optimizePackageImports: ["lucide-react", "clsx", "tailwind-merge", "framer-motion"],
+    optimizePackageImports: [
+      "lucide-react",
+      "clsx",
+      "tailwind-merge",
+      "framer-motion",
+      "three",
+      "@react-three/drei",
+      "drizzle-orm",
+      "@tanstack/react-query",
+    ],
+    webpackMemoryOptimizations: true,
   },
   images: {
     // CWV Sep 2026: optimasi AKTIF (unoptimized:false) agar hero/katalog
@@ -34,21 +44,21 @@ const nextConfig = {
     removeConsole: process.env.NODE_ENV === "production" ? { exclude: ["error", "warn"] } : false,
   },
   async headers() {
-    // P1 (13 Sep 2026): CSP minimal — self + Duitku (popup-js prod/sandbox) +
+    // P1 (13 Sep 2026): CSP minimal — self + gateway (iPaymu) +
     // Turnstile (script/frame challenges.cloudflare.com). 'unsafe-inline'
     // SENGAJA dipertahankan: Next App Router menyuntik inline script/style;
     // tanpa nonce (butuh middleware) melepasnya = halaman blank. Pengetatan
     // ke nonce-hash = tindak lanjut terpisah (butuh uji build).
     const csp = [
       "default-src 'self'",
-      "script-src 'self' 'unsafe-inline' 'unsafe-eval' 'wasm-unsafe-eval' https://app.duitku.com https://app-sandbox.duitku.com https://challenges.cloudflare.com https://www.gstatic.com https://www.googletagmanager.com https://static.cloudflareinsights.com",
+      "script-src 'self' 'unsafe-inline' 'unsafe-eval' 'wasm-unsafe-eval' https://challenges.cloudflare.com https://www.gstatic.com https://www.googletagmanager.com https://static.cloudflareinsights.com",
       "worker-src 'self' blob: 'unsafe-eval' 'wasm-unsafe-eval'",
       "child-src 'self' blob: 'unsafe-eval' 'wasm-unsafe-eval'",
       "style-src 'self' 'unsafe-inline'",
       "img-src 'self' data: blob: https:",
       "font-src 'self' data:",
-      "connect-src 'self' blob: data: https://passport.duitku.com https://sandbox.duitku.com https://app.duitku.com https://app-sandbox.duitku.com https://challenges.cloudflare.com https://kaoskami.biz.id https://pub-5746f36a46904edc8425ecd72517865c.r2.dev https://www.gstatic.com https://www.google-analytics.com https://analytics.google.com https://*.google-analytics.com https://www.googletagmanager.com https://cloudflareinsights.com",
-      "frame-src 'self' https://app.duitku.com https://app-sandbox.duitku.com https://challenges.cloudflare.com",
+      "connect-src 'self' blob: data: https://challenges.cloudflare.com https://kaoskami.biz.id https://pub-5746f36a46904edc8425ecd72517865c.r2.dev https://www.gstatic.com https://www.google-analytics.com https://analytics.google.com https://*.google-analytics.com https://www.googletagmanager.com https://cloudflareinsights.com",
+      "frame-src 'self' https://challenges.cloudflare.com",
       "object-src 'none'",
       "base-uri 'self'",
       "form-action 'self'",
@@ -100,7 +110,7 @@ const nextConfig = {
           },
           {
             // P1: isolasi konteks browsing; allow-popups = OAuth Google &
-            // popup Duitku tetap bisa kembali ke opener. BUKAN `same-origin`
+            // popup gateway (iPaymu) tetap bisa kembali ke opener. BUKAN `same-origin`
             // penuh (itu memutus popup payment/OAuth).
             key: "Cross-Origin-Opener-Policy",
             value: "same-origin-allow-popups",
@@ -111,6 +121,21 @@ const nextConfig = {
   },
   async redirects() {
     return [
+      // Alias legalitas 301 → kanonis (SSOT: /kontak, /terms, /refund).
+      // File alias re-ekspor tetap ada (fallback) — redirect ini yang menang di runtime.
+      // Presentasi/SEO saja; tanpa ubah logika/API/DB.
+      { source: "/contact", destination: "/kontak", permanent: true },
+      { source: "/terms-and-conditions", destination: "/terms", permanent: true },
+      { source: "/refund-policy", destination: "/refund", permanent: true },
+      // Kanonis apex (SSOT: auth.ts baseURL + NEXT_PUBLIC_SITE_URL +
+      // wrangler.jsonc = https://kaoskami.biz.id; www hanya trustedOrigin).
+      // www → apex 301. workers.dev rule di bawah TIDAK tersentuh.
+      {
+        source: "/:path*",
+        has: [{ type: "host", value: "www.kaoskami.biz.id" }],
+        destination: "https://kaoskami.biz.id/:path*",
+        permanent: true,
+      },
       {
         source: "/:path*",
         has: [

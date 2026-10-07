@@ -112,7 +112,7 @@ export async function POST(req: NextRequest) {
     if (overQuota) return overQuota;
     // TANPA sharp (Sep 2026): resize/kompres WAJIB di browser SEBELUM upload
     // via compressImageClient (preview max 1200px / master max 3000px, format
-    // adaptif webp/png/jpeg) — pemanggil: CustomizerDrawer, PatternStudio,
+    // adaptif webp/png/jpeg) — pemanggil: CustomizerDrawer,
     // imageEditPipeline.uploadMasterDataUrlToR2, gangExport. Server hanya
     // validasi (MIME/magic-byte/10MB) + teruskan bytes apa adanya agar Worker
     // tetap lean (<1.2MB, jauh dari limit 3MB Cloudflare) dan tanpa dependensi

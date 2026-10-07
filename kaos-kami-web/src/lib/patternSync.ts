@@ -8,11 +8,11 @@
 // CATATAN OFFSET (audit #19): TIDAK ada konstanta ajaib di pemetaan ini.
 // Komentar lama "0,02 = 2mm" SALAH 10x lipat: 0,02 unit × multiplier tshirt
 // 101,8 = 2,04 cm (bukan 2mm). Nilai `y: 0.02` yang dioper pemanggil
-// (mis. PatternStudio handleUpload) adalah offset data ±2cm yang JUJUR,
+// (mis. jalur per-panel handleUpload) adalah offset data ±2cm yang JUJUR,
 // bukan konstanta konversi — jangan "mengoreksi"nya di sini.
 //
 // CATATAN STRETCH (audit #19): DecalLayer.scale UNIFORM (satu angka).
-// PatternStudio mengunci skala uniform saat scaling, jadi stretch non-uniform
+// editor per-panel mengunci skala uniform saat scaling, jadi stretch non-uniform
 // hanya bisa datang dari bbox terotasi / pemanggil programatik. Bila rasio
 // aspek sumber diketahui, sumbu acuan dipilih dari SISI PANJANG SUMBER
 // (bukan max() buta atas bbox) — lihat fabricToDecal.
@@ -76,7 +76,7 @@ export function decalToFabric(
   // Di 3D (scaleCalibration.ts):
   // - decalY berkisar dari +0.35 (pangkal bahu / top) hingga -0.35 (ujung manset / bottom).
   // - decalX adalah geser melingkar [-0.12, +0.12].
-  // Di 2D (PatternStudio & patternGeometry):
+  // Di 2D (editor per-panel & patternGeometry):
   // - origin berada tepat di tengah kanvas pola lengan (wCm/2, hCm/2).
   // - Kita petakan decalY normalized [-1, 1] ke tinggi panel lengan secara proporsional,
   //   sehingga sablon di bahu, lengan tengah, maupun manset selalu berada 100% di dalam pola 2D!
@@ -113,21 +113,21 @@ export function decalToFabric(
 }
 
 export interface FabricToDecalOptions {
-  /** Panel target di PatternStudio */
+  /** Panel target di editor per-panel */
   panel?: PatternPanel;
   /** Rasio aspek SUMBER artwork (w/h). Bila diisi, sumbu acuan skala dipilih
    * dari sisi panjang SUMBER — tahan terhadap bbox Fabric yang mengembang
    * saat objek terotasi (getScaledWidth/Height = AABB, bukan ukuran riil). */
   aspectWoverH?: number;
   /** Opacity objek Fabric (0-1). Diteruskan ke patch bila diisi — agen
-   * PatternStudio: oper `obj.opacity` agar opacity 2D↔3D sinkron. */
+   * editor per-panel: oper `obj.opacity` agar opacity 2D↔3D sinkron. */
   opacity?: number;
 }
 
 /**
  * Deteksi stretch non-uniform: bandingkan rasio bbox Fabric vs aspek sumber.
  * > toleransi (default 3%) = artwork ditarik 1 sisi / AABB rotasi — JANGAN
- * naik ke film DTF tanpa normalisasi (lihat PatternStudio: kunci uniform).
+ * naik ke film DTF tanpa normalisasi (lihat editor per-panel: kunci uniform).
  */
 export function detectNonUniformStretch(
   wPx: number,
@@ -156,7 +156,7 @@ export function fabricToDecal(
 
   // Skala dari SISI PANJANG SUMBER (bukan max() buta atas bbox): bila aspek
   // sumber landscape → acuan lebar; portrait → acuan tinggi. Untuk input
-  // uniform (kasus normal, PatternStudio mengunci uniform) hasilnya IDENTIK
+  // uniform (kasus normal, editor per-panel mengunci uniform) hasilnya IDENTIK
   // dengan max() lama; untuk stretch/AABB-rotasi, sumbu pendek yang
   // terdistorsi tidak lagi mendikte skala cetak.
   const aspect = aspectWoverH && aspectWoverH > 0 ? aspectWoverH : w / h;

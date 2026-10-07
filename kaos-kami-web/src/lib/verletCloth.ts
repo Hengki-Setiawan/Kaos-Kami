@@ -182,9 +182,9 @@ export function createClothParticleGrid(o: VerletOptions): VerletCloth {
 export function gsmPreset(slug: string): { damping: number; iterations: number; windGain: number; label: string } {
   switch (slug) {
     case "french-terry":
-      return { damping: 0.985, iterations: 10, windGain: 0.7, label: "Fleece 380 — jatuh berat" };
+      return { damping: 0.985, iterations: 10, windGain: 0.7, label: "Fleece 380 · jatuh berat" };
     case "combed-cotton":
     default:
-      return { damping: 0.98, iterations: 12, windGain: 0.85, label: "Combed 240/280 — seimbang" };
+      return { damping: 0.98, iterations: 12, windGain: 0.85, label: "Combed 240/280 · seimbang" };
   }
 }

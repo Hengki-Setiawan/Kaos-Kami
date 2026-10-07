@@ -14,7 +14,8 @@ import {
   PartyPopper,
 } from 'lucide-react';
 import { GlassCard, Badge, HapticButton } from '@/components/ui';
-import { openDuitkuPaymentModal } from '@/lib/payments/duitkuMobile';
+import { openPaymentBrowser } from '@/lib/payments/ipaymuMobile';
+import { DirectQrisSheet } from '@/components/commerce/DirectQrisSheet';
 import { SHOP_WHATSAPP, shopWaLink } from '@/lib/shop';
 import { mobileApiClient, MobileOrderStatus } from '@/lib/api/mobileApiClient';
 import { haptic } from '@/lib/bridge/haptics';
@@ -157,7 +158,7 @@ export function UserOrderTracker({
         </div>
 
         <div className="text-right">
-          <span className="text-sm font-bold text-[#FF6B35] font-['Syne']">
+          <span className="text-sm font-bold text-[#FF6B35] font-mono tabular-nums">
             Rp {order.totalAmount.toLocaleString('id-ID')}
           </span>
           <p className="text-[10px] text-zinc-500">{order.deliveryMethod}</p>
@@ -311,25 +312,49 @@ const SERVER_TO_TRACKER: Record<string, OrderStatus> = {
  * Kontainer live: polling GET /api/mobile/orders/:id/status tiap 10 detik.
  * Menggantikan mock saat orderId server (cuid) tersedia.
  */
-/** Minta link bayar Duitku untuk order yg sudah di-ACC (tanpa link lama). */
+/** Minta link / QRIS iPaymu untuk order yg sudah di-ACC. */
 function RequestPaymentButton({ orderId, onOpened }: { orderId: string; onOpened?: () => void }) {
   const [busy, setBusy] = React.useState(false);
   const [msg, setMsg] = React.useState<string | null>(null);
+  const [qrisData, setQrisData] = React.useState<{
+    orderId: string;
+    orderNumber: string;
+    amountIdr: number;
+    qrImage?: string;
+    qrString?: string;
+    invoiceUrl?: string;
+  } | null>(null);
+
   const ask = async () => {
     setBusy(true);
     setMsg(null);
     try {
       const res = await fetch(`/api/orders/${orderId}/request-payment`, { method: 'POST' });
       const data = await res.json().catch(() => null);
-      if (!res.ok || !data?.paymentUrl) throw new Error(data?.error || 'Belum bisa bayar — pastikan admin sudah ACC.');
+      if (!res.ok || (!data?.paymentUrl && !data?.qrImage && !data?.qrString)) {
+        throw new Error(data?.error || 'Belum bisa bayar — pastikan admin sudah ACC.');
+      }
       onOpened?.();
-      await openDuitkuPaymentModal(data.paymentUrl, () => onOpened?.());
+
+      if (data.qrImage || data.qrString) {
+        setQrisData({
+          orderId,
+          orderNumber: data.orderNumber || orderId,
+          amountIdr: data.amount || 0,
+          qrImage: data.qrImage,
+          qrString: data.qrString,
+          invoiceUrl: `/orders/${orderId}`,
+        });
+      } else if (data.paymentUrl) {
+        await openPaymentBrowser(data.paymentUrl, () => onOpened?.());
+      }
     } catch (e: any) {
       setMsg(e?.message || 'Gagal minta link bayar.');
     } finally {
       setBusy(false);
     }
   };
+
   return (
     <div className="space-y-1">
       <button
@@ -338,16 +363,35 @@ function RequestPaymentButton({ orderId, onOpened }: { orderId: string; onOpened
         disabled={busy}
         className="w-full py-3 rounded-xl bg-emerald-600 text-white text-xs font-bold disabled:opacity-50"
       >
-        {busy ? 'MEMINTA LINK…' : 'BAYAR SEKARANG (QRIS)'}
+        {busy ? 'MEMPROSES QRIS…' : 'BAYAR SEKARANG (QRIS)'}
       </button>
       {msg && <p className="text-[10px] text-amber-400 text-center">{msg}</p>}
+
+      {qrisData && (
+        <DirectQrisSheet
+          open={Boolean(qrisData)}
+          onOpenChange={(op) => {
+            if (!op) setQrisData(null);
+          }}
+          orderId={qrisData.orderId}
+          orderNumber={qrisData.orderNumber}
+          amountIdr={qrisData.amountIdr}
+          qrImage={qrisData.qrImage}
+          qrString={qrisData.qrString}
+          invoiceUrl={qrisData.invoiceUrl}
+          onPaymentSuccess={() => {
+            setQrisData(null);
+            onOpened?.();
+          }}
+        />
+      )}
     </div>
   );
 }
 
 /**
  * Q5: aksi invoice dari invoiceUrl server (halaman invoice web) — TERPISAH
- * dari paymentUrl Duitku (JANGAN buka invoice sebagai "lanjut bayar").
+ * dari paymentUrl iPaymu (JANGAN buka invoice sebagai "lanjut bayar").
  * - Unduh/Buka: Browser native (fallback window.open di web).
  * - Bagikan: Share sheet native.
  * - Bayar manual via WA: wa.me workshop + nomor order + link invoice.
@@ -450,7 +494,7 @@ export function UserOrderTrackerLive({
 }: {
   orderId: string;
   paymentUrl?: string;
-  /** Halaman invoice server (fallback bayar manual) — bukan link Duitku. */
+  /** Halaman invoice server (fallback bayar manual) — bukan link iPaymu. */
   invoiceUrl?: string;
   onNotify?: (msg: string) => void;
 }) {
@@ -592,7 +636,7 @@ export function UserOrderTrackerLive({
     printHeightCm: remoteH,
     status: effectiveStatus,
     totalAmount: remote.totalIdr || 0,
-    paymentMethod: paymentUrl ? 'Duitku' : remote.paymentMethod || '-',
+    paymentMethod: paymentUrl ? 'iPaymu/QRIS' : remote.paymentMethod || '-',
     deliveryMethod: remote.deliveryMethod || 'Makassar',
     createdAt: remote.updatedAt,
     reviewNote: remoteNote,
@@ -611,7 +655,7 @@ export function UserOrderTrackerLive({
         order={order}
         onPayNow={
           !isDead && mapped === 'PENDING_PAYMENT' && paymentUrl
-            ? () => openDuitkuPaymentModal(paymentUrl, () => poll())
+            ? () => openPaymentBrowser(paymentUrl, () => poll())
             : undefined
         }
         onNotify={onNotify}

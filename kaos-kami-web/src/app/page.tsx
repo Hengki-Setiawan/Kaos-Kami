@@ -15,6 +15,7 @@ const StaticShowcase = dynamic(
   { ssr: false }
 );
 import { JsonLd, CanvasErrorBoundary } from "@/components/ui/JsonLd";
+import { Preloader } from "@/components/ui/Preloader";
 import { Navbar } from "@/components/ui/Navbar";
 import { Footer } from "@/components/ui/Footer";
 import { HeroOverlay } from "@/components/ui/HeroOverlay";
@@ -83,6 +84,9 @@ export default function Home() {
 
   return (
     <main className="relative bg-canvas text-text-primary min-h-screen">
+      {/* 1. Fullscreen Initial Preloader (covers screen from frame 0 until 3D ready) */}
+      <Preloader />
+
       {/* Schema.org Structured Data */}
       <JsonLd />
 
@@ -91,7 +95,7 @@ export default function Home() {
       {deniedNote && (
         <div className="relative z-30 mx-auto max-w-xl px-4 pt-20">
           <p className="rounded-xl bg-amber-500/15 border border-amber-500/40 text-amber-300 font-mono text-xs text-center px-4 py-2.5">
-            Akses workshop ditolak — akun ini bukan admin/staff.
+            Akses workshop ditolak: akun ini bukan admin/staff.
           </p>
         </div>
       )}

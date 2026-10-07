@@ -52,6 +52,7 @@ export const DecalGizmo: React.FC<DecalGizmoProps> = ({ surfaceZ }) => {
     setCameraPreset,
     animationPreset,
     isRotating,
+    setActiveViewSide,
   } = useConfiguratorStore(
     useShallow((s) => ({
       viewMode: s.viewMode,
@@ -69,6 +70,7 @@ export const DecalGizmo: React.FC<DecalGizmoProps> = ({ surfaceZ }) => {
       setCameraPreset: s.setCameraPreset,
       animationPreset: s.animationPreset,
       isRotating: s.isRotating,
+      setActiveViewSide: s.setActiveViewSide,
     }))
   );
 
@@ -315,6 +317,202 @@ export const DecalGizmo: React.FC<DecalGizmoProps> = ({ surfaceZ }) => {
       let rawX = curInitialX + dx * signX;
       let rawY = curInitialY - dy;
 
+      // 360° Seamless Torso Zone Transition (Depan <-> Rusuk Samping <-> Punggung):
+      if (hasSides) {
+        if (currentSide === "front") {
+          // Rusuk Kanan
+          if (rawX > 0.19) {
+            const sideMaxScale = maxDecalScaleUnits(activeApparel, "side_right");
+            const nextScale = Math.min(activeDecal.scale, sideMaxScale);
+            currentSide = "side_right";
+            curStartX = ev.clientX;
+            curStartY = ev.clientY;
+            curInitialX = 0.08;
+            curInitialY = rawY;
+            updateDecal(activeDecal.id, {
+              targetSide: "side_right",
+              x: 0.08,
+              y: Number(rawY.toFixed(4)),
+              scale: Number(nextScale.toFixed(4)),
+            });
+            setActiveViewSide("side_right");
+            return;
+          }
+          // Rusuk Kiri
+          if (rawX < -0.19) {
+            const sideMaxScale = maxDecalScaleUnits(activeApparel, "side_left");
+            const nextScale = Math.min(activeDecal.scale, sideMaxScale);
+            currentSide = "side_left";
+            curStartX = ev.clientX;
+            curStartY = ev.clientY;
+            curInitialX = 0.08;
+            curInitialY = rawY;
+            updateDecal(activeDecal.id, {
+              targetSide: "side_left",
+              x: 0.08,
+              y: Number(rawY.toFixed(4)),
+              scale: Number(nextScale.toFixed(4)),
+            });
+            setActiveViewSide("side_left");
+            return;
+          }
+        } else if (currentSide === "side_right") {
+          if (rawX > 0.09) {
+            // Kembali ke Dada Depan
+            currentSide = "front";
+            curStartX = ev.clientX;
+            curStartY = ev.clientY;
+            curInitialX = 0.17;
+            curInitialY = rawY;
+            updateDecal(activeDecal.id, {
+              targetSide: "front",
+              x: 0.17,
+              y: Number(rawY.toFixed(4)),
+            });
+            setActiveViewSide("front");
+            return;
+          } else if (rawX < -0.09) {
+            // Berlanjut ke Punggung Belakang
+            currentSide = "back";
+            curStartX = ev.clientX;
+            curStartY = ev.clientY;
+            curInitialX = 0.17;
+            curInitialY = rawY;
+            updateDecal(activeDecal.id, {
+              targetSide: "back",
+              x: 0.17,
+              y: Number(rawY.toFixed(4)),
+            });
+            setActiveViewSide("back");
+            return;
+          }
+        } else if (currentSide === "side_left") {
+          if (rawX > 0.09) {
+            // Kembali ke Dada Depan
+            currentSide = "front";
+            curStartX = ev.clientX;
+            curStartY = ev.clientY;
+            curInitialX = -0.17;
+            curInitialY = rawY;
+            updateDecal(activeDecal.id, {
+              targetSide: "front",
+              x: -0.17,
+              y: Number(rawY.toFixed(4)),
+            });
+            setActiveViewSide("front");
+            return;
+          } else if (rawX < -0.09) {
+            // Berlanjut ke Punggung Belakang
+            currentSide = "back";
+            curStartX = ev.clientX;
+            curStartY = ev.clientY;
+            curInitialX = -0.17;
+            curInitialY = rawY;
+            updateDecal(activeDecal.id, {
+              targetSide: "back",
+              x: -0.17,
+              y: Number(rawY.toFixed(4)),
+            });
+            setActiveViewSide("back");
+            return;
+          }
+        } else if (currentSide === "back") {
+          if (rawX > 0.19) {
+            // Kembali ke Rusuk Kanan dari Belakang
+            currentSide = "side_right";
+            curStartX = ev.clientX;
+            curStartY = ev.clientY;
+            curInitialX = -0.08;
+            curInitialY = rawY;
+            updateDecal(activeDecal.id, {
+              targetSide: "side_right",
+              x: -0.08,
+              y: Number(rawY.toFixed(4)),
+            });
+            setActiveViewSide("side_right");
+            return;
+          } else if (rawX < -0.19) {
+            // Kembali ke Rusuk Kiri dari Belakang
+            currentSide = "side_left";
+            curStartX = ev.clientX;
+            curStartY = ev.clientY;
+            curInitialX = -0.08;
+            curInitialY = rawY;
+            updateDecal(activeDecal.id, {
+              targetSide: "side_left",
+              x: -0.08,
+              y: Number(rawY.toFixed(4)),
+            });
+            setActiveViewSide("side_left");
+            return;
+          }
+        }
+      }
+
+      // Transisi ke Lengan (Bahu Atas):
+      if (hasSleeves && currentSide === "front" && rawY > 0.04) {
+        const sleeveMaxScale = maxDecalScaleUnits(activeApparel, "left_sleeve");
+        const nextScale = Math.min(activeDecal.scale, sleeveMaxScale);
+        if (rawX < -0.19) {
+          currentSide = "left_sleeve";
+          curStartX = ev.clientX;
+          curStartY = ev.clientY;
+          curInitialX = 0;
+          curInitialY = Math.max(-0.25, Math.min(0.25, rawY));
+          updateDecal(activeDecal.id, {
+            targetSide: "left_sleeve",
+            x: 0,
+            y: Number(curInitialY.toFixed(4)),
+            scale: Number(nextScale.toFixed(4)),
+          });
+          setActiveViewSide("left_sleeve");
+          return;
+        }
+        if (rawX > 0.19) {
+          currentSide = "right_sleeve";
+          curStartX = ev.clientX;
+          curStartY = ev.clientY;
+          curInitialX = 0;
+          curInitialY = Math.max(-0.25, Math.min(0.25, rawY));
+          updateDecal(activeDecal.id, {
+            targetSide: "right_sleeve",
+            x: 0,
+            y: Number(curInitialY.toFixed(4)),
+            scale: Number(nextScale.toFixed(4)),
+          });
+          setActiveViewSide("right_sleeve");
+          return;
+        }
+      }
+      if (currentSide === "left_sleeve" && rawX > 0.08) {
+        currentSide = "front";
+        curStartX = ev.clientX;
+        curStartY = ev.clientY;
+        curInitialX = -0.16;
+        curInitialY = rawY;
+        updateDecal(activeDecal.id, {
+          targetSide: "front",
+          x: -0.16,
+          y: Number(rawY.toFixed(4)),
+        });
+        setActiveViewSide("front");
+        return;
+      }
+      if (currentSide === "right_sleeve" && rawX > 0.08) {
+        currentSide = "front";
+        curStartX = ev.clientX;
+        curStartY = ev.clientY;
+        curInitialX = 0.16;
+        curInitialY = rawY;
+        updateDecal(activeDecal.id, {
+          targetSide: "front",
+          x: 0.16,
+          y: Number(rawY.toFixed(4)),
+        });
+        setActiveViewSide("front");
+        return;
+      }
+
       const jepit = clampDecalXY(currentSide, rawX, rawY);
       const snappedX = Math.abs(jepit.x) <= SNAP_TOL;
       const snappedY = Math.abs(jepit.y) <= SNAP_TOL;
@@ -460,15 +658,22 @@ export const DecalGizmo: React.FC<DecalGizmoProps> = ({ surfaceZ }) => {
             <X size={8} className="stroke-[3]" />
           </button>
 
-          {/* Real-world physical dimensions pill (Ukuran sablon nyata cm) */}
+          {/* Real-world physical dimensions pill (Ukuran sablon nyata cm terkalibrasi per sisi) */}
           {physicalDims && (
             <div className="absolute -bottom-6 left-1/2 -translate-x-1/2 flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-neutral-950/90 backdrop-blur-md border border-brand-accent/50 text-[9px] font-mono font-bold text-white shadow-lg pointer-events-none whitespace-nowrap select-none">
               <span className="text-amber-300">
                 {physicalDims.widthCm.toFixed(1)} × {physicalDims.heightCm.toFixed(1)} cm
               </span>
-              {!physicalDims.isWithinProductionLimits && (
-                <span className="text-[7.5px] text-rose-400 font-extrabold uppercase">MAKS 30cm</span>
-              )}
+              <span className="text-white/40">·</span>
+              <span
+                className={
+                  physicalDims.isWithinProductionLimits
+                    ? "text-emerald-400 font-semibold"
+                    : "text-rose-400 font-extrabold uppercase animate-pulse"
+                }
+              >
+                Maks {physicalDims.maxWidthCm}cm
+              </span>
             </div>
           )}
         </div>

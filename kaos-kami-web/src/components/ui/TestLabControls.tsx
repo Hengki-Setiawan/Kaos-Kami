@@ -138,7 +138,7 @@ export const TestLabControls: React.FC = () => {
           <Activity size={15} className="text-brand-accent animate-pulse" />
           <span>3D TEST LAB & SIMULASI FISIKA</span>
         </span>
-        <span className="text-[10px] font-mono font-bold uppercase px-2 py-0.5 rounded-full border border-brand-accent/30 bg-brand-accent/10 text-brand-accent">
+        <span className="text-[10px] font-sans font-bold uppercase px-2 py-0.5 rounded-full border border-brand-accent/30 bg-brand-accent/10 text-brand-accent">
           {testLabMode === "none" ? "STANDAR" : testLabMode.toUpperCase()}
         </span>
       </div>
@@ -183,7 +183,7 @@ export const TestLabControls: React.FC = () => {
 
           {/* Pengatur Arah Tarik */}
           <div className="space-y-1">
-            <span className="text-[10px] font-mono font-bold text-text-muted uppercase">
+            <span className="text-[10px] font-sans font-bold text-text-muted uppercase">
               Arah Gaya Tarik:
             </span>
             <div className="grid grid-cols-3 gap-1.5">
@@ -339,7 +339,7 @@ export const TestLabControls: React.FC = () => {
 
           {/* Pilihan Arah Terpaan Angin */}
           <div className="space-y-1">
-            <span className="text-[10px] font-mono font-bold text-text-muted uppercase">
+            <span className="text-[10px] font-sans font-bold text-text-muted uppercase">
               ARAH TERPAAN ANGIN:
             </span>
             <div className="grid grid-cols-3 gap-1.5">

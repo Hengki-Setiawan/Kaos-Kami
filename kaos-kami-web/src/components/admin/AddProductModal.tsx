@@ -21,7 +21,7 @@ const COLOR_PRESETS: ColorPreset[] = [
   { hex: "#E65100", name: "Signal Tangerine" },
   { hex: "#3B4435", name: "Military Olive" },
   { hex: "#2E3B55", name: "Deep Navy" },
-  { hex: "#8A2BE2", name: "Neon Violet" },
+  { hex: "#8A2BE2", name: "Ungu Violet" },
   { hex: "#B22222", name: "Crimson Red" },
 ];
 
@@ -139,7 +139,7 @@ export function AddProductModal({ categories }: { categories: CategoryOption[] }
     <>
       <button
         onClick={() => setIsOpen(true)}
-        className="px-4 py-2.5 rounded-xl bg-brand-accent text-canvas font-mono font-bold text-xs uppercase tracking-wider hover:brightness-110 flex items-center gap-1.5 transition-all shadow-sm active:scale-95"
+        className="px-4 py-2.5 rounded-xl bg-brand-accent text-canvas font-sans font-bold text-xs uppercase tracking-wider hover:brightness-110 flex items-center gap-1.5 transition-all shadow-sm active:scale-95"
       >
         <Plus size={15} />
         <span>+ TAMBAH PRODUK BARU</span>
@@ -149,6 +149,9 @@ export function AddProductModal({ categories }: { categories: CategoryOption[] }
         <div
           className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm animate-in fade-in duration-200"
           onClick={() => !busy && setIsOpen(false)}
+          role="dialog"
+          aria-modal="true"
+          aria-label="Tambah produk etalase baru"
         >
           <div
             className="relative w-full max-w-2xl max-h-[92vh] overflow-y-auto bg-surface border border-border-subtle rounded-3xl p-6 sm:p-8 font-mono text-xs shadow-2xl space-y-6"
@@ -160,7 +163,7 @@ export function AddProductModal({ categories }: { categories: CategoryOption[] }
                 <span className="text-[10px] text-brand-accent tracking-widest uppercase font-bold block mb-1">
                   ADMIN E-COMMERCE CATALOG
                 </span>
-                <h2 className="font-display font-black text-xl uppercase text-text-primary">
+                <h2 className="font-sans font-bold text-xl uppercase text-text-primary">
                   INPUT PRODUK ETALASE BARU
                 </h2>
                 <p className="text-text-muted mt-1 text-[11px]">
@@ -170,6 +173,7 @@ export function AddProductModal({ categories }: { categories: CategoryOption[] }
               <button
                 onClick={() => setIsOpen(false)}
                 disabled={busy}
+                aria-label="Tutup modal tambah produk"
                 className="p-1.5 rounded-full hover:bg-surface border border-border-subtle text-text-muted hover:text-text-primary transition-colors"
               >
                 <X size={16} />

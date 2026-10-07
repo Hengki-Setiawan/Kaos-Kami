@@ -36,7 +36,7 @@ function StudioInitialLoader() {
           />
           <div className="absolute inset-y-0 w-24 bg-gradient-to-r from-transparent via-white/60 to-transparent animate-shimmer" />
         </div>
-        <p className="font-mono text-[11px] text-text-muted tracking-widest uppercase">
+        <p className="font-sans text-[11px] text-text-muted tracking-widest uppercase">
           Menyiapkan Studio 3D… <span className="text-brand-accent font-bold">{progress}%</span>
         </p>
       </div>

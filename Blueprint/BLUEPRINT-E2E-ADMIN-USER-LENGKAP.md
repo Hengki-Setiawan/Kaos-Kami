@@ -98,7 +98,7 @@ Pelanggan di Studio 3D (/studio) -> Atur Garmen & Sablon -> Chat Kamito jika bin
                              │
 [ FASE 2: VERIFIKASI DESAIN & KOMUNIKASI WORKSHOP ]
 Admin login hengkishadow -> Buka /admin/review atau /admin/orders
-Cek resolusi cetak, letak sablon, batas printhead 30cm -> Hubungi user via /admin/chat jika buram -> Klik "SETUJUI (ACC)"
+Cek resolusi cetak, letak sablon, batas DTF 30cm -> Hubungi user via /admin/chat jika buram -> Klik "SETUJUI (ACC)"
                              │
                              ▼
                Status Pesanan: "PENDING_PAYMENT"
@@ -308,7 +308,7 @@ Berikut adalah rincian pengujian modular dan terintegrasi yang mencakup Sad Path
 | **S-04** | Rotasi Otomatis (AUTO) dengan Gizmo Aktif | Happy Path | `/studio` | Pasang sablon di dada lalu tekan tombol "AUTO" | Baju dan DecalGizmo berputar bersamaan dalam satu poros sinkron. |
 | **S-05** | Back-Face Culling Gizmo Sablon | Edge Case | `/studio` | Putar kaos hingga punggung menghadap kamera | Gizmo dada otomatis tersembunyi agar tidak menghalangi punggung. |
 | **S-06** | Presisi Tombol Posisi Cepat (Saku/Tengah) | Happy Path | `/studio` | Klik tombol "SAKU KIRI", "TENGAH", "SAKU KANAN" | Sablon berpindah ke koordinat presisi (`x: -0.065, y: 0.04`, `0, 0`). |
-| **S-07** | Penguncian Batas Cetak Fisik 30.0 cm DTF | Sad Path | `/studio` | Perbesar skala sablon melebihi batas 30.0 cm | Skala sablon terkunci pada 30.0 cm sesuai printhead mesin DTF. |
+| **S-07** | Penguncian Batas Cetak Fisik 30.0 cm DTF | Sad Path | `/studio` | Perbesar skala sablon melebihi batas 30.0 cm | Skala sablon terkunci pada 30.0 cm sesuai batas DTF workshop. |
 | **S-08** | Presisi Sinar Senter 3D Mengikuti Kursor | Happy Path | `/studio` | Aktifkan Test Lab "Senter" dan gerakkan mouse | Reticle biru dan sorotan cahaya menempel 100% tepat di kursor mouse. |
 | **S-09** | Simulasi Tekstur Tinta Khusus Sablon DTF | Happy Path | `/studio` | Pilih efek tinta: 3M Reflective, Glow-in-the-Dark, Gold Foil | Shader bereaksi fisik memantulkan kilau metalik atau pendaran neon. |
 | **S-10** | Penempatan Sablon Multi-Sisi (Depan & Belakang)| Happy Path| `/studio` | Pasang logo di dada depan dan artwork di punggung | Kedua sablon menempel pada sisinya masing-masing tanpa tembus. |
@@ -609,6 +609,6 @@ Evaluasi dinilai berdasarkan 6 pilar utama dengan skala 1–100:
 
 1. **Aturan Deploy/Push Gate:** DILARANG melakukan `git push` atau deploy ke Cloudflare (`npm run deploy`) tanpa instruksi eksplisit dari pemilik proyek (Owner). Seluruh build dan validasi wajib diselesaikan di lingkungan lokal terlebih dahulu.
 2. **Aturan Database Edge:** Akses runtime Turso Edge SQLite WAJIB melalui Drizzle ORM + `@libsql/client/web`. Prisma Client HANYA digunakan untuk tooling skema (`prisma db push`), typegen, dan seed.
-3. **Batas Fisik Sablon DTF:** Lebar maksimal cetak sablon dada tidak boleh melebihi **30.0 cm** demi mematuhi batas fisik printhead mesin konveksi workshop Makassar.
+3. **Batas Fisik Sablon DTF:** Lebar maksimal cetak sablon dada tidak boleh melebihi **30.0 cm** demi mematuhi batas DTF workshop Makassar.
 4. **Isolasi Folder Output Pengujian:** Seluruh artefak hasil eksekusi pengujian E2E WAJIB disimpan secara terpusat di dalam folder `Blueprint/e2e/hasil-pengujian-e2e/<run-stamp>/`.
 5. **Kebijakan Bebas Emoji:** Seluruh berkas dokumentasi, kode program, komentar kode, dan output sistem wajib mematuhi aturan ketat tanpa emoji.

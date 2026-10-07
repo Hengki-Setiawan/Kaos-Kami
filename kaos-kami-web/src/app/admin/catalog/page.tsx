@@ -63,7 +63,7 @@ export default async function AdminCatalogPage({
     <div className="p-5 sm:p-8 space-y-8 max-w-7xl mx-auto font-mono text-xs">
       <div className="pb-4 border-b border-border-subtle flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="font-display text-2xl sm:text-3xl font-black uppercase text-text-primary">KATALOG & INVENTORY MANAGEMENT</h1>
+          <h1 className="font-sans text-2xl sm:text-3xl font-bold uppercase text-text-primary">KATALOG & INVENTORY MANAGEMENT</h1>
           <p className="text-text-muted mt-1">Matriks Stok Multi-Dimensi (8 Produk × Warna × Ukuran) • Sinkron langsung dengan Turso DB Edge</p>
         </div>
         <AddProductModal categories={categoryOptions} />

@@ -4,7 +4,6 @@ import React, { useEffect, useMemo, useState, useRef } from "react";
 import { useProgress } from "@react-three/drei";
 import { useConfiguratorStore } from "@/store/useConfiguratorStore";
 import { APPAREL_CATALOG } from "@/lib/constants";
-import { RotateCw, Sparkles } from "lucide-react";
 
 /** Tahapan progres studio yang jujur dan informatif */
 function tahapUntuk(persen: number, apparelName: string): { judul: string; sub: string } {
@@ -26,6 +25,31 @@ export const Preloader: React.FC = () => {
   const [persen, setPersen] = useState(20);
   const maxPersenRef = useRef(20);
   const mountedRef = useRef(true);
+
+  // Cek apakah preloader sudah pernah ditampilkan pada sesi browsing ini
+  useEffect(() => {
+    try {
+      if (sessionStorage.getItem("kk_intro_shown") === "1") {
+        setShouldRenderInitial(false);
+        setHasCompletedInitial(true);
+        return;
+      }
+    } catch {}
+
+    // Batas aman maksimum: jika aset 3D / koneksi lambat, paksa buka dalam 2.8s
+    const safetyTimer = setTimeout(() => {
+      setKeluar(true);
+      setTimeout(() => {
+        setShouldRenderInitial(false);
+        setHasCompletedInitial(true);
+        try {
+          sessionStorage.setItem("kk_intro_shown", "1");
+        } catch {}
+      }, 350);
+    }, 2800);
+
+    return () => clearTimeout(safetyTimer);
+  }, []);
 
   // Progres halus berbasis aset riil
   useEffect(() => {
@@ -52,7 +76,7 @@ export const Preloader: React.FC = () => {
           maxPersenRef.current += 3;
           setPersen(maxPersenRef.current);
         }
-      }, 250);
+      }, 200);
       return () => clearInterval(timer);
     }
   }, [progress, active, total, isStudio3DReady, hasCompletedInitial]);
@@ -72,6 +96,9 @@ export const Preloader: React.FC = () => {
           if (mountedRef.current) {
             setShouldRenderInitial(false);
             setHasCompletedInitial(true);
+            try {
+              sessionStorage.setItem("kk_intro_shown", "1");
+            } catch {}
           }
         }, 350);
       }, 260);
@@ -140,7 +167,7 @@ export const Preloader: React.FC = () => {
               <p className="text-xs sm:text-sm font-bold text-text-primary tracking-tight">
                 {tahap.judul}
               </p>
-              <p className="font-mono text-[10px] sm:text-[11px] text-text-muted tracking-widest uppercase">
+              <p className="font-sans text-[10px] sm:text-[11px] text-text-muted tracking-widest uppercase">
                 {tahap.sub} · <span className="text-brand-accent font-bold">{persen}%</span>
               </p>
             </div>
@@ -158,23 +185,6 @@ export const Preloader: React.FC = () => {
                   />
                 );
               })}
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* 2. Sleek Floating Mini-Indicator Saat Berganti Model 3D di Dalam Studio */}
-      {hasCompletedInitial && !isStudio3DReady && (
-        <div
-          role="status"
-          aria-live="polite"
-          className="fixed top-20 left-1/2 -translate-x-1/2 z-[60] pointer-events-none select-none animate-in fade-in slide-in-from-top-3 duration-300"
-        >
-          <div className="flex items-center gap-2.5 px-4 py-2 rounded-2xl bg-surface/90 backdrop-blur-xl border border-brand-accent/50 text-text-primary font-mono text-xs shadow-2xl">
-            <RotateCw size={14} className="animate-spin text-brand-accent" />
-            <div className="flex items-center gap-1.5">
-              <span className="font-bold text-[11px]">Memuat {apparelName} 3D…</span>
-              <Sparkles size={11} className="text-brand-accent animate-pulse" />
             </div>
           </div>
         </div>

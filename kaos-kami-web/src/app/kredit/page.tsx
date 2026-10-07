@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 
 export const metadata: Metadata = {
-  title: "Kredit Aset 3D — Kaos Kami Makassar",
+  title: "Kredit Aset 3D · Kaos Kami Makassar",
   description: "Atribusi model 3D dan tekstur yang dipakai di studio Kaos Kami.",
 };
 
@@ -108,38 +108,58 @@ export default function KreditPage() {
         <Link href="/" className="font-mono text-xs text-text-muted hover:text-text-primary">
           ← Kembali ke Beranda
         </Link>
-        <h1 className="font-display font-black text-2xl uppercase">Kredit Aset 3D</h1>
-        <p className="font-mono text-xs text-text-muted leading-relaxed">
+        <h1 className="font-sans font-bold text-2xl uppercase">Kredit Aset 3D</h1>
+        <p id="tentang-lisensi" className="font-mono text-xs text-text-muted leading-relaxed scroll-mt-24">
           Model 3D di bawah dipakai di mockup studio Kaos Kami di bawah lisensi
           Creative Commons Attribution 4.0 (boleh komersial, wajib atribusi),
           plus satu manekin CC0 (atribusi sukarela).
           Terima kasih untuk para pembuatnya.
         </p>
-        <ul className="space-y-4">
-          {CREDITS.map((c) => (
-            <li key={c.source} className="rounded-xl border border-border-subtle bg-surface p-4 space-y-1">
-              <p className="font-bold text-sm">
-                “{c.title}” oleh{" "}
-                <a href={c.authorUrl} target="_blank" rel="noopener noreferrer" className="text-brand-accent underline">
-                  {c.author}
-                </a>
-              </p>
-              <p className="font-mono text-[11px] text-text-muted">
-                Sumber:{" "}
-                <a href={c.source} target="_blank" rel="noopener noreferrer" className="underline break-all">
-                  {c.source}
-                </a>
-              </p>
-              <p className="font-mono text-[11px] text-text-muted">
-                Lisensi:{" "}
-                <a href={c.licenseUrl} target="_blank" rel="noopener noreferrer" className="underline">
-                  {c.license}
-                </a>{" "}
-                · {c.note}
-              </p>
-            </li>
-          ))}
-        </ul>
+        {/* Daftar Isi sticky (CSS only — tanpa lib): anchor per kelompok aset */}
+        <nav aria-label="Daftar isi Kredit Aset" className="lg:sticky lg:top-24 rounded-xl border border-border-subtle bg-surface/60 p-4 font-sans text-xs text-text-muted">
+          <p className="font-bold text-text-primary text-[11px] uppercase tracking-wider mb-2">Daftar Isi</p>
+          <ol className="space-y-1.5 list-none">
+            <li><a href="#kaos" className="hover:text-brand-accent hover:underline">Kaos (T-Shirt)</a></li>
+            <li><a href="#hoodie-sweater" className="hover:text-brand-accent hover:underline">Hoodie &amp; Sweater</a></li>
+            <li><a href="#jaket" className="hover:text-brand-accent hover:underline">Jaket</a></li>
+            <li><a href="#topi-manekin" className="hover:text-brand-accent hover:underline">Topi &amp; Manekin</a></li>
+          </ol>
+        </nav>
+        {[
+          { id: "kaos", title: "Kaos (T-Shirt)", items: CREDITS.slice(0, 2) },
+          { id: "hoodie-sweater", title: "Hoodie & Sweater", items: CREDITS.slice(2, 6) },
+          { id: "jaket", title: "Jaket", items: CREDITS.slice(6, 8) },
+          { id: "topi-manekin", title: "Topi & Manekin", items: CREDITS.slice(8, 10) },
+        ].map((g) => (
+          <section key={g.id} id={g.id} className="space-y-4 scroll-mt-24">
+            <h2 className="font-sans font-bold text-sm uppercase tracking-wider text-text-primary">{g.title}</h2>
+            <ul className="space-y-4">
+              {g.items.map((c) => (
+                <li key={c.source} className="rounded-xl border border-border-subtle bg-surface p-4 space-y-1">
+                  <p className="font-bold text-sm">
+                    “{c.title}” oleh{" "}
+                    <a href={c.authorUrl} target="_blank" rel="noopener noreferrer" className="text-brand-accent underline">
+                      {c.author}
+                    </a>
+                  </p>
+                  <p className="font-mono text-[11px] text-text-muted">
+                    Sumber:{" "}
+                    <a href={c.source} target="_blank" rel="noopener noreferrer" className="underline break-all">
+                      {c.source}
+                    </a>
+                  </p>
+                  <p className="font-mono text-[11px] text-text-muted">
+                    Lisensi:{" "}
+                    <a href={c.licenseUrl} target="_blank" rel="noopener noreferrer" className="underline">
+                      {c.license}
+                    </a>{" "}
+                    · {c.note}
+                  </p>
+                </li>
+              ))}
+            </ul>
+          </section>
+        ))}
       </div>
     </main>
   );

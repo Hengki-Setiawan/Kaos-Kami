@@ -135,7 +135,7 @@ export function generateTechPackHtml(data: TechPackData): string {
           </div>
 
           <div class="card">
-            <div class="card-title">2. Kalibrasi DTF Printhead (Batas 30cm)</div>
+            <div class="card-title">2. Batas Sablon DTF (Maksimal 30cm)</div>
             <p>Lebar Sablon: <span class="value highlight">${data.printWidthCm} cm</span></p>
             <p>Tinggi Sablon: <span class="value highlight">${data.printHeightCm} cm</span></p>
             <p>Jarak dari Kerah: <span class="value">${data.offsetFromCollarCm} cm</span></p>

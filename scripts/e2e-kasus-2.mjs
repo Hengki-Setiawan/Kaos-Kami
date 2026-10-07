@@ -1,6 +1,6 @@
 // scripts/e2e-kasus-2.mjs — Eksekusi Nyata Kasus 2: Hoodie Fleece Workshop Pickup KM 10 & DTF 30cm Clamping
 // SSOT: Blueprint/BLUEPRINT-E2E-ADMIN-USER-LENGKAP.md Domain L (C-01/C-02) & Domain B (PROD-09)
-import crypto from "crypto";
+// Pembayaran: iPaymu Direct QRIS (Bab 55) — webhook Duitku 410 Gone, JANGAN dipakai.
 import fs from "fs";
 import path from "path";
 import { createClient } from "@libsql/client/web";
@@ -128,33 +128,43 @@ async function runKasus2() {
   console.log(`   - Delivery Method: ${dbOrder.deliveryMethod} (Ambil Sendiri Workshop)`);
   console.log(`   - Biaya Pengiriman: Rp ${dbOrder.shippingCostIdr}`);
 
-  // 4. Simulasi Pembayaran Lunas Duitku (Webhook Callback MD5)
-  console.log("\n4. Menjalankan Simulasi Pembayaran Lunas Duitku VA...");
-  const merchantCode = requireEnv("DUITKU_MERCHANT_CODE");
-  const apiKey = requireEnv("DUITKU_API_KEY");
-  const amountStr = String(dbOrder.totalIdr);
-  const signatureRaw = merchantCode + amountStr + orderNumber + apiKey;
-  const signature = crypto.createHash("md5").update(signatureRaw).digest("hex");
-
-  const duitkuCallbackPayload = {
-    merchantCode,
-    amount: amountStr,
-    merchantOrderId: orderNumber,
-    productDetail: "Custom HOODIE Fleece Sablon DTF Workshop Makassar",
-    additionalParam: "",
-    paymentCode: "VA_BCA",
-    resultCode: "00",
-    merchantUserId: custUser.userId,
-    reference: checkoutData.reference || "DUITKU-REF-002",
-    signature,
+  // 4. Simulasi Pembayaran Lunas via Webhook Resmi iPaymu (migrasi Bab 55 — Duitku 410 Gone).
+  // SSOT sukses: Blueprint/BUILD-PROGRESS-TRACKER.md Gelombang 7 (KK-20261004-5473 Rp 89000:
+  // POST /api/webhooks/ipaymu {reference_id, status:"berhasil", amount, via:"QRIS"}
+  // → 200 "Payment successfully confirmed", Order=PAYMENT_CONFIRMED, Payment=SETTLEMENT/IPAYMU_QRIS).
+  console.log("\n4. Menjalankan Simulasi Pembayaran Lunas via Webhook iPaymu...");
+  const ipaymuCallbackPayload = {
+    trx_id: `IPAYMU-MOCK-${Date.now()}`,
+    sid: `SID-${Date.now()}`,
+    reference_id: orderNumber,
+    reference: orderNumber,
+    status: "berhasil",
+    status_code: "00",
+    amount: Number(dbOrder.totalIdr),
+    via: "QRIS",
+    channel: "qris",
   };
 
-  const webhookRes = await fetch(`${BASE_URL}/api/webhooks/duitku`, {
+  const webhookRes = await fetch(`${BASE_URL}/api/webhooks/ipaymu`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(duitkuCallbackPayload),
+    body: JSON.stringify(ipaymuCallbackPayload),
   });
-  console.log(`   - Webhook Status: ${webhookRes.status}`);
+  const webhookText = await webhookRes.text().catch(() => "");
+  console.log(`   - Webhook Status: ${webhookRes.status} (${webhookText})`);
+  if (webhookRes.status !== 200 || !/successfully confirmed/i.test(webhookText)) {
+    throw new Error(`Webhook iPaymu gagal melunaskan ${orderNumber}: HTTP ${webhookRes.status} (${webhookText})`);
+  }
+
+  // 4b. Asersi lunas: status order HARUS PAYMENT_CONFIRMED.
+  const paidCheckRes = await c.execute({
+    sql: 'SELECT status FROM "Order" WHERE id = ?',
+    args: [orderId],
+  });
+  if (paidCheckRes.rows[0]?.status !== "PAYMENT_CONFIRMED") {
+    throw new Error(`Asersi lunas GAGAL: status ${paidCheckRes.rows[0]?.status} (mau PAYMENT_CONFIRMED)`);
+  }
+  console.log(`   - Status Order Pasca Bayar: PAYMENT_CONFIRMED (asersi lunas LULUS)`);
 
   // 5. Verifikasi Pembuatan ProductionTask & Uji Batas Printhead 30.0 cm
   const taskRes = await c.execute({
@@ -164,6 +174,9 @@ async function runKasus2() {
   const taskRows = taskRes.rows;
   console.log(`\n5. Evaluasi Kepatuhan Skala Sablon DTF (Batas 30.0 cm):`);
   console.log(`   - Diterbitkan: ${taskRows.length} tugas produksi`);
+  if (taskRows.length === 0) {
+    throw new Error("Asersi ProductionTask GAGAL: 0 task terbit untuk order lunas");
+  }
 
   let clampingVerified = true;
   taskRows.forEach((t, i) => {

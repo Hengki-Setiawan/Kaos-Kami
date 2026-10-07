@@ -5,6 +5,7 @@ import { db } from "@/lib/db";
 import { Printer, ArrowLeft } from "lucide-react";
 import { PrintButton } from "@/components/ui/PrintButton";
 import { DECAL_SIDE_LABELS } from "@/lib/constants";
+import { maskName, maskPhone } from "@/lib/mask";
 
 interface JobTicketPageProps {
   params: Promise<{ id: string }>;
@@ -76,11 +77,11 @@ export default async function JobTicketPage({ params }: JobTicketPageProps) {
         <div className="grid grid-cols-2 gap-4 border-b pb-4">
           <div>
             <span className="block text-gray-500 text-[10px]">NAMA PEMESAN:</span>
-            <strong className="text-sm">{order.shippingAddress?.recipientName || (order as any).user?.name || "Pelanggan"}</strong>
+            <strong className="text-sm">{maskName(order.shippingAddress?.recipientName || (order as any).user?.name) || "Pelanggan"}</strong>
           </div>
           <div>
             <span className="block text-gray-500 text-[10px]">NO. WHATSAPP:</span>
-            <strong className="text-sm">{(order as any).user?.phoneNumber || "-"}</strong>
+            <strong className="text-sm">{(order as any).user?.phoneNumber ? maskPhone((order as any).user.phoneNumber) : "-"}</strong>
           </div>
         </div>
 

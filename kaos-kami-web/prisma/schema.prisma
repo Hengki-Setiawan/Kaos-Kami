@@ -45,6 +45,8 @@ model User {
   sessions      Session[]     // Better Auth session table
   accounts      Account[]     // Better Auth OAuth / credentials linking
   qcInspections QcInspection[] // Jejak QC per order (dibuat staf workshop)
+  complaints    OrderComplaint[]
+  reviews       ProductReview[]
 
   @@index([phoneNumber])
 }
@@ -347,6 +349,9 @@ model Order {
   productionTasks   ProductionTask[]
   statusHistory     OrderStatusEvent[]
   qcInspections     QcInspection[]
+  complaints        OrderComplaint[]
+  refunds           OrderRefund[]
+  reviews           ProductReview[]
 
   notes             String?
   // REVIEW DESAIN (alur baru owner Sep 2026 — BUTUH `db push` sebelum dipakai;
@@ -406,9 +411,11 @@ enum PaymentStatus {
 }
 
 enum PaymentProvider {
+  IPAYMU
   DUITKU
-  // MIDTRANS/XENDIT dipertahankan HANYA agar baris order lama tetap terbaca.
-  // Jangan pakai untuk transaksi baru — proyek ini sepenuhnya Duitku.
+  // DUITKU/MIDTRANS/XENDIT dipertahankan HANYA agar baris order lama tetap terbaca (audit-only).
+  // Jangan pakai untuk transaksi baru — gateway aktif = IPAYMU (webhook /api/webhooks/ipaymu).
+  // Webhook Duitku NON-AKTIF permanen (410 Gone, file dipertahankan untuk audit — RUNBOOK §1).
   MIDTRANS
   XENDIT
 }
@@ -417,8 +424,8 @@ model Payment {
   id                String          @id @default(cuid())
   orderId           String          @unique
   order             Order           @relation(fields: [orderId], references: [id])
-  provider          PaymentProvider @default(DUITKU)
-  providerRef       String        // Duitku reference (acuan bayar)
+  provider          PaymentProvider @default(IPAYMU)
+  providerRef       String        // iPaymu reference (acuan bayar; baris lama DUITKU = jejak audit)
   method            String?       // "qris" | "gopay" | "bank_transfer" | "credit_card"
   amountIdr         Int
   status            PaymentStatus @default(PENDING)
@@ -576,5 +583,98 @@ model UserPresence {
 
   @@index([role])
   @@index([lastSeenAt])
+}
+
+// ------------------------------------------------------------------
+// CATALOG PRODUCTS (E-COMMERCE DISTRO / STREETWEAR KAOS KAMI)
+// ------------------------------------------------------------------
+
+model CatalogProduct {
+  id           String   @id @default(cuid())
+  slug         String   @unique
+  name         String
+  tagline      String?
+  description  String?
+  apparelSlug  String   @default("tshirt") // "tshirt" | "hoodie" | "jacket"
+  basePriceIdr Int      @default(165000)
+  images       String   @default("[]") // Serialized JSON string array
+  sizes        String   @default("[\"S\",\"M\",\"L\",\"XL\",\"XXL\"]")
+  tags         String?  // Serialized JSON array: '["streetwear","makassar"]'
+  isFeatured   Boolean  @default(false)
+  isActive     Boolean  @default(true)
+  sortOrder    Int      @default(0)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+// ------------------------------------------------------------------
+// AFTER-SALES: CUSTOMER COMPLAINTS & TICKETS
+// ------------------------------------------------------------------
+
+model OrderComplaint {
+  id               String    @id @default(cuid())
+  orderId          String
+  order            Order     @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  userId           String
+  user             User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  category         String    // "SABLON_CACAT" | "SALAH_UKURAN" | "WARNA_BEDA" | "KETERLAMBATAN" | "LAINNYA"
+  message          String
+  photoUrls        String?   // JSON array of R2 URLs
+  status           String    @default("OPEN") // "OPEN" | "IN_REVIEW" | "RESOLVED" | "REJECTED"
+  resolutionNote   String?
+  resolvedByUserId String?
+  resolvedAt       DateTime?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  @@index([orderId])
+  @@index([userId])
+}
+
+// ------------------------------------------------------------------
+// AFTER-SALES: REFUND AUDIT & SETTLEMENT
+// ------------------------------------------------------------------
+
+model OrderRefund {
+  id                String    @id @default(cuid())
+  orderId           String
+  order             Order     @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  amountIdr         Int
+  bankName          String?
+  accountNumber     String?
+  accountHolder     String?
+  reason            String
+  proofPhotoUrl     String?   // URL bukti transfer pengembalian dana R2
+  status            String    @default("COMPLETED") // "PENDING" | "COMPLETED" | "REJECTED"
+  processedByUserId String?
+  refundedAt        DateTime  @default(now())
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  @@index([orderId])
+}
+
+// ------------------------------------------------------------------
+// SOCIAL PROOF: PRODUCT RATINGS & REVIEWS
+// ------------------------------------------------------------------
+
+model ProductReview {
+  id                 String   @id @default(cuid())
+  orderId            String?
+  order              Order?   @relation(fields: [orderId], references: [id], onDelete: SetNull)
+  userId             String
+  user               User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  productVariantId   String?
+  customerName       String?
+  rating             Int      @default(5) // 1 - 5
+  reviewText         String
+  photoUrls          String?  // JSON array URLs
+  isVerifiedPurchase Boolean  @default(true)
+  isPublished        Boolean  @default(true)
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  @@index([orderId])
+  @@index([userId])
 }
 

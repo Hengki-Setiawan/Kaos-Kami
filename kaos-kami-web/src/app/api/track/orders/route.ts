@@ -55,7 +55,7 @@ export async function POST(req: NextRequest) {
       where: (t, { eq }) => eq(t.userId, user.id),
       orderBy: (t, { desc }) => desc(t.createdAt),
       limit: 10,
-      columns: { id: true, orderNumber: true, status: true, totalIdr: true, createdAt: true, deliveryMethod: true },
+      columns: { id: true, orderNumber: true, status: true, totalIdr: true, createdAt: true, deliveryMethod: true, trackingNumber: true, reviewNote: true },
       with: { items: { columns: { quantity: true, snapshotName: true } } },
     });
     return NextResponse.json({ success: true, orders });

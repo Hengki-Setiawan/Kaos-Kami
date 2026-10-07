@@ -4,6 +4,7 @@ import { db } from "@/lib/db";
 import { UserPresence } from "@/lib/drizzle-schema";
 import { eq, inArray, desc } from "drizzle-orm";
 import { isShopOpen, SHOP_HOURS_LABEL } from "@/lib/shopHours";
+import { checkRateLimitAsync, getClientIp, rateLimitHeaders } from "@/lib/security/rateLimiter";
 
 export const dynamic = "force-dynamic";
 
@@ -18,10 +19,14 @@ function formatRelativeTime(date: Date): string {
   return `Aktif ${diffDays} hari lalu`;
 }
 
-export async function GET() {
+export async function GET(req: NextRequest) {
   try {
+    const rl = await checkRateLimitAsync(`presence:ip:${getClientIp(req)}`, 60, 60);
+    if (rl.isLimited) {
+      return NextResponse.json({ error: "Terlalu sering. Tunggu sebentar." }, { status: 429, headers: rateLimitHeaders(rl, 60) });
+    }
     const adminPresence = await db.query.UserPresence.findFirst({
-      where: (t, { inArray }: any) => inArray(t.role, ["ADMIN", "SUPER_ADMIN"]),
+      where: (t, { inArray }: any) => inArray(t.role, ["ADMIN", "SUPER_ADMIN", "PRODUCTION_STAFF"]),
       orderBy: (t, { desc }: any) => desc(t.lastSeenAt),
     });
 
@@ -29,7 +34,7 @@ export async function GET() {
     const shopOpen = isShopOpen(now);
 
     let isAdminOnline = false;
-    let lastSeenText = "Belum aktif hari ini";
+    let lastSeenText = shopOpen ? "Workshop Buka (09.00 - 21.00 WITA)" : "Workshop Tutup (Buka 09.00 WITA)";
     let lastSeenAt: string | null = null;
 
     if (adminPresence) {
@@ -37,10 +42,12 @@ export async function GET() {
       const lastSeenDate = new Date(adminPresence.lastSeenAt);
       const diffMs = now.getTime() - lastSeenDate.getTime();
       
-      // Online bila ada aktivitas dalam 4 menit terakhir
-      if (diffMs <= 4 * 60 * 1000) {
+      // Online bila ada aktivitas dalam 5 menit terakhir
+      if (diffMs <= 5 * 60 * 1000) {
         isAdminOnline = true;
         lastSeenText = "Online sekarang";
+      } else if (shopOpen) {
+        lastSeenText = "Workshop Buka (09.00 - 21.00 WITA)";
       } else {
         lastSeenText = formatRelativeTime(lastSeenDate);
       }
@@ -55,9 +62,9 @@ export async function GET() {
       shopHoursLabel: SHOP_HOURS_LABEL,
       mascot: {
         name: "Kamito",
-        role: "Asisten Workshop Kaos Kami",
-        avatarUrl: "/mascot/mascot-primary.png",
-        welcomeMessage: "Halo! Saya Kamito, asisten sablon Kaos Kami Makassar. Ada yang bisa saya bantu seputar pesanan atau desainmu?",
+        role: "CS & Workshop Admin Kaos Kami",
+        avatarUrl: "/mascot/kamito-avatar.png",
+        welcomeMessage: "Halo! Saya Kamito dari Customer Service Kaos Kami Makassar. Ada yang bisa kami bantu seputar pesanan sablon DTF, bahan combed, atau konfirmasi pesananmu?",
       },
     });
   } catch (error: any) {
@@ -67,6 +74,10 @@ export async function GET() {
 
 export async function POST(req: NextRequest) {
   try {
+    const rl = await checkRateLimitAsync(`presence-mut:ip:${getClientIp(req)}`, 30, 60);
+    if (rl.isLimited) {
+      return NextResponse.json({ error: "Terlalu sering. Tunggu sebentar." }, { status: 429, headers: rateLimitHeaders(rl, 30) });
+    }
     const session = await auth.api.getSession({ headers: req.headers }).catch(() => null);
     const user = session?.user;
     if (!user?.id) {

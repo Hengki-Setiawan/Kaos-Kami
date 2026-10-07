@@ -10,7 +10,7 @@ export const SHOP_WORKSHOP_ADDRESS =
   process.env.SHOP_WORKSHOP_ADDRESS ||
   "Jl. Galangan Kapal, Lrg. Permandian 1, Kel. Kaluku Bodoa, Kec. Tallo, Kota Makassar, Sulawesi Selatan 90211";
 
-// Email kontak & support — Wajib Duitku Payment Gateway & CS.
+// Email kontak & support — Wajib iPaymu Payment Gateway & CS.
 export const SHOP_EMAIL =
   process.env.SHOP_EMAIL || "hengkisetiawan461@gmail.com";
 export const SHOP_SUPPORT_EMAIL =

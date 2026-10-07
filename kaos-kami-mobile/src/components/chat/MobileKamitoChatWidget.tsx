@@ -4,6 +4,7 @@ import React, { useState, useEffect, useRef } from "react";
 import { MessageSquare, Send, X, ShieldCheck, Clock, ExternalLink, Sparkles } from "lucide-react";
 import { API_BASE_URL } from "@/lib/api/mobileApiClient";
 import { haptic } from "@/lib/bridge/haptics";
+import { Z_CLASS_CHAT } from "@/lib/zIndex";
 
 interface ChatMessage {
   id: string;
@@ -220,7 +221,7 @@ export function MobileKamitoChatWidget() {
             haptic.tap();
             setIsOpen(true);
           }}
-          className="fixed bottom-20 right-4 z-40 flex items-center gap-2 px-3.5 py-2.5 rounded-full bg-zinc-900/95 backdrop-blur-xl border border-zinc-700/80 shadow-2xl text-white hover:border-[#FF6B35] transition-transform active:scale-95"
+          className={`fixed bottom-20 right-4 ${Z_CLASS_CHAT} flex items-center gap-2 px-3.5 py-2.5 rounded-full bg-zinc-900/95 backdrop-blur-xl border border-zinc-700/80 shadow-2xl text-white hover:border-[#FF6B35] transition-transform active:scale-95`}
           aria-label="Tanya Kamito"
         >
           <div className="relative w-7 h-7 rounded-full overflow-hidden bg-orange-500/20 border border-orange-500/40 shrink-0">
@@ -237,7 +238,7 @@ export function MobileKamitoChatWidget() {
             />
           </div>
           <div className="text-left">
-            <span className="text-[11px] font-bold block leading-tight font-['Syne'] text-[#FF6B35]">
+            <span className="text-[11px] font-bold block leading-tight font-sans text-[#FF6B35]">
               Tanya Kamito
             </span>
             <span className="text-[9px] text-zinc-400 block leading-none font-mono">
@@ -249,7 +250,7 @@ export function MobileKamitoChatWidget() {
 
       {/* Slide-Up Chat Bottom Sheet */}
       {isOpen && (
-        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/75 backdrop-blur-sm animate-in fade-in duration-200">
+        <div className={`fixed inset-0 ${Z_CLASS_CHAT} flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/75 backdrop-blur-sm animate-in fade-in duration-200`}>
           <div
             className="w-full max-w-md h-[85dvh] max-h-[640px] flex flex-col rounded-t-3xl sm:rounded-3xl bg-zinc-900 border border-zinc-800 shadow-2xl overflow-hidden text-white"
             onClick={(e) => e.stopPropagation()}
@@ -272,7 +273,7 @@ export function MobileKamitoChatWidget() {
                 </div>
                 <div>
                   <div className="flex items-center gap-1.5">
-                    <h3 className="text-xs font-bold font-['Syne']">KAMITO</h3>
+                    <h3 className="text-xs font-bold font-sans">KAMITO</h3>
                     <span className="px-1.5 py-0.5 rounded text-[8px] font-bold bg-orange-500/15 text-[#FF6B35] border border-orange-500/30">
                       AI & Workshop
                     </span>
@@ -317,13 +318,14 @@ export function MobileKamitoChatWidget() {
                       {m.senderName}
                     </span>
                     <div
-                      className={`max-w-[85%] px-3.5 py-2.5 rounded-2xl text-xs leading-relaxed ${
+                      className={`max-w-[85%] px-3.5 py-2.5 rounded-2xl text-xs leading-relaxed whitespace-pre-wrap break-words ${
                         isMe
                           ? "bg-[#FF6B35] text-white rounded-br-none shadow-md shadow-orange-600/20 font-sans"
                           : "bg-zinc-800/90 text-zinc-200 rounded-bl-none border border-zinc-700/60 font-sans"
                       }`}
-                      dangerouslySetInnerHTML={{ __html: m.content }}
-                    />
+                    >
+                      {m.content}
+                    </div>
                     <span className="text-[8px] text-zinc-600 font-mono mt-0.5 px-1">
                       {new Date(m.createdAt).toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" })}
                     </span>

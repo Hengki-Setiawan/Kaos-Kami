@@ -59,12 +59,63 @@ const MAKASSAR_DISTRICTS = [
   "Kepulauan Sangkarrang",
 ];
 
+/** Ambil pin GPS dari catatan (format yg ditulis handleGpsDetect:
+ *  `https://www.google.com/maps?q=lat,lng`). Murni parse tampilan. */
+function extractMapsPin(notes: string): { lat: string; lng: string; url: string } | null {
+  const m = notes.match(/google\.com\/maps\?q=(-?\d+(?:\.\d+)?),(-?\d+(?:\.\d+)?)/);
+  if (!m) return null;
+  return { lat: m[1]!, lng: m[2]!, url: `https://www.google.com/maps?q=${m[1]},${m[2]}` };
+}
+
+/** Mini static-map pin visual (div + pin, tanpa fetch eksternal) + link Maps
+ *  existing dari catatan GPS. Tampilan saja — API/DB TAK diubah. */
+function MiniMapPin({ notes }: { notes: string }) {
+  const pin = extractMapsPin(notes);
+  return (
+    <div
+      aria-label="Pratinjau pin lokasi"
+      className="relative h-28 rounded-xl overflow-hidden border border-border-subtle bg-surface-elevated"
+      style={{
+        backgroundImage:
+          "repeating-linear-gradient(0deg, rgba(127,127,127,0.18) 0 1px, transparent 1px 14px), repeating-linear-gradient(90deg, rgba(127,127,127,0.18) 0 1px, transparent 1px 14px)",
+      }}
+    >
+      <div className="absolute inset-0 flex flex-col items-center justify-center gap-1">
+        <span aria-hidden="true" className="text-2xl leading-none drop-shadow">📍</span>
+        {pin ? (
+          <span className="font-mono text-[10px] text-text-primary bg-surface/85 px-2 py-0.5 rounded-full border border-border-subtle">
+            {pin.lat}, {pin.lng}
+          </span>
+        ) : (
+          <span className="font-sans text-[10px] text-text-muted bg-surface/85 px-2 py-0.5 rounded-full border border-border-subtle">
+            Pin GPS belum ada — gunakan Deteksi GPS
+          </span>
+        )}
+        {pin && (
+          <a
+            href={pin.url}
+            target="_blank"
+            rel="noreferrer"
+            onClick={(e) => e.stopPropagation()}
+            className="font-sans text-[10px] font-bold text-brand-accent hover:underline flex items-center gap-1 bg-surface/85 px-2 py-0.5 rounded-full border border-brand-accent/30"
+          >
+            <ExternalLink size={10} />
+            <span>Buka di Google Maps</span>
+          </a>
+        )}
+      </div>
+      <span className="absolute top-1.5 left-2 font-mono text-[9px] text-text-muted bg-surface/85 px-1.5 py-0.5 rounded border border-border-subtle">
+        PRATINJAU PIN
+      </span>
+    </div>
+  );
+}
+
 export function AddressBook({
   initial,
   defaultRecipientName = "",
   defaultPhoneNumber = "",
-}: AddressBookProps) {
-  const router = useRouter();
+}: AddressBookProps) {  const router = useRouter();
   const [addresses, setAddresses] = useState<AddressRow[]>(initial);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingAddr, setEditingAddr] = useState<AddressRow | null>(null);
@@ -378,13 +429,13 @@ export function AddressBook({
   };
 
   return (
-    <div className="space-y-4 font-mono">
+    <div className="space-y-4 font-sans">
       {/* Header & Tombol Tambah */}
       <div className="p-4 sm:p-5 rounded-2xl bg-surface border border-border-subtle flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <div className="flex items-center gap-2">
             <MapPin size={16} className="text-brand-accent" />
-            <h3 className="font-display font-black text-sm uppercase tracking-wide text-text-primary">
+            <h3 className="font-sans font-bold text-sm uppercase tracking-wide text-text-primary">
               Buku Alamat Pengiriman ({addresses.length})
             </h3>
           </div>
@@ -406,7 +457,7 @@ export function AddressBook({
       {/* Global Action Toast Notification */}
       {actionMsg && (
         <div
-          className={`p-3 rounded-xl text-xs font-mono flex items-center justify-between animate-fadeIn ${
+          className={`p-3 rounded-xl text-xs font-sans flex items-center justify-between animate-fadeIn ${
             actionMsg.type === "success"
               ? "bg-emerald-500/10 border border-emerald-500/30 text-emerald-400"
               : "bg-red-500/10 border border-red-500/30 text-red-400"
@@ -425,7 +476,7 @@ export function AddressBook({
           <div className="w-12 h-12 rounded-full bg-surface-elevated flex items-center justify-center mx-auto text-text-muted">
             <Compass size={24} />
           </div>
-          <h4 className="font-display font-bold text-sm text-text-primary uppercase">
+          <h4 className="font-sans font-bold text-sm text-text-primary uppercase">
             Belum Ada Alamat Tersimpan
           </h4>
           <p className="text-xs text-text-muted max-w-md mx-auto font-sans leading-relaxed">
@@ -455,7 +506,7 @@ export function AddressBook({
                 {/* Header Card: Label & Badges */}
                 <div className="flex items-center justify-between gap-2">
                   <div className="flex items-center gap-2">
-                    <span className="font-display font-bold text-xs uppercase px-2.5 py-1 rounded-lg bg-surface-elevated border border-border-subtle text-text-primary flex items-center gap-1.5">
+                    <span className="font-sans font-semibold text-xs uppercase px-2.5 py-1 rounded-lg bg-surface-elevated border border-border-subtle text-text-primary flex items-center gap-1.5">
                       {a.label.toLowerCase().includes("kantor") ? (
                         <Building2 size={12} className="text-brand-accent" />
                       ) : a.label.toLowerCase().includes("toko") ? (
@@ -467,7 +518,7 @@ export function AddressBook({
                     </span>
 
                     {a.isDefault && (
-                      <span className="px-2 py-0.5 rounded-md bg-amber-500/20 border border-amber-500/40 text-amber-400 font-mono text-[10px] font-bold flex items-center gap-1">
+                      <span className="px-2 py-0.5 rounded-md bg-amber-500/20 border border-amber-500/40 text-amber-400 font-sans text-[10px] font-bold flex items-center gap-1">
                         <Star size={10} className="fill-amber-400 text-amber-400" />
                         <span>UTAMA</span>
                       </span>
@@ -534,7 +585,7 @@ export function AddressBook({
                     type="button"
                     onClick={() => handleSetDefault(a)}
                     disabled={busyId === a.id}
-                    className="text-[11px] font-mono text-brand-accent hover:underline flex items-center gap-1 cursor-pointer disabled:opacity-50"
+                    className="text-[11px] font-sans text-brand-accent hover:underline flex items-center gap-1 cursor-pointer disabled:opacity-50"
                   >
                     {busyId === a.id ? (
                       <Loader2 size={11} className="animate-spin" />
@@ -561,13 +612,13 @@ export function AddressBook({
           }}
         >
           <div
-            className="relative w-full max-w-lg max-h-[min(92dvh,750px)] flex flex-col bg-surface border border-border-subtle rounded-2xl shadow-2xl text-text-primary my-auto overflow-hidden text-left font-mono"
+            className="relative w-full max-w-lg max-h-[min(92dvh,750px)] flex flex-col bg-surface border border-border-subtle rounded-2xl shadow-2xl text-text-primary my-auto overflow-hidden text-left font-sans"
             onClick={(e) => e.stopPropagation()}
           >
             {/* Modal Header */}
             <div className="p-5 border-b border-border-subtle flex items-center justify-between">
               <div>
-                <h3 className="font-display font-black text-base uppercase tracking-tight text-text-primary flex items-center gap-2">
+                <h3 className="font-sans font-bold text-base uppercase tracking-tight text-text-primary flex items-center gap-2">
                   <MapPin size={16} className="text-brand-accent" />
                   <span>{editingAddr ? "Ubah Alamat Pengiriman" : "Tambah Alamat Baru"}</span>
                 </h3>
@@ -707,6 +758,10 @@ export function AddressBook({
                 <label className="block text-[11px] uppercase tracking-wider text-text-muted mb-1 font-bold">
                   Alamat Lengkap (Jalan, No Rumah, RT/RW, Patokan) *
                 </label>
+                {/* Mini static-map pin visual di atas input alamat */}
+                <div className="mb-2">
+                  <MiniMapPin notes={notes} />
+                </div>
                 <textarea
                   rows={2}
                   required

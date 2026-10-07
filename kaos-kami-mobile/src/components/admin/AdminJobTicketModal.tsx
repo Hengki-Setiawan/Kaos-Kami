@@ -112,7 +112,7 @@ export function AdminJobTicketModal({
         {/* Kop tiket — rapi untuk cetak thermal/A4 */}
         <div className="spk-card p-3.5 rounded-2xl bg-zinc-900 border border-zinc-800 space-y-1.5">
           <div className="flex items-center justify-between">
-            <span className="font-bold text-white font-['Syne'] flex items-center gap-1.5">
+            <span className="font-bold text-white font-sans flex items-center gap-1.5">
               <ShieldCheck className="w-4 h-4 text-emerald-400" />
               {WORKSHOP_LOCATION.name}
             </span>
@@ -171,7 +171,7 @@ export function AdminJobTicketModal({
                 {hasDims ? `${data.printWidthCm} cm x ${data.printHeightCm} cm` : 'menunggu info workshop'}
               </span>
               {overMax && (
-                <span className="block text-[10px] text-red-300 font-bold">⚠️ Melebihi printhead 30.0 cm — kecilkan dulu!</span>
+                <span className="block text-[10px] text-red-300 font-bold">Melebihi batas DTF 30.0 cm — kecilkan dulu!</span>
               )}
             </div>
             <div>
@@ -184,7 +184,7 @@ export function AdminJobTicketModal({
         {/* SOP & QC Checklist */}
         <div className="space-y-2">
           <div className="flex items-center justify-between">
-            <span className="font-bold text-white font-['Syne'] flex items-center gap-1.5">
+            <span className="font-bold text-white font-sans flex items-center gap-1.5">
               <FileText className="w-4 h-4 text-amber-400" /> Checklist SOP Produksi:
             </span>
             <span className="text-[10px] font-mono font-bold text-emerald-400">

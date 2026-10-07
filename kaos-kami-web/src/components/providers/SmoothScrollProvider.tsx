@@ -8,9 +8,9 @@ import type Lenis from "lenis";
 // Keduanya di-dynamic-import di dalam useEffect hanya saat rute butuh
 // (tak dikecualikan + tanpa prefers-reduced-motion).
 
-// Rute yang TIDAK boleh di-smooth-scroll (audit #34): studio (rebut orbit 3D),
-// halaman cetak (gang-sheet/job-ticket), dan admin kanban (gangguan DnD).
-const EXCLUDED_PREFIXES = ["/studio", "/admin/orders", "/admin/production"];
+// Rute yang TIDAK boleh di-smooth-scroll: studio (rebut orbit 3D),
+// seluruh panel /admin (butuh responsivitas native 0ms tanpa damping delay).
+const EXCLUDED_PREFIXES = ["/studio", "/admin"];
 
 export const SmoothScrollProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const pathname = usePathname();

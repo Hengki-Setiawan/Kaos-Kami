@@ -10,19 +10,19 @@ import {
 } from '@/store/useMobileStudioStore';
 import {
   MOBILE_SURFACE_Z,
-  clampMobileDecalXY,
   mobileMaxDecalScaleUnits,
   MOBILE_MIN_DECAL_SCALE,
 } from '@/lib/3d/mobileScaleCalibration';
+import {
+  applySnapAndClampMobile,
+  nextMobileScaleFromDragRatio,
+} from '@/lib/gizmoMathMobile';
 import { haptic } from '@/lib/bridge/haptics';
 
 /** Kompat: tabel SSOT pindah ke lib (nilai sama, impor lama tetap jalan). */
 export { MOBILE_SURFACE_Z };
 /** EPS gizmo SSOT web (+0.01 target sentuh/hover; renderer +0.004, guide +0.002). */
 const GIZMO_SURFACE_EPS = 0.01;
-
-/** Batas geser = SSOT per sisi (lib clampMobileDecalXY); snap tengah x=0. */
-const SNAP_X = 0.008;
 /** Skala minimal selaras Zod web `DecalLayerSchema.scale` (min 0.02). */
 const MIN_SCALE = MOBILE_MIN_DECAL_SCALE;
 
@@ -106,32 +106,27 @@ export function DecalGizmoMobile() {
     pointers.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
 
     if (pointers.current.size === 1) {
-      // Geser: pakai titik interseksi 3D → koordinat lokal grup, dijepit ke
-      // batas SSOT sisi decal aktif (lib clampMobileDecalXY).
+      // Geser: titik interseksi 3D → koordinat lokal grup → jepit + snap
+      // via lib port web (applySnapAndClampMobile: clamp SSOT sisi decal
+      // aktif + snap magnetik tengah x=0 + haptic).
       const local = toLocal(e.point);
-      const c = clampMobileDecalXY(activeSide, local.x, local.y);
-      let nx = c.x;
-      const ny = c.y;
-      if (Math.abs(nx) < SNAP_X) {
-        nx = 0;
-        if (!snapped.current) {
-          snapped.current = true;
-          setSnapOn(true);
-          haptic.selection();
-        }
-      } else {
-        if (snapped.current) setSnapOn(false);
+      const s = applySnapAndClampMobile(activeSide, local.x, local.y);
+      if (s.snapX && !snapped.current) {
+        snapped.current = true;
+        setSnapOn(true);
+        haptic.selection();
+      } else if (!s.snapX && snapped.current) {
         snapped.current = false;
+        setSnapOn(false);
       }
-      setDecalTransform([nx, ny, decalPosition[2]], decalScale, decalRotation);
+      setDecalTransform([s.x, s.y, decalPosition[2]], decalScale, decalRotation);
     } else if (pointers.current.size === 2 && gestureStart.current) {
-      // Cubit + putar.
+      // Cubit + putar (rasio jarak jari via lib port web).
       const [a, b] = Array.from(pointers.current.values());
       const dist = Math.max(1, Math.hypot(a.x - b.x, a.y - b.y));
       const angle = Math.atan2(b.y - a.y, b.x - a.x);
       const g = gestureStart.current;
-      const raw = (g.scale * dist) / Math.max(1, g.dist);
-      const ns = Math.max(MIN_SCALE, Math.min(maxScale, raw));
+      const ns = nextMobileScaleFromDragRatio(g.dist, dist, g.scale, MIN_SCALE, maxScale);
       if (ns >= maxScale && !warnedMax.current) {
         warnedMax.current = true;
         haptic.tapHeavy();

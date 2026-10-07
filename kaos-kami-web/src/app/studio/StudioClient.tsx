@@ -12,9 +12,13 @@ import {
   CircleHelp,
   ShieldCheck,
   User as UserIcon,
+  FlaskConical,
+  Download,
 } from "lucide-react";
 import { useSession } from "@/lib/auth-client";
 import { AuthModal } from "@/components/ui/AuthModal";
+import { ClothLabModal } from "@/components/studio/ClothLabModal";
+import { ExportStudioModal } from "@/components/studio/ExportStudioModal";
 // P0 bundle: CanvasStage (three/fiber/drei) lazy client-only agar
 // chunk 3D tak masuk bundle awal.
 const CanvasStage = dynamic(
@@ -41,6 +45,8 @@ export function StudioClient() {
     isHideWebsiteUI,
     toggleHideWebsiteUI,
     syncStatus,
+    toggleClothLab,
+    toggleExportModal,
   } = useConfiguratorStore(
     useShallow((s) => ({
       setViewMode: s.setViewMode,
@@ -49,6 +55,8 @@ export function StudioClient() {
       isHideWebsiteUI: s.isHideWebsiteUI,
       toggleHideWebsiteUI: s.toggleHideWebsiteUI,
       syncStatus: s.syncStatus,
+      toggleClothLab: s.toggleClothLab,
+      toggleExportModal: s.toggleExportModal,
     }))
   );
   const webglSupported = useWebglSupport();
@@ -82,7 +90,7 @@ export function StudioClient() {
           <Link
             href="/"
             prefetch={true}
-            className="flex items-center space-x-1.5 px-3 py-1.5 rounded-full bg-surface border border-border-subtle text-text-muted hover:text-text-primary hover:border-brand-accent transition-all text-xs font-mono font-bold uppercase active:scale-95 cursor-pointer shadow-sm"
+            className="flex items-center space-x-1.5 px-3 h-9 rounded-full bg-surface border border-border-subtle text-text-muted hover:text-text-primary hover:border-brand-accent transition-all text-xs font-sans font-bold uppercase active:scale-95 cursor-pointer shadow-sm"
             title="Kembali ke Beranda"
           >
             <ArrowLeft size={13} />
@@ -98,39 +106,39 @@ export function StudioClient() {
             />
           </Link>
 
-          {/* Indikator autosave minimalis & modern */}
+          {/* Indikator autosave minimalis & modern (Bab 51 §3.3) */}
           <span
             role="status"
             title={
               syncStatus === "saving"
                 ? "Menyimpan desain ke cloud…"
                 : syncStatus === "saved"
-                  ? "Desain tersimpan aman"
+                  ? "Desain tersimpan aman di cloud"
                   : syncStatus === "error"
-                    ? "Gagal sinkron — tersimpan lokal"
+                    ? "Gagal sinkron: tersimpan di penyimpanan lokal"
                     : "Autosave aktif"
             }
-            className="hidden sm:flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-mono tracking-wider uppercase bg-surface/60 border border-border-subtle"
+            className="hidden sm:flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-sans font-medium bg-surface/70 border border-border-subtle shadow-sm"
           >
             <span
-              className={`w-1.5 h-1.5 rounded-full shrink-0 ${
+              className={`w-2 h-2 rounded-full shrink-0 ${
                 syncStatus === "saving"
                   ? "bg-amber-400 animate-ping"
                   : syncStatus === "saved"
-                    ? "bg-emerald-400 shadow-[0_0_6px_rgba(52,211,153,0.8)]"
+                    ? "bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.8)]"
                     : syncStatus === "error"
                       ? (typeof navigator !== "undefined" && !navigator.onLine ? "bg-rose-400" : "bg-sky-400")
                       : "bg-text-muted"
               }`}
             />
-            <span className="font-bold text-text-muted text-[9px] sm:text-[10px]">
+            <span className="text-text-muted text-xs">
               {syncStatus === "saving"
-                ? "MENYIMPAN…"
+                ? "Menyimpan…"
                 : syncStatus === "saved"
-                  ? "TERSIMPAN"
+                  ? "Tersimpan di Cloud"
                   : syncStatus === "error"
-                    ? (typeof navigator !== "undefined" && !navigator.onLine ? "OFFLINE" : "DRAFT LOKAL")
-                    : "AUTO-SAVE"}
+                    ? (typeof navigator !== "undefined" && !navigator.onLine ? "Offline" : "Draft Lokal")
+                    : "Autosave"}
             </span>
           </span>
         </div>
@@ -160,15 +168,15 @@ export function StudioClient() {
           {/* Clean Mockup View Toggle */}
           <button
             onClick={toggleHideWebsiteUI}
-            className={`flex items-center space-x-1.5 px-3 py-1.5 rounded-full font-mono text-xs uppercase border transition-all cursor-pointer shadow-sm active:scale-95 ${
+            className={`flex items-center space-x-1.5 px-3 py-1.5 rounded-full font-sans text-xs font-semibold border transition-all cursor-pointer shadow-sm active:scale-95 ${
               isHideWebsiteUI
                 ? "bg-brand-accent text-canvas border-brand-accent font-bold"
                 : "bg-surface border-border-subtle text-text-muted hover:text-text-primary"
             }`}
             title="Tampilan bersih (fullscreen mockup)"
           >
-            {isHideWebsiteUI ? <Minimize2 size={12} /> : <Maximize2 size={12} />}
-            <span className="text-[11px] font-bold hidden sm:inline">{isHideWebsiteUI ? "KELUAR" : "TAMPIL BERSIH"}</span>
+            {isHideWebsiteUI ? <Minimize2 size={13} /> : <Maximize2 size={13} />}
+            <span className="hidden sm:inline">{isHideWebsiteUI ? "Keluar" : "Tampil Bersih"}</span>
           </button>
 
           {/* Admin Studio Publish to Showcase */}
@@ -178,7 +186,7 @@ export function StudioClient() {
           {isAdmin && (
             <Link
               href="/admin"
-              className="group relative flex items-center gap-1.5 px-3 py-1.5 rounded-full font-mono text-xs font-bold border transition-all duration-200 active:scale-95 shadow-sm
+              className="group relative flex items-center gap-1.5 px-3 py-1.5 rounded-full font-sans text-xs font-bold border transition-all duration-200 active:scale-95 shadow-sm
                 bg-white text-neutral-900 border-amber-500/70 hover:bg-amber-500 hover:text-black hover:border-amber-600 hover:shadow-[0_0_14px_rgba(245,158,11,0.3)]
                 dark:bg-amber-500/15 dark:text-amber-300 dark:border-amber-500/50 dark:hover:bg-amber-500 dark:hover:text-black dark:hover:border-amber-400"
               title="Buka Dashboard Admin & Workshop DTF"
@@ -186,15 +194,37 @@ export function StudioClient() {
               <div className="w-4 h-4 rounded-full bg-amber-500/20 text-amber-600 dark:text-amber-400 group-hover:bg-black/20 group-hover:text-black flex items-center justify-center transition-colors">
                 <ShieldCheck size={12} className="stroke-[2.5]" />
               </div>
-              <span className="hidden sm:inline font-extrabold tracking-tight">PANEL ADMIN</span>
-              <span className="text-[9px] px-1.5 py-0.2 rounded-full bg-amber-500 text-black font-black">OPS</span>
+              <span className="hidden sm:inline font-extrabold tracking-tight">Panel Admin</span>
+              <span className="text-[9px] px-1.5 py-0.2 rounded-full bg-amber-500 text-black font-black font-mono">OPS</span>
             </Link>
           )}
+
+          {/* Lab Kain 3D Modal Trigger */}
+          <button
+            onClick={toggleClothLab}
+            className="flex items-center space-x-1.5 px-3 py-1.5 rounded-full bg-surface border border-border-subtle text-text-muted hover:text-text-primary hover:border-brand-accent transition-all font-sans text-xs font-semibold cursor-pointer shadow-sm active:scale-95"
+            title="Laboratorium Uji Kain 3D & Simulasi Fisika"
+            aria-label="Buka Laboratorium Kain 3D"
+          >
+            <FlaskConical size={14} className="text-brand-accent" />
+            <span className="hidden md:inline">Lab Kain</span>
+          </button>
+
+          {/* Ekspor Studio Modal Trigger */}
+          <button
+            onClick={toggleExportModal}
+            className="flex items-center space-x-1.5 px-3.5 py-1.5 rounded-full bg-brand-accent text-canvas hover:brightness-110 transition-all font-sans text-xs font-semibold cursor-pointer shadow-[0_0_12px_rgba(230,81,0,0.35)] active:scale-95"
+            title="Ekspor Mockup 2K & Kartu Medsos"
+            aria-label="Buka Ekspor Mockup"
+          >
+            <Download size={14} />
+            <span className="hidden sm:inline">Ekspor</span>
+          </button>
 
           {/* User Account / Dashboard Modal Trigger */}
           <button
             onClick={() => setIsAuthOpen(true)}
-            className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-full font-mono text-xs border transition-all cursor-pointer active:scale-95 shadow-sm ${
+            className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-full font-sans text-xs font-semibold border transition-all cursor-pointer active:scale-95 shadow-sm ${
               session?.user
                 ? "bg-surface border-brand-accent/40 text-brand-accent font-bold"
                 : "bg-surface border-border-subtle text-text-muted hover:text-text-primary"
@@ -202,9 +232,9 @@ export function StudioClient() {
             title={session?.user ? `Akun: ${session.user.name}` : "Masuk / Akun Saya"}
             aria-label="Akun Pengguna & Dashboard"
           >
-            <UserIcon size={13} />
-            <span className="hidden sm:inline font-bold">
-              {session?.user ? session.user.name?.split(" ")[0] : "MASUK"}
+            <UserIcon size={14} />
+            <span className="hidden sm:inline">
+              {session?.user ? session.user.name?.split(" ")[0] : "Masuk"}
             </span>
           </button>
         </div>
@@ -248,6 +278,12 @@ export function StudioClient() {
 
       {/* User Auth & Dashboard Modal */}
       <AuthModal isOpen={isAuthOpen} onClose={() => setIsAuthOpen(false)} />
+
+      {/* Laboratorium Kain 3D Modal */}
+      <ClothLabModal />
+
+      {/* Unified Export Studio Modal */}
+      <ExportStudioModal />
     </main>
   );
 }

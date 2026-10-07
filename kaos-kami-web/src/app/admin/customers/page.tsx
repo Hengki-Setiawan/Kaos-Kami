@@ -4,6 +4,7 @@ import { headers } from "next/headers";
 import { db } from "@/lib/db";
 import { Design, Order, User } from "@/lib/drizzle-schema";
 import { CustomerRoleSelect } from "@/components/admin/CustomerRoleSelect";
+import { CustomerListFilter } from "@/components/admin/CustomerListFilter";
 import { maskPhone as maskPhoneLib, maskEmail as maskEmailLib } from "@/lib/mask"; // SSOT PII (S-045)
 
 export const dynamic = "force-dynamic";
@@ -103,11 +104,13 @@ export default async function AdminCustomersPage({
   };
 
   return (
-    <div className="p-5 sm:p-8 space-y-6 max-w-7xl mx-auto font-mono text-xs">
+    <div className="p-5 sm:p-8 space-y-6 max-w-7xl mx-auto font-sans text-xs">
       <div className="pb-4 border-b border-border-subtle">
-        <h1 className="font-display text-2xl sm:text-3xl font-black uppercase text-text-primary">CUSTOMER DATABASE</h1>
+        <h1 className="font-sans text-2xl sm:text-3xl font-bold uppercase text-text-primary flex items-center gap-2 flex-wrap">CUSTOMER DATABASE
+          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-surface border border-border-subtle text-text-muted text-[10px] font-bold normal-case tracking-normal">🔒 PDP Protected</span>
+        </h1>
         <p className="text-text-muted">
-          {Number(n)} akun (hal. {safePage}/{totalPages}) • kontak dimask — klik baris untuk detail • UU PDP: gunakan seperlunya
+          {Number(n)} akun (hal. {safePage}/{totalPages}) • kontak dimask — klik baris untuk detail
           {myRole ? "" : " • sesi tak terbaca (mode baca, opsi role dibatasi)"}
         </p>
       </div>
@@ -125,9 +128,21 @@ export default async function AdminCustomersPage({
         </button>
       </form>
 
+      {/* Filter client-side di atas data existing (tanpa ubah query DB/API). */}
+      <CustomerListFilter />
+
       <div className="bg-surface border border-border-subtle rounded-2xl overflow-hidden divide-y divide-border-subtle">
-        {usersWithCounts.map((u: any) => (
-          <div key={u.id} className="p-4 flex justify-between items-center gap-3">
+        {usersWithCounts.map((u: any) => {
+          const haystack = `${u.name || ""} ${u.email || ""}`.toLowerCase();
+          const isE2E = haystack.includes("e2e") || haystack.includes("bot") || haystack.includes("test");
+          return (
+          <div
+            key={u.id}
+            data-customer-row
+            data-is-e2e={isE2E ? "true" : "false"}
+            data-role={String(u.role || "").toUpperCase()}
+            className="p-4 flex justify-between items-center gap-3"
+          >
             <div className="min-w-0">
               <span className="font-bold text-text-primary block truncate">
                 {u.name || "-"} <CustomerRoleSelect userId={u.id} role={u.role} myRole={myRole ?? ""} />
@@ -142,7 +157,8 @@ export default async function AdminCustomersPage({
               <span className="text-text-muted text-[11px]">{formatDate(u.createdAt)}</span>
             </div>
           </div>
-        ))}
+          );
+        })}
         {usersWithCounts.length === 0 && (
           <div className="p-12 text-center text-text-muted">
             {q ? "Tidak cocok dengan pencarian." : "Belum ada customer"}

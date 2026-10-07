@@ -815,7 +815,7 @@ export default function GangSheetBuilderPage() {
     <div className="p-5 sm:p-8 space-y-6 max-w-6xl mx-auto print:bg-white">
       {/* Kepala */}
       <div className="pb-4 border-b border-border-subtle">
-        <h1 className="font-display text-2xl sm:text-3xl font-black uppercase tracking-tight text-text-primary">
+        <h1 className="font-sans text-2xl sm:text-3xl font-bold uppercase tracking-tight text-text-primary">
           Gang-Sheet Builder
         </h1>
         <p className="font-mono text-xs text-text-muted mt-1">
@@ -865,7 +865,7 @@ export default function GangSheetBuilderPage() {
           <div className="overflow-x-auto -mx-4 px-4">
             <table className="w-full text-sm min-w-[720px]">
               <thead>
-                <tr className="text-left font-mono text-[11px] uppercase text-text-muted border-b border-border-subtle bg-surface-elevated">
+                <tr className="text-left font-sans text-[11px] uppercase text-text-muted border-b border-border-subtle bg-surface-elevated">
                   <th className="py-2 pr-2 w-10">Pilih</th>
                   <th className="py-2 pr-2">Desain</th>
                   <th className="py-2 pr-2">Order</th>
@@ -1074,10 +1074,13 @@ export default function GangSheetBuilderPage() {
           )}
           <div className="grid sm:grid-cols-3 gap-3">
             <div className="rounded-xl bg-surface border border-border-subtle p-3">
-              <p className="font-mono text-[11px] uppercase text-text-muted">Utilisasi (packer)</p>
+              <p className="font-sans text-[11px] uppercase text-text-muted">Utilisasi (packer)</p>
               <p className="text-2xl font-black text-amber-700 dark:text-amber-400">{hasil.utilizationPct.toFixed(1)}%</p>
               <p className="font-mono text-[11px] text-text-muted">
                 Review meter ini: {utilLive.toFixed(1)}% · {kopiTerpasang} kopi terpasang
+              </p>
+              <p className="font-sans text-[11px] font-bold text-text-muted mt-1">
+                Efisiensi: {hasil.utilizationPct.toFixed(1)}%
               </p>
               <div className="h-2 rounded-full bg-black/10 dark:bg-white/10 mt-2 overflow-hidden">
                 <div
@@ -1087,14 +1090,14 @@ export default function GangSheetBuilderPage() {
               </div>
             </div>
             <div className="rounded-xl bg-surface border border-border-subtle p-3">
-              <p className="font-mono text-[11px] uppercase text-text-muted">Estimasi biaya film</p>
+              <p className="font-sans text-[11px] uppercase text-text-muted">Estimasi biaya film</p>
               <p className="text-2xl font-black text-text-primary">{fmtRp(totalBiaya)}</p>
               <p className="font-mono text-[11px] text-text-muted">
                 ≈ {fmtRp(biayaPerDesain)}/desain · {binCount} meter × {fmtRp(hargaPerMeter)}
               </p>
             </div>
             <div className="rounded-xl bg-surface border border-border-subtle p-3">
-              <p className="font-mono text-[11px] uppercase text-text-muted">Lembar</p>
+              <p className="font-sans text-[11px] uppercase text-text-muted">Lembar</p>
               <div className="flex flex-wrap gap-1.5 mt-1">
                 {hasil.bins.map((_, i) => (
                   <button

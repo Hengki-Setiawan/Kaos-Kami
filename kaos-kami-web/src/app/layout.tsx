@@ -34,12 +34,15 @@ const cfAnalyticsToken = process.env.NEXT_PUBLIC_CF_WEB_ANALYTICS_TOKEN;
 
 export const metadata: Metadata = {
   metadataBase: new URL(siteUrl),
+  alternates: {
+    canonical: "/",
+  },
   title: {
     default: "Kaos Kami | Sablon Kaos & Streetwear Makassar",
     template: "%s | Kaos Kami",
   },
   description:
-    "Jasa sablon DTF dan belanja kaos streetwear berkualitas di Kota Makassar. Pesan satuan tanpa minimal order atau beli kaos polos combed 24s/30s siap kirim.",
+    "Jasa sablon DTF dan belanja kaos streetwear berkualitas di Kota Makassar. Pesan satuan tanpa minimal order atau beli kaos polos katun combed 24s premium siap kirim.",
   keywords: [
     "kaos kami",
     "streetwear makassar",
@@ -71,7 +74,6 @@ export const metadata: Metadata = {
     shortcut: "/favicon.ico",
     apple: "/icons/icon-192.png",
   },
-  manifest: "/manifest.json",
 };
 
 export const viewport: Viewport = {
@@ -102,21 +104,14 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         />
       </head>
       <body className="bg-canvas text-text-primary selection:bg-brand-accent selection:text-canvas min-h-screen">
-        <Script
-          src={
-            process.env.DUITKU_ENV === "production"
-              ? "https://app.duitku.com/lib/js/duitku.js"
-              : "https://app-sandbox.duitku.com/lib/js/duitku.js"
-          }
-          strategy="afterInteractive"
-        />
-        <Script id="sw-register" strategy="afterInteractive">
+        {/* Cleanup peninggalan Service Worker lama (PWA tidak dipakai — project memakai Capacitor native APK) */}
+        <Script id="sw-cleanup" strategy="afterInteractive">
           {`
             if ('serviceWorker' in navigator) {
-              window.addEventListener('load', function() {
-                navigator.serviceWorker.register('/sw.js').catch(function(err) {
-                  console.log('SW registration skipped:', err);
-                });
+              navigator.serviceWorker.getRegistrations().then(function(registrations) {
+                for (var r of registrations) {
+                  r.unregister();
+                }
               });
             }
           `}

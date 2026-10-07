@@ -4,6 +4,8 @@ const config: Config = {
   content: [
     "./src/components/**/*.{js,ts,jsx,tsx,mdx}",
     "./src/app/**/*.{js,ts,jsx,tsx,mdx}",
+    // Token z-index literal di src/lib/zIndex.ts (JIT wajib memindai file ini).
+    "./src/lib/**/*.{js,ts,jsx,tsx,mdx}",
   ],
   theme: {
     extend: {
@@ -20,8 +22,7 @@ const config: Config = {
         success: "var(--color-success)",
       },
       fontFamily: {
-        // --font-mono belum didefinisikan di CSS (jatuh ke monospace);
-        // dipakai ~9x (nomor order dsb). display/sans tak dipakai → dihapus.
+        sans: ["'Plus Jakarta Sans'", "-apple-system", "BlinkMacSystemFont", "'Segoe UI'", "Roboto", "sans-serif"],
         mono: ["var(--font-mono)", "monospace"],
       },
     },

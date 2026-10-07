@@ -35,8 +35,8 @@ describe("printTiers SSOT", () => {
   });
 
   it("maxDecalScaleUnits mencapai batas cetak fisik per apparel", () => {
-    // tshirt 30/202.0 ≈ 0.1485; hoodie 28/105.6 ≈ 0.2652
-    expect(maxDecalScaleUnits("tshirt", "front")).toBeCloseTo(30 / 202.0, 4);
+    // tshirt 35/202.0 ≈ 0.1733; hoodie 28/105.6 ≈ 0.2652
+    expect(maxDecalScaleUnits("tshirt", "front")).toBeCloseTo(35 / 202.0, 4);
     expect(maxDecalScaleUnits("hoodie", "front")).toBeCloseTo(28 / 105.6, 4);
     // SWAP 20 Sep 2026: shirt = pullover tanpa resleting → depan full 28 (dulu 14 split).
     expect(maxDecalScaleUnits("shirt", "front")).toBeCloseTo(28 / 69.5, 4);

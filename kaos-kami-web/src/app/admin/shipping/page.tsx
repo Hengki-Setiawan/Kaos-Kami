@@ -138,7 +138,7 @@ export default function AdminShippingPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="font-display text-xl font-black uppercase text-text-primary">ONGKIR & ZONA EKSPEDISI</h1>
+        <h1 className="font-sans text-xl font-bold uppercase text-text-primary">ONGKIR & ZONA EKSPEDISI</h1>
         <p className="font-mono text-[11px] text-text-muted">
           Tarif luar kota (fallback bila API live down) + pantau kuota AgenWebsite.
         </p>

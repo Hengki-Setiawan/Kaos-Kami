@@ -15,7 +15,7 @@ export default function AdminChatPage() {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-border-subtle pb-4">
         <div>
           <div className="flex items-center gap-2">
-            <span className="font-display font-black text-xl sm:text-2xl uppercase tracking-tight text-text-primary">
+            <span className="font-sans font-bold text-xl sm:text-2xl uppercase tracking-tight text-text-primary">
               PUSAT LIVE CHAT KAMITO
             </span>
             <span className="px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-400 border border-amber-500/30 text-[10px] font-mono font-bold">

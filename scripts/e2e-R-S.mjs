@@ -31,7 +31,7 @@ if (has("--help")) {
 Pakai: node scripts/e2e-R-S.mjs --stamp YYYYMMDD-HHMM [--base-url URL] [--dry-run]
   [--quota-user e2e-<stamp>-rN@kaoskami.test] [--live-otp] [--big-quota]
 Env: E2E_USER_EMAIL + E2E_TEST_PASSWORD (checkout-negatif) | E2E_FACTORY_PASSWORD (login --quota-user)
-  E2E_ADMIN_PASSWORD (opsional: S-026 kupon/S-045..047) | DUITKU_MERCHANT_CODE + DUITKU_API_KEY (opsional: S-036/037)
+  E2E_ADMIN_PASSWORD (opsional: S-026 kupon/S-045..047) | webhook iPaymu TANPA secret runner (S-036/037 siap jalan)
   E2E_COUPON_CODE (opsional: kupon maxUses:1 utk S-026) | E2E_ALLOW_KILLSWITCH=YA (opsional: S-015, warning BESAR)
   E2E_SLEEP_MS (default 2000; checkout auto-jeda 61s tiap 4 hit: 5/60; repay:ip 3/300 = jeda 305s sblm S-040)
 Aturan: SEQUENTIAL; STOP total saat 429 tak-terduga ("RATE-HIT, lanjut manual"); --dry-run NOL tulis/jaringan.
@@ -104,7 +104,7 @@ async function signIn(email, password) {
 const PLAN = [
   "G1 auth/OTP S-001â€“016 (rate-burner S-001/002/006/013/014 PALING AKHIR G1; S-001/002/003b/004/005/008/014/016 butuh --live-otp)",
   "G2 checkout-negatif S-017â€“032 (T1 order via verified-bypass/S-016; pacing 61s tiap 4 hit: checkout:ip 5/60; S-015 kill-switch HANYA E2E_ALLOW_KILLSWITCH=YA; S-026 butuh E2E_COUPON_CODE; S-032/S-040 pola throttle EKSAK)",
-  "G3 uang-negatif S-033â€“044 (probe S-033 dulu: 503â†’SKIP S-034/035/037; S-036/037 butuh DUITKU_*; S-040 repay:ip 3/300 EKSAK setelah jeda 305s; S-042/043/044 SKIP jujur bila tanpa fixture/staff/order-PENDING)",
+  "G3 uang-negatif S-033–044 iPaymu (probe S-033 dulu: 503→SKIP S-034/035/037; S-036 fiktif→404; S-037 underpay-T1→400; S-040 repay:ip 3/300 EKSAK setelah jeda 305s; S-042/043/044 SKIP jujur bila tanpa fixture/staff/order-PENDING)",
   "G4 PII/rate/kuota S-045â€“060 (S-045/046/047 butuh sesi workshop; S-048 butuh --live-otp; S-054/055/056 WAJIB --quota-user sekali-pakai; S-056 butuh --big-quota; OUT response.json + tabel Â§2)",
 ];
 if (DRY) { console.log(`DRY-RUN ${STAMP} @ ${BASE} (NOL tulis/jaringan):`); PLAN.forEach((p) => console.log(" - " + p)); process.exit(0); }
@@ -358,45 +358,39 @@ try {
   } else rec("S-015", "SKIP", "kill-switch HANYA bila E2E_ALLOW_KILLSWITCH=YA (+ --quota-user utk probe akun-unverified); default fail-closed");
 
   // ===== G3 uang-negatif (S-033â€“044) =====
-  let duitkuOn = true;
-  { // S-033 probe: callback apapun â†’ 503 (belum dikonfigurasi) atau lanjut (terkonfigurasi)
-    const p = await req("POST", "/api/webhooks/duitku", { id: "S-033", headers: J({}), body: JSON.stringify({ merchantCode: "X", amount: "1", merchantOrderId: "X", signature: "X" }) });
-    duitkuOn = p.r.status !== 503;
-    rec("S-033", p.r.status === 503 || p.r.status === 401 || p.r.status === 400 ? "PASS" : "FAIL", `tanpa-secretâ†’${p.r.status} (${p.r.status === 503 ? "belum-dikonfigurasi âœ“" : "terkonfigurasi â†’ lanjut S-034+; guard webhooks/duitku:20-26"}) â€” modernisasi cek fail-closed`);
+  let ipaymuOn = true;
+  { // S-033 probe: body kosong → 503 (iPaymu belum dikonfigurasi) atau 400 (terkonfigurasi, payload tak valid)
+    const p = await req("POST", "/api/webhooks/ipaymu", { id: "S-033", headers: J({}), body: JSON.stringify({}) });
+    ipaymuOn = p.r.status !== 503;
+    rec("S-033", p.r.status === 503 || p.r.status === 400 ? "PASS" : "FAIL", `tanpa-payload→${p.r.status} (${p.r.status === 503 ? "belum-dikonfigurasi ✓" : "terkonfigurasi → lanjut S-034+; guard webhooks/ipaymu:20-23"}) — modernisasi cek fail-closed`);
   }
-  if (!duitkuOn) ["S-034", "S-035", "S-036", "S-037"].forEach((id) => rec(id, "SKIP", "butuh DUITKU terkonfigurasi di server (probe S-033 = 503)"));
+  if (!ipaymuOn) ["S-034", "S-035", "S-036", "S-037"].forEach((id) => rec(id, "SKIP", "butuh iPaymu terkonfigurasi di server (probe S-033 = 503)"));
   else {
-    { // S-034 EKSAK: junk 25KB > 16KB â†’ 413 (modernisasi Kasus-5 T7)
-      const big = JSON.stringify({ merchantCode: "X", amount: "1", merchantOrderId: "X", junk: "A".repeat(25 * 1024) });
-      const o = await req("POST", "/api/webhooks/duitku", { id: "S-034", headers: J({}), body: big });
-      rec("S-034", o.r.status === 413 ? "PASS" : "FAIL", `25KBâ†’${o.r.status} (harap 413; guard MAX_WEBHOOK_BYTES 16KB:37-40)`);
+    { // S-034 EKSAK: junk 25KB > 16KB → 413 (modernisasi Kasus-5 T7, kini via iPaymu)
+      const big = JSON.stringify({ trx_id: "X", reference_id: "X", status: "berhasil", amount: 1, via: "QRIS", junk: "A".repeat(25 * 1024) });
+      const o = await req("POST", "/api/webhooks/ipaymu", { id: "S-034", headers: J({}), body: big });
+      rec("S-034", o.r.status === 413 ? "PASS" : "FAIL", `25KB→${o.r.status} (harap 413; guard MAX_WEBHOOK_BYTES 16KB:35-37)`);
     }
-    { // S-035 3Ã— field hilang â†’ 400
+    { // S-035 3× field hilang → 400 (iPaymu wajib trx_id + reference_id)
       const t = [
-        await req("POST", "/api/webhooks/duitku", { id: "S-035", headers: J({}), body: JSON.stringify({ amount: "1", merchantOrderId: "X", signature: "X" }) }),
-        await req("POST", "/api/webhooks/duitku", { id: "S-035", headers: J({}), body: JSON.stringify({ merchantCode: "X", amount: "1", signature: "X" }) }),
-        await req("POST", "/api/webhooks/duitku", { id: "S-035", headers: J({}), body: JSON.stringify({ merchantCode: "X", amount: "1", merchantOrderId: "X" }) }),
+        await req("POST", "/api/webhooks/ipaymu", { id: "S-035", headers: J({}), body: JSON.stringify({ reference_id: "KK-FAKE", status: "berhasil", amount: 1 }) }),
+        await req("POST", "/api/webhooks/ipaymu", { id: "S-035", headers: J({}), body: JSON.stringify({ trx_id: "FAKE-TRX", status: "berhasil", amount: 1 }) }),
+        await req("POST", "/api/webhooks/ipaymu", { id: "S-035", headers: J({}), body: JSON.stringify({ status: "berhasil", amount: 1 }) }),
       ];
-      rec("S-035", t.every((x) => x.r.status === 400) ? "PASS" : "FAIL", `hilang-fieldâ†’${t.map((x) => x.r.status).join("/")} (harap 400Ã—3; guard :61-63)`);
+      rec("S-035", t.every((x) => x.r.status === 400) ? "PASS" : "FAIL", `hilang-field→${t.map((x) => x.r.status).join("/")} (harap 400×3; guard :55-58)`);
     }
-    { // S-036 sig-palsu â†’ 401 (modernisasi Kasus-5 T2; merchant-asing butuh DUITKU_* runner)
-      const mc = process.env.DUITKU_MERCHANT_CODE || "DUMMY";
-      const f = await req("POST", "/api/webhooks/duitku", { id: "S-036", headers: J({}), body: JSON.stringify({ merchantCode: mc, amount: "149000", merchantOrderId: "KK-FAKE", signature: "0".repeat(32), resultCode: "00", reference: "R" }) });
-      let note = `sig-palsuâ†’${f.r.status} (harap 401)`;
-      if (process.env.DUITKU_MERCHANT_CODE && process.env.DUITKU_API_KEY) {
-        const bad = await req("POST", "/api/webhooks/duitku", { id: "S-036", headers: J({}), body: JSON.stringify({ merchantCode: "ASING", amount: "1", merchantOrderId: "X", signature: "0".repeat(32), resultCode: "00" }) });
-        note += ` asingâ†’${bad.r.status} (harap 401 Unknown-merchant; guard :80-83)`;
-        rec("S-036", f.r.status === 401 && bad.r.status === 401 ? "PASS" : "FAIL", note);
-      } else rec("S-036", f.r.status === 401 ? "PASS" : "FAIL", note + " (varian asing butuh DUITKU_* di runner)");
+    { // S-036 order-fiktif → 404 (modernisasi Kasus-5 T2; iPaymu TANPA signature — tamper = reference tak dikenal)
+      const f = await req("POST", "/api/webhooks/ipaymu", { id: "S-036", headers: J({}), body: JSON.stringify({ trx_id: "HACKER-FAKE-TRX", reference_id: "KK-FAKE-9999", status: "berhasil", amount: 149000, via: "QRIS" }) });
+      const g = await req("POST", "/api/webhooks/ipaymu", { id: "S-036", headers: J({}), body: JSON.stringify({ trx_id: "HACKER-FAKE-TRX", reference_id: "KK-FAKE-9999", status: "pending", amount: 149000, via: "QRIS" }) });
+      rec("S-036", f.r.status === 404 && g.r.status === 404 ? "PASS" : "FAIL", `fiktif-berhasil→${f.r.status} fiktif-pending→${g.r.status} (harap 404/404 Order not found; guard :66-69)`);
     }
-    { // S-037 underpay EKSAK (modernisasi Kasus-5 T5): sig VALID utk 1000 + order T1 + 00 â†’ 400
-      if (!T1 || !process.env.DUITKU_MERCHANT_CODE || !process.env.DUITKU_API_KEY) rec("S-037", "SKIP", "butuh order T1 + DUITKU_* runner (MD5 merchantCode+amount+orderId+apiKey)");
+    { // S-037 underpay EKSAK (modernisasi Kasus-5 T5): order T1 nyata + amount 1000 → 400 (TANPA butuh secret runner!)
+      if (!T1) rec("S-037", "SKIP", "butuh order T1 nyata (S-016 gagal)");
       else {
-        const mc = process.env.DUITKU_MERCHANT_CODE, ak = process.env.DUITKU_API_KEY;
-        const sig = crypto.createHash("md5").update(mc + "1000" + T1.number + ak).digest("hex");
-        const u = await req("POST", "/api/webhooks/duitku", { id: "S-037", headers: J({}), body: JSON.stringify({ merchantCode: mc, amount: "1000", merchantOrderId: T1.number, signature: sig, resultCode: "00", reference: "DUITKU-UNDERPAY-TEST" }) });
-        const z = await req("POST", "/api/webhooks/duitku", { id: "S-037", headers: J({}), body: JSON.stringify({ merchantCode: mc, merchantOrderId: T1.number, signature: crypto.createHash("md5").update(mc + T1.number + ak).digest("hex"), resultCode: "00", reference: "R" }) });
-        rec("S-037", u.r.status === 400 && [400, 401].includes(z.r.status) ? "PASS" : "FAIL", `underpay=${u.r.status} tanpa-nominal=${z.r.status} (harap 400 + 400/401 fail-closed)`);
+        const u = await req("POST", "/api/webhooks/ipaymu", { id: "S-037", headers: J({}), body: JSON.stringify({ trx_id: `IPAYMU-UNDERPAY-${Date.now()}`, reference_id: T1.number, status: "berhasil", amount: 1000, via: "QRIS" }) });
+        // Varian tanpa-nominal di order FIKTIF (aman: 404 sebelum sempat lunas; JANGAN ke T1 nyata — amount 0 = skip-validasi!)
+        const z = await req("POST", "/api/webhooks/ipaymu", { id: "S-037", headers: J({}), body: JSON.stringify({ trx_id: "FAKE-TRX", reference_id: "KK-FAKE-9999", status: "berhasil" }) });
+        rec("S-037", u.r.status === 400 && z.r.status === 404 ? "PASS" : "FAIL", `underpay-T1=${u.r.status} tanpa-nominal-fiktif=${z.r.status} (harap 400 + 404; guard :80-86)`);
       }
     }
   }

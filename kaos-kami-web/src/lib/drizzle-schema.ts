@@ -368,7 +368,7 @@ export const OrderStatusEvent = sqliteTable("OrderStatusEvent", {
 export const Payment = sqliteTable("Payment", {
   id: text("id").primaryKey(),
   orderId: text("orderId").notNull().unique(),
-  provider: text("provider").notNull().default("DUITKU"),
+  provider: text("provider").notNull().default("IPAYMU"),
   providerRef: text("providerRef").notNull(),
   method: text("method"),
   amountIdr: integer("amountIdr").notNull(),
@@ -534,6 +534,116 @@ export const UserPresence = sqliteTable(
 );
 
 // ------------------------------------------------------------------
+// CATALOG PRODUCTS (E-COMMERCE DISTRO / STREETWEAR KAOS KAMI)
+// ------------------------------------------------------------------
+
+export const CatalogProduct = sqliteTable("CatalogProduct", {
+  id: text("id").primaryKey(),
+  slug: text("slug").notNull().unique(),
+  name: text("name").notNull(),
+  tagline: text("tagline"),
+  description: text("description"),
+  apparelSlug: text("apparelSlug").notNull().default("tshirt"),
+  basePriceIdr: integer("basePriceIdr").notNull().default(165000),
+  images: text("images").notNull().default("[]"),
+  sizes: text("sizes").notNull().default('["S","M","L","XL","XXL"]'),
+  tags: text("tags"),
+  isFeatured: integer("isFeatured", { mode: "boolean" }).notNull().default(false),
+  isActive: integer("isActive", { mode: "boolean" }).notNull().default(true),
+  sortOrder: integer("sortOrder").notNull().default(0),
+  createdAt: isoDateTime("createdAt").notNull().$defaultFn(() => new Date()),
+  updatedAt: isoDateTime("updatedAt")
+    .notNull()
+    .$defaultFn(() => new Date())
+    .$onUpdate(() => new Date()),
+});
+
+// ------------------------------------------------------------------
+// AFTER-SALES: CUSTOMER COMPLAINTS & TICKETS
+// ------------------------------------------------------------------
+
+export const OrderComplaint = sqliteTable(
+  "OrderComplaint",
+  {
+    id: text("id").primaryKey(),
+    orderId: text("orderId").notNull(),
+    userId: text("userId").notNull(),
+    category: text("category").notNull(),
+    message: text("message").notNull(),
+    photoUrls: text("photoUrls"),
+    status: text("status").notNull().default("OPEN"),
+    resolutionNote: text("resolutionNote"),
+    resolvedByUserId: text("resolvedByUserId"),
+    resolvedAt: isoDateTime("resolvedAt"),
+    createdAt: isoDateTime("createdAt").notNull().$defaultFn(() => new Date()),
+    updatedAt: isoDateTime("updatedAt")
+      .notNull()
+      .$defaultFn(() => new Date())
+      .$onUpdate(() => new Date()),
+  },
+  (t) => [
+    index("OrderComplaint_orderId_idx").on(t.orderId),
+    index("OrderComplaint_userId_idx").on(t.userId),
+  ],
+);
+
+// ------------------------------------------------------------------
+// AFTER-SALES: REFUND AUDIT & SETTLEMENT
+// ------------------------------------------------------------------
+
+export const OrderRefund = sqliteTable(
+  "OrderRefund",
+  {
+    id: text("id").primaryKey(),
+    orderId: text("orderId").notNull(),
+    amountIdr: integer("amountIdr").notNull(),
+    bankName: text("bankName"),
+    accountNumber: text("accountNumber"),
+    accountHolder: text("accountHolder"),
+    reason: text("reason").notNull(),
+    proofPhotoUrl: text("proofPhotoUrl"),
+    status: text("status").notNull().default("COMPLETED"),
+    processedByUserId: text("processedByUserId"),
+    refundedAt: isoDateTime("refundedAt").notNull().$defaultFn(() => new Date()),
+    createdAt: isoDateTime("createdAt").notNull().$defaultFn(() => new Date()),
+    updatedAt: isoDateTime("updatedAt")
+      .notNull()
+      .$defaultFn(() => new Date())
+      .$onUpdate(() => new Date()),
+  },
+  (t) => [index("OrderRefund_orderId_idx").on(t.orderId)],
+);
+
+// ------------------------------------------------------------------
+// SOCIAL PROOF: PRODUCT RATINGS & REVIEWS
+// ------------------------------------------------------------------
+
+export const ProductReview = sqliteTable(
+  "ProductReview",
+  {
+    id: text("id").primaryKey(),
+    orderId: text("orderId"),
+    userId: text("userId").notNull(),
+    productVariantId: text("productVariantId"),
+    customerName: text("customerName"),
+    rating: integer("rating").notNull().default(5),
+    reviewText: text("reviewText").notNull(),
+    photoUrls: text("photoUrls"),
+    isVerifiedPurchase: integer("isVerifiedPurchase", { mode: "boolean" }).notNull().default(true),
+    isPublished: integer("isPublished", { mode: "boolean" }).notNull().default(true),
+    createdAt: isoDateTime("createdAt").notNull().$defaultFn(() => new Date()),
+    updatedAt: isoDateTime("updatedAt")
+      .notNull()
+      .$defaultFn(() => new Date())
+      .$onUpdate(() => new Date()),
+  },
+  (t) => [
+    index("ProductReview_orderId_idx").on(t.orderId),
+    index("ProductReview_userId_idx").on(t.userId),
+  ],
+);
+
+// ------------------------------------------------------------------
 // RELATIONS (untuk db.query.*.with — setara Prisma include)
 // ------------------------------------------------------------------
 
@@ -545,6 +655,8 @@ export const UserRelations = relations(User, ({ many, one }) => ({
   devices: many(UserDevice),
   sessions: many(Session),
   accounts: many(Account),
+  complaints: many(OrderComplaint),
+  reviews: many(ProductReview),
 }));
 
 export const SessionRelations = relations(Session, ({ one }) => ({
@@ -609,6 +721,9 @@ export const OrderRelations = relations(Order, ({ one, many }) => ({
   productionTasks: many(ProductionTask),
   statusHistory: many(OrderStatusEvent),
   qcInspections: many(QcInspection),
+  complaints: many(OrderComplaint),
+  refunds: many(OrderRefund),
+  reviews: many(ProductReview),
 }));
 
 export const OrderItemRelations = relations(OrderItem, ({ one }) => ({
@@ -649,6 +764,20 @@ export const ChatMessageRelations = relations(ChatMessage, ({ one }) => ({
   order: one(Order, { fields: [ChatMessage.orderId], references: [Order.id] }),
 }));
 
+export const OrderComplaintRelations = relations(OrderComplaint, ({ one }) => ({
+  order: one(Order, { fields: [OrderComplaint.orderId], references: [Order.id] }),
+  user: one(User, { fields: [OrderComplaint.userId], references: [User.id] }),
+}));
+
+export const OrderRefundRelations = relations(OrderRefund, ({ one }) => ({
+  order: one(Order, { fields: [OrderRefund.orderId], references: [Order.id] }),
+}));
+
+export const ProductReviewRelations = relations(ProductReview, ({ one }) => ({
+  order: one(Order, { fields: [ProductReview.orderId], references: [Order.id] }),
+  user: one(User, { fields: [ProductReview.userId], references: [User.id] }),
+}));
+
 export const schema = {
   User,
   Session,
@@ -674,6 +803,10 @@ export const schema = {
   UserDevice,
   ChatMessage,
   UserPresence,
+  CatalogProduct,
+  OrderComplaint,
+  OrderRefund,
+  ProductReview,
   UserRelations,
   SessionRelations,
   AccountRelations,
@@ -691,6 +824,9 @@ export const schema = {
   QcInspectionRelations,
   UserDeviceRelations,
   ChatMessageRelations,
+  OrderComplaintRelations,
+  OrderRefundRelations,
+  ProductReviewRelations,
 };
 
 export type DbSchema = typeof schema;

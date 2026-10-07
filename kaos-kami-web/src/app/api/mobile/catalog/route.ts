@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createHash } from "crypto";
 import { db } from "@/lib/db";
 import { safeJsonArray } from "@/lib/json";
+import { checkRateLimitAsync, getClientIp, rateLimitHeaders } from "@/lib/security/rateLimiter";
 
 /**
  * M10.1 — GET /api/mobile/catalog
@@ -9,6 +10,10 @@ import { safeJsonArray } from "@/lib/json";
  */
 export async function GET(req: NextRequest) {
   try {
+    const rl = await checkRateLimitAsync(`mobile-catalog:ip:${getClientIp(req)}`, 60, 60);
+    if (rl.isLimited) {
+      return NextResponse.json({ error: "Terlalu sering. Tunggu sebentar." }, { status: 429, headers: rateLimitHeaders(rl, 60) });
+    }
     const categories = await db.query.ApparelCategory.findMany({
       where: (t, { eq }) => eq(t.isActive, true),
       orderBy: (t, { asc }) => asc(t.sortOrder),

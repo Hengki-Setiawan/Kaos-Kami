@@ -17,7 +17,7 @@ export default async function GangSheetPage({ params }: { params: Promise<{ id: 
     <div className="min-h-screen bg-[#0E0E10] text-white p-6 font-mono text-xs max-w-6xl mx-auto space-y-4">
       <Link href={`/admin/orders/${id}`} className="text-text-muted hover:text-white">← Kembali Detail</Link>
       <div className="flex justify-between items-center pb-4 border-b border-white/5">
-        <h1 className="font-display text-2xl font-black uppercase">GANG SHEET A3 — {order.orderNumber}</h1>
+        <h1 className="font-sans text-2xl font-bold uppercase">GANG SHEET A3 — <span className="font-mono tabular-nums">{order.orderNumber}</span></h1>
         <span className="px-3 py-1 rounded-full bg-brand-accent text-canvas font-bold">30cm ROLL</span>
       </div>
       <div className="bg-white text-black p-4 rounded-2xl" style={{ width: "30cm", minHeight: "42cm", margin: "0 auto" }}>

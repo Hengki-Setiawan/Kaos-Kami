@@ -43,7 +43,7 @@ function StudioLoader() {
   return (
     <div className="absolute inset-0 flex flex-col items-center justify-center bg-canvas transition-colors z-20">
       <div className="w-10 h-10 border-3 border-brand-accent/30 border-t-brand-accent rounded-full animate-spin mb-3" />
-      <p className="text-xs font-semibold text-text-muted font-['Syne']">Memuat Model 3D...</p>
+      <p className="text-xs font-semibold text-text-muted font-sans">Memuat Model 3D...</p>
     </div>
   );
 }

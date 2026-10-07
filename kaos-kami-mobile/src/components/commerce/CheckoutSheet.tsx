@@ -9,7 +9,8 @@ import { useShallow } from 'zustand/shallow';
 import { MAKASSAR_DELIVERY_OPTIONS, MAKASSAR_SUBDISTRICTS, WORKSHOP_LOCATION, PRODUCTION_TURNAROUND_OPTIONS, TurnaroundTier, DeliveryOption } from '@/lib/shipping/deliveryOptionsMobile';
 import { mobileApiClient, quoteShipping, reverseGeocode, searchLocations, ShipLocation } from '@/lib/api/mobileApiClient';
 import { getCurrentCoords } from '@/lib/bridge/geolocation';
-import { openDuitkuPaymentModal } from '@/lib/payments/duitkuMobile';
+import { openPaymentBrowser } from '@/lib/payments/ipaymuMobile';
+import { DirectQrisSheet } from '@/components/commerce/DirectQrisSheet';
 import { haptic } from '@/lib/bridge/haptics';
 import { setStoredUserId } from '@/lib/offline/persistentKeys';
 import { compressDecalForUpload } from '@/lib/enhancers/imageOptimizerMobile';
@@ -18,7 +19,7 @@ import { createDesignDraft } from '@/lib/api/designDraft';
 export interface CheckoutSheetProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  // paymentUrl = link Duitku asli; invoiceUrl = halaman invoice (fallback).
+  // paymentUrl = link iPaymu asli; invoiceUrl = halaman invoice (fallback).
   // JANGAN campur (audit: invoice dibuka sebagai "lanjut bayar").
   onOrderSuccess: (orderId: string, urls: { paymentUrl?: string; invoiceUrl?: string }) => void;
   onNotify?: (msg: string) => void;
@@ -98,6 +99,17 @@ export function CheckoutSheet({ open, onOpenChange, onOrderSuccess, onNotify }: 
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
   const [selectedDelivery, setSelectedDelivery] = useState<DeliveryOption>(MAKASSAR_DELIVERY_OPTIONS[0]);
+
+  // Modal Direct QRIS 100% In-App
+  const [directQrisData, setDirectQrisData] = useState<{
+    orderId: string;
+    orderNumber: string;
+    amountIdr: number;
+    qrImage?: string;
+    qrString?: string;
+    invoiceUrl?: string;
+  } | null>(null);
+
   // P0-3: kecamatan FREE_MAKASSAR — WAJIB dari MAKASSAR_SUBDISTRICTS (cerminan
   // whitelist web; server 400 bila di luar daftar). Default = 'Tallo' (workshop).
   const [district, setDistrict] = useState<string>(MAKASSAR_SUBDISTRICTS.includes('Tallo') ? 'Tallo' : MAKASSAR_SUBDISTRICTS[0]);
@@ -569,8 +581,6 @@ export function CheckoutSheet({ open, onOpenChange, onOrderSuccess, onNotify }: 
       } catch {}
       haptic.success();
       onOpenChange(false);
-      // ALUR REVIEW: tanpa charge — cart dikosongkan (item pindah ke order),
-      // bayar nanti via tombol di tracker setelah admin ACC.
       clearCart();
       try { localStorage.removeItem('kaoskami_cart_pending_order'); } catch {}
       onOrderSuccess(
@@ -580,12 +590,23 @@ export function CheckoutSheet({ open, onOpenChange, onOrderSuccess, onNotify }: 
           invoiceUrl: res.invoiceUrl,
         } as any
       );
-      if (res.paymentUrl) {
-        openDuitkuPaymentModal(res.paymentUrl, () => {
+
+      // Direct QRIS 100% In-App:
+      if ((res as any)?.qrImage || (res as any)?.qrString) {
+        setDirectQrisData({
+          orderId: res.orderId!,
+          orderNumber: res.orderNumber || res.orderId!,
+          amountIdr: grandTotal ?? subtotal,
+          qrImage: (res as any).qrImage,
+          qrString: (res as any).qrString,
+          invoiceUrl: res.invoiceUrl,
+        });
+      } else if (res.paymentUrl) {
+        openPaymentBrowser(res.paymentUrl, () => {
           onNotify?.('Browser pembayaran ditutup. Status pesanan diperbarui otomatis.');
         });
       } else {
-        onNotify?.('Desain terkirim — menunggu ACC admin, lalu bayar dari tab Pesanan.');
+        onNotify?.('Pesanan terkirim — menunggu ACC admin, lalu bayar dari tab Pesanan.');
       }
     } catch (e: any) {
       setFormError(e?.message || 'Checkout gagal. Coba lagi.');
@@ -596,9 +617,10 @@ export function CheckoutSheet({ open, onOpenChange, onOrderSuccess, onNotify }: 
   };
 
   return (
-    <BottomSheet
-      open={open}
-      onOpenChange={onOpenChange}
+    <>
+      <BottomSheet
+        open={open}
+        onOpenChange={onOpenChange}
        title={!isLoggedIn ? 'Login Diperlukan' : step === 1 ? 'Data Penerima' : step === 2 ? 'Pengiriman' : 'Metode Pembayaran'}
       description={!isLoggedIn ? 'Login dulu untuk memesan (tamu tidak bisa order).' : 'Harga dihitung ulang di server. Bayar QRIS, lunas dulu baru produksi.'}
     >
@@ -805,7 +827,7 @@ export function CheckoutSheet({ open, onOpenChange, onOrderSuccess, onNotify }: 
                   }`}
                 >
                   <div className="flex items-center justify-between mb-1">
-                    <span className="text-xs font-bold text-white flex items-center gap-1.5 font-['Syne']">
+                    <span className="text-xs font-bold text-white flex items-center gap-1.5 font-sans">
                       <Truck className="w-3.5 h-3.5 text-[#FF6B35]" />
                       {opt.name}
                     </span>
@@ -823,7 +845,7 @@ export function CheckoutSheet({ open, onOpenChange, onOrderSuccess, onNotify }: 
             {selectedDelivery.id === 'WORKSHOP_PICKUP' && (
               <div className="p-3.5 rounded-2xl bg-zinc-900 border border-emerald-500/40 space-y-2.5">
                 <div className="flex items-center justify-between">
-                  <span className="text-xs font-bold text-white flex items-center gap-1.5 font-['Syne']">
+                  <span className="text-xs font-bold text-white flex items-center gap-1.5 font-sans">
                     <MapPin className="w-4 h-4 text-emerald-400" />
                     {WORKSHOP_LOCATION.name}
                   </span>
@@ -954,7 +976,7 @@ export function CheckoutSheet({ open, onOpenChange, onOrderSuccess, onNotify }: 
 
             {/* Turnaround Tier (Reguler vs Express 24 Jam) */}
             <div className="pt-2 space-y-2">
-              <label className="text-xs font-bold text-white block font-['Syne']">
+              <label className="text-xs font-bold text-white block font-sans">
                 Kecepatan Produksi Sablon DTF:
               </label>
               <div className="grid grid-cols-2 gap-2">
@@ -975,7 +997,7 @@ export function CheckoutSheet({ open, onOpenChange, onOrderSuccess, onNotify }: 
                       }`}
                     >
                       <div className="flex items-center justify-between mb-1">
-                        <span className="text-xs font-bold text-white font-['Syne']">{t.label}</span>
+                        <span className="text-xs font-bold text-white font-sans">{t.label}</span>
                       </div>
                       <span className={`text-[10px] font-bold block mb-1 ${isSelected ? 'text-[#FF6B35]' : 'text-zinc-400'}`}>
                         {t.badge}
@@ -1083,7 +1105,7 @@ export function CheckoutSheet({ open, onOpenChange, onOrderSuccess, onNotify }: 
                 />
                 <p className="text-zinc-500 text-[11px] mt-1">Potongan dihitung server saat pesan.</p>
               </div>
-              <div className="flex justify-between text-sm font-bold text-white border-t border-zinc-800 pt-1.5 mt-1 font-['Syne']">
+              <div className="flex justify-between text-sm font-bold text-white border-t border-zinc-800 pt-1.5 mt-1 font-sans">
                 <span>Total Bayar (Estimasi — dihitung ulang server):</span>
                 <span className="text-[#FF6B35]">
                   {grandTotal === null ? 'menghitung…' : `Rp ${grandTotal.toLocaleString('id-ID')}`}
@@ -1161,5 +1183,26 @@ export function CheckoutSheet({ open, onOpenChange, onOrderSuccess, onNotify }: 
         )}
       </div>
     </BottomSheet>
+
+    {/* Direct QRIS 100% In-App BottomSheet */}
+    {directQrisData && (
+      <DirectQrisSheet
+        open={Boolean(directQrisData)}
+        onOpenChange={(op) => {
+          if (!op) setDirectQrisData(null);
+        }}
+        orderId={directQrisData.orderId}
+        orderNumber={directQrisData.orderNumber}
+        amountIdr={directQrisData.amountIdr}
+        qrImage={directQrisData.qrImage}
+        qrString={directQrisData.qrString}
+        invoiceUrl={directQrisData.invoiceUrl}
+        onPaymentSuccess={() => {
+          setDirectQrisData(null);
+          onNotify?.('Pembayaran berhasil dikonfirmasi! Pesanan masuk antrean produksi.');
+        }}
+      />
+    )}
+  </>
   );
 }

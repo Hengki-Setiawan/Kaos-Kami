@@ -5,19 +5,18 @@ import { eq } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { Payment } from "@/lib/drizzle-schema";
 import { assertResourceOwnerOrAdmin } from "@/lib/security/authGuard";
-import { duitkuProvider } from "@/lib/payments/duitku";
 import { PRODUCTION_TURNAROUND_OPTIONS } from "@/lib/shipping/deliveryOptions";
 import { checkRateLimitAsync, getClientIp, rateLimitHeaders } from "@/lib/security/rateLimiter";
 
 /**
- * POST /api/orders/[id]/request-payment — User/owner buat charge Duitku VIA
+ * POST /api/orders/[id]/request-payment — User/owner buat charge gateway VIA
  * DASHBOARD setelah admin ACC (alur baru owner Sep 2026).
  *
  * Kontrak FINAL (dipakai agent lain — JANGAN ubah nama):
  * - (owner/admin order — assertResourceOwnerOrAdmin) + rate-limit ketat 5/mnt.
  * - HANYA dari PENDING_PAYMENT yang `reviewedBy IS NOT NULL` (pernah di-ACC)
  *   → selain itu 400. Order DESIGN_REVIEW (belum ACC) & REJECTED ditolak di sini.
- * - Buat Duitku charge (pola createCharge warisan checkout route: rincian item
+ * - Buat charge gateway (pola createCharge warisan checkout route: rincian item
  *   dibangun ulang dari baris Order tersimpan agar paymentAmount == Σ item)
  *   → update Payment providerRef + kembalikan { paymentUrl, reference }.
  *
@@ -26,7 +25,7 @@ import { checkRateLimitAsync, getClientIp, rateLimitHeaders } from "@/lib/securi
  *   sini — bayar ulangnya tetap via POST /api/orders/[id]/repay (milik alur lama).
  * - Klien mobile boleh kirim { returnUrlOverride } deep-link APK
  *   `kaoskami://payment/callback?orderId=` (M2, 13 Sep) — default = invoice web.
- * - Webhook Duitku tetap lookup via merchantOrderId (= orderNumber); guard
+ * - Webhook gateway tetap lookup via merchantOrderId (= orderNumber); guard
  *   SETTLEMENT di bawah mencegah charge ganda pasca-lunas.
  */
 
@@ -107,41 +106,23 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       return NextResponse.json({ error: "Input tidak valid" }, { status: 400 });
     }
 
-    // Fail-closed: tolak 503 bila secret Duitku kosong (paritas checkout lama).
+    // Jalur charge aktif: iPaymu Direct QRIS. Kontrak response ke client
+    // ({ success, paymentUrl, qrString, qrImage, reference } + status code)
+    // tidak diubah.
+    const { ipaymuProvider } = await import("@/lib/payments/ipaymu");
+    let charge: any;
+
     try {
-      duitkuProvider.assertDuitkuConfigured();
+      ipaymuProvider.assertConfigured();
     } catch {
       return NextResponse.json(
-        { error: "Pembayaran belum dikonfigurasi. Coba lagi nanti / hubungi admin." },
+        { error: "Pembayaran iPaymu belum dikonfigurasi. Coba lagi nanti / hubungi admin." },
         { status: 503 }
       );
     }
 
-    // Susun ulang rincian agar balance dengan total (syarat Duitku
-    // paymentAmount == Σ item — pola warisan checkout route + repay/route.ts):
-    // snapshot item + ongkir + diskon (negatif) + surcharge EXPRESS.
-    const itemLines = order.items.map((it) => ({
-      name: it.snapshotName.slice(0, 60),
-      price: it.unitPriceIdr,
-      quantity: it.quantity,
-    }));
-    if (order.shippingCostIdr > 0) {
-      itemLines.push({ name: "Ongkos kirim", price: order.shippingCostIdr, quantity: 1 });
-    }
-    if (order.discountIdr > 0) {
-      itemLines.push({ name: "Diskon kupon", price: -order.discountIdr, quantity: 1 });
-    }
-    if (order.courierNotes?.includes("[TIER:EXPRESS_24H]")) {
-      const expressSurcharge =
-        PRODUCTION_TURNAROUND_OPTIONS.find((t) => t.tier === "EXPRESS_24H")?.surchargeIdr ?? 25000;
-      if (expressSurcharge > 0) {
-        itemLines.push({ name: "Surcharge EXPRESS 24H", price: expressSurcharge, quantity: 1 });
-      }
-    }
-
-    let charge;
     try {
-      charge = await duitkuProvider.createCharge({
+      charge = await ipaymuProvider.createCharge({
         orderId: order.id,
         orderNumber: order.orderNumber,
         amountIdr: order.totalIdr,
@@ -150,28 +131,31 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
           phone: order.user?.phoneNumber || "-",
           email: order.user?.email || "customer@kaoskami.biz.id",
         },
-        itemDetails: itemLines,
-        ...(body.data.returnUrlOverride ? { returnUrlOverride: body.data.returnUrlOverride } : {}),
+        paymentMethod: "qris",
+        returnUrlOverride: body.data.returnUrlOverride,
       });
     } catch (chargeErr: any) {
-      console.error("request-payment Duitku charge gagal:", order.id, chargeErr?.message);
+      console.error("request-payment iPaymu charge gagal:", order.id, chargeErr?.message);
       try {
         const { captureException } = await import("@sentry/nextjs").catch(() => ({ captureException: null as any }));
         captureException?.(chargeErr, { extra: { orderId: order.id, orderNumber: order.orderNumber } });
       } catch {}
       return NextResponse.json(
-        { error: "Gagal buat link bayar. Coba lagi / hubungi admin.", detail: chargeErr?.message },
+        { error: "Gagal buat tagihan QRIS iPaymu. Coba lagi / hubungi admin.", detail: chargeErr?.message },
         { status: 502 }
       );
     }
 
+    const providerKey = "IPAYMU";
+
     // Update-in-place (Payment.orderId UNIQUE — pola repay): timpa ref
-    // `pending-*` dengan reference Duitku asli. Baris belum ada (order lama)
+    // `pending-*` dengan reference pembayaran asli. Baris belum ada (order lama)
     // → insert. Method TAK disentuh (mobile menyimpan "QRIS").
     if (order.payment) {
       await db
         .update(Payment)
         .set({
+          provider: providerKey,
           providerRef: charge.reference,
           amountIdr: order.totalIdr,
           status: "PENDING",
@@ -183,14 +167,20 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       await db.insert(Payment).values({
         id: nanoid(),
         orderId: order.id,
-        provider: "DUITKU",
+        provider: providerKey,
         providerRef: charge.reference,
         amountIdr: order.totalIdr,
         status: "PENDING",
       });
     }
 
-    return NextResponse.json({ success: true, paymentUrl: charge.paymentUrl, reference: charge.reference });
+    return NextResponse.json({
+      success: true,
+      paymentUrl: charge.paymentUrl,
+      qrString: charge.qrString,
+      qrImage: charge.qrImage,
+      reference: charge.reference,
+    });
   } catch (e: any) {
     return NextResponse.json({ error: e?.message || "Internal error" }, { status: 500 });
   }

@@ -153,7 +153,7 @@ export const StudioTour: React.FC = () => {
       className="fixed bottom-4 left-1/2 -translate-x-1/2 z-[60] w-[calc(100%-2rem)] max-w-md p-4 rounded-2xl bg-surface/95 border border-brand-accent/40 shadow-[0_0_30px_rgba(230,81,0,0.35)] backdrop-blur-xl"
     >
       <div className="flex items-start justify-between gap-2">
-        <p className="text-xs font-mono font-black text-brand-accent uppercase">{step.judul}</p>
+        <p className="text-xs font-sans font-black text-brand-accent uppercase">{step.judul}</p>
         <button
           onClick={() => tutup(true)}
           aria-label="Tutup panduan"
@@ -223,14 +223,14 @@ export const StudioTour: React.FC = () => {
                 setPesan(null);
                 setLangkah((l) => Math.min(STEPS.length - 1, l + 1));
               }}
-              className="px-4 py-2 rounded-lg bg-brand-accent text-canvas text-[11px] font-mono font-black uppercase flex items-center gap-1"
+              className="px-4 py-2 rounded-lg bg-brand-accent text-canvas text-[11px] font-sans font-black uppercase flex items-center gap-1"
             >
               Lanjut <ChevronRight size={13} />
             </button>
           ) : (
             <button
               onClick={() => tutup(true)}
-              className="px-4 py-2 rounded-lg bg-brand-accent text-canvas text-[11px] font-mono font-black uppercase"
+              className="px-4 py-2 rounded-lg bg-brand-accent text-canvas text-[11px] font-sans font-black uppercase"
             >
               Mengerti!
             </button>

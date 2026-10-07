@@ -1,9 +1,14 @@
 # Salin ke `.dev.vars` (JANGAN commit) untuk `wrangler dev` / OpenNext lokal.
 # Prod WAJIB via: npx wrangler secret put <KEY>
 TURSO_AUTH_TOKEN=""
+# LEGACY / NONAKTIF permanen (jejak audit saja, webhook 410 Gone) — JANGAN set untuk order baru:
 DUITKU_MERCHANT_CODE=""
 DUITKU_API_KEY=""
 DUITKU_ENV=""
+# AKTIF (iPaymu Direct QRIS — prod via `npx wrangler secret put <KEY>`):
+IPAYMU_VA=""
+IPAYMU_API_KEY=""
+IPAYMU_ENV=""
 CLOUDFLARE_API_TOKEN=""
 CLOUDFLARE_ACCOUNT_ID=""
 R2_BUCKET_NAME=""
@@ -21,3 +26,6 @@ CRON_SECRET=""
 AGENWEBSITE_RATE_API_KEY=""
 GOOGLE_CLIENT_ID=""
 GOOGLE_CLIENT_SECRET=""
+# Feature flags UI (default true bila unset/kosong; "false"=rollback darurat)
+NEXT_PUBLIC_GIZMO_SVG=""
+NEXT_PUBLIC_CHECKOUT_V2=""

@@ -32,9 +32,9 @@ export default async function AdminCMSPage() {
     db.query.ColorOption.findMany({ orderBy: (t, { asc }) => asc(t.sortOrder) }),
   ]);
   return (
-    <div className="p-5 sm:p-8 space-y-6 max-w-6xl mx-auto font-mono text-xs">
+    <div className="p-5 sm:p-8 space-y-6 max-w-6xl mx-auto font-sans text-xs">
         <div className="pb-4 border-b border-border-subtle">
-        <h1 className="font-display text-2xl font-black uppercase text-text-primary">CMS — KELOLA SELURUH WEBSITE</h1>
+        <h1 className="font-sans text-2xl font-bold uppercase text-text-primary">CMS — KELOLA SELURUH WEBSITE</h1>
         <p className="text-text-muted">Hero, Lookbook, Banner, SEO, Katalog — edit tanpa deploy via R2 + Turso</p>
       </div>
 

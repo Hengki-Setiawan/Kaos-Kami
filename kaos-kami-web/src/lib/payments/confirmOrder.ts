@@ -1,5 +1,5 @@
 // src/lib/payments/confirmOrder.ts — SATU-SATUNYA jalan pengesahan lunas.
-// Dipakai webhook Duitku DAN pengecekan ulang saat bayar-ulang (repay).
+// Dipakai webhook gateway (iPaymu) DAN pengecekan ulang saat bayar-ulang (repay).
 // Idempoten via race-guard (hanya PENDING_PAYMENT yang bisa menang) sehingga
 // callback ganda / repay + webhook bersamaan TIDAK pernah spawn task 2x.
 import { and, eq, sql } from "drizzle-orm";
@@ -86,7 +86,7 @@ export async function confirmOrderPaid(
           });
           const rawMaster = (design as any)?.masterAssetUrl as string | null;
           // K2: masterMap nilai bisa string https ATAU {url,at} (arsip panel
-          // PatternStudio) — normalisasi via pickMasterVal di bawah.
+          // jalur per-panel) — normalisasi via pickMasterVal di bawah.
           let masterMap: Record<string, unknown> = {};
           if (rawMaster) {
             try {

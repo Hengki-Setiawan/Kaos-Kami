@@ -474,7 +474,7 @@ export function AdminMobileDashboard({
               <ShieldCheck className="w-6 h-6" />
             </div>
             <div>
-              <h2 className="text-sm font-bold text-white font-['Syne']">Admin Mobile Workshop</h2>
+              <h2 className="text-sm font-bold text-white font-sans">Admin Mobile Workshop</h2>
               <p className="text-[11px] text-zinc-400">Login sesi admin nyata (better-auth) — tanpa demo diam</p>
             </div>
           </div>
@@ -558,7 +558,7 @@ export function AdminMobileDashboard({
               <ShieldCheck className="w-6 h-6" />
             </div>
             <div>
-              <h2 className="text-sm font-bold text-white font-['Syne']">Admin Mobile Workshop</h2>
+              <h2 className="text-sm font-bold text-white font-sans">Admin Mobile Workshop</h2>
               <p className="text-[11px] text-zinc-400">Pusat Moderasi Desain & Sablon DTF</p>
               <p className="text-[10px] mt-0.5 font-mono">
                 {demoExplicit ? (
@@ -759,7 +759,7 @@ export function AdminMobileDashboard({
                       </div>
                     )}
                     <div className="flex-1 min-w-0">
-                      <h4 className="font-bold text-white leading-tight truncate font-['Syne']">{ord.apparelTitle}</h4>
+                      <h4 className="font-bold text-white leading-tight truncate font-sans">{ord.apparelTitle}</h4>
                       <p className="text-[11px] text-zinc-400 mt-0.5 truncate">
                         {ord.customerName || 'Pelanggan'} • {ord.colorName} • Size {ord.size} • Sablon{' '}
                         {ord.printWidthCm > 0 && ord.printHeightCm > 0
@@ -1014,7 +1014,7 @@ export function AdminMobileDashboard({
           <div className="space-y-4 py-2 pb-8">
             {/* Spesifikasi Teknis DTF Sablon */}
             <div className="p-3.5 rounded-2xl bg-zinc-900 border border-zinc-800 space-y-2 text-xs">
-              <h4 className="font-bold text-white font-['Syne']">Kalibrasi Sablon Workshop:</h4>
+              <h4 className="font-bold text-white font-sans">Kalibrasi Sablon Workshop:</h4>
               <div className="grid grid-cols-2 gap-2 text-zinc-400">
                 <div>
                   <span className="text-[10px] text-zinc-500 block">Pelanggan:</span>
@@ -1180,7 +1180,7 @@ export function AdminMobileDashboard({
 
             {/* Quick WhatsApp Dispatch Makassar */}
             <div className="p-3 rounded-2xl bg-zinc-900 border border-zinc-800 space-y-2 text-xs">
-              <span className="font-bold text-white block font-['Syne']">
+              <span className="font-bold text-white block font-sans">
                 Dispatch WhatsApp Pelanggan:
               </span>
               <div className="grid grid-cols-1 gap-1.5">

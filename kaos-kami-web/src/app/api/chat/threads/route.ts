@@ -3,11 +3,16 @@ import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { ChatMessage, User, UserPresence } from "@/lib/drizzle-schema";
 import { eq, or, and, desc, inArray } from "drizzle-orm";
+import { checkRateLimitAsync, getClientIp, rateLimitHeaders } from "@/lib/security/rateLimiter";
 
 export const dynamic = "force-dynamic";
 
 export async function GET(req: NextRequest) {
   try {
+    const rl = await checkRateLimitAsync(`chat-threads:ip:${getClientIp(req)}`, 30, 60);
+    if (rl.isLimited) {
+      return NextResponse.json({ error: "Terlalu sering. Tunggu sebentar." }, { status: 429, headers: rateLimitHeaders(rl, 30) });
+    }
     const session = await auth.api.getSession({ headers: req.headers }).catch(() => null);
     const user = session?.user;
     if (!user?.id) {

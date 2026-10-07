@@ -47,13 +47,13 @@ export const WORKSHOP_LOCATION: WorkshopLocation = {
 export const MAKASSAR_DELIVERY_OPTIONS: DeliveryOption[] = [
   {
     method: "PICKUP",
-    name: "Ambil di Workshop Kaos Kami (Tallo) — Rp 0",
-    description: "Ambil langsung di workshop Kaos Kami (Jl. Galangan Kapal, Lrg. Permandian 1, Tallo) setelah sablon selesai (Gratis).",
+    name: "Ambil di Workshop Kaos Kami · Rp 0",
+    description: "Ambil mandiri langsung di workshop Kaos Kami setelah pesanan selesai diproduksi (Gratis).",
     costIdr: 0,
   },
   {
     method: "FREE_MAKASSAR",
-    name: "Diantar Tim Kaos Kami — Gratis se-Kota Makassar (Rp 0)",
+    name: "Diantar Tim Kaos Kami · Gratis se-Kota Makassar (Rp 0)",
     description: "Tim kami antar langsung ke alamatmu di Kota Makassar, gratis tanpa minimal belanja (1-2 hari setelah produksi).",
     costIdr: 0,
   },

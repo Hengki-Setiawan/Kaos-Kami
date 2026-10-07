@@ -42,9 +42,9 @@ export function isTerminalStatus(s: string): boolean {
   return (TERMINAL_STATUSES as readonly string[]).includes(s);
 }
 
-// Rantai maju utama (alur baru owner Sep 2026 — review desain dulu):
+// Rantai maju utama (review desain dulu):
 // DESIGN_REVIEW → PENDING_PAYMENT (via approve admin) → PAYMENT_CONFIRMED
-// (via SYSTEM webhook Duitku / via request-payment + bayar user)
+// (via webhook sistem / via request-payment + bayar user)
 // → IN_PRODUCTION_QUEUE → PRINTING → QUALITY_CHECK → READY_TO_SHIP
 // → SHIPPED → DELIVERED → COMPLETED
 // DESIGN_REVIEW → REJECTED (via reject admin, terminal + alasan wajib).
@@ -64,7 +64,7 @@ const ADMIN_REFUND_FROM: OrderStatus[] = [
 
 /** Rantai produksi penuh untuk ADMIN/SUPER_ADMIN (termasuk jalur finansial). */
 const ADMIN_CHAIN: Partial<Record<OrderStatus, OrderStatus[]>> = {
-  // Alur review (owner Sep 2026): approve → PENDING_PAYMENT (user bayar via
+  // Alur review: approve → PENDING_PAYMENT (user bayar via
   // dashboard /api/orders/[id]/request-payment), reject → REJECTED (terminal).
   DESIGN_REVIEW: ["PENDING_PAYMENT", "REJECTED"],
   PENDING_PAYMENT: ["PAYMENT_CONFIRMED", "CANCELLED"],
@@ -85,7 +85,7 @@ const ADMIN_CHAIN: Partial<Record<OrderStatus, OrderStatus[]>> = {
  * - PRODUCTION_STAFF: hanya gerak produksi maju (+ rework QC→PRINTING,
  *   + COMPLETED dari READY_TO_SHIP/SHIPPED/DELIVERED). Tanpa CANCELLED/REFUNDED,
  *   tanpa konfirmasi pembayaran, tanpa review desain.
- * - SYSTEM: otomasi pembayaran & pengiriman (webhook Duitku, cron kedaluwarsa,
+ * - SYSTEM: otomasi pembayaran & pengiriman (webhook, cron kedaluwarsa,
  *   auto-complete). Tanpa cancel/refund manual, tanpa review.
  *   (PENDING_PAYMENT kini dicapai via approve admin; path webhook SYSTEM
  *   PENDING_PAYMENT → PAYMENT_CONFIRMED tetap seperti semula.)

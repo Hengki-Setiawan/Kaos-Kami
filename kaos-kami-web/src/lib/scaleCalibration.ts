@@ -503,6 +503,8 @@ export interface PhysicalPrintDimension {
   offsetFromCollarCm: number;
   isWithinProductionLimits: boolean;
   formattedText: string;
+  maxWidthCm: number;
+  maxHeightCm: number;
 }
 
 /**
@@ -574,6 +576,8 @@ export function computePhysicalPrintDimensions(
     offsetFromCollarCm,
     isWithinProductionLimits,
     formattedText,
+    maxWidthCm: maxWidth,
+    maxHeightCm: maxHeight,
   };
 }
 
@@ -681,39 +685,52 @@ export function getDecal3DPlacement(
   if (targetSide === "back") {
     const isCap = apparelType === "cap";
     const backZ = isCap ? 0.155 : surfaceZ;
-    const depth = isCap ? 0.16 : Math.max(0.14, 0.32 - Math.max(0, Math.abs(decalX) - 0.08) * 1.5);
+    if (isCap) {
+      return {
+        position: [decalX, decalY, -(backZ + EPS)],
+        rotation: [0, Math.PI, 0],
+        projectionDepth: 0.16,
+      };
+    }
+
+    // Torso Curvature Math (Ellipse Orbit Projection - Punggung):
+    const sideRadiusX = spec.sideAnchorX ?? 0.185;
+    const flatDeadzone = 0.04;
+    const excessX = Math.max(0, Math.abs(decalX) - flatDeadzone);
+    const maxSpan = Math.max(0.01, sideRadiusX - flatDeadzone);
+    const curveRatio = Math.min(1.0, excessX / maxSpan);
+
+    const signX = decalX >= 0 ? 1 : -1;
+    const yawAngle = signX * (curveRatio * (Math.PI / 2) * 0.92);
+    const curvedZ = backZ * Math.cos(yawAngle);
+    const depth = Math.max(0.18, 0.30 - curveRatio * 0.08);
+
     return {
-      position: [decalX, decalY, -(backZ + EPS)],
-      rotation: [0, Math.PI, 0],
+      position: [decalX, decalY, -(curvedZ + EPS)],
+      rotation: [0, Math.PI - yawAngle, 0],
       projectionDepth: depth,
     };
   }
 
-  if (targetSide === "side_left") {
+  if (targetSide === "side_left" || targetSide === "side_right") {
+    const isRight = targetSide === "side_right";
     const isCap = apparelType === "cap";
     const isPantsOrShorts = apparelType === "pants" || apparelType === "shorts";
     const sideX = spec.sideAnchorX ?? 0.185;
-    // Untuk cap, pusat mahkota Z = -0.055. Untuk baju/celana Z = 0
     const centerZ = isCap ? -0.055 : 0;
-    const posZ = centerZ + Math.max(-0.08, Math.min(0.08, decalX));
-    const depth = isCap ? 0.14 : isPantsOrShorts ? 0.20 : 0.16;
-    return {
-      position: [-(sideX + EPS), decalY, posZ],
-      rotation: [0, -Math.PI / 2, 0],
-      projectionDepth: depth,
-    };
-  }
+    const clampedZ = Math.max(-0.10, Math.min(0.10, decalX));
+    const posZ = centerZ + clampedZ;
+    const depth = isCap ? 0.14 : isPantsOrShorts ? 0.20 : 0.18;
 
-  if (targetSide === "side_right") {
-    const isCap = apparelType === "cap";
-    const isPantsOrShorts = apparelType === "pants" || apparelType === "shorts";
-    const sideX = spec.sideAnchorX ?? 0.185;
-    const centerZ = isCap ? -0.055 : 0;
-    const posZ = centerZ + Math.max(-0.08, Math.min(0.08, decalX));
-    const depth = isCap ? 0.14 : isPantsOrShorts ? 0.20 : 0.16;
+    // Kelengkungan rusuk samping (Torso Orbit 360°):
+    const zRatio = Math.max(-1, Math.min(1, clampedZ / 0.10));
+    const baseRotationY = isRight ? Math.PI / 2 : -Math.PI / 2;
+    const sideAngleOffset = isRight ? -zRatio * 0.45 : zRatio * 0.45;
+    const curvedX = sideX * Math.cos(Math.abs(zRatio) * 0.35);
+
     return {
-      position: [sideX + EPS, decalY, posZ],
-      rotation: [0, Math.PI / 2, 0],
+      position: [isRight ? (curvedX + EPS) : -(curvedX + EPS), decalY, posZ],
+      rotation: [0, baseRotationY + sideAngleOffset, 0],
       projectionDepth: depth,
     };
   }
@@ -769,12 +786,65 @@ export function getDecal3DPlacement(
     };
   }
 
-  // Default: Front (Dada) - Depth 0.32 di tengah, mengecil saat mendekati rusuk (|x|>0.08)
-  const depth = Math.max(0.14, 0.32 - Math.max(0, Math.abs(decalX) - 0.08) * 1.5);
+  // Default: Front (Dada) - Curvature-Adaptive Torso Orbit (0% Melar / Shearing)
+  const isCap = apparelType === "cap";
+  if (isCap) {
+    return {
+      position: [decalX, decalY, surfaceZ + EPS],
+      rotation: [0, 0, 0],
+      projectionDepth: 0.16,
+    };
+  }
+
+  // Torso Curvature Math (Ellipse Orbit Projection - Dada Depan):
+  // Saat |decalX| > 0.04, kain mulai melengkung ke samping/belakang menuju rusuk.
+  // Proyektor otomatis memutar sudut yaw (rotation.y) menghadap tegak lurus ke bidang kain (0% MELAR),
+  // dan posisi Z mundur mengikuti busur kelengkungan silinder torso.
+  const sideRadiusX = spec.sideAnchorX ?? 0.185;
+  const flatDeadzone = 0.04;
+  const excessX = Math.max(0, Math.abs(decalX) - flatDeadzone);
+  const maxSpan = Math.max(0.01, sideRadiusX - flatDeadzone);
+  const curveRatio = Math.min(1.0, excessX / maxSpan);
+
+  // Sudut putar normal permukaan kain (dalam radian)
+  const signX = decalX >= 0 ? 1 : -1;
+  const yawAngle = signX * (curveRatio * (Math.PI / 2) * 0.92);
+
+  // Posisi Z melengkung mengikuti busur silinder (menempel di kain, tidak melayang di depan)
+  const curvedZ = surfaceZ * Math.cos(yawAngle);
+
+  // Depth tetap stabil karena proyektor sekarang tegak lurus
+  const depth = Math.max(0.18, 0.30 - curveRatio * 0.08);
+
   return {
-    position: [decalX, decalY, surfaceZ + EPS],
-    rotation: [0, 0, 0],
+    position: [decalX, decalY, curvedZ + EPS],
+    rotation: [0, yawAngle, 0],
     projectionDepth: depth,
   };
+}
+
+/** Cache aspek rasio gambar alami (width / height) terisi saat tekstur dimuat. */
+export const imageAspectCache = new Map<string, number>();
+
+/**
+ * Dapatkan aspek rasio decal secara sinkron:
+ * 1. printPx.w / printPx.h (bila tersedia dan valid)
+ * 2. imageAspectCache (bila URL tekstur sudah pernah dimuat)
+ * 3. Fallback 1.0
+ */
+export function getDecalAspect(
+  decal?: { printPx?: { w?: unknown; h?: unknown }; url?: string } | null
+): number {
+  if (!decal) return 1.0;
+  const pw = Number(decal.printPx?.w);
+  const ph = Number(decal.printPx?.h);
+  if (pw > 0 && ph > 0) return pw / ph;
+  if (decal.url && imageAspectCache.has(decal.url)) {
+    const cached = imageAspectCache.get(decal.url);
+    if (typeof cached === "number" && cached > 0 && Number.isFinite(cached)) {
+      return cached;
+    }
+  }
+  return 1.0;
 }
 

@@ -99,7 +99,7 @@ export function buildOrderConfirmedMessage(order: {
   invoiceUrl: string;
 }) {
   return [
-    `*KAOS KAMI MAKASSAR — PESANAN DIKONFIRMASI* ✅`,
+    `*KAOS KAMI MAKASSAR · PESANAN DIKONFIRMASI* ✅`,
     `Halo *${order.recipientName}*, terima kasih telah memesan sablon DTF di Kaos Kami!`,
     ``,
     `📋 *No. Pesanan:* ${order.orderNumber}`,

@@ -5,6 +5,7 @@ import { Fingerprint, ShieldAlert, CheckCircle2, Lock } from 'lucide-react';
 import { HapticButton, GlassCard } from '@/components/ui';
 import { verifyUserBiometrics } from '@/lib/bridge/biometrics';
 import { haptic } from '@/lib/bridge/haptics';
+import { Z_CLASS_AUTH } from '@/lib/zIndex';
 
 export function BiometricLockPrompt({
   title = 'Autentikasi Diperlukan',
@@ -81,14 +82,14 @@ export function BiometricLockPrompt({
   };
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-4">
+    <div className={`fixed inset-0 ${Z_CLASS_AUTH} bg-black/80 backdrop-blur-md flex items-center justify-center p-4`}>
       <GlassCard className="max-w-xs w-full p-6 text-center space-y-4 border-orange-500/30">
         <div className="w-16 h-16 rounded-3xl bg-orange-500/15 border border-orange-500/30 mx-auto flex items-center justify-center text-[#FF6B35]">
           <Fingerprint className="w-8 h-8 animate-pulse" />
         </div>
 
         <div>
-          <h3 className="text-base font-bold text-white font-['Syne']">{title}</h3>
+          <h3 className="text-base font-bold text-white font-sans">{title}</h3>
           <p className="text-xs text-zinc-400 mt-1 leading-relaxed">{description}</p>
         </div>
 

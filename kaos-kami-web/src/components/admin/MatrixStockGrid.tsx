@@ -183,7 +183,7 @@ export function MatrixStockGrid({ categories, initialVariants }: MatrixStockGrid
             <span className="p-1.5 rounded-lg bg-brand-accent/10 text-brand-accent">
               <Layers className="w-5 h-5" />
             </span>
-            <h2 className="font-display text-xl sm:text-2xl font-black uppercase text-text-primary tracking-wide">
+            <h2 className="font-sans text-xl sm:text-2xl font-bold uppercase text-text-primary tracking-wide">
               INVENTORY MATRIX GRID (MULTI-DIMENSI)
             </h2>
           </div>
@@ -254,25 +254,25 @@ export function MatrixStockGrid({ categories, initialVariants }: MatrixStockGrid
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
         <div className="p-3.5 rounded-2xl bg-surface border border-border-subtle flex flex-col justify-between">
           <span className="text-text-muted uppercase text-[10px] font-bold">TOTAL STOK FISIK</span>
-          <span className="font-display text-2xl font-black text-text-primary mt-1">
+          <span className="font-mono text-2xl font-bold tabular-nums text-text-primary mt-1">
             {catTotalStock.toLocaleString("id-ID")} <span className="text-xs font-mono font-normal text-text-muted">pcs</span>
           </span>
         </div>
         <div className="p-3.5 rounded-2xl bg-surface border border-border-subtle flex flex-col justify-between">
           <span className="text-text-muted uppercase text-[10px] font-bold">JUMLAH SKU VARIAN</span>
-          <span className="font-display text-2xl font-black text-brand-accent mt-1">
+          <span className="font-mono text-2xl font-bold tabular-nums text-brand-accent mt-1">
             {catVariants.length} <span className="text-xs font-mono font-normal text-text-muted">SKU</span>
           </span>
         </div>
         <div className="p-3.5 rounded-2xl bg-surface border border-border-subtle flex flex-col justify-between">
           <span className="text-text-muted uppercase text-[10px] font-bold">STOK MENIPIS (1-5 PCS)</span>
-          <span className={`font-display text-2xl font-black mt-1 ${catLowCount > 0 ? "text-amber-400" : "text-text-muted"}`}>
+          <span className={`font-mono text-2xl font-bold tabular-nums mt-1 ${catLowCount > 0 ? "text-amber-400" : "text-text-muted"}`}>
             {catLowCount} <span className="text-xs font-mono font-normal text-text-muted">varian</span>
           </span>
         </div>
         <div className="p-3.5 rounded-2xl bg-surface border border-border-subtle flex flex-col justify-between">
           <span className="text-text-muted uppercase text-[10px] font-bold">STOK HABIS (0 PCS)</span>
-          <span className={`font-display text-2xl font-black mt-1 ${catOutCount > 0 ? "text-rose-400" : "text-emerald-400"}`}>
+          <span className={`font-mono text-2xl font-bold tabular-nums mt-1 ${catOutCount > 0 ? "text-rose-400" : "text-emerald-400"}`}>
             {catOutCount} <span className="text-xs font-mono font-normal text-text-muted">varian</span>
           </span>
         </div>
@@ -352,7 +352,7 @@ export function MatrixStockGrid({ categories, initialVariants }: MatrixStockGrid
                       <div>
                         <span className="font-bold text-text-primary block text-xs">{group.colorName}</span>
                         <div className="flex items-center gap-1.5 mt-0.5">
-                          <span className="text-[10px] font-mono text-text-muted">{group.colorHex.toUpperCase()}</span>
+                          <span className="text-[10px] font-mono tabular-nums text-text-muted">{group.colorHex.toUpperCase()}</span>
                           <span className="text-[9px] px-1.5 py-px rounded bg-surface-elevated border border-border-subtle text-text-muted font-bold">
                             Total: {rowTotal} pcs
                           </span>

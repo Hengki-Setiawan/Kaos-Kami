@@ -46,7 +46,7 @@ export function validSidesFor(apparel: ApparelType): MobilePatternSide[] {
   return validSidesForMobile(apparel);
 }
 
-/** Global clamp printhead DTF 30.0cm (cermin web REAL_WORLD_PRINT_LIMITS). */
+/** Global clamp batas DTF 30.0cm (cermin web REAL_WORLD_PRINT_LIMITS). */
 export const DTF_MAX_WIDTH_CM = 30.0;
 
 export function clampWidthToDtf(w: number): number {
@@ -114,7 +114,7 @@ export function validatePrecisionInput(
   if (!Number.isFinite(widthCm) || widthCm <= 0) errors.push('Lebar harus angka > 0 cm.');
   if (!Number.isFinite(heightCm) || heightCm <= 0) errors.push('Tinggi harus angka > 0 cm.');
   if (Number.isFinite(widthCm) && widthCm > DTF_MAX_WIDTH_CM) {
-    errors.push(`Lebar ${widthCm}cm melebihi printhead DTF ${DTF_MAX_WIDTH_CM}cm — diklem otomatis.`);
+    errors.push(`Lebar ${widthCm}cm melebihi batas DTF ${DTF_MAX_WIDTH_CM}cm — diklem otomatis.`);
   }
   if (Number.isFinite(widthCm) && widthCm > lim.maxWcm) {
     errors.push(`Lebar ${widthCm}cm melebihi batas sisi ${MOBILE_SIDE_LABELS[side]} (${lim.maxWcm}cm).`);

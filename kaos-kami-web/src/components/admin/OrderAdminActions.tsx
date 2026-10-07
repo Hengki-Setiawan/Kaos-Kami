@@ -37,6 +37,7 @@ export function OrderAdminActions({
   const [busyAction, setBusyAction] = useState<"resi" | "batal" | "refund" | "completed" | "ready" | "shipped" | "delivered" | "sync" | null>(null);
   const [msg, setMsg] = useState<string | null>(null);
   const [asking, setAsking] = useState<"batal" | "refund" | "completed" | null>(null);
+  const [reasonInput, setReasonInput] = useState("");
 
   // Kelayakan aksi per status — tombol ilegal disembunyikan (server tetap memvalidasi).
   const isTerminal = TERMINAL.includes(orderStatus || "");
@@ -130,17 +131,25 @@ export function OrderAdminActions({
   };
 
   const doAsk = async (kind: "batal" | "refund") => {
+    const reason = reasonInput.trim();
     setAsking(null);
     setBusyAction(kind);
     setMsg(null);
     try {
       if (kind === "batal") {
-        await callApi({ cancel: true });
+        await callApi({
+          cancel: true,
+          cancelReason: reason || "Dibatalkan oleh workshop via admin.",
+        });
         setMsg("✅ Order dibatalkan.");
       } else {
-        await callApi({ refund: true });
+        await callApi({
+          refund: true,
+          refundReason: reason || "Dana dikembalikan manual via transfer/QRIS oleh admin.",
+        });
         setMsg("✅ Order ditandai REFUNDED.");
       }
+      setReasonInput("");
       router.refresh();
     } catch (e: any) {
       setMsg(`❌ ${e?.message || "Gagal"}`);
@@ -151,7 +160,7 @@ export function OrderAdminActions({
 
   if (isTerminal) {
     return (
-      <div className="p-4 rounded-xl bg-surface/60 border border-white/5 space-y-3 font-mono text-xs">
+      <div className="p-4 rounded-xl bg-surface/60 border border-white/5 space-y-3 font-sans text-sm">
         <p className="text-[11px] text-text-muted">
           Order {orderStatus} bersifat final — tidak ada aksi workshop yang tersedia.
         </p>
@@ -160,7 +169,7 @@ export function OrderAdminActions({
   }
 
   return (
-    <div className="p-4 rounded-xl bg-surface/60 border border-white/5 space-y-3 font-mono text-xs">
+    <div className="p-4 rounded-xl bg-surface/60 border border-white/5 space-y-3 font-sans text-sm">
       {/* Quick Status Advance Buttons */}
       {showQuickAdvance && (
         <div className="flex flex-wrap gap-2 pb-2 border-b border-white/5">
@@ -198,7 +207,7 @@ export function OrderAdminActions({
             <button
               onClick={() => void doSetStatus("DELIVERED")}
               disabled={busyAction !== null}
-              className="px-3.5 py-2 rounded-xl bg-violet-500/20 border border-violet-500/40 hover:bg-violet-500 hover:text-white text-violet-300 font-bold uppercase tracking-wider text-[11px] disabled:opacity-50 transition-all"
+              className="px-3.5 py-2 rounded-xl bg-surface border border-border-subtle hover:border-emerald-500/50 text-text-primary font-bold uppercase tracking-wider text-[11px] disabled:opacity-50 transition-all"
             >
               <span>{busyAction === "delivered" ? "…" : "📬 Tandai Diterima (DELIVERED)"}</span>
             </button>
@@ -227,7 +236,7 @@ export function OrderAdminActions({
         </div>
       )}
 
-      {/* Cek & Sinkronkan Duitku */}
+      {/* Cek & sinkronkan status pembayaran */}
       {canSyncPayment && (
         <div className="flex flex-wrap gap-2">
           <button
@@ -258,7 +267,7 @@ export function OrderAdminActions({
               disabled={busyAction !== null}
               className="px-4 py-2 rounded-xl bg-amber-500/10 border border-amber-500/40 text-amber-300 font-bold uppercase tracking-wider text-[11px] hover:bg-amber-500/20 disabled:opacity-50 transition-all"
             >
-              {busyAction === "refund" ? "…" : "Tandai refund (dana via Duitku)"}
+              {busyAction === "refund" ? "…" : "Tandai refund (iPaymu / Transfer)"}
             </button>
           )}
         </div>
@@ -277,23 +286,55 @@ export function OrderAdminActions({
       <ConfirmDialog
         open={asking === "batal"}
         title="Batalkan order?"
-        message="Hanya untuk status PENDING/CONFIRMED. Stok & kuota kupon dikembalikan server."
+        message="Hanya untuk status PENDING/CONFIRMED. Masukkan alasan pembatalan agar pembeli mengetahui penjelasannya di halaman pesanan:"
         confirmLabel="YA, BATALKAN"
         danger
         busy={busyAction === "batal"}
         onConfirm={() => doAsk("batal")}
-        onCancel={() => setAsking(null)}
-      />
+        onCancel={() => {
+          setAsking(null);
+          setReasonInput("");
+        }}
+      >
+        <div className="space-y-1.5 mt-2">
+          <label className="block text-[11px] font-mono text-zinc-400">
+            Alasan Pembatalan (Dilihat Pelanggan):
+          </label>
+          <textarea
+            value={reasonInput}
+            onChange={(e) => setReasonInput(e.target.value.slice(0, 300))}
+            placeholder="Contoh: Stok warna kain habis di distributor / Permintaan pembeli via WhatsApp"
+            rows={2}
+            className="w-full px-3 py-2 rounded-xl bg-zinc-900 border border-white/10 text-xs text-white placeholder:text-zinc-500 focus:outline-none focus:border-red-500"
+          />
+        </div>
+      </ConfirmDialog>
       <ConfirmDialog
         open={asking === "refund"}
-        title="Tandai refund?"
-        message="Pastikan dana SUDAH dikembalikan via dashboard Duitku — ini hanya pencatatan, bukan transfer otomatis."
+        title="Tandai refund dana?"
+        message="Pastikan dana SUDAH ditransfer balik ke pembeli via transfer bank / QRIS iPaymu. Masukkan catatan refund:"
         confirmLabel="YA, TANDAI REFUND"
         danger
         busy={busyAction === "refund"}
         onConfirm={() => doAsk("refund")}
-        onCancel={() => setAsking(null)}
-      />
+        onCancel={() => {
+          setAsking(null);
+          setReasonInput("");
+        }}
+      >
+        <div className="space-y-1.5 mt-2">
+          <label className="block text-[11px] font-mono text-zinc-400">
+            Keterangan Refund (Dilihat Pelanggan):
+          </label>
+          <textarea
+            value={reasonInput}
+            onChange={(e) => setReasonInput(e.target.value.slice(0, 300))}
+            placeholder="Contoh: Pengembalian dana Rp 150.000 ke Rek BCA pembeli karena kendala file cetak"
+            rows={2}
+            className="w-full px-3 py-2 rounded-xl bg-zinc-900 border border-white/10 text-xs text-white placeholder:text-zinc-500 focus:outline-none focus:border-amber-500"
+          />
+        </div>
+      </ConfirmDialog>
     </div>
   );
 }

@@ -4,15 +4,78 @@ import React, { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import Image from "next/image";
 import Link from "next/link";
-import { X, ShoppingBag, Trash2, Plus, Minus, ArrowRight, ShieldCheck } from "lucide-react";
+import { X, ShoppingBag, Trash2, Plus, Minus, ArrowRight, ShieldCheck, Sparkles } from "lucide-react";
 import { useCartStore } from "@/store/useCartStore";
 import { useShallow } from "zustand/shallow";
 import { CheckoutModal } from "./CheckoutModal";
+import { CheckoutModalLegacy } from "./CheckoutModalLegacy";
+
+// Amandemen Bab 56 A2: flag rollback 1-env. Default true (V2 2-tahap).
+// Rollback darurat: set NEXT_PUBLIC_CHECKOUT_V2=false lalu restart/redeploy.
+const USE_CHECKOUT_V2 = process.env.NEXT_PUBLIC_CHECKOUT_V2 !== "false";
+const ActiveCheckoutModal = USE_CHECKOUT_V2 ? CheckoutModal : CheckoutModalLegacy;
 import { isSafeImageUrl } from "@/lib/safeUrl";
 import { fetchServerPriceMap, formatIdr } from "@/lib/cartPriceRefresh";
+import { Z_CLASS_CART } from "@/lib/zIndex";
+
+/** 3 rekomendasi terlaris (data statis dari katalog existing — cermin
+ *  DEFAULT_SHOWCASE StoreShowcaseSection; tambah-ke-cart via store). */
+const BESTSELLERS: Array<{
+  id: string;
+  name: string;
+  priceIdr: number;
+  size: string;
+  colorName: string;
+  colorHex: string;
+  image: string;
+  apparelSlug: string;
+  productVariantId: string;
+  stockQty: number;
+  rank: string;
+}> = [
+  {
+    id: "cmtgx5swk000kush0030f43il",
+    name: "Kaos Polos Combed 24s - Hitam",
+    priceIdr: 165000,
+    size: "L",
+    colorName: "Hitam",
+    colorHex: "#121214",
+    image: "/products/tshirt-black.jpg",
+    apparelSlug: "tshirt",
+    productVariantId: "cmtgx5swk000kush0030f43il-l",
+    stockQty: 48,
+    rank: "#1 Terlaris",
+  },
+  {
+    id: "cmtgx5tab000qush0tyeaysce",
+    name: "Hoodie Boxy Fleece - Hitam",
+    priceIdr: 285000,
+    size: "L",
+    colorName: "Hitam",
+    colorHex: "#121214",
+    image: "/products/hoodie-black.jpg",
+    apparelSlug: "hoodie",
+    productVariantId: "cmtgx5tab000qush0tyeaysce-l",
+    stockQty: 19,
+    rank: "#2 Terlaris",
+  },
+  {
+    id: "cmtgx5t0q000mush0jv2muo0e",
+    name: "Kaos Polos Combed 24s - Putih Ecru",
+    priceIdr: 165000,
+    size: "L",
+    colorName: "Putih Ecru",
+    colorHex: "#EFECE6",
+    image: "/products/tshirt-white-ecru.jpg",
+    apparelSlug: "tshirt",
+    productVariantId: "cmtgx5t0q000mush0jv2muo0e-l",
+    stockQty: 29,
+    rank: "#3 Terlaris",
+  },
+];
 
 export const CartDrawer: React.FC = () => {
-  const { items, isCartOpen, closeCart, updateQuantity, removeItem, getTotalPrice, getTotalCount } =
+  const { items, isCartOpen, closeCart, updateQuantity, removeItem, getTotalPrice, getTotalCount, addItem } =
     useCartStore(
       useShallow((s) => ({
         items: s.items,
@@ -22,6 +85,7 @@ export const CartDrawer: React.FC = () => {
         removeItem: s.removeItem,
         getTotalPrice: s.getTotalPrice,
         getTotalCount: s.getTotalCount,
+        addItem: s.addItem,
       }))
     );
   const [isCheckoutModalOpen, setIsCheckoutModalOpen] = useState(false);
@@ -118,14 +182,14 @@ export const CartDrawer: React.FC = () => {
     <>
       {/* Modal checkout DI ATAS early-return (audit #35): closeCart() saat
           klik checkout tidak boleh meng-unmount modal ini. */}
-      <CheckoutModal
+      <ActiveCheckoutModal
         isOpen={isCheckoutModalOpen}
         onClose={() => setIsCheckoutModalOpen(false)}
         checkoutMode="cart"
       />
       {isCartOpen && isClient && typeof document !== "undefined" && createPortal(
       <div
-        className="fixed inset-0 z-[110] flex justify-end"
+        className={`fixed inset-0 ${Z_CLASS_CART} flex justify-end`}
         data-lenis-prevent="true"
         role="dialog"
         aria-modal="true"
@@ -147,11 +211,8 @@ export const CartDrawer: React.FC = () => {
           <div className="p-5 border-b border-border-subtle flex items-center justify-between">
             <div className="flex items-center space-x-2">
               <ShoppingBag size={18} className="text-brand-accent" />
-              <span className="font-display font-black text-base uppercase tracking-tight">
-                KERANJANG BELANJA
-              </span>
-              <span className="px-2 py-0.5 rounded-full bg-brand-accent/20 text-brand-accent font-mono text-xs font-bold">
-                {totalCount}
+              <span className="font-sans font-bold text-base tracking-tight">
+                Keranjang ({totalCount})
               </span>
             </div>
             <button
@@ -167,16 +228,96 @@ export const CartDrawer: React.FC = () => {
           {/* Item List */}
           <div className="flex-1 overflow-y-auto p-5 space-y-4">
             {items.length === 0 ? (
-              <div className="h-full flex flex-col items-center justify-center text-center space-y-3 font-mono text-xs text-text-muted">
-                <ShoppingBag size={36} className="opacity-30" />
-                <p>Keranjang Anda masih kosong.</p>
-                <Link
-                  href="/catalog"
-                  onClick={closeCart}
-                  className="px-4 py-2 rounded-xl bg-brand-accent text-canvas font-bold uppercase tracking-wider"
-                >
-                  LIHAT KATALOG
-                </Link>
+              <div className="h-full flex flex-col items-center justify-center text-center p-6 space-y-4">
+                <div className="relative w-24 h-24 rounded-2xl overflow-hidden bg-brand-accent/10 border border-brand-accent/25 p-2 shadow-inner flex items-center justify-center">
+                  <Image
+                    src="/mascot/kamito-avatar.png"
+                    alt="Kamito Mascot"
+                    width={88}
+                    height={88}
+                    className="w-full h-full object-contain"
+                  />
+                </div>
+                <div className="space-y-1.5 max-w-[240px]">
+                  <h4 className="font-sans font-extrabold text-sm uppercase tracking-wide text-text-primary">
+                    Keranjang Masih Kosong
+                  </h4>
+                  <p className="font-sans text-xs text-text-muted leading-relaxed">
+                    Kreasikan sablon DTF impianmu di Studio 3D atau pilih koleksi streetwear siap kirim se-Makassar.
+                  </p>
+                </div>
+                <div className="flex flex-col w-full max-w-[240px] gap-2 pt-2">
+                  <Link
+                    href="/studio"
+                    onClick={closeCart}
+                    className="w-full py-3 px-4 rounded-xl bg-brand-accent text-canvas font-sans font-bold text-xs uppercase tracking-wider flex items-center justify-center gap-2 hover:brightness-110 shadow-md active:scale-[0.98] transition-all"
+                  >
+                    <Sparkles size={14} />
+                    <span>Buka Studio 3D</span>
+                  </Link>
+                  <Link
+                    href="/catalog"
+                    onClick={closeCart}
+                    className="w-full py-2.5 px-4 rounded-xl bg-surface border border-border-subtle text-text-primary hover:border-brand-accent/50 font-sans font-bold text-xs uppercase tracking-wider flex items-center justify-center gap-2 active:scale-[0.98] transition-all"
+                  >
+                    <ShoppingBag size={14} />
+                    <span>Belanja Katalog</span>
+                  </Link>
+                </div>
+                {/* Rekomendasi terlaris inline (data statis katalog existing) */}
+                <div className="w-full max-w-[300px] space-y-2 pt-1 text-left">
+                  <p className="font-sans text-[10px] font-bold uppercase tracking-wider text-text-muted text-center">
+                    Sering dibeli bareng
+                  </p>
+                  {BESTSELLERS.map((b) => (
+                    <div
+                      key={`${b.id}-${b.size}`}
+                      className="flex items-center gap-2.5 p-2 rounded-xl bg-surface/70 border border-border-subtle"
+                    >
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img
+                        src={isSafeImageUrl(b.image) ? b.image : "/lookbook/look-01.jpg"}
+                        alt={b.name}
+                        width={48}
+                        height={60}
+                        loading="lazy"
+                        className="w-10 h-12 rounded-lg object-cover bg-surface border border-border-subtle shrink-0"
+                        onError={(e) => {
+                          const t = e.target as HTMLImageElement;
+                          if (!t.src.endsWith("/lookbook/look-01.jpg")) t.src = "/lookbook/look-01.jpg";
+                        }}
+                      />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-[9px] font-bold text-brand-accent uppercase">{b.rank}</p>
+                        <p className="text-[11px] font-bold text-text-primary truncate">{b.name}</p>
+                        <p className="text-[10px] font-mono tabular-nums text-text-muted">
+                          Rp {b.priceIdr.toLocaleString("id-ID")} · Size {b.size}
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          addItem({
+                            id: b.id,
+                            name: b.name,
+                            priceIdr: b.priceIdr,
+                            size: b.size,
+                            colorName: b.colorName,
+                            colorHex: b.colorHex,
+                            image: b.image,
+                            apparelSlug: b.apparelSlug,
+                            productVariantId: b.productVariantId,
+                            stockQty: b.stockQty,
+                          })
+                        }
+                        aria-label={`Tambah ${b.name} ke keranjang`}
+                        className="shrink-0 px-2.5 py-2 rounded-lg bg-brand-accent/15 border border-brand-accent/40 text-brand-accent font-sans font-bold text-[10px] uppercase hover:bg-brand-accent hover:text-canvas transition-all min-h-[36px]"
+                      >
+                        + Tambah
+                      </button>
+                    </div>
+                  ))}
+                </div>
               </div>
             ) : (
               items.map((item) => {
@@ -191,7 +332,7 @@ export const CartDrawer: React.FC = () => {
                 return (
                 <div
                   key={rowKey}
-                  className="p-3.5 rounded-xl bg-surface/70 border border-border-subtle flex gap-3.5 font-mono text-xs"
+                  className="p-3.5 rounded-xl bg-surface/70 border border-border-subtle flex gap-3.5 font-sans text-xs"
                 >
                   {/* Thumbnail */}
                   <div className="w-16 h-20 rounded-lg overflow-hidden relative bg-surface border border-border-subtle shrink-0">
@@ -251,10 +392,10 @@ export const CartDrawer: React.FC = () => {
 
                     <div className="flex justify-between items-center pt-2">
                       <div>
-                        <span className="font-bold text-brand-accent block">
+                        <span className="font-bold text-brand-accent block font-mono tabular-nums">
                           Rp {(item.priceIdr * item.quantity).toLocaleString("id-ID")}
                         </span>
-                        <span className="text-[10px] text-text-muted">
+                        <span className="text-[10px] text-text-muted font-mono tabular-nums">
                           @{item.priceIdr.toLocaleString("id-ID")} × {item.quantity}
                         </span>
                       </div>
@@ -307,7 +448,7 @@ export const CartDrawer: React.FC = () => {
 
           {/* Footer Subtotal & Checkout Button */}
           {items.length > 0 && (
-            <div className="p-5 border-t border-border-subtle bg-canvas space-y-3 font-mono text-xs">
+            <div className="p-5 border-t border-border-subtle bg-canvas space-y-3 font-sans text-xs">
               {priceChecking && (
                 <p className="text-[10px] text-text-muted" role="status">
                   Mengecek harga terbaru katalog…
@@ -325,7 +466,7 @@ export const CartDrawer: React.FC = () => {
               )}
               <div className="flex justify-between items-center text-sm font-bold">
                 <span className="text-text-muted">SUBTOTAL:</span>
-                <span className="text-text-primary text-base">
+                <span className="text-text-primary text-base font-mono tabular-nums">
                   Rp {totalPrice.toLocaleString("id-ID")}
                 </span>
               </div>
@@ -340,10 +481,10 @@ export const CartDrawer: React.FC = () => {
                   closeCart();
                   setIsCheckoutModalOpen(true);
                 }}
-                className="w-full py-3.5 rounded-xl bg-brand-accent text-canvas font-bold text-xs uppercase tracking-wider hover:brightness-110 active:scale-95 transition-all shadow-[0_0_20px_rgba(230,81,0,0.4)] flex items-center justify-center space-x-2"
+                className="w-full py-3.5 rounded-xl bg-brand-accent text-canvas font-sans font-semibold text-sm tracking-wide hover:brightness-110 active:scale-95 transition-all shadow-[0_0_20px_rgba(230,81,0,0.4)] flex items-center justify-center space-x-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-accent focus-visible:ring-offset-2 focus-visible:ring-offset-canvas"
               >
-                <span>PROSES CHECKOUT (DUITKU)</span>
-                <ArrowRight size={14} />
+                <span>Proses Checkout (Bayar QRIS)</span>
+                <ArrowRight size={15} />
               </button>
             </div>
           )}

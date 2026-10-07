@@ -11,7 +11,7 @@ import { Order } from "../kaos-kami-web/src/lib/drizzle-schema.ts";
 import { eq } from "drizzle-orm";
 
 const BASE_URL = "http://localhost:3000";
-// Secret WAJIB via env (JANGAN hardcode � insiden Sep 2026).
+// Secret WAJIB via env (JANGAN hardcode � insiden Sep 2026).
 function requireEnv(name) {
   const v = process.env[name];
   if (!v) throw new Error("E2E butuh env " + name + " (isi dari kaos-kami-web/.env.local, JANGAN commit)");
@@ -139,22 +139,24 @@ async function runKasus5() {
   });
 
   // -------------------------------------------------------------
-  // TEST 2: Webhook MD5 Signature Tampering Attack
+  // TEST 2: iPaymu Webhook Unknown-Order Rejection
+  // (migrasi Bab 55 — Duitku 410 Gone; iPaymu TANPA signature MD5, jadi
+  // serangan tamper = callback order fiktif → wajib 404, TAK melunaskan apa pun)
   // -------------------------------------------------------------
-  console.log("\n[TEST 2] Menguji Webhook MD5 Tampering Protection...");
+  console.log("\n[TEST 2] Menguji Penolakan Webhook iPaymu Order Fiktif...");
   const fakeWebhookPayload = {
-    merchantCode: requireEnv("DUITKU_MERCHANT_CODE"),
-    amount: "149000",
-    merchantOrderId: "KK-20260919-6521",
-    productDetail: "Tampered Webhook Simulation",
-    additionalParam: "",
-    paymentCode: "QRIS",
-    resultCode: "00",
-    reference: "HACKER-FAKE-REF-999",
-    signature: "00000000000000000000000000000000" // Signature MD5 palsu
+    trx_id: "HACKER-FAKE-TRX-999",
+    sid: "HACKER-FAKE-SID-999",
+    reference_id: "KK-FAKE-9999",
+    reference: "KK-FAKE-9999",
+    status: "berhasil",
+    status_code: "00",
+    amount: 149000,
+    via: "QRIS",
+    channel: "qris"
   };
 
-  const reqWebhook = await fetch(`${BASE_URL}/api/webhooks/duitku`, {
+  const reqWebhook = await fetch(`${BASE_URL}/api/webhooks/ipaymu`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(fakeWebhookPayload)
@@ -162,19 +164,19 @@ async function runKasus5() {
   const dataWebhook: any = await reqWebhook.json().catch(() => ({}));
   console.log(`   - Fake Webhook Status: ${reqWebhook.status} (Response: ${JSON.stringify(dataWebhook)})`);
 
-  const t2Passed = reqWebhook.status === 401;
+  const t2Passed = reqWebhook.status === 404;
   results.push({
     id: "SEC-WEBHOOK-02",
-    name: "Duitku Webhook MD5 Signature Tampering Rejection",
-    scenario: "Mengirim payload callback pembayaran dengan tanda tangan MD5 yang dimanipulasi",
-    targetEndpoint: "POST /api/webhooks/duitku",
-    expectedStatus: 401,
+    name: "iPaymu Webhook Unknown-Order Rejection",
+    scenario: "Mengirim callback pembayaran iPaymu untuk nomor order fiktif yang tak ada di DB",
+    targetEndpoint: "POST /api/webhooks/ipaymu",
+    expectedStatus: 404,
     actualStatus: reqWebhook.status,
     responseSnippet: dataWebhook,
     passed: t2Passed,
     notes: t2Passed
-      ? "Server menolak callback dengan tanda tangan MD5 tidak sah (HTTP 401 Unauthorized)."
-      : `Ekspektasi 401 Unauthorized, diterima: ${reqWebhook.status}`
+      ? "Server menolak callback order fiktif (HTTP 404 Order not found) — tidak ada order yang lunas."
+      : `Ekspektasi 404 Not Found, diterima: ${reqWebhook.status}`
   });
 
   // -------------------------------------------------------------
@@ -241,48 +243,48 @@ async function runKasus5() {
   });
 
   // -------------------------------------------------------------
-  // TEST 5: Underpayment Attack
+  // TEST 5: Underpayment Attack (iPaymu amount-mismatch → 400)
+  // iPaymu TANPA signature: kirim nominal Rp 1.000 untuk order nyata TEST 1
+  // → route wajib 400 Amount mismatch (guard webhooks/ipaymu:80-86).
+  // Tanpa fixture order (TEST 1 gagal) → fallback order fiktif → 404.
   // -------------------------------------------------------------
   console.log("\n[TEST 5] Menguji Underpayment Attack (Nominal Kurang)...");
-  // Order KK-20260919-6521 bernilai Rp 149.000, penyerang mengirim amount Rp 1.000 dengan signature MD5 valid untuk 1.000
-  const merchantCode = requireEnv("DUITKU_MERCHANT_CODE");
-  const apiKey = requireEnv("DUITKU_API_KEY");
-  const underpayAmount = "1000";
-  const underpayOrderId = "KK-20260919-6521";
-  const crypto = await import("crypto");
-  const underpaySig = crypto.createHash("md5").update(merchantCode + underpayAmount + underpayOrderId + apiKey).digest("hex");
+  const underpayRef = (data1 as any)?.orderNumber ? (data1 as any).orderNumber : "KK-FAKE-UNDERpay";
+  const underpayWant = (data1 as any)?.orderNumber ? 400 : 404;
 
-  const reqUnderpay = await fetch(`${BASE_URL}/api/webhooks/duitku`, {
+  const reqUnderpay = await fetch(`${BASE_URL}/api/webhooks/ipaymu`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
-      merchantCode,
-      amount: underpayAmount,
-      merchantOrderId: underpayOrderId,
-      productDetail: "Underpayment Attack Simulation",
-      additionalParam: "",
-      paymentCode: "QRIS",
-      resultCode: "00",
-      reference: "DUITKU-UNDERPAY-TEST",
-      signature: underpaySig
+      trx_id: `IPAYMU-UNDERPAY-${Date.now()}`,
+      sid: `SID-UNDERPAY-${Date.now()}`,
+      reference_id: underpayRef,
+      reference: underpayRef,
+      status: "berhasil",
+      status_code: "00",
+      amount: 1000, // jauh di bawah total asli order nyata
+      via: "QRIS",
+      channel: "qris"
     })
   });
   const dataUnderpay: any = await reqUnderpay.json().catch(() => ({}));
   console.log(`   - Underpayment Status: ${reqUnderpay.status} (Response: ${JSON.stringify(dataUnderpay)})`);
 
-  const t5Passed = reqUnderpay.status === 400;
+  const t5Passed = reqUnderpay.status === underpayWant;
   results.push({
     id: "SEC-UNDERPAY-05",
     name: "Underpayment Callback Rejection",
-    scenario: "Penyerang mengirim callback lunas dengan nominal Rp 1.000 untuk tagihan Rp 149.000",
-    targetEndpoint: "POST /api/webhooks/duitku",
-    expectedStatus: 400,
+    scenario: "Penyerang mengirim callback lunas iPaymu dengan nominal Rp 1.000 untuk tagihan order nyata",
+    targetEndpoint: "POST /api/webhooks/ipaymu",
+    expectedStatus: underpayWant,
     actualStatus: reqUnderpay.status,
     responseSnippet: dataUnderpay,
     passed: t5Passed,
     notes: t5Passed
-      ? "Server mendeteksi ketidaksesuaian nominal order dan menolak update lunas (HTTP 400 Amount mismatch)."
-      : `Ekspektasi 400 Bad Request, diterima: ${reqUnderpay.status}`
+      ? (underpayWant === 400
+        ? "Server mendeteksi ketidaksesuaian nominal order dan menolak update lunas (HTTP 400 Amount mismatch)."
+        : "Tanpa fixture order nyata — fallback order fiktif ditolak (HTTP 404), penyerang tetap tak bisa melunaskan apa pun.")
+      : `Ekspektasi ${underpayWant}, diterima: ${reqUnderpay.status}`
   });
 
   // -------------------------------------------------------------
@@ -323,17 +325,19 @@ async function runKasus5() {
   });
 
   // -------------------------------------------------------------
-  // TEST 7: Oversized Payload Rejection (>16KB Webhook Bomb)
+  // TEST 7: Oversized Payload Rejection (>16KB Webhook Bomb → iPaymu 413)
   // -------------------------------------------------------------
   console.log("\n[TEST 7] Menguji Penolakan Oversized Payload Bomb (>16KB)...");
   const hugePayload = JSON.stringify({
-    merchantCode: requireEnv("DUITKU_MERCHANT_CODE"),
-    amount: "149000",
-    merchantOrderId: "KK-20260919-6521",
+    trx_id: "IPAYMU-FAKE-TRX",
+    reference_id: "KK-FAKE-9999",
+    status: "berhasil",
+    amount: 149000,
+    via: "QRIS",
     junk: "A".repeat(25 * 1024) // 25 KB
   });
 
-  const reqOversize = await fetch(`${BASE_URL}/api/webhooks/duitku`, {
+  const reqOversize = await fetch(`${BASE_URL}/api/webhooks/ipaymu`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: hugePayload
@@ -346,7 +350,7 @@ async function runKasus5() {
     id: "SEC-OVERSIZE-07",
     name: "Webhook Payload Bomb / Oversized Body Rejection",
     scenario: "Mengirim payload JSON sebesar 25KB melebihi batas MAX_WEBHOOK_BYTES (16KB)",
-    targetEndpoint: "POST /api/webhooks/duitku",
+    targetEndpoint: "POST /api/webhooks/ipaymu",
     expectedStatus: 413,
     actualStatus: reqOversize.status,
     responseSnippet: dataOversize,

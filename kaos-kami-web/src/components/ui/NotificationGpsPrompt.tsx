@@ -219,7 +219,7 @@ export function NotificationGpsPrompt() {
             <button
               onClick={handleEnablePermissions}
               disabled={gpsLoading}
-              className="flex-1 py-2 px-3.5 rounded-xl bg-brand-accent text-canvas font-mono font-bold text-xs uppercase tracking-wider hover:brightness-110 active:scale-95 transition-all flex items-center justify-center gap-1.5 shadow-md disabled:opacity-50 cursor-pointer"
+              className="flex-1 py-2 px-3.5 rounded-xl bg-brand-accent text-canvas font-sans font-bold text-xs uppercase tracking-wider hover:brightness-110 active:scale-95 transition-all flex items-center justify-center gap-1.5 shadow-md disabled:opacity-50 cursor-pointer"
             >
               <Shield size={13} />
               <span>{gpsLoading ? "MEMBACA GPS..." : "IZINKAN SEKARANG"}</span>

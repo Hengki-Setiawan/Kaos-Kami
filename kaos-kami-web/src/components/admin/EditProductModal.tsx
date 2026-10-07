@@ -21,7 +21,7 @@ const COLOR_PRESETS: ColorPreset[] = [
   { hex: "#E65100", name: "Signal Tangerine" },
   { hex: "#3B4435", name: "Military Olive" },
   { hex: "#2E3B55", name: "Deep Navy" },
-  { hex: "#8A2BE2", name: "Neon Violet" },
+  { hex: "#8A2BE2", name: "Ungu Violet" },
   { hex: "#B22222", name: "Crimson Red" },
 ];
 
@@ -242,9 +242,12 @@ export function EditProductModal({ variant, categories }: EditProductModalProps)
         <div
           className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm animate-in fade-in duration-200"
           onClick={() => !busy && setIsOpen(false)}
+          role="dialog"
+          aria-modal="true"
+          aria-label="Edit produk etalase"
         >
           <div
-            className="relative w-full max-w-2xl max-h-[92vh] overflow-y-auto bg-surface border border-border-subtle rounded-3xl p-6 sm:p-8 font-mono text-xs shadow-2xl space-y-5"
+            className="relative w-full max-w-2xl max-h-[92vh] overflow-y-auto bg-surface border border-border-subtle rounded-3xl p-6 sm:p-8 font-sans text-sm shadow-2xl space-y-5"
             onClick={(e) => e.stopPropagation()}
           >
             {/* Modal Header */}
@@ -253,7 +256,7 @@ export function EditProductModal({ variant, categories }: EditProductModalProps)
                 <span className="text-[10px] text-brand-accent tracking-widest uppercase font-bold block mb-1">
                   EDIT DETAIL PRODUK // SKU: {variant.sku}
                 </span>
-                <h2 className="font-display font-black text-xl uppercase text-text-primary">
+                <h2 className="font-sans font-bold text-xl uppercase text-text-primary">
                   UBAH PRODUK ETALASE
                 </h2>
                 <p className="text-text-muted mt-0.5 text-[11px]">
@@ -263,6 +266,7 @@ export function EditProductModal({ variant, categories }: EditProductModalProps)
               <button
                 onClick={() => setIsOpen(false)}
                 disabled={busy}
+                aria-label="Tutup modal edit produk"
                 className="p-1.5 rounded-full hover:bg-surface border border-border-subtle text-text-muted hover:text-text-primary transition-colors"
               >
                 <X size={16} />

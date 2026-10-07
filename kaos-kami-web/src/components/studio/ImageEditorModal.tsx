@@ -57,9 +57,9 @@ function SliderRow(props: {
 }) {
   return (
     <div>
-      <div className="flex justify-between text-[11px] font-mono text-text-muted mb-1">
+      <div className="flex justify-between text-[11px] font-sans text-text-muted mb-1">
         <span className="font-bold uppercase">{props.label}</span>
-        <span className="text-text-primary font-bold">{props.display}</span>
+        <span className="text-text-primary font-bold font-mono tabular-nums">{props.display}</span>
       </div>
       <input
         type="range"
@@ -592,8 +592,8 @@ export const ImageEditorModal: React.FC<ImageEditorModalProps> = ({
       <div className="w-full max-w-2xl max-h-[90vh] overflow-y-auto rounded-2xl bg-surface border border-border-subtle shadow-2xl p-4 sm:p-5">
         <div className="flex items-center justify-between mb-3">
           <div>
-            <span className="text-[10px] font-mono text-brand-accent tracking-widest uppercase">{"// EDIT GAMBAR"}</span>
-            <h3 className="text-base font-display font-black uppercase text-text-primary truncate">{decalName}</h3>
+            <span className="text-[10px] font-sans text-brand-accent tracking-widest uppercase">{"// EDIT GAMBAR"}</span>
+            <h3 className="text-base font-sans font-bold uppercase text-text-primary truncate">{decalName}</h3>
           </div>
           <button
             type="button"

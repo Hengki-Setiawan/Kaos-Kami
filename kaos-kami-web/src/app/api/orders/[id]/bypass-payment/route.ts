@@ -5,6 +5,20 @@ import { eq } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { Order, OrderStatusEvent, Payment } from "@/lib/drizzle-schema";
 import { confirmOrderPaid } from "@/lib/payments/confirmOrder";
+import { checkRateLimitAsync, getClientIp, rateLimitHeaders } from "@/lib/security/rateLimiter";
+
+// Allowlist email admin darurat untuk bypass (tanpa ubah logika bisnis/DB):
+// - Prod: set BYPASS_PAYMENT_ADMIN_EMAILS="a@x.id,b@y.id" via env/wrangler secret.
+// - Fallback = 2 email bawaan lama agar perilaku tak berubah bila env unset.
+// - Perbandingan case-insensitive; nilai kosong diabaikan.
+const BYPASS_FALLBACK_EMAILS = ["hengkishadow@gmail.com", "admin@kaoskami.biz.id"];
+function getBypassEmailAllowlist(): string[] {
+  const fromEnv = (process.env.BYPASS_PAYMENT_ADMIN_EMAILS || "")
+    .split(",")
+    .map((s) => s.trim().toLowerCase())
+    .filter(Boolean);
+  return fromEnv.length > 0 ? fromEnv : BYPASS_FALLBACK_EMAILS;
+}
 
 /**
  * POST /api/orders/[id]/bypass-payment
@@ -19,6 +33,14 @@ export async function POST(
   try {
     const { id: orderId } = await params;
 
+    const rl = await checkRateLimitAsync(`bypass:ip:${getClientIp(req)}`, 10, 60);
+    if (rl.isLimited) {
+      return NextResponse.json(
+        { success: false, error: "Terlalu sering. Tunggu sebentar." },
+        { status: 429, headers: rateLimitHeaders(rl, 10) }
+      );
+    }
+
     // 1. Verifikasi role ADMIN (Strict Server-Side Gate)
     const { auth } = await import("@/lib/auth");
     const hdrs = await headers();
@@ -28,8 +50,7 @@ export async function POST(
     const userEmail = session?.user?.email;
     const isAdmin =
       ["ADMIN", "SUPER_ADMIN"].includes(userRole) ||
-      userEmail === "hengkishadow@gmail.com" ||
-      userEmail === "admin@kaoskami.biz.id";
+      getBypassEmailAllowlist().includes((userEmail || "").toLowerCase());
 
     if (!session?.user || !isAdmin) {
       return NextResponse.json(

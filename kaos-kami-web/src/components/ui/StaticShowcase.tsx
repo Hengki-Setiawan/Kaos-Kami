@@ -30,13 +30,13 @@ export const StaticShowcase: React.FC = () => {
     <div className="min-h-screen bg-canvas text-text-primary px-6 md:px-16 py-24 max-w-6xl mx-auto space-y-20">
       {/* Brand Header */}
       <section className="space-y-4">
-        <p className="font-mono text-xs text-brand-accent tracking-widest uppercase">
+        <p className="font-sans text-xs text-brand-accent tracking-widest uppercase">
           {"// ARCHITECTURAL FIT / AUTONOMOUS STREETWEAR"}
         </p>
-        <h1 className="text-5xl sm:text-7xl md:text-8xl font-display font-black tracking-tighter uppercase leading-[0.9]">
+        <h1 className="text-5xl sm:text-7xl md:text-8xl font-sans font-extrabold tracking-tighter uppercase leading-[0.9]">
           OVERSIZED<br />HEAVY-KNIT
         </h1>
-        <p className="max-w-xl text-sm text-text-muted font-mono leading-relaxed pt-2">
+        <p className="max-w-xl text-sm text-text-muted font-sans leading-relaxed pt-2">
           Your browser is currently running in static display mode. Here is the full technical dossier and catalog specifications for the Kaos Kami heavyweight series.
         </p>
       </section>
@@ -46,20 +46,20 @@ export const StaticShowcase: React.FC = () => {
         {TECHNICAL_SPECS.map((spec) => (
           <div key={spec.label} className="p-6 rounded-2xl glass-panel border border-border-subtle">
             <div className="flex justify-between items-baseline mb-2">
-              <span className="text-[11px] font-mono text-text-muted tracking-wider uppercase">{spec.label}</span>
+              <span className="text-[11px] font-sans text-text-muted tracking-wider uppercase">{spec.label}</span>
               <span className="text-sm font-mono font-bold text-brand-accent">{spec.value}</span>
             </div>
-            <p className="text-xs font-mono text-text-muted leading-relaxed">{spec.detail}</p>
+            <p className="text-xs font-sans text-text-muted leading-relaxed">{spec.detail}</p>
           </div>
         ))}
       </section>
 
       {/* Static Configurator Options */}
       <section className="p-8 rounded-2xl glass-panel-elevated border border-border-subtle space-y-6 max-w-2xl">
-        <h2 className="font-display font-black text-xl uppercase">SELECT SPECIFICATIONS</h2>
+        <h2 className="font-sans font-bold text-xl uppercase">SELECT SPECIFICATIONS</h2>
 
         <div>
-          <div className="flex justify-between text-xs font-mono mb-3">
+          <div className="flex justify-between text-xs font-sans mb-3">
             <span className="text-text-muted">COLORWAY:</span>
             <span className="text-text-primary font-bold">{selectedColor.name}</span>
           </div>
@@ -83,7 +83,7 @@ export const StaticShowcase: React.FC = () => {
         </div>
 
         <div>
-          <span className="block text-xs font-mono text-text-muted mb-3">STREET-CUT SIZING:</span>
+          <span className="block text-xs font-sans text-text-muted mb-3">STREET-CUT SIZING:</span>
           <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
             {SIZES.map((size) => (
               <button
@@ -104,11 +104,11 @@ export const StaticShowcase: React.FC = () => {
         {/* Tombol hidup: lanjut ke katalog/studio (audit #18 — sebelumnya mati). */}
         <Link
           href="/catalog"
-          className="block text-center w-full py-4 rounded-xl bg-brand-accent text-canvas font-display font-black text-sm uppercase tracking-wider hover:brightness-110 transition-all shadow-[0_0_20px_rgba(230,81,0,0.3)]"
+          className="block text-center w-full py-4 rounded-xl bg-brand-accent text-canvas font-sans font-bold text-sm uppercase tracking-wider hover:brightness-110 active:scale-[0.98] transition-all shadow-[0_0_20px_rgba(230,81,0,0.3)]"
         >
-          BELI MULAI IDR {totalPrice.toLocaleString("id-ID")} — BUKA KATALOG
+          BELI MULAI IDR {totalPrice.toLocaleString("id-ID")} · BUKA KATALOG
         </Link>
-        <p className="text-center text-[11px] font-mono text-text-muted">
+        <p className="text-center text-[11px] font-sans text-text-muted">
           Mode statis (tanpa 3D). Harga final dihitung server saat checkout.
         </p>
       </section>

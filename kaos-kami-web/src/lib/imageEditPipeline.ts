@@ -7,9 +7,7 @@
  * CATATAN implementasi (disengaja, didokumentasikan untuk verifikasi sentral):
  * - Operasi Sesuaikan diimplementasikan dengan Canvas2D (`ctx.filter` untuk
  *   brightness/contrast/saturate/hue/blur/grayscale/sepia + pass piksel manual
- *   untuk gamma/vibrance/sharpen + preset sablon). Semantik slider SAMA seperti
- *   `fabric.Image.filters`, tanpa menarik runtime fabric ke modal (fabric tetap
- *   dipakai FabricEditor; tidak ada dependensi baru di kedua jalur).
+ *   untuk gamma/vibrance/sharpen + preset sablon).
  * - Flip-X dikerjakan di ruang piksel SEBELUM simpan, sehingga tekstur 3D
  *   back-print teks langsung terbaca benar tanpa mengandalkan mirror material.
  */

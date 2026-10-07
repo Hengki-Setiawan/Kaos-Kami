@@ -69,5 +69,5 @@ export function nextOpenLabel(at: Date = new Date()): string {
  */
 export function getClosedQueueNotice(at: Date = new Date()): string | null {
   if (isShopOpen(at)) return null;
-  return `Workshop tutup — pesanan masuk antrean, diproses ${nextOpenLabel(at).replace("Buka pukul ", "")}. Checkout tetap bisa dilanjutkan.`;
+  return `Workshop tutup. Pesanan masuk antrean dan diproses ${nextOpenLabel(at).replace("Buka pukul ", "")}. Checkout tetap bisa dilanjutkan.`;
 }

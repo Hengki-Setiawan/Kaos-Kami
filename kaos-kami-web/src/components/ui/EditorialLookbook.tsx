@@ -4,10 +4,10 @@ import React, { useEffect, useState } from "react";
 import { LookbookImage } from "./LookbookImage";
 
 const FALLBACK_LOOKS = [
-  { src: "/lookbook/look-01.jpg", caption: "Look 01 — Obsidian Carbon" },
-  { src: "/lookbook/look-02.jpg", caption: "Look 02 — Chalk Raw Ecru" },
-  { src: "/lookbook/look-03.jpg", caption: "Look 03 — Signal Acid Tangerine" },
-  { src: "/lookbook/look-04.jpg", caption: "Look 04 — Tactical Olive Drab" },
+  { src: "/lookbook/look-01.jpg", caption: "Look 01 · Obsidian Carbon" },
+  { src: "/lookbook/look-02.jpg", caption: "Look 02 · Chalk Raw Ecru" },
+  { src: "/lookbook/look-03.jpg", caption: "Look 03 · Signal Acid Tangerine" },
+  { src: "/lookbook/look-04.jpg", caption: "Look 04 · Tactical Olive Drab" },
 ];
 
 export const EditorialLookbook: React.FC = () => {
@@ -26,7 +26,7 @@ export const EditorialLookbook: React.FC = () => {
           setLooks(
             data.items.slice(0, 8).map((it: any, i: number) => ({
               src: it.url,
-              caption: `Look ${String(i + 1).padStart(2, "0")} — Koleksi Workshop`,
+              caption: `Look ${String(i + 1).padStart(2, "0")} · Koleksi Workshop`,
             }))
           );
         }
@@ -40,14 +40,14 @@ export const EditorialLookbook: React.FC = () => {
     <section className="relative z-20 bg-canvas px-6 md:px-12 py-28 border-t border-border-subtle">
       <div className="flex flex-col md:flex-row md:items-end justify-between mb-12 gap-6">
         <div>
-          <span className="block text-[11px] font-mono text-brand-accent uppercase tracking-widest mb-2">
+          <span className="block text-[11px] font-sans text-brand-accent uppercase tracking-widest mb-2">
             ARSIP VISUAL & LOOKBOOK {new Date().getFullYear()}
           </span>
-          <h2 className="text-4xl sm:text-6xl font-display font-black uppercase text-text-primary">
+          <h2 className="text-4xl sm:text-6xl font-sans font-extrabold uppercase text-text-primary">
             LOOKBOOK FISIK
           </h2>
         </div>
-        <p className="max-w-md text-xs font-mono text-text-muted leading-relaxed">
+        <p className="max-w-md text-xs font-sans text-text-muted leading-relaxed">
           Dokumentasi visual produk kaos dan apparel Kaos Kami. Potongan boxy streetwear tegap dengan karakter warna pekat dan detail jahitan rapi.
         </p>
       </div>
@@ -72,7 +72,7 @@ export const EditorialLookbook: React.FC = () => {
               <span className="text-[10px] font-mono text-brand-accent tracking-widest block mb-1">
                 {`// 0${i + 1}`}
               </span>
-              <p className="font-mono text-xs font-bold text-text-primary uppercase tracking-wider">
+              <p className="font-sans text-xs font-bold text-text-primary uppercase tracking-wider">
                 {look.caption}
               </p>
             </div>

@@ -4,6 +4,7 @@ import React from 'react';
 import { motion } from 'framer-motion';
 import { Home, Palette, ShoppingBag, ClipboardList, User } from 'lucide-react';
 import { haptic } from '@/lib/bridge/haptics';
+import { Z_CLASS_NAV } from '@/lib/zIndex';
 
 export type TabKey = 'home' | 'studio' | 'catalog' | 'orders' | 'profile';
 
@@ -23,7 +24,7 @@ const tabs: { key: TabKey; label: string; icon: React.ComponentType<{ className?
 
 export function TabBar({ activeTab, onTabChange, orderBadgeCount = 0 }: TabBarProps) {
   return (
-    <nav aria-label="Navigasi utama" className="fixed bottom-0 left-0 right-0 z-50 bg-canvas/90 backdrop-blur-2xl border-t border-border-subtle transition-colors pb-[max(12px,env(safe-area-inset-bottom))] px-3">
+    <nav aria-label="Navigasi utama" className={`fixed bottom-0 left-0 right-0 ${Z_CLASS_NAV} bg-canvas/90 backdrop-blur-2xl border-t border-border-subtle transition-colors pb-[max(12px,env(safe-area-inset-bottom))] px-3`}>
       <div className="flex items-center justify-around h-16">
         {tabs.map((tab) => {
           const isActive = activeTab === tab.key;

@@ -252,9 +252,9 @@ export const useCartStore = create<CartStore>()(
         return { updated, diffIdr: after - before };
       },
 
-      // Catatan: JANGAN panggil clearCart() pasca-POST /api/checkout.
+      // Catatan: panggil clearCart() setelah pembayaran terkonfirmasi.
       // Order sudah dibuat server saat itu; cart hanya dikosongkan setelah
-      // bayar terkonfirmasi (successEvent Duitku / redirect paymentUrl) dari
+      // bayar terkonfirmasi (success event / redirect paymentUrl) dari
       // CheckoutModal — agar tutup-pop/retry tak kehilangan isi keranjang.
       clearCart: () => set({ items: [] }),
 

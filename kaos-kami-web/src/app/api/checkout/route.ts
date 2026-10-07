@@ -6,9 +6,8 @@ import { siteUrl } from "@/lib/siteUrl";
 import { Address, ApparelCategory, Design, Order, OrderItem, OrderStatusEvent, Payment, User, Verification } from "@/lib/drizzle-schema";
 import { calculate6VariablePrice, materialFinishToPricing } from "@/lib/pricingEngine";
 import { APPAREL_CATALOG, PRODUCT_COLORS, type ApparelType } from "@/lib/constants";
-// ALUR BARU (owner Sep 2026): charge Duitku PINDAH ke
-// POST /api/orders/[id]/request-payment — import duitkuProvider DICABUT dari
-// route ini (JANGAN dipakai lagi di sini; lihat request-payment/route.ts).
+// Alur pembayaran: charge via POST /api/orders/[id]/request-payment.
+// Provider pembayaran diimpor di route tersebut (lihat request-payment/route.ts).
 import { hashOtp } from "@/lib/otp";
 // Kebijakan Fonnte owner 20 Sep 2026: HANYA OTP — route ini tak kirim WA lain.
 import { MAKASSAR_DELIVERY_OPTIONS, MAKASSAR_SUBDISTRICTS, PRODUCTION_TURNAROUND_OPTIONS } from "@/lib/shipping/deliveryOptions";
@@ -185,11 +184,9 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // ALUR BARU (keputusan owner Sep 2026 — checkout → DESIGN_REVIEW tanpa
-    // charge; auth/OTP di bawah ini MILIK agent lain, SENGAJA tak diubah):
-    // fail-closed Duitku di sini DICABUT — charge dibuat NANTI saat user klik
-    // bayar via POST /api/orders/[id]/request-payment (setelah admin ACC).
-    // Order TANPA secret Duitku tetap boleh masuk antrean review.
+    // Alur checkout: order masuk DESIGN_REVIEW tanpa charge.
+    // Charge dibuat saat user membayar via POST /api/orders/[id]/request-payment
+    // (setelah persetujuan admin). Order tanpa secret tetap masuk antrean review.
 
     const rawBody = await req.text();
     // Cap body mentah dulu (anti OOM: decals 500k×10 bisa 5MB sebelum Zod).
@@ -480,14 +477,14 @@ export async function POST(req: NextRequest) {
       Boolean(sessionUser?.phoneNumber) &&
       cleanUserPhone === cleanOrderPhone.replace(/^0/, "62");
 
-    const isSandboxMode = process.env.DUITKU_ENV === "sandbox";
+    const isSandboxMode = process.env.IPAYMU_ENV === "sandbox";
     if (process.env.CHECKOUT_OTP_REQUIRED === "false" || isAlreadyVerified || isSandboxMode || isAdminBypassActive) {
       if (isAdminBypassActive) {
         console.log(`[checkout] Mode pengujian Admin (${sessionUser?.email}) — gerbang OTP dilewati.`);
       } else if (isAlreadyVerified) {
         console.log(`[checkout] Akun ${sessionUser?.id} (${cleanOrderPhone}) sudah phoneVerified — gerbang OTP dilewati.`);
       } else {
-        console.warn(`[checkout] Gerbang OTP DILEWATI (${isSandboxMode ? "mode sandbox Duitku audit" : "CHECKOUT_OTP_REQUIRED=false"})`);
+        console.warn(`[checkout] Gerbang OTP DILEWATI (${isSandboxMode ? "mode sandbox audit" : "CHECKOUT_OTP_REQUIRED=false"})`);
       }
     } else {
       const otpRaw =
@@ -623,8 +620,8 @@ export async function POST(req: NextRequest) {
     const isCustomDesign = validatedItems.some(
       (it) => Array.isArray(it.decals) && it.decals.length > 0
     );
-    const isSandbox = process.env.DUITKU_ENV === "sandbox";
-    // Produk ready-stock katalog (non-custom) ATAU mode sandbox Duitku audit siap bayar langsung
+    const isSandbox = isSandboxMode;
+    // Produk ready-stock katalog (non-custom) ATAU mode sandbox audit siap bayar langsung
     const isImmediatePayment = isAdminBypassActive
       ? Boolean(adminDirectConfirm)
       : (!isCustomDesign || isSandbox);
@@ -649,7 +646,7 @@ export async function POST(req: NextRequest) {
             id: nanoid(),
             orderNumber: nextOrderNumber(),
             userId: user.id,
-            // Jika ready-stock katalog atau sandbox Duitku audit: langsung PENDING_PAYMENT
+            // Katalog ready-stock atau audit sandbox: langsung PENDING_PAYMENT
             status: initialStatus,
             reviewedBy: (isAdminBypassActive && adminDirectConfirm)
               ? "ADMIN_TEST_BYPASS"
@@ -769,7 +766,7 @@ export async function POST(req: NextRequest) {
         orderId: orderRow.id,
         status: initialStatus,
         note: isImmediatePayment
-          ? `Pesanan dibuat (${recipientName}) — siap pembayaran via Duitku Payment Gateway.`
+          ? `Pesanan dibuat (${recipientName}) — siap pembayaran via iPaymu Payment Gateway (Direct QRIS).`
           : `Pesanan dibuat oleh pelanggan (${recipientName}) — menunggu review desain admin (tanpa charge).`,
       });
     } catch (itemsErr: any) {
@@ -870,55 +867,70 @@ export async function POST(req: NextRequest) {
     let chargeResult: any = null;
     if (isImmediatePayment) {
       try {
-        const { duitkuProvider } = await import("@/lib/payments/duitku");
-        if (duitkuProvider.isConfigured()) {
-          const itemLines = validatedItems.map((it) => ({
-            name: it.title || `${it.apparelSlug.toUpperCase()} Kaos Kami`,
-            price: it.unitPriceIdr,
-            quantity: it.quantity,
-          }));
-          if (shippingCostIdr > 0) {
-            itemLines.push({ name: "Ongkos kirim", price: shippingCostIdr, quantity: 1 });
-          }
-          if (discountIdr > 0) {
-            itemLines.push({ name: "Diskon kupon", price: -discountIdr, quantity: 1 });
-          }
-          if (turnaroundSurchargeIdr > 0) {
-            itemLines.push({ name: "Surcharge EXPRESS 24H", price: turnaroundSurchargeIdr, quantity: 1 });
-          }
+        const providerName = (process.env.PAYMENT_GATEWAY_PROVIDER || "ipaymu").toLowerCase();
+        if (providerName === "ipaymu") {
+          const { ipaymuProvider } = await import("@/lib/payments/ipaymu");
+          if (ipaymuProvider.isConfigured()) {
+            chargeResult = await ipaymuProvider.createCharge({
+              orderId: order.id,
+              orderNumber: order.orderNumber,
+              amountIdr: computedTotalIdr,
+              customer: {
+                name: recipientName,
+                phone: cleanPhone,
+                email: (email || user?.email || "customer@kaoskami.biz.id").trim(),
+              },
+              paymentMethod: "qris",
+            });
 
-          chargeResult = await duitkuProvider.createCharge({
-            orderId: order.id,
-            orderNumber: order.orderNumber,
-            amountIdr: computedTotalIdr,
-            customer: {
-              name: recipientName,
-              phone: cleanPhone,
-              email: (email || user?.email || "customer@kaoskami.biz.id").trim(),
-            },
-            itemDetails: itemLines,
-          });
+            await db.insert(Payment).values({
+              id: nanoid(),
+              orderId: order.id,
+              provider: "IPAYMU",
+              providerRef: chargeResult.reference,
+              amountIdr: computedTotalIdr,
+              status: "PENDING",
+            });
+          }
+        } else {
+          // Cabang pembayaran alternatif: iPaymu Direct QRIS dengan pola yang
+          // sama seperti cabang ipaymu di atas & request-payment — kontrak response ke client tetap.
+          const { ipaymuProvider } = await import("@/lib/payments/ipaymu");
+          if (ipaymuProvider.isConfigured()) {
+            chargeResult = await ipaymuProvider.createCharge({
+              orderId: order.id,
+              orderNumber: order.orderNumber,
+              amountIdr: computedTotalIdr,
+              customer: {
+                name: recipientName,
+                phone: cleanPhone,
+                email: (email || user?.email || "customer@kaoskami.biz.id").trim(),
+              },
+              paymentMethod: "qris",
+            });
 
-          await db.insert(Payment).values({
-            id: nanoid(),
-            orderId: order.id,
-            provider: "DUITKU",
-            providerRef: chargeResult.reference,
-            amountIdr: computedTotalIdr,
-            status: "PENDING",
-          });
+            await db.insert(Payment).values({
+              id: nanoid(),
+              orderId: order.id,
+              provider: "IPAYMU",
+              providerRef: chargeResult.reference,
+              amountIdr: computedTotalIdr,
+              status: "PENDING",
+            });
+          }
         }
       } catch (chargeErr: any) {
-        console.warn("[checkout] Immediate Duitku charge failed, fallback to pending ref:", chargeErr?.message);
+        console.warn("[checkout] Immediate payment charge failed, fallback to pending ref:", chargeErr?.message);
       }
     }
 
     if (!chargeResult) {
       const pendingRef = `pending-${order.id}`;
+      const defaultProvider = (process.env.PAYMENT_GATEWAY_PROVIDER || "IPAYMU").toUpperCase();
       await db.insert(Payment).values({
         id: nanoid(),
         orderId: order.id,
-        provider: "DUITKU",
+        provider: defaultProvider,
         providerRef: pendingRef,
         amountIdr: computedTotalIdr,
         status: "PENDING",
@@ -934,12 +946,14 @@ export async function POST(req: NextRequest) {
       amount: computedTotalIdr,
       status: initialStatus,
       paymentUrl: chargeResult?.paymentUrl || undefined,
+      qrString: chargeResult?.qrString || undefined,
+      qrImage: chargeResult?.qrImage || undefined,
       reference: chargeResult?.reference || undefined,
       invoiceUrl,
       discountIdr,
       appliedCoupon,
       message: isImmediatePayment
-        ? "Pesanan berhasil dibuat. Silakan selesaikan pembayaran via Duitku Payment Gateway."
+        ? "Pesanan berhasil dibuat. Silakan selesaikan pembayaran via Payment Gateway."
         : "Pesanan masuk antrean review desain (tanpa charge). Link bayar tersedia setelah admin ACC — pantau via dashboard.",
     });
   } catch (error: any) {

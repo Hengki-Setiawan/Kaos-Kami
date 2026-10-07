@@ -3,7 +3,8 @@ import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { db } from "@/lib/db";
 import { auth } from "@/lib/auth";
-import { CouponAdminPanel, CouponRowActions } from "@/components/admin/CouponAdminPanel";
+import { CouponRowActions } from "@/components/admin/CouponAdminPanel";
+import { CouponCreateModal } from "@/components/admin/CouponCreateModal";
 
 export const dynamic = "force-dynamic";
 
@@ -57,10 +58,10 @@ export default async function AdminCouponsPage({
   const link = (p: number, s: Sort) => `/admin/coupons?page=${p}&sort=${s}`;
 
   return (
-    <div className="p-5 sm:p-8 space-y-6 max-w-7xl mx-auto font-mono text-xs">
+    <div className="p-5 sm:p-8 space-y-6 max-w-7xl mx-auto font-sans text-xs">
       <div className="pb-4 border-b border-border-subtle flex flex-col sm:flex-row sm:justify-between gap-3">
         <div>
-          <h1 className="font-display text-2xl sm:text-3xl font-black uppercase text-text-primary">VOUCHER & COUPON</h1>
+          <h1 className="font-sans text-2xl sm:text-3xl font-bold uppercase text-text-primary">VOUCHER & COUPON</h1>
           <p className="text-text-muted">Kelola kode diskon grosir komunitas/event • hal. {page}{hasMore ? "+" : ""} • sortir: {sort}</p>
         </div>
         <div className="flex items-center gap-2">
@@ -97,7 +98,7 @@ export default async function AdminCouponsPage({
           <Link href={link(page + 1, sort)} className="px-4 py-2 rounded-lg bg-surface border border-border-subtle text-text-primary font-bold">LANJUT →</Link>
         ) : <span />}
       </div>
-      <CouponAdminPanel />
+      <CouponCreateModal />
     </div>
   );
 }

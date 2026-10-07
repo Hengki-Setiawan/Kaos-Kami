@@ -9,8 +9,12 @@ const STATIC_ROUTES: Array<{ path: string; changeFrequency: "daily" | "weekly" |
   { path: "/studio", changeFrequency: "weekly", priority: 0.9 },
   { path: "/track", changeFrequency: "weekly", priority: 0.6 },
   { path: "/kalkulator-sablon", changeFrequency: "monthly", priority: 0.7 },
-  { path: "/kredit", changeFrequency: "monthly", priority: 0.3 },
+  { path: "/kontak", changeFrequency: "monthly", priority: 0.8 },
+  { path: "/faq", changeFrequency: "monthly", priority: 0.7 },
+  { path: "/terms", changeFrequency: "monthly", priority: 0.5 },
+  { path: "/refund", changeFrequency: "monthly", priority: 0.5 },
   { path: "/privacy", changeFrequency: "monthly", priority: 0.3 },
+  { path: "/kredit", changeFrequency: "monthly", priority: 0.3 },
 ];
 
 export default function sitemap(): MetadataRoute.Sitemap {

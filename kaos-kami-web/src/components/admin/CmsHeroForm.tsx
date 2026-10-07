@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
+import { CmsHeroPreview } from "@/components/admin/CmsHeroPreview";
 
 /** Form hero CMS: simpan judul + deskripsi ke R2 (tampil di beranda). */
 export function CmsHeroForm() {
@@ -52,7 +53,7 @@ export function CmsHeroForm() {
 
   return (
     <div className="bg-surface border border-border-subtle rounded-2xl p-5 space-y-3">
-      <h3 className="font-bold text-text-primary">HERO & SEO (tersimpan ke R2, tanpa deploy)</h3>
+      <h3 className="font-bold text-text-primary">HERO & SEO</h3>
       <div className="space-y-2">
         <label className="block text-[11px] text-text-muted">
           Judul Hero (baris baru = Enter)
@@ -81,10 +82,11 @@ export function CmsHeroForm() {
           disabled={busy}
           className="px-4 py-2 rounded-xl bg-brand-accent text-canvas font-bold disabled:opacity-50"
         >
-          {busy ? "Menyimpan…" : "SIMPAN (R2 JSON)"}
+          {busy ? "Menyimpan…" : "SIMPAN"}
         </button>
         {msg && <p className="text-[11px] text-text-muted">{msg}</p>}
-        <p className="text-[10px] text-text-muted">Simpan ke R2 `cms/hero.json` → beranda membaca otomatis — tanpa redeploy.</p>
+        <CmsHeroPreview title={title} subtitle={subtitle} />
+        <p className="text-[10px] text-text-muted">Beranda membaca otomatis — tanpa redeploy.</p>
       </div>
     </div>
   );

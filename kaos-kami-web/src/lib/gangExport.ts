@@ -17,7 +17,7 @@
  * Berkas ini murni browser (Blob/Canvas/Image/fetch). Jangan diimpor dari
  * Server Component / route handler — panggil dari halaman admin (client).
  *
- * KONTRAK TILED-MASTER (PatternStudio ekspor A3/besar, M3.7) — BACA INI:
+ * KONTRAK TILED-MASTER (editor per-panel ekspor A3/besar, M3.7) — BACA INI:
  * - LS `kaoskami_master_assets["<apparel>:<panel>"]` = { url (= tile0),
  *   tiles[] (set lengkap URL R2), cols, rows, tiled:true, wCm, hCm }.
  * - JANGAN bikin endpoint compose server (Workers tak bisa: tanpa DOM Canvas,

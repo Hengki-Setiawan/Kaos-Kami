@@ -3,6 +3,7 @@
 import React, { useState } from "react";
 import { useRouter } from "next/navigation";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
+import { Edit2, Trash2 } from "lucide-react";
 
 /** Aksi kartu desain: ganti nama + hapus (milik sendiri). Tanpa prompt/confirm native. */
 export function DesignCardActions({ id, title }: { id: string; title: string }) {
@@ -71,16 +72,20 @@ export function DesignCardActions({ id, title }: { id: string; title: string }) 
           setRenaming(true);
         }}
         disabled={busy}
-        className="flex-1 py-1.5 rounded-lg bg-surface border border-border-subtle hover:border-brand-accent text-text-primary text-[11px] font-bold disabled:opacity-50 transition-all"
+        className="flex-1 py-1.5 px-2 rounded-lg bg-surface border border-border-subtle hover:border-brand-accent text-text-primary text-[11px] font-bold disabled:opacity-50 transition-all flex items-center justify-center gap-1.5 cursor-pointer"
+        title="Ubah judul desain"
       >
-        ✏️ GANTI NAMA
+        <Edit2 size={12} className="text-brand-accent" />
+        <span>GANTI NAMA</span>
       </button>
       <button
         onClick={() => setDeleting(true)}
         disabled={busy}
-        className="flex-1 py-1.5 rounded-lg bg-red-500/10 border border-red-500/30 hover:bg-red-500/20 text-red-300 text-[11px] font-bold disabled:opacity-50 transition-all"
+        className="flex-1 py-1.5 px-2 rounded-lg bg-red-500/10 border border-red-500/30 hover:bg-red-500/20 text-red-300 text-[11px] font-bold disabled:opacity-50 transition-all flex items-center justify-center gap-1.5 cursor-pointer"
+        title="Hapus desain dari penyimpanan cloud"
       >
-        🗑 HAPUS
+        <Trash2 size={12} className="text-red-400" />
+        <span>HAPUS</span>
       </button>
       {msg && <p className="w-full font-mono text-[11px] text-amber-300">{msg}</p>}
 
@@ -96,7 +101,7 @@ export function DesignCardActions({ id, title }: { id: string; title: string }) 
             className="w-full max-w-sm rounded-2xl bg-surface border border-border-subtle p-5 space-y-3"
             onClick={(e) => e.stopPropagation()}
           >
-            <h3 className="font-display font-black text-base uppercase text-text-primary">Ganti nama desain</h3>
+            <h3 className="font-sans font-bold text-base uppercase text-text-primary">Ganti nama desain</h3>
             <input
               value={nextTitle}
               onChange={(e) => setNextTitle(e.target.value.slice(0, 60))}

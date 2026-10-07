@@ -17,8 +17,12 @@ function requireEnv(name) {
 const TURSO_URL = requireEnv("TURSO_DATABASE_URL");
 const TURSO_AUTH_TOKEN = requireEnv("TURSO_AUTH_TOKEN");
 const BETTER_AUTH_SECRET = requireEnv("BETTER_AUTH_SECRET");
-const DUITKU_MERCHANT_CODE = requireEnv("DUITKU_MERCHANT_CODE");
-const DUITKU_API_KEY = requireEnv("DUITKU_API_KEY");
+// Webhook iPaymu TANPA secret runner (Bab 55 — Duitku 410 Gone). IPAYMU_VA/API_KEY
+// hanya relevan di sisi server; mock webhook mock langsung pakai reference_id.
+// Dibaca opsional agar skrip tak REFUSE bila belum diset lokal.
+const IPAYMU_VA = process.env.IPAYMU_VA || "";
+const IPAYMU_API_KEY = process.env.IPAYMU_API_KEY || "";
+void IPAYMU_VA; void IPAYMU_API_KEY;
 
 const BLUEPRINT_DIR = path.resolve("..", "Blueprint", "hasil-pengujian-e2e");
 const ORDERS_DIR = path.join(BLUEPRINT_DIR, "orders-invoices");
@@ -36,8 +40,21 @@ function hashOtp(code) {
   return crypto.createHash("sha256").update(`${pepper}:otp:${code}`).digest("hex");
 }
 
-function duitkuCallbackMd5(merchantCode, amount, merchantOrderId, apiKey) {
-  return crypto.createHash("md5").update(`${merchantCode}${amount}${merchantOrderId}${apiKey}`).digest("hex");
+// Mock payload webhook resmi iPaymu (Bab 55 — Duitku 410 Gone).
+// SSOT sukses Gelombang 7 (KK-20261004-5473 Rp 89000): POST /api/webhooks/ipaymu
+// {reference_id, status:"berhasil", amount, via:"QRIS"} → 200 "Payment successfully confirmed".
+function ipaymuMockPayload(orderNumber, amount) {
+  return {
+    trx_id: `IPAYMU-MOCK-${Date.now()}`,
+    sid: `SID-${Date.now()}`,
+    reference_id: orderNumber,
+    reference: orderNumber,
+    status: "berhasil",
+    status_code: "00",
+    amount: Number(amount),
+    via: "QRIS",
+    channel: "qris",
+  };
 }
 
 async function createAdminSession() {
@@ -193,7 +210,7 @@ function generateJobTicketHtml(order, items, tasks) {
     <div class="header">
       <h2 style="margin: 0; font-size: 20px;">SURAT PERINTAH KERJA (SPK) SABLON DTF</h2>
       <div style="font-size: 14px; margin-top: 4px;">KAOS KAMI WORKSHOP TAMALANREA</div>
-      <div style="font-size: 16px; font-weight: bold; margin-top: 6px;">ORDER: ${order.orderNumber} | STATUS: LUNAS (DUITKU)</div>
+      <div style="font-size: 16px; font-weight: bold; margin-top: 6px;">ORDER: ${order.orderNumber} | STATUS: LUNAS (IPAYMU)</div>
     </div>
     <div>
       <strong>METODE PENYERAHAN:</strong> <span class="badge">${order.deliveryMethod}</span><br>
@@ -372,21 +389,16 @@ async function runMasterSuite() {
 
   console.log(`✅ Order Terbuat: ${data1.orderNumber} (ID: ${data1.orderId})`);
 
-  // Webhook Duitku Lunas Kasus 1
-  const sig1 = duitkuCallbackMd5(DUITKU_MERCHANT_CODE, data1.amount, data1.orderNumber, DUITKU_API_KEY);
-  const whRes1 = await fetch(`${BASE}/api/webhooks/duitku`, {
+  // Webhook iPaymu Lunas Kasus 1 (status berhasil + nominal pas → PAYMENT_CONFIRMED)
+  const whRes1 = await fetch(`${BASE}/api/webhooks/ipaymu`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      merchantCode: DUITKU_MERCHANT_CODE,
-      amount: String(data1.amount),
-      merchantOrderId: data1.orderNumber,
-      signature: sig1,
-      resultCode: "00",
-      reference: "DUITKU-REF-001"
-    })
+    body: JSON.stringify(ipaymuMockPayload(data1.orderNumber, data1.amount))
   });
-  console.log(`✅ Webhook Duitku Kasus 1: Status ${whRes1.status} (Signature MD5 Verified)`);
+  console.log(`✅ Webhook iPaymu Kasus 1: Status ${whRes1.status} (Payment successfully confirmed)`);
+  if (whRes1.status !== 200) {
+    throw new Error(`Kasus 1 Webhook iPaymu gagal: HTTP ${whRes1.status} - ${await whRes1.text()}`);
+  }
   await new Promise(r => setTimeout(r, 1000));
 
   // Query Data Order dari Turso
@@ -420,7 +432,7 @@ async function runMasterSuite() {
   console.log("📄 Artefak Kasus 1 tersimpan di orders-invoices/");
 
   // --------------------------------------------------------------------------
-  // KASUS 2: HOODIE FLEECE WORKSHOP PICKUP (UJI CLAMPING PRINTHEAD 30.0 CM)
+  // KASUS 2: HOODIE FLEECE WORKSHOP PICKUP (UJI CLAMPING BATAS DTF 30.0 CM)
   // --------------------------------------------------------------------------
   console.log("\n🧥 [KASUS 2] Mengeksekusi Hoodie Fleece PICKUP & Uji Clamping 30.0 cm...");
   await setOtpVerification("0895803463032", "728194");
@@ -484,20 +496,16 @@ async function runMasterSuite() {
   }
   console.log(`✅ Order Terbuat: ${data2.orderNumber} (ID: ${data2.orderId})`);
 
-  // Webhook Duitku Kasus 2
-  const sig2 = duitkuCallbackMd5(DUITKU_MERCHANT_CODE, data2.amount, data2.orderNumber, DUITKU_API_KEY);
-  await fetch(`${BASE}/api/webhooks/duitku`, {
+  // Webhook iPaymu Kasus 2 (status berhasil + nominal pas → PAYMENT_CONFIRMED)
+  const whRes2 = await fetch(`${BASE}/api/webhooks/ipaymu`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      merchantCode: DUITKU_MERCHANT_CODE,
-      amount: String(data2.amount),
-      merchantOrderId: data2.orderNumber,
-      signature: sig2,
-      resultCode: "00",
-      reference: "DUITKU-REF-002"
-    })
+    body: JSON.stringify(ipaymuMockPayload(data2.orderNumber, data2.amount))
   });
+  console.log(`✅ Webhook iPaymu Kasus 2: Status ${whRes2.status}`);
+  if (whRes2.status !== 200) {
+    throw new Error(`Kasus 2 Webhook iPaymu gagal: HTTP ${whRes2.status} - ${await whRes2.text()}`);
+  }
   await new Promise(r => setTimeout(r, 1000));
 
   const orderDb2 = await turso.execute({ sql: "SELECT * FROM 'Order' WHERE id = ?", args: [data2.orderId] });
@@ -506,13 +514,13 @@ async function runMasterSuite() {
 
   // Verifikasi Clamping 30.0 cm
   const maxW = Math.max(...tasksDb2.rows.map(t => Number(t.printWidthCm || 0)));
-  console.log(`📏 Validasi Batas Printhead: Lebar Sablon Terukur = ${maxW} cm (Kunci <= 30.0 cm: ${maxW <= 30.0 ? '✅ LOLOS' : '❌ GAGAL'})`);
+  console.log(`Validasi Batas DTF: Lebar Sablon Terukur = ${maxW} cm (Kunci <= 30.0 cm: ${maxW <= 30.0 ? 'LOLOS' : 'GAGAL'})`);
 
   fs.writeFileSync(path.join(ORDERS_DIR, `KASUS-2-hoodie-pickup-${data2.orderNumber}.json`), JSON.stringify({
     order: orderDb2.rows[0],
     items: itemsDb2.rows,
     tasks: tasksDb2.rows,
-    printheadClamped: maxW <= 30.0
+    dtfLimitClamped: maxW <= 30.0
   }, null, 2));
 
   fs.writeFileSync(path.join(ORDERS_DIR, `KASUS-2-invoice-web.html`), generateInvoiceHtml(orderDb2.rows[0], itemsDb2.rows, {
@@ -523,7 +531,7 @@ async function runMasterSuite() {
 
   fs.writeFileSync(path.join(ORDERS_DIR, `KASUS-2-job-ticket-spk.html`), generateJobTicketHtml(orderDb2.rows[0], itemsDb2.rows, tasksDb2.rows));
 
-  // Ekspor Matriks Kalibrasi & Visual Printhead
+  // Ekspor Matriks Kalibrasi & Visual Batas DTF
   fs.writeFileSync(path.join(SNAPSHOTS_DIR, "scale-calibration-matrix.json"), JSON.stringify({
     tshirt: { chestWidthCm: 56.0, maxFrontWidthCm: 30.0, maxBackWidthCm: 30.0, multiplier: 145.5 },
     hoodie: { chestWidthCm: 60.0, maxFrontWidthCm: 30.0, maxBackWidthCm: 30.0, multiplier: 105.6 },
@@ -629,20 +637,16 @@ async function runMasterSuite() {
   }
   console.log(`✅ Bulk Order Terbuat: ${data3.orderNumber} (Total: Rp ${Number(data3.amount).toLocaleString('id-ID')})`);
 
-  // Webhook Duitku Kasus 3
-  const sig3 = duitkuCallbackMd5(DUITKU_MERCHANT_CODE, data3.amount, data3.orderNumber, DUITKU_API_KEY);
-  await fetch(`${BASE}/api/webhooks/duitku`, {
+  // Webhook iPaymu Kasus 3 (status berhasil + nominal pas → PAYMENT_CONFIRMED)
+  const whRes3 = await fetch(`${BASE}/api/webhooks/ipaymu`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      merchantCode: DUITKU_MERCHANT_CODE,
-      amount: String(data3.amount),
-      merchantOrderId: data3.orderNumber,
-      signature: sig3,
-      resultCode: "00",
-      reference: "DUITKU-REF-003"
-    })
+    body: JSON.stringify(ipaymuMockPayload(data3.orderNumber, data3.amount))
   });
+  console.log(`✅ Webhook iPaymu Kasus 3: Status ${whRes3.status}`);
+  if (whRes3.status !== 200) {
+    throw new Error(`Kasus 3 Webhook iPaymu gagal: HTTP ${whRes3.status} - ${await whRes3.text()}`);
+  }
   await new Promise(r => setTimeout(r, 1000));
 
   const orderDb3 = await turso.execute({ sql: "SELECT * FROM 'Order' WHERE id = ?", args: [data3.orderId] });
@@ -786,19 +790,21 @@ async function runMasterSuite() {
   const idemPass = (idemRes1.status === 200 && idemRes2.status === 409) || (idemRes2.status === 200 && idemRes1.status === 409) || (idemRes1.status === 409 || idemRes2.status === 409);
   securityResults.push({ test: "SEC-IDEMPOTENCY-01: Double-Click Replay", pass: idemPass, statusCodes: [idemRes1.status, idemRes2.status] });
 
-  // 5B: Webhook Signature Mismatch
-  const badSigRes = await fetch(`${BASE}/api/webhooks/duitku`, {
+  // 5B: Webhook Unknown-Order Rejection (iPaymu TANPA signature — tamper = reference fiktif → 404)
+  const badSigRes = await fetch(`${BASE}/api/webhooks/ipaymu`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
-      merchantCode: DUITKU_MERCHANT_CODE,
-      amount: "150000",
-      merchantOrderId: "KK-FAKE-999",
-      signature: "00000000000000000000000000000000",
-      resultCode: "00"
+      trx_id: "HACKER-FAKE-TRX-999",
+      reference_id: "KK-FAKE-999",
+      reference: "KK-FAKE-999",
+      status: "berhasil",
+      amount: 150000,
+      via: "QRIS",
+      channel: "qris"
     })
   });
-  securityResults.push({ test: "SEC-WEBHOOK-02: Bad MD5 Signature Rejected", pass: badSigRes.status === 401, status: badSigRes.status });
+  securityResults.push({ test: "SEC-WEBHOOK-02: Unknown iPaymu Order Rejected", pass: badSigRes.status === 404, status: badSigRes.status });
 
   // 5C: Expired OTP
   const badOtpRes = await fetch(`${BASE}/api/checkout`, {

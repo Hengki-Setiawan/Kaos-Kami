@@ -43,6 +43,25 @@ const STATUSES = [
   "REFUNDED",
 ] as const;
 
+// Status-dot 6px netral (presentasi saja — tanpa ubah mesin status/API/DB).
+// Warna dot netral: stone default, emerald = selesai/lunas, amber = antre/proses, rose = batal/refund.
+function OrderStatusDot({ status }: { status: string }) {
+  const dot =
+    status === "COMPLETED" || status === "DELIVERED" || status === "PAYMENT_CONFIRMED"
+      ? "bg-emerald-500"
+      : status === "CANCELLED" || status === "REFUNDED"
+      ? "bg-rose-500"
+      : status === "PENDING_PAYMENT"
+      ? "bg-stone-400"
+      : "bg-amber-500";
+  return (
+    <span className="inline-flex items-center gap-1.5 text-[11px] text-text-primary whitespace-nowrap">
+      <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${dot}`} aria-hidden="true" />
+      <span>{status}</span>
+    </span>
+  );
+}
+
 export default async function AdminOrdersListPage({
   searchParams,
 }: {
@@ -136,7 +155,7 @@ export default async function AdminOrdersListPage({
       {/* Header */}
       <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-4 pb-4 border-b border-border-subtle">
         <div>
-          <h1 className="font-display text-2xl sm:text-3xl font-black uppercase tracking-tight text-text-primary">
+          <h1 className="font-sans text-2xl sm:text-3xl font-bold uppercase tracking-tight text-text-primary">
             SEMUA PESANAN MASUK
           </h1>
           <p className="text-text-muted mt-0.5">
@@ -239,9 +258,7 @@ export default async function AdminOrdersListPage({
                     {order.payment ? `${order.payment.method || "?"} · ${order.payment.status}` : "-"}
                   </td>
                   <td className="p-4">
-                    <span className="px-2.5 py-1 rounded-full text-[10px] font-bold uppercase border border-border-subtle text-text-primary bg-surface whitespace-nowrap">
-                      {order.status}
-                    </span>
+                    <OrderStatusDot status={order.status} />
                   </td>
                   <td className="p-4 text-right">
                     <Link

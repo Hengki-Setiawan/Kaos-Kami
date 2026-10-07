@@ -1,6 +1,6 @@
 // scripts/e2e-kasus-1.mjs — Eksekusi Nyata Kasus 1: Kaos Boxy Hyperlocal Makassar
 // SSOT: Blueprint/BLUEPRINT-E2E-ADMIN-USER-LENGKAP.md Domain L (C-01) & Domain H (CH-01)
-import crypto from "crypto";
+// Pembayaran: iPaymu Direct QRIS (Bab 55) — webhook Duitku 410 Gone, JANGAN dipakai.
 import fs from "fs";
 import path from "path";
 import { createClient } from "@libsql/client/web";
@@ -155,37 +155,33 @@ async function runKasus1() {
   });
   console.log(`   - Status ACC Admin: ${accRes.status}`);
 
-  // 4. Simulasi Pembayaran Lunas Duitku (Webhook Callback dengan Tanda Tangan MD5)
-  console.log("\n4. Menjalankan Simulasi Pembayaran Lunas via Duitku Webhook...");
-  const merchantCode = requireEnv("DUITKU_MERCHANT_CODE");
-  const apiKey = requireEnv("DUITKU_API_KEY");
-  const amountStr = String(dbOrder.totalIdr);
-  const merchantOrderId = orderNumber;
-
-  // Rumus tanda tangan Duitku: MD5(merchantCode + amount + merchantOrderId + apiKey)
-  const signatureRaw = merchantCode + amountStr + merchantOrderId + apiKey;
-  const signature = crypto.createHash("md5").update(signatureRaw).digest("hex");
-
-  const duitkuCallbackPayload = {
-    merchantCode,
-    amount: amountStr,
-    merchantOrderId,
-    productDetail: "Custom TSHIRT Sablon DTF Boxy Makassar",
-    additionalParam: "",
-    paymentCode: "QRIS",
-    resultCode: "00", // Sukses
-    merchantUserId: custUser.userId,
-    reference: checkoutData.reference || "DUITKU-REF-001",
-    signature,
+  // 4. Simulasi Pembayaran Lunas via Webhook Resmi iPaymu (migrasi Bab 55 — Duitku 410 Gone).
+  // SSOT sukses: Blueprint/BUILD-PROGRESS-TRACKER.md Gelombang 7 (KK-20261004-5473 Rp 89000:
+  // POST /api/webhooks/ipaymu {reference_id, status:"berhasil", amount, via:"QRIS"}
+  // → 200 "Payment successfully confirmed", Order=PAYMENT_CONFIRMED, Payment=SETTLEMENT/IPAYMU_QRIS).
+  console.log("\n4. Menjalankan Simulasi Pembayaran Lunas via Webhook iPaymu...");
+  const ipaymuCallbackPayload = {
+    trx_id: `IPAYMU-MOCK-${Date.now()}`,
+    sid: `SID-${Date.now()}`,
+    reference_id: orderNumber,
+    reference: orderNumber,
+    status: "berhasil",
+    status_code: "00",
+    amount: Number(dbOrder.totalIdr),
+    via: "QRIS",
+    channel: "qris",
   };
 
-  const webhookRes = await fetch(`${BASE_URL}/api/webhooks/duitku`, {
+  const webhookRes = await fetch(`${BASE_URL}/api/webhooks/ipaymu`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(duitkuCallbackPayload),
+    body: JSON.stringify(ipaymuCallbackPayload),
   });
   const webhookText = await webhookRes.text();
   console.log(`   - Webhook Status: ${webhookRes.status} (${webhookText})`);
+  if (webhookRes.status !== 200 || !/successfully confirmed/i.test(webhookText)) {
+    throw new Error(`Webhook iPaymu gagal melunaskan ${orderNumber}: HTTP ${webhookRes.status} (${webhookText})`);
+  }
 
   // 5. Verifikasi Perubahan Status Order & Pembuatan ProductionTask di DB
   const paidOrderRes = await c.execute({
@@ -193,12 +189,18 @@ async function runKasus1() {
     args: [orderId],
   });
   console.log(`   - Status Order Pasca Bayar: ${paidOrderRes.rows[0].status}`);
+  if (paidOrderRes.rows[0].status !== "PAYMENT_CONFIRMED") {
+    throw new Error(`Asersi lunas GAGAL: status ${paidOrderRes.rows[0].status} (mau PAYMENT_CONFIRMED)`);
+  }
 
   const taskRes = await c.execute({
     sql: "SELECT id, orderId, stage, printWidthCm, printHeightCm, placementSide FROM ProductionTask WHERE orderId = ?",
     args: [orderId],
   });
   console.log(`   - Production Tasks Terbit: ${taskRes.rows.length} task`);
+  if (taskRes.rows.length === 0) {
+    throw new Error("Asersi ProductionTask GAGAL: 0 task terbit untuk order lunas");
+  }
   taskRes.rows.forEach((t, i) => {
     console.log(`     [Task ${i + 1}] Stage: ${t.stage}, Area: ${t.placementSide}, Ukuran: ${t.printWidthCm}cm x ${t.printHeightCm}cm`);
   });

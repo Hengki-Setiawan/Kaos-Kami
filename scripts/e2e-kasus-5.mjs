@@ -1,6 +1,7 @@
 // scripts/e2e-kasus-5.mjs — Eksekusi Nyata Kasus 5: Sad Cases, Hacker & Keamanan Siber
 // SSOT: Blueprint/BLUEPRINT-E2E-ADMIN-USER-LENGKAP.md Domain K (SEC-01 s/d SEC-20)
-import crypto from "crypto";
+// Webhook: iPaymu (Bab 55) — Duitku 410 Gone; iPaymu TANPA signature MD5
+// (tamper = reference fiktif → 404, nominal kurang → 400 Amount mismatch).
 import fs from "fs";
 import path from "path";
 import { createClient } from "@libsql/client/web";
@@ -111,36 +112,38 @@ async function runKasus5() {
   console.log(`   - Hasil: ${t1Passed ? "PASS" : "FAIL"}`);
 
   // -------------------------------------------------------------
-  // TEST 2: Webhook MD5 Signature Tampering Attack
+  // TEST 2: iPaymu Webhook Unknown-Order Rejection
+  // (migrasi Bab 55 — Duitku 410 Gone; iPaymu TANPA signature MD5, jadi
+  // serangan tamper = callback order fiktif → wajib 404, TAK melunaskan apa pun)
   // -------------------------------------------------------------
-  console.log("\n[TEST 2] Menguji Webhook MD5 Tampering Protection...");
+  console.log("\n[TEST 2] Menguji Penolakan Webhook iPaymu Order Fiktif...");
   const fakeWebhookPayload = {
-    merchantCode: requireEnv("DUITKU_MERCHANT_CODE"),
-    amount: "149000",
-    merchantOrderId: "KK-20260927-1158",
-    productDetail: "Tampered Webhook Simulation",
-    additionalParam: "",
-    paymentCode: "QRIS",
-    resultCode: "00",
-    reference: "HACKER-FAKE-REF-999",
-    signature: "00000000000000000000000000000000", // Signature MD5 palsu
+    trx_id: "HACKER-FAKE-TRX-999",
+    sid: "HACKER-FAKE-SID-999",
+    reference_id: "KK-FAKE-9999",
+    reference: "KK-FAKE-9999",
+    status: "berhasil",
+    status_code: "00",
+    amount: 149000,
+    via: "QRIS",
+    channel: "qris",
   };
 
-  const reqWebhook = await fetch(`${BASE_URL}/api/webhooks/duitku`, {
+  const reqWebhook = await fetch(`${BASE_URL}/api/webhooks/ipaymu`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(fakeWebhookPayload),
   });
   console.log(`   - Fake Webhook Status: ${reqWebhook.status}`);
 
-  const t2Passed = reqWebhook.status === 400 || reqWebhook.status === 401;
+  const t2Passed = reqWebhook.status === 404;
   results.push({
     id: "SEC-WEBHOOK-02",
-    name: "Duitku Webhook MD5 Signature Tampering Rejection",
+    name: "iPaymu Webhook Unknown-Order Rejection",
     passed: t2Passed,
     notes: t2Passed
-      ? "Server menolak callback dengan tanda tangan MD5 tidak sah (HTTP 400/401)."
-      : `Ekspektasi 400/401 Ditolak, diterima: ${reqWebhook.status}`,
+      ? "Server menolak callback order fiktif (HTTP 404 Order not found) — tidak ada order yang lunas."
+      : `Ekspektasi 404 Not Found, diterima: ${reqWebhook.status}`,
   });
   console.log(`   - Hasil: ${t2Passed ? "PASS" : "FAIL"}`);
 
@@ -196,42 +199,41 @@ async function runKasus5() {
   console.log(`   - Hasil: ${t4Passed ? "PASS" : "FAIL"}`);
 
   // -------------------------------------------------------------
-  // TEST 5: Underpayment Attack Rejection
+  // TEST 5: Underpayment Attack Rejection (iPaymu amount-mismatch → 400)
+  // iPaymu TANPA signature: kirim nominal Rp 1.000 untuk order nyata TEST 1
+  // → route wajib 400 Amount mismatch (guard webhooks/ipaymu:80-86).
+  // Tanpa fixture order (TEST 1 gagal) → fallback: order fiktif → 404
+  // (tetap membuktikan penyerang tak bisa melunaskan apa pun).
   // -------------------------------------------------------------
   console.log("\n[TEST 5] Menguji Underpayment Attack (Nominal Kurang)...");
-  const merchantCode = requireEnv("DUITKU_MERCHANT_CODE");
-  const apiKey = requireEnv("DUITKU_API_KEY");
-  const underpayAmount = "1000";
-  const underpayOrderId = "KK-20260927-1158";
-  const underpaySig = crypto
-    .createHash("md5")
-    .update(merchantCode + underpayAmount + underpayOrderId + apiKey)
-    .digest("hex");
-
-  const reqUnderpay = await fetch(`${BASE_URL}/api/webhooks/duitku`, {
+  const underpayRef = t1Passed && data1.orderNumber ? data1.orderNumber : "KK-FAKE-UNDERpay";
+  const underpayWant = t1Passed && data1.orderNumber ? 400 : 404;
+  const reqUnderpay = await fetch(`${BASE_URL}/api/webhooks/ipaymu`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
-      merchantCode,
-      amount: underpayAmount,
-      merchantOrderId: underpayOrderId,
-      productDetail: "Underpayment Attack Simulation",
-      additionalParam: "",
-      paymentCode: "QRIS",
-      resultCode: "00",
-      reference: "DUITKU-UNDERPAY-TEST",
-      signature: underpaySig,
+      trx_id: `IPAYMU-UNDERPAY-${Date.now()}`,
+      sid: `SID-UNDERPAY-${Date.now()}`,
+      reference_id: underpayRef,
+      reference: underpayRef,
+      status: "berhasil",
+      status_code: "00",
+      amount: 1000, // jauh di bawah total asli order nyata
+      via: "QRIS",
+      channel: "qris",
     }),
   });
-  console.log(`   - Underpayment Status: ${reqUnderpay.status}`);
-  const t5Passed = reqUnderpay.status === 400;
+  console.log(`   - Underpayment Status: ${reqUnderpay.status} (target ${underpayRef})`);
+  const t5Passed = reqUnderpay.status === underpayWant;
   results.push({
     id: "SEC-UNDERPAY-05",
     name: "Underpayment Callback Rejection",
     passed: t5Passed,
     notes: t5Passed
-      ? "Server mendeteksi ketidaksesuaian nominal order dan menolak update lunas (HTTP 400 Amount mismatch)."
-      : `Ekspektasi 400 Bad Request, diterima: ${reqUnderpay.status}`,
+      ? (underpayWant === 400
+        ? "Server mendeteksi ketidaksesuaian nominal order (kirim Rp 1.000) dan menolak update lunas (HTTP 400 Amount mismatch)."
+        : "Tanpa fixture order nyata — fallback order fiktif ditolak (HTTP 404), penyerang tetap tak bisa melunaskan apa pun.")
+      : `Ekspektasi ${underpayWant}, diterima: ${reqUnderpay.status}`,
   });
   console.log(`   - Hasil: ${t5Passed ? "PASS" : "FAIL"}`);
 

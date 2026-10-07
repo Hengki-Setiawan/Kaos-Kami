@@ -75,7 +75,7 @@ export function SavedDesignsGallery({
     <div className="space-y-3">
       <div className="flex items-center justify-between">
         <div>
-          <h3 className="text-sm font-bold text-white font-['Syne']">Galeri Desain Offline</h3>
+          <h3 className="text-sm font-bold text-white font-sans">Galeri Desain Offline</h3>
           <p className="text-[11px] text-zinc-400">Tersimpan di memori HP, dapat dibuka tanpa internet</p>
         </div>
         <button
@@ -102,7 +102,7 @@ export function SavedDesignsGallery({
                   <Layers className="w-5 h-5 text-white/40" />
                 </div>
                 <div className="min-w-0">
-                  <h4 className="text-xs font-bold text-white truncate font-['Syne']">
+                  <h4 className="text-xs font-bold text-white truncate font-sans">
                     {design.title}
                   </h4>
                   <p className="text-[10px] text-zinc-400 mt-0.5">

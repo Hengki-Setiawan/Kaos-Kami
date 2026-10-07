@@ -30,38 +30,38 @@ export const BackGraphicOverlay: React.FC = () => {
     >
       <div className="max-w-md lg:max-w-lg space-y-4 text-left md:text-right z-20">
         <div>
-          <span className="font-mono text-[10px] sm:text-xs text-brand-accent tracking-widest uppercase font-bold">
-            SKALA FISIK // AREA CETAK MAKSIMAL
+          <span className="font-sans text-[10px] sm:text-xs text-brand-accent tracking-widest uppercase font-bold">
+            INSPEKSI 360° // TANPA SALAH CETAK
           </span>
-          <h2 className="text-2xl sm:text-3xl md:text-[34px] font-display font-black uppercase leading-[1.08] tracking-tight text-text-primary mt-1.5">
-            SABLON BESAR<br />HINGGA UKURAN A3+
+          <h2 className="text-2xl sm:text-3xl md:text-[34px] font-sans font-extrabold uppercase leading-[1.08] tracking-tight text-text-primary mt-1.5">
+            LIHAT HASILNYA<br />SEBELUM DICETAK
           </h2>
         </div>
 
         {/* Minimalist 3-Pill Specs Grid */}
-        <div className="p-4 rounded-2xl bg-surface/75 border border-border-subtle backdrop-blur-sm space-y-2.5 inline-block text-left w-full font-mono text-xs">
+        <div className="p-4 rounded-2xl bg-surface/75 border border-border-subtle backdrop-blur-sm space-y-2.5 inline-block text-left w-full font-sans text-xs">
           <div className="flex items-center justify-between py-1 border-b border-border-subtle">
             <div className="flex items-center gap-2 text-text-muted">
-              <Maximize2 size={13} className="text-brand-accent" />
-              <span>DIMENSI CETAK:</span>
+              <RotateCw size={13} className="text-brand-accent" />
+              <span>PRATINJAU REALISTIS:</span>
             </div>
-            <strong className="text-text-primary">{maxW} × {maxH} cm (A3+)</strong>
+            <strong className="text-text-primary">Inspeksi Depan & Punggung 360°</strong>
           </div>
 
           <div className="flex items-center justify-between py-1 border-b border-border-subtle">
             <div className="flex items-center gap-2 text-text-muted">
-              <Layers size={13} className="text-brand-accent" />
-              <span>SISTEM SABLON:</span>
+              <Maximize2 size={13} className="text-brand-accent" />
+              <span>SKALA SENTIMETER NYATA:</span>
             </div>
-            <strong className="text-brand-accent">DTF High Definition</strong>
+            <strong className="text-brand-accent">{maxW} × {maxH} cm (Terkalibrasi 1:1)</strong>
           </div>
 
           <div className="flex items-center justify-between py-1">
             <div className="flex items-center gap-2 text-text-muted">
-              <RotateCw size={13} className="text-brand-accent" />
-              <span>SIMULASI POSISI:</span>
+              <Layers size={13} className="text-brand-accent" />
+              <span>JAMINAN PRODUKSI:</span>
             </div>
-            <strong className="text-text-primary">3D Interaktif 360°</strong>
+            <strong className="text-text-primary">Cetak Tepat Sesuai Mockup</strong>
           </div>
         </div>
       </div>

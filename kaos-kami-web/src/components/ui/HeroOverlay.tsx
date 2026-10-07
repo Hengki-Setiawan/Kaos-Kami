@@ -79,9 +79,9 @@ export const HeroOverlay: React.FC = () => {
   }, []);
 
   const isE2EText = (str: string | null) => !str || str.includes("E2E");
-  const cleanTitle = cmsTitle && !isE2EText(cmsTitle) ? cmsTitle : "BIKIN KAOS IMPIANMU\nDENGAN MOCKUP 3D";
+  const cleanTitle = cmsTitle && !isE2EText(cmsTitle) ? cmsTitle : "SABLON DTF PRESISI\n& APPAREL PREMIUM MAKASSAR";
   const titleLines = cleanTitle.split("\n");
-  const subtitle = cmsSubtitle && !isE2EText(cmsSubtitle) ? cmsSubtitle : "Platform sablon DTF kustom satuan & kaos polos katun combed berkualitas di Makassar. Simulasikan desainmu 360° secara akurat.";
+  const subtitle = cmsSubtitle && !isE2EText(cmsSubtitle) ? cmsSubtitle : "Kaos katun combed 24s & sablon DTF presisi tanpa minimum order. Pesan satuan, pratinjau 360° akurat sebelum cetak.";
 
   return (
     <section
@@ -93,23 +93,23 @@ export const HeroOverlay: React.FC = () => {
     >
       {/* Top Clean Editorial Category */}
       <div className="max-w-xs sm:max-w-md pt-2">
-        <span className="font-mono text-[10px] sm:text-xs text-brand-accent tracking-widest uppercase font-bold block">
-          KAOS KAMI // 3D DTF STUDIO MAKASSAR
+        <span className="font-sans text-xs sm:text-sm font-semibold text-brand-accent block">
+          Kaos Kami // 3D DTF Studio Makassar
         </span>
       </div>
 
-      {/* Main Editorial Title: Strict Left 45% Column, zero collision with 3D garment */}
-      <div className="my-auto max-w-sm sm:max-w-md space-y-3 z-20">
-        {/* CWV: min-h cadangkan slot judul agar swap teks CMS (stale→fresh) tak menggeser layout (CLS). */}
-        <h1 suppressHydrationWarning className="text-[clamp(1.65rem,7.5vw,2.25rem)] sm:text-4xl md:text-[44px] font-display font-black uppercase tracking-tight leading-[0.96] text-text-primary min-h-[5.5rem] sm:min-h-[6rem]">
+      {/* Main Editorial Title: Strict Left Column, perfectly balanced editorial typography */}
+      <div className="my-auto max-w-lg lg:max-w-xl space-y-3.5 z-20">
+        {/* CWV: min-h cadangkan slot judul agar swap teks CMS tak menggeser layout */}
+        <h1 suppressHydrationWarning className="text-3xl sm:text-4xl md:text-5xl lg:text-[52px] font-display font-black uppercase tracking-tight leading-[1.04] text-text-primary min-h-[5rem] sm:min-h-[6rem]">
           {titleLines.map((line, i) => (
             <React.Fragment key={i}>
               {i > 0 && <br />}
-              <span className={i > 0 ? "text-text-primary opacity-90" : undefined}>{line}</span>
+              <span className={i > 0 ? "text-text-primary/90" : undefined}>{line}</span>
             </React.Fragment>
           ))}
         </h1>
-        <p className="font-mono text-xs sm:text-sm text-brand-accent tracking-wider uppercase font-bold">
+        <p className="font-sans tabular-nums text-xs sm:text-sm text-brand-accent tracking-wider uppercase font-bold">
           {`KATUN COMBED 24S · BEBAS SATUAN · MULAI ${apparel.formattedPrice}`}
         </p>
 
@@ -117,9 +117,9 @@ export const HeroOverlay: React.FC = () => {
         <div className="pt-3 pointer-events-auto flex flex-wrap gap-3">
           <Link
             href="/studio"
-            className="inline-flex items-center px-6 py-3 rounded-full bg-brand-accent text-canvas font-mono font-bold text-xs uppercase tracking-wider hover:brightness-110 transition-all dark:shadow-[0_0_20px_rgba(230,81,0,0.35)] active:scale-95"
+            className="inline-flex items-center px-6 py-3 rounded-full bg-brand-accent text-canvas font-sans font-semibold text-sm hover:brightness-110 transition-all dark:shadow-[0_0_20px_rgba(230,81,0,0.35)] active:scale-95"
           >
-            <span>KUSTOM DESAIN (3D)</span>
+            <span>MULAI DESAIN 3D</span>
           </Link>
           <a
             href="#etalase"
@@ -130,34 +130,32 @@ export const HeroOverlay: React.FC = () => {
                 el.scrollIntoView({ behavior: "smooth" });
               }
             }}
-            className="inline-flex items-center px-6 py-3 rounded-full bg-surface border border-border-subtle text-text-primary font-mono font-bold text-xs uppercase tracking-wider hover:border-brand-accent hover:text-brand-accent transition-all active:scale-95"
+            className="inline-flex items-center px-6 py-3 rounded-full bg-surface border border-border-subtle text-text-primary font-sans font-semibold text-sm hover:border-brand-accent hover:text-brand-accent transition-all active:scale-95"
           >
-            <span>PRODUK SIAP BELI</span>
+            <span>BELANJA PRODUK SIAP PAKAI</span>
           </a>
         </div>
       </div>
 
-      {/* Bottom Data Grid & Scroll Indicator */}
-      <div className="flex flex-col sm:flex-row items-start sm:items-end justify-between gap-6 pb-2 border-t border-border-subtle pt-4">
-        <div className="flex gap-6 md:gap-10 font-mono text-xs">
-          <div>
-            <span className="block text-[10px] text-text-muted uppercase tracking-wider">LAYANAN</span>
-            <span className="font-bold text-text-primary">SABLON DTF & POLOS</span>
-          </div>
-          <div>
-            <span className="block text-[10px] text-text-muted uppercase tracking-wider">MINIMAL ORDER</span>
-            <span className="font-bold text-brand-accent">0 MIN (BEBAS SATUAN)</span>
-          </div>
-          <div>
-            <span className="block text-[10px] text-text-muted uppercase tracking-wider">WORKSHOP</span>
-            <span className="font-bold text-text-primary">MAKASSAR, ID</span>
-          </div>
-        </div>
-
-        <div className="flex items-center space-x-2 font-mono text-xs text-text-muted animate-bounce">
-          <span className="tracking-widest uppercase text-[11px]">GULIR EKSPLORASI</span>
-          <ChevronDown size={14} className="text-brand-accent" />
-        </div>
+      {/* Bottom Scroll Indicator: Siluet Elegan & Transparan, Kontras Terbaca */}
+      <div className="pb-4 sm:pb-6 flex items-center justify-end pointer-events-auto">
+        <button
+          type="button"
+          onClick={() => {
+            window.scrollBy({ top: window.innerHeight * 0.85, behavior: "smooth" });
+          }}
+          className="group flex items-center gap-2 text-text-primary/75 hover:text-brand-accent transition-colors duration-300 cursor-pointer select-none py-1.5 px-2"
+          aria-label="Gulir ke bawah"
+          title="Klik untuk gulir ke bawah"
+        >
+          <span className="font-sans text-xs sm:text-sm font-semibold tracking-wide">
+            Gulir ke bawah
+          </span>
+          <ChevronDown
+            size={16}
+            className="text-brand-accent animate-bounce transition-transform duration-300 group-hover:translate-y-0.5"
+          />
+        </button>
       </div>
     </section>
   );

@@ -4,6 +4,7 @@ import React, { useState, useEffect } from "react";
 import { Bell, CheckCheck, MessageSquare, Package, ChevronRight, X, Sparkles } from "lucide-react";
 import { API_BASE_URL } from "@/lib/api/mobileApiClient";
 import { haptic } from "@/lib/bridge/haptics";
+import { Z_CLASS_MODAL } from "@/lib/zIndex";
 
 interface NotificationItem {
   id: string;
@@ -110,7 +111,7 @@ export function MobileNotificationBell() {
 
       {/* Slide-Up Notifications Sheet */}
       {isOpen && (
-        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
+        <div className={`fixed inset-0 ${Z_CLASS_MODAL} flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200`}>
           <div
             className="w-full max-w-md max-h-[80dvh] flex flex-col rounded-t-3xl sm:rounded-3xl bg-zinc-900 border border-zinc-800 shadow-2xl overflow-hidden text-white"
             onClick={(e) => e.stopPropagation()}
@@ -122,7 +123,7 @@ export function MobileNotificationBell() {
                   <Bell className="w-3.5 h-3.5" />
                 </div>
                 <div>
-                  <h3 className="text-xs font-bold font-['Syne']">Pusat Notifikasi</h3>
+                  <h3 className="text-xs font-bold font-sans">Pusat Notifikasi</h3>
                   <p className="text-[10px] text-zinc-400 font-mono">
                     {unreadCount > 0 ? `${unreadCount} belum dibaca` : "Semua notifikasi telah dibaca"}
                   </p>
@@ -187,7 +188,7 @@ export function MobileNotificationBell() {
 
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center justify-between gap-1 mb-0.5">
-                        <h4 className="text-xs font-bold truncate text-white font-['Syne']">
+                        <h4 className="text-xs font-bold truncate text-white font-sans">
                           {n.title}
                         </h4>
                         {!n.read && (

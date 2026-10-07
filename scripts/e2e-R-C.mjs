@@ -7,7 +7,6 @@
 // sesi tulis; verifikasi hanya `node --check scripts/e2e-R-C.mjs`.
 import fs from "node:fs";
 import path from "node:path";
-import crypto from "node:crypto";
 import { createClient } from "@libsql/client/web";
 import { cookieHeader } from "./e2e-auth.mjs"; // fallback sesi-DB + signed (password E2E tak ada untuk akun real!)
 
@@ -21,7 +20,7 @@ const val = (f, d) => {
 if (has("--help")) {
   console.log(`R-C rantai Bab 7 (C-01â€“C-10). Pakai: node scripts/e2e-R-C.mjs --stamp YYYYMMDD-HHMM [--reuse <stamp>] [--no-reuse] [--only C-01] [--base-url URL] [--dry-run]
 Env: E2E_USER_EMAIL + E2E_TEST_PASSWORD (simpul user) | E2E_ADMIN_EMAIL + E2E_ADMIN_PASSWORD (simpul admin)
-  DUITKU_MERCHANT_CODE + DUITKU_API_KEY (webhook-mock-MD5 U-048) | E2E_SLEEP_MS (default 1500)
+  webhook iPaymu TANPA secret runner (U-048 mock langsung) | E2E_SLEEP_MS (default 1500)
 Aturan: REUSE default YA (baca <reuse>/created.json+final.json); cookie ganda per peran tiap simpul;
   invoice=GET /orders/<id> mentah; SPK=GET /admin/orders/<id>/job-ticket mentah; STOP 429; token file maks 8char;
   L3 MANUAL via skill browser-automation (lihat CHAIN.md tiap rantai).`);
@@ -63,7 +62,7 @@ const CHAINS = [
     { test: "U-021", peran: "user", method: "POST", path: "/api/checkout", body: "checkout FREE_MAKASSAR" },
     { test: "A-001", peran: "admin", method: "POST", path: "/api/admin/orders/<id>/review", body: "approve" },
     { test: "U-046", peran: "user", method: "POST", path: "/api/orders/<id>/request-payment", body: "{}" },
-    { test: "U-048", peran: "user", method: "POST", path: "/api/webhooks/duitku", body: "webhook-mock-MD5 resultCode 00" },
+    { test: "U-048", peran: "user", method: "POST", path: "/api/webhooks/ipaymu", body: "webhook-mock-iPaymu status berhasil" },
     { test: "A-028", peran: "admin", method: "GET", path: "/api/admin/production/tasks?orderId=<id>", body: "-" },
     { test: "A-030", peran: "admin", method: "PATCH", path: "/api/admin/orders/<id>", body: "advance PRINTING" } ],
     verify: ["order", "reviewed", "approve-event", "charged", "paid", "confirmed-min", "tasks-exist", "invoice-html", "status-poll"] },
@@ -81,7 +80,7 @@ const CHAINS = [
   { id: "C-04", nama: "Bulk ekspedisi sampai resi di HP user", orderTag: "SHIPPED-NEED", simpul: [
     { test: "U-031+U-025", peran: "user", method: "POST", path: "/api/checkout", body: "bulk 12pcs EXPEDITION_MANUAL" },
     { test: "A-001", peran: "admin", method: "POST", path: "/api/admin/orders/<id>/review", body: "approve" },
-    { test: "U-046+U-048", peran: "user", method: "POST", path: "/api/webhooks/duitku", body: "bayar via repay/webhook-mock" },
+    { test: "U-046+U-048", peran: "user", method: "POST", path: "/api/webhooks/ipaymu", body: "bayar via repay/webhook-mock-iPaymu" },
     { test: "A-034+A-045", peran: "admin", method: "PATCH", path: "/api/admin/orders/<id>", body: "full 7 tahap + QC" },
     { test: "A-011", peran: "admin", method: "PATCH", path: "/api/admin/orders/<id>", body: "trackingNumber resi" },
     { test: "U-073+U-059", peran: "user", method: "GET", path: "/api/mobile/orders/<id>/status", body: "resi tampil + link" } ],
@@ -89,7 +88,7 @@ const CHAINS = [
   { id: "C-05", nama: "EXPRESS kilat di kanban + invoice", orderTag: "EXPRESS-ANY", simpul: [
     { test: "U-027", peran: "user", method: "POST", path: "/api/checkout", body: "checkout EXPRESS_24H" },
     { test: "A-001", peran: "admin", method: "POST", path: "/api/admin/orders/<id>/review", body: "approve" },
-    { test: "U-048", peran: "user", method: "POST", path: "/api/webhooks/duitku", body: "webhook-mock-MD5" },
+    { test: "U-048", peran: "user", method: "POST", path: "/api/webhooks/ipaymu", body: "webhook-mock-iPaymu status berhasil" },
     { test: "A-040", peran: "admin", method: "GET", path: "/api/admin/production/tasks?orderId=<id>", body: "badge/sortir EXPRESS" },
     { test: "A-030", peran: "admin", method: "PATCH", path: "/api/admin/orders/<id>", body: "advance PRINTING" } ],
     verify: ["order-tier", "invoice-html"] },
@@ -115,7 +114,7 @@ const CHAINS = [
     { test: "M-008", peran: "user", method: "POST", path: "/api/mobile/orders/checkout", body: "checkout HP" },
     { test: "A-001", peran: "admin", method: "POST", path: "/api/admin/orders/<id>/review", body: "approve (via WEB)" },
     { test: "M-013", peran: "user", method: "GET", path: "/api/mobile/orders/<id>/status", body: "tunggu ACC vs modal" },
-    { test: "U-048", peran: "user", method: "POST", path: "/api/webhooks/duitku", body: "lunas via web/sheet" },
+    { test: "U-048", peran: "user", method: "POST", path: "/api/webhooks/ipaymu", body: "lunas via web/sheet (mock iPaymu)" },
     { test: "M-015+M-027", peran: "user", method: "GET", path: "/api/mobile/orders/<id>/status", body: "tracker HP dimensi asli" } ],
     verify: ["mobile-catalog", "status-poll", "status-dims"] },
   { id: "C-10", nama: "Sweep + backup terlihat di health (infra)", orderTag: "INFRA", simpul: [
@@ -188,7 +187,15 @@ async function sessionCookieDb(email) {
   requireEnv("BETTER_AUTH_SECRET");
   return cookieHeader(String(r.rows[0].token));
 }
-const md5duitku = (code, amount, orderNo, key) => crypto.createHash("md5").update(`${code}${amount}${orderNo}${key}`).digest("hex");
+// Mock payload webhook iPaymu (Bab 55 — Duitku 410 Gone, TANPA signature):
+// {trx_id, reference_id=orderNumber, status:"berhasil", amount=total, via:"QRIS"}
+// → 200 "Payment successfully confirmed" (SSOT Gelombang 7: KK-20261004-5473 Rp 89000).
+const ipaymuMock = (orderNo, amount) => ({
+  trx_id: `IPAYMU-MOCK-${Date.now()}`, sid: `SID-${Date.now()}`,
+  reference_id: orderNo, reference: orderNo, status: "berhasil", status_code: "00",
+  amount: Number(amount), via: "QRIS", channel: "qris",
+});
+void ipaymuMock; // dipakai operator saat melunaskan simpul U-048 manual via curl/sheet
 const maskDeep = (o) => JSON.parse(JSON.stringify(o ?? null, (k, v) => (/token|cookie|secret|otp|password|signature/i.test(k) && typeof v === "string" ? short(v) : v)));
 
 if (DRY) {

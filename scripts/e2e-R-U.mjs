@@ -4,7 +4,6 @@
 // STOP saat 429 · token ≤8 char di file · prefix TEST-<stamp>-U-* · created.json (R-A membacanya).
 // DILARANG: hardcode secret (requireEnv!), run prod tanpa --prod + E2E_PROD_CONFIRM=yes.
 // UI-only (U-020/060/071-076/079-080): LANGKAH MANUAL ke LAPORAN, bukan otomatis!
-import crypto from "crypto";
 import fs from "fs";
 import path from "path";
 import readline from "readline";
@@ -66,7 +65,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const S_CHECKOUT = 13000, S_SENS = 5000, S_LITE = 1200; // hormati rate-limit global (Bab 0.1-6)
 const T = (id) => `TEST-${STAMP}-U-${id}`; // prefix isolasi (Bab 0.1-5)
 const results = []; // {id, status: PASS|FAIL|SKIP|MANUAL, note}
-const created = { _schema: "e2e-created/1", _aturan: "Token sesi DILARANG utuh (maks 8 char + ...).", runStamp: STAMP, baseUrl: BASE_URL, duitkuEnv: "sandbox", accounts: {}, orders: [], coupons: [], designs: [], variants: [], zones: [] };
+const created = { _schema: "e2e-created/1", _aturan: "Token sesi DILARANG utuh (maks 8 char + ...).", runStamp: STAMP, baseUrl: BASE_URL, ipaymuEnv: "production", accounts: {}, orders: [], coupons: [], designs: [], variants: [], zones: [] };
 let failCause = "";
 
 function log(s) { console.log(s); fs.mkdirSync(OUTPUT_DIR, { recursive: true }); fs.appendFileSync(LAPORAN, s + "\n"); }
@@ -143,7 +142,15 @@ async function otpCode(phone) {
   if (!process.stdin.isTTY) throw new Error(`OTP untuk ${phone} butuh --otp / --otp-lifetime / peek-aktif (non-interaktif, menolak hang)`);
   return ask(`OTP WA untuk ${phone} (cek Fonnte/WA lalu tempel): `);
 }
-const md5duitku = (code, amount, orderNo, key) => crypto.createHash("md5").update(`${code}${amount}${orderNo}${key}`).digest("hex");
+// Webhook iPaymu (Bab 55 — Duitku 410 Gone, TANPA signature MD5).
+// Kontrak sukses SSOT Gelombang 7: {reference_id=orderNumber, status:"berhasil",
+// amount=total, via:"QRIS"} → 200 "Payment successfully confirmed".
+const ipaymuCb = (orderNo, amount, status = "berhasil") => ({
+  trx_id: `IPAYMU-MOCK-${Date.now()}`, sid: `SID-${Date.now()}`,
+  reference_id: orderNo, reference: orderNo, status, status_code: "00",
+  amount: Number(amount), via: "QRIS", channel: "qris",
+});
+const PAID_OK = (r) => r.status === 200 && /successfully confirmed/i.test(r.text);
 
 // ---------- fixture ----------
 // Email/nomor via env dulu (JANGAN hardcode secret/akun baru) — fallback = akun uji kanonis Bab 0.
@@ -399,24 +406,23 @@ async function stepPayRequest() {
   ok("U-047", r.status === 400, `REVIEW harus 400, dapat ${r.status}`);
   await api(`/api/orders/${r2.data.orderId}/cancel`, { method: "POST" }).catch(() => {});
 }
-async function stepWebhook() { // rumus MD5: MD5(merchantCode+amount+merchantOrderId+apiKey)
-  if (DRY) return ["POST webhooks/duitku 00 + idempoten + sigSalah401 + underpay400 + telatCancel"];
-  const o = globalThis.__o21; const code = requireEnv("DUITKU_MERCHANT_CODE"); const key = requireEnv("DUITKU_API_KEY");
+async function stepWebhook() { // iPaymu: tanpa signature; sukses = status "berhasil" + nominal pas
+  if (DRY) return ["POST webhooks/ipaymu berhasil + idempoten + orderFiktif404 + underpay400 + telatCancel"];
+  const o = globalThis.__o21;
   if (!o) { ["U-048", "U-049", "U-056", "U-057", "U-058"].forEach((id) => rec(id, "SKIP", "ikut U-046")); return; }
   const dbRow = await getDb().execute({ sql: 'SELECT totalIdr, status FROM "Order" WHERE id = ?', args: [o.orderId] });
   const total = dbRow.rows[0]?.totalIdr;
-  const cb = (amount, rc = "00", sig = null) => ({ merchantCode: code, amount: String(amount), merchantOrderId: o.orderNumber, productDetail: T("048"), additionalParam: "", paymentCode: "QRIS", resultCode: rc, merchantUserId: "x", reference: T("048"), signature: sig ?? md5duitku(code, String(amount), o.orderNumber, key) });
   await sleep(DRY ? 0 : S_LITE);
-  let r = await api("/api/webhooks/duitku", { method: "POST", body: cb(total) });
-  ok("U-048", r.status === 200 && /SUCCESS/.test(r.text), `webhook 00 harus SUCCESS, dapat ${r.status}`);
+  let r = await api("/api/webhooks/ipaymu", { method: "POST", body: ipaymuCb(o.orderNumber, total) });
+  ok("U-048", PAID_OK(r), `webhook berhasil harus confirmed, dapat ${r.status}`);
   await sleep(DRY ? 0 : S_LITE);
-  r = await api("/api/webhooks/duitku", { method: "POST", body: cb(total) });
-  ok("U-049", r.status === 200 && /SUCCESS/.test(r.text), "retry harus idempoten SUCCESS");
+  r = await api("/api/webhooks/ipaymu", { method: "POST", body: ipaymuCb(o.orderNumber, total) });
+  ok("U-049", PAID_OK(r), "retry harus idempoten confirmed");
   await sleep(DRY ? 0 : S_LITE);
-  r = await api("/api/webhooks/duitku", { method: "POST", body: { ...cb(total), signature: "0".repeat(32) } });
-  ok("U-056", r.status === 401, `sig palsu harus 401, dapat ${r.status}`);
+  r = await api("/api/webhooks/ipaymu", { method: "POST", body: { ...ipaymuCb("KK-FAKE-9999", 149000), trx_id: "HACKER-FAKE-TRX" } });
+  ok("U-056", r.status === 404, `order fiktif harus 404, dapat ${r.status}`);
   await sleep(DRY ? 0 : S_LITE);
-  r = await api("/api/webhooks/duitku", { method: "POST", body: cb(1000) });
+  r = await api("/api/webhooks/ipaymu", { method: "POST", body: ipaymuCb(o.orderNumber, 1000) });
   ok("U-057", r.status === 400, `underpay harus 400, dapat ${r.status}`);
   const cx = created.orders.find((x) => x.testId === "U-024");
   if (cx) {
@@ -424,8 +430,8 @@ async function stepWebhook() { // rumus MD5: MD5(merchantCode+amount+merchantOrd
     const trow = await getDb().execute({ sql: 'SELECT totalIdr FROM "Order" WHERE id = ?', args: [cx.orderId] }).catch(() => null);
     const tt = trow?.rows?.[0]?.totalIdr ?? total;
     await sleep(DRY ? 0 : S_LITE);
-    r = await api("/api/webhooks/duitku", { method: "POST", body: { merchantCode: code, amount: String(tt), merchantOrderId: cx.orderNumber, resultCode: "00", paymentCode: "QRIS", reference: T("058"), signature: md5duitku(code, String(tt), cx.orderNumber, key) } });
-    ok("U-058", r.status === 200 && /SUCCESS/.test(r.text), `telat-cancel harus ack SUCCESS, dapat ${r.status}`);
+    r = await api("/api/webhooks/ipaymu", { method: "POST", body: ipaymuCb(cx.orderNumber, tt) });
+    ok("U-058", PAID_OK(r), `telat-cancel harus ack confirmed, dapat ${r.status}`);
   } else rec("U-058", "SKIP", "tak ada order cancel");
 }
 async function stepRepayCancel() {

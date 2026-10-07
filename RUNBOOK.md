@@ -1,11 +1,13 @@
 # Kaos Kami — RUNBOOK (lihat `AGENTS.md` untuk aturan arsitektur)
 
-## 1. Duitku webhook tidak fire / payment stuck PENDING
+## 1. iPaymu webhook tidak fire / payment stuck PENDING (Duitku NONAKTIF permanen)
 - **Gejala:** Order tetap `PENDING_PAYMENT` padahal customer sudah bayar, tidak ada `ProductionTask` terbuat.
-- **Cek:** Dashboard Duitku → Transactions → cari `orderNumber` → cek `resultCode=00`. Lalu cek vars `DUITKU_ENV` + secrets: `npx wrangler secret list` wajib ada `DUITKU_MERCHANT_CODE`, `DUITKU_API_KEY`.
-- **Fix manual:** kirim ulang callback ke `POST /api/webhooks/duitku` (verifikasi MD5 + cek nominal otomatis), atau manual `prisma.order.update status=PAYMENT_CONFIRMED` + buat `ProductionTask` rows + `OrderStatusEvent`.
+- **Cek:** Dasbor iPaymu → Transactions → cari `orderNumber` → cek status sukses. Lalu cek vars `IPAYMU_ENV` + secrets: `npx wrangler secret list` wajib ada `IPAYMU_VA`, `IPAYMU_API_KEY`.
+- **Callback aktif:** `POST /api/webhooks/ipaymu` (idempoten: konfirmasi order → baris `Payment` SETTLEMENT → auto-create `ProductionTask` SPK). Simulasi Wave 7 memakai endpoint ini (`ref`, `status=berhasil`, `amount`, `QRIS`).
+- **Duitku 410 Gone permanen:** `POST|GET /api/webhooks/duitku` selalu jawab `410 Gone` (`src/app/api/webhooks/duitku/route.ts`); file SENGAJA dipertahankan sebagai jejak audit, verifikasi signature lama hanya `verifyDuitkuCallbackForAudit()` read-only tanpa efek DB. Order BARU tidak bergantung ke route ini (`checkout/repay/request-payment` → `ipaymuProvider.createCharge`; sweep cek `providerRef` IPAYMU). JANGAN kirim ulang callback ke Duitku.
+- **Fix manual:** buat ulang tagihan via `POST /api/orders/[id]/repay` atau `/request-payment`, atau manual update order `PAYMENT_CONFIRMED` + buat `ProductionTask` rows + `OrderStatusEvent`.
 - **Pencegahan:** Sentry `onRequestError` + health `/api/health` setiap 1 menit.
-- **Catatan:** Proyek ini sepenuhnya Duitku. Route/kode Midtrans dihapus (Sep 2026); sisa enum DB historis MIDTRANS/XENDIT (schema.prisma:397-399, read-only order lama); jika masih ada secrets `MIDTRANS_*` di Cloudflare, hapus via `npx wrangler secret delete MIDTRANS_SERVER_KEY` (dst.) agar tidak membingungkan.
+- **Catatan UI terkait (faktual, Okt 2026):** sidebar admin hanya **5 menu** (`AdminNav.tsx`: Pesanan & Analitik `/admin`, Workshop Sablon DTF `/admin/production`, Hub Pengiriman & Kurir `/admin/deliveries`, Live Chat CS `/admin/chat`, Pengaturan Toko & CMS `/admin/settings`); rute `/admin/review` & `/admin/assets` dihapus; `PatternStudio`/`FabricEditor` (2D canvas) dihapus total; checkout V2 2-tahap (`CheckoutModal.tsx`, legacy `CheckoutModalLegacy.tsx`, flag `NEXT_PUBLIC_CHECKOUT_V2`, default true, `false`=rollback); gizmo laser SVG (`DecalGizmo.tsx` + `DecalGizmoHtml.tsx` fallback + `gizmoSvgBridge.ts`/`gizmoSvgMath.ts`, flag `NEXT_PUBLIC_GIZMO_SVG`, default true, `false`=rollback gizmo `<Html>` lama). Detail flag di `.env.example`.
 
 ## 2. WhatsApp Fonnte device disconnect
 - **Gejala:** Checkout sukses tapi WA tidak terkirim, log `[Fonnte Mock Log]` atau `WA trigger error`.
@@ -29,11 +31,12 @@
 - **Gejala:** `/api/health` `db:disconnected`.
 - **Cek:** `TURSO_DATABASE_URL` + `TURSO_AUTH_TOKEN` di `.env` & `wrangler.jsonc` vars.
 
-## 5. Ubah skema DB prod (Turso hanya support `db push`)- **Fakta (Sep 2026, Prisma 7.10.0):** `prisma migrate deploy/resolve` menolak `libsql://` (`P1013 scheme not recognized`). Turso = `db push` only.
-- **KOREKSI 21 Sep 2026 (terverifikasi 2x):** `npx prisma db push` dari `kaos-kami-web/` JUGA gagal `P1013` pada toolchain ini (engine schema tak kenal skema `libsql://`, walau `DATABASE_URL` benar). Jalur kerja: (1) backup via `GET /api/cron/backup` (Bearer CRON_SECRET) → file `backups/kaos-kami-*.sql` di R2; (2) migrasi SQL berversi via script Node `@libsql/client` (idempoten: cek PRAGMA dulu; ADD COLUMN/CREATE TABLE aman; **hindari rebuild tabel ber-FK** — `DROP TABLE` induk gagal `SQLITE_CONSTRAINT` karena batch autocommit per-statement); (3) verifikasi `PRAGMA table_info` + row count + `foreign_key_check` + `/api/health`. Default kolom yg tak bisa ALTER (mis. `Order.status`) biarkan drift selama SEMUA insert app set eksplisit — catat di sini.
-- **Prosedur aman:** (1) backup via Turso branch (`turso db create backup-YYYYMMDD --from kaos-kami-...` atau dashboard), (2) `npx prisma db push` dengan `DATABASE_URL` = Turso (CLI dari `kaos-kami-web/`, baca `prisma.config.ts`), (3) verifikasi `/api/health` + 1 query baca, (4) jika rusak → restore dari branch.
-- **File migrasi** `prisma/migrations/0001_init/` = referensi baseline yang cocok dengan skema prod saat ini (dibuat via `db push`); JANGAN fake `_prisma_migrations` manual.
-- **Script `db:migrate` (`prisma migrate deploy`) RUSAK untuk Turso** — jangan dipakai; pakai `db:push` + prosedur di atas.
+## 5. Ubah skema DB prod (Prisma `migrate` & `db push` DITOLAK P1013 — jalur SQL via Node saja)
+- **Fakta (Sep 2026, Prisma 7.10.0):** `prisma migrate deploy/resolve` menolak `libsql://` (`P1013 scheme not recognized`).
+- **KOREKSI 21 Sep 2026 (terverifikasi 2x, berlaku sampai toolchain diganti):** `npx prisma db push` dari `kaos-kami-web/` JUGA gagal `P1013` pada toolchain ini (engine schema tak kenal skema `libsql://`, walau `DATABASE_URL` benar). JANGAN jalankan `db push` maupun `migrate deploy` terhadap URL `libsql://` apa pun — keduanya mati di toolchain ini. Prisma dipertahankan HANYA untuk: skema source-of-truth, typegen, seed (Node-only), Studio (lihat §6).
+- **Prosedur aman aktual (satu-satunya jalur tulis skema prod):** (1) backup via `GET /api/cron/backup` (header `Authorization: Bearer <CRON_SECRET>`) → dump `kaos-kami-*.sql` di bucket R2 privat (BUKAN folder repo `backups/` — folder itu sudah dihapus dari worktree, lihat §10); (2) tulis migrasi SQL berversi, eksekusi via script Node `@libsql/client` (idempoten: cek `PRAGMA table_info` dulu; `ADD COLUMN` / `CREATE TABLE IF NOT EXISTS` aman; **hindari rebuild tabel ber-FK** — `DROP TABLE` induk gagal `SQLITE_CONSTRAINT` karena batch autocommit per-statement); (3) verifikasi `PRAGMA table_info` + row count + `PRAGMA foreign_key_check` + `GET /api/health`. Kolom yang tak bisa ALTER (mis. default `Order.status`) biarkan drift selama SEMUA insert app set eksplisit — catat drift di sini.
+- **File migrasi** `prisma/migrations/0001_init/` = referensi baseline yang cocok dengan skema prod saat ini; JANGAN fake `_prisma_migrations` manual.
+- **DILARANG untuk Turso:** `prisma migrate deploy` (P1013) dan `prisma db push` (P1013 pada toolchain ini). (Catatan: baris "Prosedur aman via Turso branch + `db push`" di revisi runbook lama DICABUT 05 Okt 2026 karena kontradiktif dengan koreksi P1013 di atas.)
 
 ## 6. Runtime DB = Drizzle, BUKAN Prisma Client (arsitektur Sep 2026)
 - **Fakta:** Prisma Client v6 (`eval` di `resolveEnginePath`) maupun v7 (query-compiler WASM `new WebAssembly.Module(bytes)` / impor `.wasm?module`) DITOLAK workerd (`Code generation disallowed`, issue prisma#28657). Next 14/webpack bahkan gagal build `.wasm?module` (`Module parse failed`). **Tidak ada kombinasi Prisma+Next14+Workers yang bisa jalan** (jalur resmi butuh Vite/wrangler-esbuild atau Next16+Turbopack).
@@ -84,4 +87,4 @@ px wrangler deploy langsung = bundle .open-next BASI (rute baru 404, terbukti 08
 - **Monitor umur (tanda job mati):**
   - Sweep: respons normal `{success:true, checked, cancelled, reconciled, created}`. Waspada bila order `PENDING_PAYMENT` berumur >24 jam menumpuk (query Turso) = sweep tidak jalan >1 hari. `cancelled` melonjak tiba-tiba = cek anomali trafik/bayar.
   - Backup: berisi PII → bucket PRIVAT `kaos-kami-backups` (bukan prefix publik). File terbaru berumur >8 hari = job mati. `bytes` anjlok vs baseline = backup kosong/rusak — jangan hapus backup lama sebelum verifikasi isi.
-  - Jejak lokal: `backups/` di repo ini = arsip manual, BUKAN pengganti cron backup cloud (jangan andalkan umurnya).
+  - Jejak lokal: folder repo `backups/` (termasuk `backups/draco-archive/`) SUDAH DIHAPUS dari worktree — terverifikasi tidak ada 05 Okt 2026; arsip manual direlokasi eksternal ke `D:\Vibe coding Semester 7\Backup-Kaos-Kami\` (lihat tracker entri 17). JANGAN referensikan path `backups/` untuk backup baru. Arsip manual BUKAN pengganti cron backup cloud (jangan andalkan umurnya).

@@ -5,6 +5,7 @@ import { db } from '@/lib/db';
 import { Cart, CartItem } from '@/lib/drizzle-schema';
 import { z } from 'zod';
 import { assertResourceOwnerOrAdmin } from '@/lib/security/authGuard';
+import { checkRateLimitAsync, getClientIp, rateLimitHeaders } from '@/lib/security/rateLimiter';
 const AddItemSchema = z.object({
   userId: z.string(),
   productVariantId: z.string().optional(),
@@ -17,6 +18,10 @@ const AddItemSchema = z.object({
 });
 export async function POST(req: NextRequest) {
   try {
+    const rl = await checkRateLimitAsync(`cart-items:ip:${getClientIp(req)}`, 30, 60);
+    if (rl.isLimited) {
+      return NextResponse.json({ error: 'Terlalu sering. Tunggu sebentar.' }, { status: 429, headers: rateLimitHeaders(rl, 30) });
+    }
     const body = await req.json();
     const parsed = AddItemSchema.safeParse(body);
     if (!parsed.success) return NextResponse.json({ error: parsed.error.errors[0]?.message || 'Invalid' }, { status: 400 });
@@ -109,6 +114,10 @@ export async function POST(req: NextRequest) {
 }
 export async function DELETE(req: NextRequest) {
   try {
+    const rl = await checkRateLimitAsync(`cart-items:ip:${getClientIp(req)}`, 30, 60);
+    if (rl.isLimited) {
+      return NextResponse.json({ error: 'Terlalu sering. Tunggu sebentar.' }, { status: 429, headers: rateLimitHeaders(rl, 30) });
+    }
     const { searchParams } = new URL(req.url);
     const rawId = (searchParams.get('itemId') || '').slice(0, 64);
     if (!rawId) return NextResponse.json({ error: 'Missing itemId' }, { status: 400 });
@@ -136,6 +145,10 @@ const UpdateQtySchema = z.object({
 });
 export async function PATCH(req: NextRequest) {
   try {
+    const rl = await checkRateLimitAsync(`cart-items:ip:${getClientIp(req)}`, 30, 60);
+    if (rl.isLimited) {
+      return NextResponse.json({ error: 'Terlalu sering. Tunggu sebentar.' }, { status: 429, headers: rateLimitHeaders(rl, 30) });
+    }
     const body = await req.json();
     const parsed = UpdateQtySchema.safeParse(body);
     if (!parsed.success) return NextResponse.json({ error: parsed.error.errors[0]?.message || 'Invalid itemId/quantity' }, { status: 400 });

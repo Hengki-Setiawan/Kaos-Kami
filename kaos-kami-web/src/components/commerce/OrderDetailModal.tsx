@@ -359,7 +359,13 @@ export function OrderDetailModal({
               </p>
             )}
             {/* Fallback permanen: RepayButton OTP (existing, jangan dihapus). */}
-            {(payFallback || !payUrl) && <RepayButton orderId={order.id} />}
+            {(payFallback || !payUrl) && (
+              <RepayButton
+                orderId={order.id}
+                orderNumber={order.orderNumber}
+                totalAmountIdr={order.totalIdr}
+              />
+            )}
           </div>
         )}
 

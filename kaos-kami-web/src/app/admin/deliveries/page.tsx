@@ -3,6 +3,7 @@
 import React, { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { Truck, MapPin, MessageSquare, CheckCircle, Package, Clock, ExternalLink, RefreshCw, Phone, Bike, Store } from "lucide-react";
+import { maskName, maskPhone } from "@/lib/mask";
 
 export const dynamic = "force-dynamic";
 
@@ -114,11 +115,11 @@ export default function AdminDeliveriesPage() {
       {/* Header Hub Pengiriman */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-border-subtle pb-5">
         <div>
-          <div className="flex items-center gap-2 text-brand-accent font-mono text-xs font-bold uppercase tracking-widest mb-1">
+          <div className="flex items-center gap-2 text-brand-accent font-sans text-xs font-bold uppercase tracking-widest mb-1">
             <Truck size={16} />
             <span>DIVISI PENGIRIMAN & LOGISTIK</span>
           </div>
-          <h1 className="font-display font-black text-2xl sm:text-3xl uppercase tracking-tight text-text-primary">
+          <h1 className="font-sans font-bold text-2xl sm:text-3xl uppercase tracking-tight text-text-primary">
             HUB PENGIRIMAN & KURIR
           </h1>
           <p className="text-xs text-text-muted mt-1">
@@ -153,12 +154,12 @@ export default function AdminDeliveriesPage() {
           }`}
         >
           <div className="flex items-center justify-between mb-1">
-            <span className="font-mono text-[10px] font-bold uppercase tracking-wider">KURIR INTERNAL</span>
+            <span className="font-sans text-[10px] font-bold uppercase tracking-wider">KURIR INTERNAL</span>
             <span className="px-2 py-0.5 rounded-full bg-brand-accent/20 text-brand-accent text-xs font-black">
               {makassarOrders.length}
             </span>
           </div>
-          <div className="font-display font-black text-base text-text-primary uppercase flex items-center gap-2">
+          <div className="font-sans font-bold text-base text-text-primary uppercase flex items-center gap-2">
             <Bike size={20} className="text-brand-accent shrink-0" />
             <span>Gratis Se-Makassar</span>
           </div>
@@ -176,12 +177,12 @@ export default function AdminDeliveriesPage() {
           }`}
         >
           <div className="flex items-center justify-between mb-1">
-            <span className="font-mono text-[10px] font-bold uppercase tracking-wider">EKSPEDISI NASIONAL</span>
+            <span className="font-sans text-[10px] font-bold uppercase tracking-wider">EKSPEDISI NASIONAL</span>
             <span className="px-2 py-0.5 rounded-full bg-blue-500/20 text-blue-400 text-xs font-black">
               {expeditionOrders.length}
             </span>
           </div>
-          <div className="font-display font-black text-base text-text-primary uppercase flex items-center gap-2">
+          <div className="font-sans font-bold text-base text-text-primary uppercase flex items-center gap-2">
             <Package size={20} className="text-blue-400 shrink-0" />
             <span>JNE / J&T / SiCepat</span>
           </div>
@@ -199,12 +200,12 @@ export default function AdminDeliveriesPage() {
           }`}
         >
           <div className="flex items-center justify-between mb-1">
-            <span className="font-mono text-[10px] font-bold uppercase tracking-wider">AMBIL DI WORKSHOP</span>
+            <span className="font-sans text-[10px] font-bold uppercase tracking-wider">AMBIL DI WORKSHOP</span>
             <span className="px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 text-xs font-black">
               {pickupOrders.length}
             </span>
           </div>
-          <div className="font-display font-black text-base text-text-primary uppercase flex items-center gap-2">
+          <div className="font-sans font-bold text-base text-text-primary uppercase flex items-center gap-2">
             <Store size={20} className="text-emerald-400 shrink-0" />
             <span>Pickup Tamalanrea</span>
           </div>
@@ -262,11 +263,11 @@ export default function AdminDeliveriesPage() {
                     {/* Header Card */}
                     <div className="flex items-center justify-between gap-2 border-b border-white/5 pb-3">
                       <div>
-                        <span className="font-mono text-[11px] text-brand-accent font-bold tracking-wider">
+                        <span className="font-mono tabular-nums text-[11px] text-brand-accent font-bold tracking-wider">
                           {order.orderNumber}
                         </span>
                         <h3 className="font-bold text-sm text-text-primary mt-0.5">
-                          {order.user?.name || "Pelanggan Tanpa Nama"}
+                          {order.user?.name ? maskName(order.user.name) : "Pelanggan Tanpa Nama"}
                         </h3>
                       </div>
                       <span
@@ -299,7 +300,7 @@ export default function AdminDeliveriesPage() {
                       {order.user?.phoneNumber && (
                         <div className="flex items-center gap-2 text-text-muted text-[11px]">
                           <Phone size={13} className="text-emerald-400" />
-                          <span>{order.user.phoneNumber}</span>
+                          <span>{maskPhone(order.user.phoneNumber)}</span>
                         </div>
                       )}
                     </div>

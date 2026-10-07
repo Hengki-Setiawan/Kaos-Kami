@@ -1,7 +1,7 @@
 // src/lib/gangPacker.ts
 //
 // MESIN packing gang-sheet DTF: menyusun banyak desain persegi ke lembaran
-// 1000 x 580 mm (batas fisik printhead) dengan librari `maxrects-packer`.
+// 1000 x 580 mm (dimensi roll maklon DTF meteran) dengan librari `maxrects-packer`.
 //
 // Cara kerja singkat:
 // 1. Setiap rect di-expand `qty`-nya menjadi kopi individual.

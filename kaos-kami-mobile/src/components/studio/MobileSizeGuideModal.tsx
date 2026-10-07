@@ -8,6 +8,7 @@ import {
   type ApparelSizingSpec,
   type GarmentDimensions,
 } from "@/lib/3d/mobileApparelSizing";
+import { Z_CLASS_MODAL } from "@/lib/zIndex";
 
 interface MobileSizeGuideModalProps {
   isOpen: boolean;
@@ -43,7 +44,7 @@ export function MobileSizeGuideModal({
   const sizeKeys = spec.sizeList;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
+    <div className={`fixed inset-0 ${Z_CLASS_MODAL} flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200`}>
       <div
         className="w-full max-w-lg max-h-[90dvh] flex flex-col rounded-t-3xl sm:rounded-3xl bg-zinc-900 border border-zinc-800 shadow-2xl overflow-hidden text-white"
         onClick={(e) => e.stopPropagation()}
@@ -55,7 +56,7 @@ export function MobileSizeGuideModal({
               <Ruler className="w-4 h-4" />
             </div>
             <div>
-              <h3 className="text-sm font-bold font-['Syne']">Panduan Ukuran Fisik</h3>
+              <h3 className="text-sm font-bold font-sans">Panduan Ukuran Fisik</h3>
               <p className="text-[10px] text-zinc-400 font-mono">Standar Konveksi Kaos Kami Makassar</p>
             </div>
           </div>
@@ -93,7 +94,7 @@ export function MobileSizeGuideModal({
           {/* Spec Summary Card */}
           <div className="p-3 rounded-2xl bg-zinc-800/50 border border-zinc-800 flex items-center justify-between">
             <div>
-              <span className="text-xs font-bold text-white block font-['Syne']">{spec.displayName}</span>
+              <span className="text-xs font-bold text-white block font-sans">{spec.displayName}</span>
               <span className="text-[10px] text-zinc-400 font-mono">Toleransi Jahitan: {spec.toleranceCm}</span>
             </div>
             <div className="px-2.5 py-1 rounded-lg bg-zinc-800 border border-zinc-700 text-[10px] font-mono text-orange-400">
@@ -204,7 +205,7 @@ export function MobileSizeGuideModal({
 
           {/* Measuring Tips Card */}
           <div className="p-3.5 rounded-2xl bg-zinc-800/40 border border-zinc-800 space-y-2">
-            <div className="flex items-center gap-1.5 text-orange-400 font-semibold text-xs font-['Syne']">
+            <div className="flex items-center gap-1.5 text-orange-400 font-semibold text-xs font-sans">
               <Info className="w-3.5 h-3.5" />
               <span>Cara Mengukur Baju Sendiri di Rumah:</span>
             </div>

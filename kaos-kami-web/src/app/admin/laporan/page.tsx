@@ -167,7 +167,7 @@ function ClosingCard({
       }`}
     >
       <div className="flex items-center justify-between">
-        <span className="font-mono text-[11px] uppercase tracking-wider text-text-muted">
+        <span className="font-sans text-[11px] uppercase tracking-wider text-text-muted">
           {title}
         </span>
         <span className="font-mono text-[11px] text-text-muted">{day.date}</span>
@@ -187,7 +187,7 @@ function ClosingCard({
         </div>
         <div className="flex justify-between pt-2 border-t border-border-subtle">
           <span className="font-bold text-text-primary">= NET</span>
-          <span className="font-display font-black text-lg text-emerald-700 dark:text-emerald-400">
+          <span className="font-mono font-bold tabular-nums text-lg text-emerald-700 dark:text-emerald-400">
             {fmtRp(day.net)}
           </span>
         </div>
@@ -254,7 +254,7 @@ export default function AdminLaporanPage() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-4 pb-4 border-b border-border-subtle">
         <div>
-          <h1 className="font-display text-2xl sm:text-3xl font-black uppercase tracking-tight text-text-primary">
+          <h1 className="font-sans font-bold text-2xl sm:text-3xl uppercase tracking-tight text-text-primary">
             LAPORAN WORKSHOP
           </h1>
           <p className="text-text-muted mt-0.5">
@@ -333,27 +333,77 @@ export default function AdminLaporanPage() {
             <p className="text-[10px] text-text-muted">{data.discountSource}</p>
           </section>
 
-          {/* 2. Tren sederhana */}
+          {/* 2. Tren sederhana — chart SVG interaktif (tanpa lib baru) */}
           <section className="space-y-3">
             <h2 className="text-xs font-bold uppercase tracking-wider text-text-muted">
-              TREN HARIAN (TABEL + BAR CSS, TANPA LIB CHART)
+              TREN HARIAN (CHART SVG INTERAKTIF, TANPA LIB CHART)
             </h2>
+            <div className="bg-surface border border-border-subtle rounded-2xl p-4 overflow-x-auto">
+              <svg
+                viewBox="0 0 600 240"
+                className="w-full min-w-[480px]"
+                role="img"
+                aria-label="Grafik batang omset harian"
+              >
+                {/* garis sumbu-X */}
+                <line x1="8" y1="208" x2="592" y2="208" stroke="currentColor" strokeOpacity="0.2" />
+                {data.daily.map((d, i) => {
+                  const n = data.daily.length || 1;
+                  const slot = 584 / n;
+                  const barW = Math.max(4, Math.min(36, slot * 0.6));
+                  const cx = 8 + i * slot + slot / 2;
+                  const h =
+                    maxDailyGross > 0 && d.gross !== null
+                      ? Math.max(d.gross > 0 ? 3 : 0, ((d.gross ?? 0) / maxDailyGross) * 184)
+                      : 0;
+                  const y = 208 - h;
+                  const showLabel = n <= 10 || i % Math.ceil(n / 10) === 0;
+                  return (
+                    <g key={d.date} className="group">
+                      <title>{`${d.date}: ${fmtRp(d.gross)} • ${d.orders} order`}</title>
+                      <rect
+                        x={cx - barW / 2}
+                        y={y}
+                        width={barW}
+                        height={Math.max(h, 0.5)}
+                        rx={2}
+                        className="fill-brand-accent opacity-70 transition group-hover:opacity-100"
+                      />
+                      {/* tooltip nominal saat hover (CSS-only) */}
+                      <text
+                        x={cx}
+                        y={Math.max(y - 6, 12)}
+                        textAnchor="middle"
+                        fontSize="11"
+                        className="fill-text-primary font-mono font-bold opacity-0 transition group-hover:opacity-100"
+                      >
+                        {fmtRp(d.gross)}
+                      </text>
+                      {showLabel && (
+                        <text
+                          x={cx}
+                          y={224}
+                          textAnchor="middle"
+                          fontSize="9"
+                          className="fill-text-muted font-mono"
+                        >
+                          {d.date.slice(5) || d.date}
+                        </text>
+                      )}
+                    </g>
+                  );
+                })}
+              </svg>
+              <p className="mt-1 text-[10px] text-text-muted">
+                Arahkan kursor ke batang untuk melihat nominal (tooltip bawaan + label hover).
+              </p>
+            </div>
+            {/* Tabel angka pendamping (bar CSS dihapus — diganti SVG di atas) */}
             <div className="bg-surface border border-border-subtle rounded-2xl divide-y divide-border-subtle overflow-hidden">
               {data.daily.map((d) => (
                 <div key={d.date} className="p-3 flex items-center gap-3">
                   <span className="w-24 shrink-0 text-text-muted">{d.date}</span>
-                  <div className="flex-1 h-3 rounded bg-black/5 dark:bg-white/5 overflow-hidden">
-                    <div
-                      className="h-full rounded bg-brand-accent/70"
-                      style={{
-                        width:
-                          maxDailyGross > 0 && d.gross !== null
-                            ? `${Math.max(2, Math.round(((d.gross ?? 0) / maxDailyGross) * 100))}%`
-                            : "0%",
-                      }}
-                    />
-                  </div>
-                  <span className="w-40 shrink-0 text-right font-bold text-text-primary">
+                  <span className="flex-1 text-right font-bold text-text-primary">
                     {fmtRp(d.gross)}
                   </span>
                   <span className="w-20 shrink-0 text-right text-text-muted">
@@ -370,7 +420,7 @@ export default function AdminLaporanPage() {
               <h2 className="text-xs font-bold uppercase tracking-wider text-text-muted">
                 DEFECT QC ({data.defectRate.total} inspeksi)
               </h2>
-              <p className="font-display font-black text-2xl text-emerald-700 dark:text-emerald-400">
+              <p className="font-mono font-bold tabular-nums text-2xl text-emerald-700 dark:text-emerald-400">
                 {data.defectRate.lolos} lolos
               </p>
               <div className="space-y-1">
@@ -391,7 +441,7 @@ export default function AdminLaporanPage() {
               <h2 className="text-xs font-bold uppercase tracking-wider text-text-muted">
                 RATA-RATA TURNAROUND COMPLETED
               </h2>
-              <p className="font-display font-black text-2xl text-text-primary">
+              <p className="font-mono font-bold tabular-nums text-2xl text-text-primary">
                 {fmtNum(data.avgTurnaroundHours, " jam")}
               </p>
               <p className="text-[10px] text-text-muted">
@@ -516,7 +566,8 @@ export default function AdminLaporanPage() {
 
           {/* Catatan privasi */}
           <p className="text-[10px] text-text-muted border-t border-border-subtle pt-4">
-            Privasi (UU PDP): laporan ini TIDAK memuat nomor WA mentah — kontak tim
+            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-surface border border-border-subtle text-text-muted text-[10px] font-bold normal-case tracking-normal">🔒 PDP Protected</span>{" "}
+            Privasi: laporan ini TIDAK memuat nomor WA mentah — kontak tim
             tampil termask dari server. Tombol EXPORT PESANAN memakai pola CSV existing
             (berisi nomor pemesan penuh, khusus ADMIN) — unduh & gunakan seperlunya.{" "}
             <Link href="/admin" className="text-brand-accent hover:underline">

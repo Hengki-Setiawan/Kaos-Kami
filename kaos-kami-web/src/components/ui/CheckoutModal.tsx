@@ -30,6 +30,7 @@ import {
   Lock,
   Sparkles,
   ExternalLink,
+  Shirt,
 } from "lucide-react";
 
 import { useSession } from "@/lib/auth-client";
@@ -41,6 +42,7 @@ import { fetchServerPriceMap, formatIdr } from "@/lib/cartPriceRefresh";
 import { getMasterDataUrl, isHttpsMasterUrl } from "@/lib/imageEditPipeline";
 import { normalizePhoneId } from "@/lib/phone";
 import { getClosedQueueNotice } from "@/lib/shopHours";
+import { DirectQrisModal } from "@/components/ui/DirectQrisModal";
 
 /** Notice antrean saat workshop tutup (09.00–21.00 WITA) — tak blokir checkout. */
 const ShopClosedNotice: React.FC = () => {
@@ -54,7 +56,7 @@ const ShopClosedNotice: React.FC = () => {
   }, []);
   if (!msg) return null;
   return (
-    <p className="text-center font-mono text-[10px] text-amber-400">
+    <p className="text-center font-sans text-[10px] text-amber-400">
       {msg}
     </p>
   );
@@ -117,6 +119,16 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
       setIsAuthModalOpen(false);
     }
   }, [session?.user]);
+
+  // Modal Direct QRIS 100% In-App (iPaymu)
+  const [directQrisData, setDirectQrisData] = useState<{
+    orderId: string;
+    orderNumber: string;
+    amountIdr: number;
+    qrImage?: string;
+    qrString?: string;
+    invoiceUrl?: string;
+  } | null>(null);
 
   const [quantity, setQuantity] = useState(1);
   const [useCustomSizeBreakdown, setUseCustomSizeBreakdown] = useState(false);
@@ -197,6 +209,27 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
   const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
   const turnstileEnabled = !!process.env.NEXT_PUBLIC_CLOUDFLARE_TURNSTILE_SITE_KEY;
   const [isClient, setIsClient] = useState(false);
+
+  // Amandemen Bab 56 A2 (V2 2-tahap): 1 = Alamat+kurir (Kontak + Metode +
+  // Alamat GPS + ongkir), 2 = Bayar (ringkasan + QRIS DirectQrisModal +
+  // polling + repay via komponen existing). Semua state form tetap di
+  // komponen ini sehingga bolak-balik tahap TIDAK menghilangkan isian.
+  const [step, setStep] = useState<1 | 2>(1);
+  const bodyScrollRef = useRef<HTMLFormElement>(null);
+
+  const scrollBodyTop = () => {
+    try {
+      bodyScrollRef.current?.scrollTo({ top: 0, behavior: "smooth" });
+    } catch {
+      if (bodyScrollRef.current) bodyScrollRef.current.scrollTop = 0;
+    }
+  };
+
+  // Reset ke Tahap 1 setiap modal dibuka (fresh checkout); bolak-balik
+  // di dalam satu sesi open dipertahankan (tidak di-reset).
+  useEffect(() => {
+    if (isOpen) setStep(1);
+  }, [isOpen]);
 
   useEffect(() => {
     setIsClient(true);
@@ -467,7 +500,70 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
   const effectiveSubtotal = isCartCheckout ? getCartTotalPrice() : pricing.totalPriceIdr;
   const grandTotal = effectiveSubtotal + shippingCost;
 
-  if (!isOpen || !isClient || typeof document === "undefined") return null;
+  // V2 validasi Tahap 1 (mirror handleCheckoutSubmit 400-checks, TANPA
+  // OTP/kupon/Turnstile — itu gerbang Tahap 2/submit). pricingEngine,
+  // endpoint /api/checkout, OTP WA TIDAK DIUBAH (submit memanggil sama).
+  const validateStep1 = (): string | null => {
+    const normPhone = normalizePhoneId(phoneNumber);
+    if (!recipientName.trim()) return "Nama lengkap penerima wajib diisi.";
+    if (!normPhone || normPhone.replace(/[^0-9]/g, "").length < 9)
+      return "Nomor WhatsApp tidak valid (contoh: 081234567890).";
+    if (deliveryMethod !== "PICKUP" && !fullAddress.trim())
+      return "Alamat lengkap pengiriman wajib diisi.";
+    if (deliveryMethod === "EXPEDITION_MANUAL" && !selectedQuote)
+      return "Silakan cek ongkir & pilih kurir ekspedisi terlebih dahulu.";
+    const slugs: string[] = isCartCheckout
+      ? (cartItems as any[]).map((it) => String(it?.apparelSlug ?? ""))
+      : [String(activeApparel)];
+    const blocked = slugs.find((s) => !APPAREL_CATALOG[s as ApparelType]?.orderable);
+    if (blocked) {
+      const opt = APPAREL_CATALOG[blocked as ApparelType];
+      return opt
+        ? `${opt.name} belum bisa dipesan saat ini.`
+        : `Apparel "${blocked}" tidak dikenal.`;
+    }
+    return null;
+  };
+
+  const handleNextToPayment = () => {
+    const err = validateStep1();
+    if (err) {
+      setErrorMessage(err);
+      scrollBodyTop();
+      return;
+    }
+    const norm = normalizePhoneId(phoneNumber);
+    if (norm) setPhoneNumber(norm);
+    setErrorMessage(null);
+    setStep(2);
+    // Scroll async setelah render tahap 2 (state persisten, tak reset isian).
+    requestAnimationFrame(() => scrollBodyTop());
+  };
+
+  const handleBackToAddress = () => {
+    setErrorMessage(null);
+    setStep(1);
+    requestAnimationFrame(() => scrollBodyTop());
+  };
+
+  if (!isClient || typeof document === "undefined") return null;
+
+  // Blueprint Bab 37.2 + Bab 41 — LARANG modal-di-atas-modal: AuthModal
+  // TIDAK PERNAH ditumpuk di atas CheckoutModal. Mekanisme tutup-dulu-
+  // baru-buka: bila user klik "Masuk Akun", checkout disembunyikan dulu
+  // lalu AuthModal tampil SENDIRI (satu portal dalam satu waktu).
+  if (isAuthModalOpen) {
+    return createPortal(
+      <AuthModal
+        isOpen
+        onClose={() => setIsAuthModalOpen(false)}
+        onSuccess={() => setIsAuthModalOpen(false)}
+      />,
+      document.body
+    );
+  }
+
+  if (!isOpen) return null;
 
   const handleCheckoutSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -476,35 +572,10 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
     const normPhone = normalizePhoneId(phoneNumber);
     if (normPhone) setPhoneNumber(normPhone);
 
-    if (!recipientName.trim()) {
-      setErrorMessage("Nama lengkap penerima wajib diisi.");
-      return;
-    }
-    if (!normPhone || normPhone.replace(/[^0-9]/g, "").length < 9) {
-      setErrorMessage("Nomor WhatsApp tidak valid (contoh: 081234567890).");
-      return;
-    }
-    if (deliveryMethod !== "PICKUP" && !fullAddress.trim()) {
-      setErrorMessage("Alamat lengkap pengiriman wajib diisi.");
-      return;
-    }
-    if (deliveryMethod === "EXPEDITION_MANUAL" && !selectedQuote) {
-      setErrorMessage("Silakan cek ongkir & pilih kurir ekspedisi terlebih dahulu.");
-      return;
-    }
-
-    // Blokir produk belum siap order
-    const slugs: string[] = isCartCheckout
-      ? (cartItems as any[]).map((it) => String(it?.apparelSlug ?? ""))
-      : [String(activeApparel)];
-    const blocked = slugs.find((s) => !APPAREL_CATALOG[s as ApparelType]?.orderable);
-    if (blocked) {
-      const opt = APPAREL_CATALOG[blocked as ApparelType];
-      setErrorMessage(
-        opt
-          ? `${opt.name} belum bisa dipesan saat ini.`
-          : `Apparel "${blocked}" tidak dikenal.`
-      );
+    // Satu sumber validasi Tahap 1 (hindari drift string error ganda).
+    const stepErr = validateStep1();
+    if (stepErr) {
+      setErrorMessage(stepErr);
       return;
     }
 
@@ -639,8 +710,11 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
         orderId: string;
         reference?: string;
         paymentUrl?: string;
+        qrString?: string;
+        qrImage?: string;
         invoiceUrl?: string;
         orderNumber?: string;
+        amount?: number;
         status?: string;
         message?: string;
       }>("/api/checkout", {
@@ -659,51 +733,34 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
       // ALUR REVIEW (owner Sep 2026): checkout = antre review, TANPA charge.
       // Sukses = order DESIGN_REVIEW → kosongkan cart, arahkan ke dashboard
       // (bayar hanya setelah admin ACC via tombol di sana).
-      if ((data as any)?.status === "DESIGN_REVIEW" || (!(data as any)?.paymentUrl && data.orderId)) {
+      if ((data as any)?.status === "DESIGN_REVIEW" || (!(data as any)?.paymentUrl && !(data as any)?.qrImage && !(data as any)?.qrString && data.orderId)) {
         if (isCartCheckout) clearCart();
         window.location.href = "/dashboard/orders";
         return;
       }
 
-      const clearCartOnConfirmed = () => {
-        if (isCartCheckout) clearCart();
-      };
+      // 1. DIRECT QRIS 100% IN-APP (iPaymu):
+      // Jika server mengembalikan qrImage atau qrString, tampilkan Modal QRIS langsung di layar!
+      // Pengguna tidak dialihkan ke situs lain, dapat langsung screenshot atau unduh gambar QRIS.
+      if (data.qrImage || data.qrString) {
+        setDirectQrisData({
+          orderId: data.orderId,
+          orderNumber: data.orderNumber || data.orderId,
+          amountIdr: (data as any)?.amount || grandTotal,
+          qrImage: data.qrImage,
+          qrString: data.qrString,
+          invoiceUrl: data.invoiceUrl,
+        });
+        setIsLoading(false);
+        return;
+      }
 
-      const duitkuPay = () => {
-        if (typeof window !== "undefined" && (window as any).checkout && data.reference) {
-          try {
-            (window as any).checkout.process(data.reference, {
-              defaultLanguage: "id",
-              successEvent: function () {
-                clearCartOnConfirmed();
-                window.location.href = `/orders/${data.orderId}?status=success`;
-              },
-              pendingEvent: function () {
-                window.location.href = `/orders/${data.orderId}?status=pending`;
-              },
-              errorEvent: function () {
-                window.location.href = `/orders/${data.orderId}?status=error`;
-              },
-              closeEvent: function () {
-                window.location.href = data.invoiceUrl || `/orders/${data.orderId}`;
-              },
-            });
-            return;
-          } catch (e) {
-            console.warn("Duitku pop error, fallback to URL:", e);
-          }
-        }
-
-        // A7: fallback samakan Pop — cart HANYA kosong setelah lunas (invoice
-        // ?status=success yg memicu clear di sana); pending/close = cart utuh.
-        if (data.paymentUrl && !data.paymentUrl.includes("mock")) {
-          window.location.href = data.paymentUrl;
-        } else {
-          window.location.href = data.invoiceUrl || `/orders/${data.orderId}`;
-        }
-      };
-
-      duitkuPay();
+      // 2. Fallback jika paymentUrl tersedia:
+      if (data.paymentUrl && !data.paymentUrl.includes("mock")) {
+        window.location.href = data.paymentUrl;
+      } else {
+        window.location.href = data.invoiceUrl || `/orders/${data.orderId}`;
+      }
     } catch (err: any) {
       const serverMsg = err?.message || "Terjadi kendala saat memproses pesanan.";
       const d = err?.data as { orderNumber?: string; orderId?: string; invoiceUrl?: string } | undefined;
@@ -717,8 +774,8 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
   };
 
   return createPortal(
-    <div
-      className="fixed inset-0 z-[130] flex items-center justify-center p-2 sm:p-4 md:p-6 bg-black/80 backdrop-blur-md animate-fadeIn overflow-y-auto"
+      <div
+        className="fixed inset-0 z-[110] flex items-center justify-center p-2 sm:p-4 md:p-6 bg-black/80 backdrop-blur-md animate-fadeIn overflow-y-auto transition-opacity duration-200 opacity-100"
       data-lenis-prevent="true"
       role="dialog"
       aria-modal="true"
@@ -729,8 +786,8 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
         data-lenis-prevent="true"
         className="relative w-full max-w-4xl lg:max-w-5xl max-h-[94dvh] flex flex-col bg-surface border border-border-subtle rounded-2xl shadow-2xl text-text-primary my-auto overflow-hidden"
       >
-        {/* Top Accent Stripe */}
-        <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-brand-accent via-amber-500 to-brand-accent" />
+        {/* Garis aksen atas standar */}
+        <div className="absolute top-0 left-0 right-0 h-px bg-border-subtle" />
 
         {/* Header Modal */}
         <div className="px-5 py-4 sm:px-6 sm:py-4.5 border-b border-border-subtle flex items-center justify-between bg-surface/90 backdrop-blur-md shrink-0">
@@ -739,10 +796,10 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
               <ShoppingBag size={18} />
             </div>
             <div className="min-w-0">
-              <h2 className="font-display text-base sm:text-lg font-bold uppercase tracking-tight text-text-primary truncate">
+              <h2 className="font-sans text-base sm:text-lg font-bold uppercase tracking-tight text-text-primary truncate">
                 CHECKOUT PESANAN SABLON DTF
               </h2>
-              <p className="font-mono text-[10px] sm:text-[11px] text-text-muted truncate">
+              <p className="font-sans text-[10px] sm:text-[11px] text-text-muted truncate">
                 Workshop Makassar · Jaminan Kualitas Sablon DTF & Cotton Combed
               </p>
             </div>
@@ -757,13 +814,57 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
           </button>
         </div>
 
+        {/* V2 Stepper: 1 Alamat+Kurir → 2 Bayar (state persisten, tak reset isian) */}
+        <div
+          className="px-5 sm:px-6 pt-3 pb-1 shrink-0 flex items-center gap-2 font-sans text-[11px] font-bold uppercase tracking-wider"
+          aria-label="Tahap checkout"
+        >
+          <span
+            className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full border ${
+              step === 1
+                ? "bg-brand-accent/15 border-brand-accent text-brand-accent"
+                : "bg-emerald-500/10 border-emerald-500/30 text-emerald-400"
+            }`}
+          >
+            <span
+              className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] ${
+                step === 1 ? "bg-brand-accent text-canvas" : "bg-emerald-500 text-canvas"
+              }`}
+            >
+              {step === 2 ? "✓" : "1"}
+            </span>
+            <span>Alamat & Kurir</span>
+          </span>
+          <span className="text-text-muted" aria-hidden="true">→</span>
+          <span
+            className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full border ${
+              step === 2
+                ? "bg-brand-accent/15 border-brand-accent text-brand-accent"
+                : "bg-surface border-border-subtle text-text-muted"
+            }`}
+          >
+            <span
+              className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] ${
+                step === 2 ? "bg-brand-accent text-canvas" : "bg-surface border border-border-subtle"
+              }`}
+            >
+              2
+            </span>
+            <span>Bayar</span>
+          </span>
+          <span className="ml-auto text-[10px] text-text-muted normal-case font-normal hidden sm:block">
+            {step === 1 ? "Isi tujuan & kurir dulu" : "Cek ringkasan lalu bayar QRIS"}
+          </span>
+        </div>
+
         {/* BODY CONTAINER */}
         <form
+          ref={bodyScrollRef}
           onSubmit={handleCheckoutSubmit}
-          className="flex-1 min-h-0 overflow-y-auto p-4 sm:p-6 lg:p-7 space-y-6 md:space-y-0 md:grid md:grid-cols-12 md:gap-7 scrollbar-thin scrollbar-thumb-white/10 hover:scrollbar-thumb-brand-accent/30"
+          className="flex-1 min-h-0 overflow-y-auto p-4 sm:p-6 lg:p-7 space-y-6 scrollbar-thin scrollbar-thumb-white/10 hover:scrollbar-thumb-brand-accent/30"
         >
-          {/* LEFT COLUMN: Data Pemesan, WhatsApp & Pengiriman (7 Cols) */}
-          <div className="md:col-span-7 space-y-5">
+          {/* TAHAP 1: Kontak + Metode + Alamat GPS + ongkir (hidden saat tahap 2 — DOM/state persisten) */}
+          <div className={step === 1 ? "space-y-5" : "hidden"}>
             {errorMessage && (
               <div className="p-3.5 rounded-xl bg-red-500/10 border border-red-500/30 text-red-400 text-xs flex items-center gap-2">
                 <AlertCircle size={16} className="shrink-0" />
@@ -779,10 +880,10 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
                     <User size={14} />
                   </div>
                   <div className="min-w-0">
-                    <p className="font-mono text-xs font-bold text-text-primary">
+                    <p className="font-sans text-xs font-bold text-text-primary">
                       Checkout Cepat (Tamu)
                     </p>
-                    <p className="font-mono text-[10px] text-text-muted">
+                    <p className="font-sans text-[10px] text-text-muted">
                       Bisa langsung pesan tanpa akun. Punya akun?
                     </p>
                   </div>
@@ -790,7 +891,7 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
                 <button
                   type="button"
                   onClick={() => setIsAuthModalOpen(true)}
-                  className="shrink-0 px-3 py-1 rounded-lg text-[10px] font-mono font-bold bg-brand-accent/15 text-brand-accent border border-brand-accent/30 hover:bg-brand-accent hover:text-canvas transition-all"
+                  className="shrink-0 px-3 py-1 rounded-lg text-[10px] font-sans font-bold bg-brand-accent/15 text-brand-accent border border-brand-accent/30 hover:bg-brand-accent hover:text-canvas transition-all"
                 >
                   Masuk Akun
                 </button>
@@ -802,15 +903,15 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
                     {session.user.name?.[0]?.toUpperCase() || <User size={14} />}
                   </div>
                   <div className="min-w-0">
-                    <p className="font-mono text-xs font-bold text-text-primary truncate">
+                    <p className="font-sans text-xs font-bold text-text-primary truncate">
                       {session.user.name || "Akun Pelanggan"}
                     </p>
-                    <p className="font-mono text-[10px] text-text-muted truncate">
+                    <p className="font-sans text-[10px] text-text-muted truncate">
                       {session.user.email}
                     </p>
                   </div>
                 </div>
-                <span className="shrink-0 px-2 py-0.5 rounded-full text-[9px] font-mono font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 flex items-center gap-1">
+                <span className="shrink-0 px-2 py-0.5 rounded-full text-[9px] font-sans font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 flex items-center gap-1">
                   <CheckCircle2 size={10} />
                   <span>Akun Terhubung</span>
                 </span>
@@ -819,14 +920,14 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
 
               {/* Section 1: Customer Contact & WhatsApp OTP */}
               <div className="space-y-3">
-                <div className="flex items-center space-x-2 text-xs font-mono font-bold text-text-primary uppercase tracking-wider pb-1 border-b border-border-subtle">
+                <div className="flex items-center space-x-2 text-xs font-sans font-bold text-text-primary uppercase tracking-wider pb-1 border-b border-border-subtle">
                   <Phone size={13} className="text-brand-accent" />
                   <span>1 · INFORMASI PEMESAN & WHATSAPP</span>
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
-                    <label className="block font-mono text-[11px] text-text-muted uppercase mb-1">
+                    <label className="block font-sans text-[11px] text-text-muted uppercase mb-1">
                       Nama Lengkap *
                     </label>
                     <input
@@ -841,11 +942,11 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
 
                   <div>
                     <div className="flex items-center justify-between mb-1">
-                      <label className="block font-mono text-[11px] text-text-muted uppercase">
+                      <label className="block font-sans text-[11px] text-text-muted uppercase">
                         Nomor WhatsApp *
                       </label>
                       {isAccountPhoneVerified && (
-                        <span className="inline-flex items-center gap-1 text-[10px] font-mono font-bold text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-full border border-emerald-500/30">
+                        <span className="inline-flex items-center gap-1 text-[10px] font-sans font-bold text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-full border border-emerald-500/30">
                           <CheckCircle2 size={11} /> TERVERIFIKASI
                         </span>
                       )}
@@ -863,14 +964,14 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
                         }}
                         placeholder="081234567890"
                         aria-label="Nomor WhatsApp"
-                        className="flex-1 min-w-0 px-3.5 py-2.5 rounded-xl bg-surface border border-border-subtle focus:border-brand-accent text-sm text-text-primary font-mono focus:outline-none transition-colors"
+                        className="flex-1 min-w-0 px-3.5 py-2.5 rounded-xl bg-surface border border-border-subtle focus:border-brand-accent text-sm text-text-primary font-sans focus:outline-none transition-colors"
                       />
                       {!isAccountPhoneVerified && (
                         <button
                           type="button"
                           onClick={handleSendOtp}
                           disabled={isSendingOtp || !phoneNumber || resendCooldown > 0}
-                          className="px-3 py-2 rounded-xl bg-surface border border-brand-accent/40 text-brand-accent text-[11px] font-mono font-bold hover:bg-brand-accent hover:text-canvas disabled:opacity-50 transition-all shrink-0 cursor-pointer"
+                          className="px-3 py-2 rounded-xl bg-surface border border-brand-accent/40 text-brand-accent text-[11px] font-sans font-bold hover:bg-brand-accent hover:text-canvas disabled:opacity-50 transition-all shrink-0 cursor-pointer"
                         >
                           {isSendingOtp
                             ? "..."
@@ -890,7 +991,7 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
                       </p>
                     ) : sessionUser?.phoneVerified && sessionUser?.phoneNumber && cleanPhone(phoneNumber) !== cleanPhone(sessionUser?.phoneNumber) ? (
                       <p className="text-[11px] font-sans text-amber-400/90 mt-1.5 flex items-center gap-1.5 bg-amber-950/20 border border-amber-500/20 px-2.5 py-1.5 rounded-lg">
-                        <span>⚠️ Nomor baru terdeteksi. Silakan klik KIRIM OTP untuk memverifikasi nomor baru ini.</span>
+                        <span>Nomor baru terdeteksi. Verifikasi diperlukan untuk nomor ini.</span>
                       </p>
                     ) : null}
 
@@ -911,11 +1012,11 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
                             }}
                             placeholder="Ketik 6 digit kode OTP"
                             aria-label="Kode OTP 6 digit dari WhatsApp"
-                            className="w-full px-3.5 py-2 rounded-xl bg-surface border border-brand-accent/60 text-sm text-text-primary font-mono tracking-widest focus:outline-none"
+                            className="w-full px-3.5 py-2 rounded-xl bg-surface border border-brand-accent/60 text-sm text-text-primary font-sans tabular-nums tracking-widest focus:outline-none"
                             maxLength={6}
                           />
                           {otpCode.length === 6 && (
-                            <span className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center space-x-1 text-emerald-400 text-xs font-mono font-bold">
+                            <span className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center space-x-1 text-emerald-400 text-xs font-sans font-bold">
                               <CheckCircle2 size={15} />
                               <span className="text-[10px]">SIAP</span>
                             </span>
@@ -925,7 +1026,7 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
                     )}
 
                     {!isAccountPhoneVerified && otpMsg && (
-                      <p className="text-[11px] font-mono mt-1 text-amber-400" role="status">
+                      <p className="text-[11px] font-sans mt-1 text-amber-400" role="status">
                         {otpMsg}
                       </p>
                     )}
@@ -940,7 +1041,7 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
 
               {/* Section 2: Delivery Method (3 Symmetric Cards) */}
               <div className="space-y-3">
-                <div className="flex items-center space-x-2 text-xs font-mono font-bold text-text-primary uppercase tracking-wider pb-1 border-b border-border-subtle">
+                <div className="flex items-center space-x-2 text-xs font-sans font-bold text-text-primary uppercase tracking-wider pb-1 border-b border-border-subtle">
                   <Truck size={13} className="text-brand-accent" />
                   <span>2 · METODE PENGIRIMAN</span>
                 </div>
@@ -971,7 +1072,7 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
                               }}
                               className="accent-brand-accent mt-0.5"
                             />
-                            <span className="font-mono text-xs font-bold text-text-primary">
+                            <span className="font-sans text-xs font-bold text-text-primary">
                               {opt.method === "PICKUP"
                                 ? "Ambil Sendiri"
                                 : opt.method === "FREE_MAKASSAR"
@@ -980,12 +1081,12 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
                             </span>
                           </div>
                           {opt.method === "FREE_MAKASSAR" && (
-                            <span className="px-1.5 py-0.5 rounded text-[8px] font-mono font-bold bg-emerald-500/20 text-emerald-400">
+                            <span className="px-1.5 py-0.5 rounded text-[8px] font-sans font-bold bg-emerald-500/20 text-emerald-400">
                               GRATIS
                             </span>
                           )}
                           {opt.method === "PICKUP" && (
-                            <span className="text-[10px] font-mono text-text-muted">
+                            <span className="text-[10px] font-mono tabular-nums text-text-muted">
                               Rp 0
                             </span>
                           )}
@@ -1005,7 +1106,7 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
                 {/* Sub-card based on Delivery Method */}
                 {deliveryMethod === "PICKUP" && (
                   <div className="p-3.5 rounded-xl bg-brand-accent/10 border border-brand-accent/30 space-y-2 animate-fadeIn">
-                    <div className="flex items-center space-x-2 text-brand-accent font-mono text-xs font-bold">
+                    <div className="flex items-center space-x-2 text-brand-accent font-sans text-xs font-bold">
                       <Store size={14} />
                       <span>LOKASI WORKSHOP KAOS KAMI MAKASSAR</span>
                     </div>
@@ -1017,13 +1118,13 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
                         href={WORKSHOP_LOCATION.googleMapsUrl}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-brand-accent/20 hover:bg-brand-accent/30 text-brand-accent text-[11px] font-mono font-bold transition-colors"
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-brand-accent/20 hover:bg-brand-accent/30 text-brand-accent text-[11px] font-sans font-bold transition-colors"
                       >
                         <MapPin size={13} />
                         Buka Titik Lokasi di Google Maps (Navigasi) ↗
                       </a>
                     </div>
-                    <p className="font-mono text-[10px] text-text-muted">
+                    <p className="font-sans text-[10px] text-text-muted">
                       🕒 Jam Operasional: {WORKSHOP_LOCATION.operatingHours}. Pesanan siap diambil setelah notifikasi selesai produksi.
                     </p>
                   </div>
@@ -1032,14 +1133,14 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
                 {deliveryMethod === "FREE_MAKASSAR" && (
                   <div className="space-y-3 pt-1 animate-fadeIn">
                     <div>
-                      <label className="block font-mono text-[11px] text-text-muted uppercase mb-1">
+                      <label className="block font-sans text-[11px] text-text-muted uppercase mb-1">
                         Kecamatan di Kota Makassar *
                       </label>
                       <div className="flex gap-2">
                         <select
                           value={district}
                           onChange={(e) => setDistrict(e.target.value)}
-                          className="flex-1 px-3 py-2.5 rounded-xl bg-surface border border-border-subtle focus:border-brand-accent text-xs font-mono text-text-primary focus:outline-none"
+                          className="flex-1 px-3 py-2.5 rounded-xl bg-surface border border-border-subtle focus:border-brand-accent text-xs font-sans text-text-primary focus:outline-none"
                         >
                           {MAKASSAR_SUBDISTRICTS.map((sub) => (
                             <option key={sub} value={sub}>
@@ -1051,20 +1152,20 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
                           type="button"
                           onClick={handleUseGps}
                           disabled={gpsLoading}
-                          className="px-3 py-2 rounded-xl bg-surface border border-border-subtle text-[11px] font-mono text-brand-accent hover:bg-brand-accent/10 disabled:opacity-50 shrink-0 cursor-pointer flex items-center gap-1"
+                          className="px-3 py-2 rounded-xl bg-surface border border-border-subtle text-[11px] font-sans text-brand-accent hover:bg-brand-accent/10 disabled:opacity-50 shrink-0 cursor-pointer flex items-center gap-1"
                         >
                           <MapPin size={13} />
                           <span>{gpsLoading ? "BACA GPS..." : "GPS"}</span>
                         </button>
                       </div>
-                      {gpsMsg && <p className="font-mono text-[10px] text-text-muted mt-1">{gpsMsg}</p>}
+                      {gpsMsg && <p className="font-sans text-[10px] text-text-muted mt-1">{gpsMsg}</p>}
                       {gpsCoords && (
                         <div className="mt-1">
                           <a
                             href={`https://www.google.com/maps?q=${gpsCoords.lat},${gpsCoords.lon}`}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="inline-flex items-center gap-1 font-mono text-[10px] text-brand-accent hover:underline"
+                            className="inline-flex items-center gap-1 font-sans text-[10px] text-brand-accent hover:underline"
                           >
                             <span>Buka titik di Google Maps</span>
                             <ExternalLink size={10} />
@@ -1074,7 +1175,7 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
                     </div>
 
                     <div>
-                      <label className="block font-mono text-[11px] text-text-muted uppercase mb-1">
+                      <label className="block font-sans text-[11px] text-text-muted uppercase mb-1">
                         Alamat Lengkap Pengiriman *
                       </label>
                       <textarea
@@ -1088,7 +1189,7 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
                     </div>
 
                     <div>
-                      <label className="block font-mono text-[11px] text-text-muted uppercase mb-1">
+                      <label className="block font-sans text-[11px] text-text-muted uppercase mb-1">
                         Catatan Kurir (Opsional)
                       </label>
                       <input
@@ -1105,7 +1206,7 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
                 {deliveryMethod === "EXPEDITION_MANUAL" && (
                   <div className="p-3.5 rounded-xl bg-surface border border-brand-accent/40 space-y-3 animate-fadeIn">
                     <div>
-                      <label className="block font-mono text-[11px] text-text-muted uppercase mb-1">
+                      <label className="block font-sans text-[11px] text-text-muted uppercase mb-1">
                         Kota / Kabupaten Tujuan (Luar Makassar) *
                       </label>
                       <div className="flex gap-2">
@@ -1120,12 +1221,12 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
                           type="button"
                           onClick={handleCheckOngkir}
                           disabled={quoteLoading}
-                          className="px-3.5 py-2 rounded-xl bg-brand-accent text-canvas font-mono text-[11px] font-bold disabled:opacity-50 shrink-0 cursor-pointer"
+                          className="px-3.5 py-2 rounded-xl bg-brand-accent text-canvas font-sans text-[11px] font-bold disabled:opacity-50 shrink-0 cursor-pointer"
                         >
                           {quoteLoading ? "MENGECEK..." : "CEK ONGKIR"}
                         </button>
                       </div>
-                      {locLoading && <p className="font-mono text-[10px] text-text-muted mt-1">Mencari lokasi...</p>}
+                      {locLoading && <p className="font-sans text-[10px] text-text-muted mt-1">Mencari lokasi...</p>}
                       {locSuggest.length > 0 && (
                         <div className="space-y-1 mt-2">
                           {locSuggest.map((l) => (
@@ -1137,26 +1238,26 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
                                 setSelectedPostal(l.postalCode);
                                 setLocSuggest([]);
                               }}
-                              className="w-full text-left px-2.5 py-1.5 rounded-lg bg-surface border border-border-subtle hover:border-brand-accent font-mono text-[11px] text-text-primary flex justify-between cursor-pointer"
+                              className="w-full text-left px-2.5 py-1.5 rounded-lg bg-surface border border-border-subtle hover:border-brand-accent font-sans text-[11px] text-text-primary flex justify-between cursor-pointer"
                             >
                               <span>{l.label}</span>
-                              <span className="text-brand-accent font-bold">{l.postalCode}</span>
+                              <span className="text-brand-accent font-bold font-sans tabular-nums">{l.postalCode}</span>
                             </button>
                           ))}
                         </div>
                       )}
                     </div>
 
-                    {quoteMsg && <p className="font-mono text-[11px] text-rose-300">{quoteMsg}</p>}
+                    {quoteMsg && <p className="font-sans text-[11px] text-rose-300">{quoteMsg}</p>}
                     {quoteSource === "zone" && (
-                      <p className="font-mono text-[10px] text-amber-400">
+                      <p className="font-sans text-[10px] text-amber-400">
                         Tarif estimasi tabel zona. Nilai final divalidasi server saat bayar.
                       </p>
                     )}
 
                     {quotes.length > 0 && (
                       <div className="space-y-1.5 pt-1">
-                        <label className="block font-mono text-[10px] text-text-muted uppercase">PILIH LAYANAN KURIR:</label>
+                        <label className="block font-sans text-[10px] text-text-muted uppercase">PILIH LAYANAN KURIR:</label>
                         {quotes.map((q) => (
                           <label
                             key={q.key}
@@ -1175,13 +1276,13 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
                                 className="accent-brand-accent"
                               />
                               <div className="min-w-0">
-                                <p className="font-mono text-xs font-bold text-text-primary truncate">
+                                <p className="font-sans text-xs font-bold text-text-primary truncate">
                                   {q.courier} {q.service}
                                 </p>
-                                <p className="font-mono text-[10px] text-text-muted">Estimasi {q.etd}</p>
+                                <p className="font-sans text-[10px] text-text-muted">Estimasi {q.etd}</p>
                               </div>
                             </div>
-                            <span className="font-mono text-xs font-bold text-emerald-400 shrink-0">
+                            <span className="font-mono tabular-nums text-xs font-bold text-emerald-400 shrink-0">
                               Rp {q.cost.toLocaleString("id-ID")}
                             </span>
                           </label>
@@ -1190,7 +1291,7 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
                     )}
 
                     <div>
-                      <label className="block font-mono text-[11px] text-text-muted uppercase mb-1">
+                      <label className="block font-sans text-[11px] text-text-muted uppercase mb-1">
                         Alamat Lengkap Pengiriman *
                       </label>
                       <textarea
@@ -1205,19 +1306,85 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
                   </div>
                 )}
               </div>
+
+              {/* V2 navigasi Tahap 1 → 2: validasi ringan, state persisten (tak reset) */}
+              <div className="p-4 rounded-xl bg-surface border border-border-subtle space-y-2 font-sans text-xs">
+                <div className="flex justify-between text-text-muted">
+                  <span>Subtotal ({totalQty} pcs)</span>
+                  <span className="font-mono tabular-nums">Rp {effectiveSubtotal.toLocaleString("id-ID")}</span>
+                </div>
+                <div className="flex justify-between text-text-muted">
+                  <span>Ongkos kirim</span>
+                  <span className={`font-mono tabular-nums ${shippingCost === 0 ? "text-emerald-400 font-bold" : ""}`}>
+                    {shippingCost === 0 ? "Rp 0" : `Rp ${shippingCost.toLocaleString("id-ID")}`}
+                  </span>
+                </div>
+                <div className="flex justify-between items-baseline pt-2 border-t border-border-subtle">
+                  <span className="font-bold text-text-primary">TOTAL SEMENTARA:</span>
+                  <span className="text-brand-accent font-bold text-lg font-mono tabular-nums">
+                    Rp {grandTotal.toLocaleString("id-ID")}
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  onClick={handleNextToPayment}
+                  className="w-full py-3.5 px-5 rounded-xl font-sans text-xs font-bold tracking-wider uppercase transition-all flex items-center justify-center gap-2 cursor-pointer bg-brand-accent text-canvas shadow-[0_0_20px_rgba(230,81,0,0.4)] hover:brightness-110 active:scale-[0.99]"
+                >
+                  <span>Lanjut ke Pembayaran</span>
+                  <ArrowRight size={14} />
+                </button>
+                <p className="text-center text-[10px] text-text-muted">
+                  Alamat & kurir tersimpan otomatis saat bolak-balik tahap.
+                </p>
+              </div>
             </div>
 
-            {/* RIGHT COLUMN: Ringkasan Produk, Biaya & Tombol Bayar (5 Cols) */}
-            <div className="md:col-span-5 space-y-4">
-              <div className="md:sticky md:top-0 space-y-4">
+            {/* TAHAP 2: Bayar — ringkasan + QRIS DirectQrisModal + polling + repay
+                (pakai komponen/logika bayar existing apa adanya, hanya dipindah).
+                handleCheckoutSubmit, pricingEngine, /api/checkout, OTP WA tak diubah. */}
+            <div className={step === 2 ? "space-y-4" : "hidden"}>
+              {/* Ringkasan alamat terpilih (read-only) + ubah */}
+              <div className="p-3.5 rounded-xl bg-surface-elevated/70 border border-border-subtle font-sans text-xs space-y-1.5">
+                <div className="flex items-center justify-between">
+                  <span className="font-bold text-text-primary uppercase tracking-wider text-[11px]">
+                    Tujuan & Kurir
+                  </span>
+                  <button
+                    type="button"
+                    onClick={handleBackToAddress}
+                    className="px-2.5 py-1 rounded-lg text-[10px] font-bold bg-surface border border-border-subtle text-brand-accent hover:border-brand-accent transition-colors cursor-pointer"
+                  >
+                    ← Ubah Alamat/Kurir
+                  </button>
+                </div>
+                <p className="text-text-primary font-bold truncate">
+                  {recipientName || "—"} · {normalizePhoneId(phoneNumber) || phoneNumber || "—"}
+                </p>
+                <p className="text-text-muted leading-snug">
+                  {deliveryMethod === "PICKUP"
+                    ? "Ambil sendiri — Workshop Kaos Kami Makassar (Self Pick-up)"
+                    : deliveryMethod === "FREE_MAKASSAR"
+                      ? `${district} — ${fullAddress || "—"}`
+                      : `${destQuery || "—"} — ${fullAddress || "—"}`}
+                  {selectedQuote ? ` · ${selectedQuote.courier} ${selectedQuote.service} (Rp ${selectedQuote.cost.toLocaleString("id-ID")})` : ""}
+                  {deliveryMethod !== "EXPEDITION_MANUAL" && shippingCost === 0 ? " · Rp 0" : ""}
+                </p>
+              </div>
+              {errorMessage && (
+                <div className="p-3.5 rounded-xl bg-red-500/10 border border-red-500/30 text-red-400 text-xs flex items-center gap-2">
+                  <AlertCircle size={16} className="shrink-0" />
+                  <span>{errorMessage}</span>
+                </div>
+              )}
+              <div className="space-y-4">
                 {/* Order Summary Box */}
-                <div className="p-4 rounded-xl bg-surface-elevated/70 border border-border-subtle space-y-3 font-mono text-xs">
+                <div className="p-4 rounded-xl bg-surface-elevated/70 border border-border-subtle space-y-3 font-sans text-xs">
                   <div className="flex justify-between items-center pb-2 border-b border-border-subtle">
                     <span className="font-bold text-text-primary uppercase flex items-center gap-1.5">
                       <Sparkles size={13} className="text-brand-accent" />
                       <span>{isCartCheckout ? `KERANJANG (${cartItems.length})` : "PRODUK KUSTOM"}</span>
                     </span>
-                    <span className="text-brand-accent font-bold">
+                    <span className="text-brand-accent font-bold font-mono tabular-nums">
                       Rp {effectiveSubtotal.toLocaleString("id-ID")}
                     </span>
                   </div>
@@ -1231,7 +1398,7 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
                             <span className="text-text-primary truncate">{item.name}</span>
                             <span className="text-text-muted">({item.size})</span>
                           </div>
-                          <span className="text-text-primary font-bold shrink-0">
+                          <span className="text-text-primary font-bold shrink-0 font-mono tabular-nums">
                             Rp {(item.priceIdr * item.quantity).toLocaleString("id-ID")}
                           </span>
                         </div>
@@ -1240,7 +1407,7 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
                   ) : (
                     <div className="space-y-3">
                       <div>
-                        <p className="font-display font-bold text-sm uppercase text-text-primary">
+                        <p className="font-sans font-semibold text-sm uppercase text-text-primary">
                           {activeApparel} (SABLON DTF)
                         </p>
                       </div>
@@ -1264,7 +1431,7 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
                           </span>
                         </div>
                         <div className="p-2 rounded-lg bg-surface border border-border-subtle">
-                          <span className="opacity-75 block text-[9px]">BAHAN:</span>
+                          <span className="opacity-75 block text-[9px]">BAHAN & KETEBALAN:</span>
                           <span className="text-text-primary font-bold truncate">
                             {materialFinish === "combed-cotton" ? "Cotton Combed 30s" : materialFinish.toUpperCase()}
                           </span>
@@ -1349,7 +1516,7 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
                 </div>
 
                 {/* Coupon Code Card */}
-                <div className="p-3.5 rounded-xl bg-surface border border-border-subtle space-y-1.5 font-mono text-xs">
+                <div className="p-3.5 rounded-xl bg-surface border border-border-subtle space-y-1.5 font-sans text-xs">
                   <label htmlFor="coupon-input" className="block text-[11px] text-text-muted uppercase">
                     Kode Kupon Diskon (Opsional)
                   </label>
@@ -1359,15 +1526,15 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
                     onChange={(e) => setCouponCode(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 32))}
                     placeholder="Contoh: PROMO10"
                     autoComplete="off"
-                    className="w-full px-3 py-2 rounded-xl bg-surface border border-border-subtle text-text-primary uppercase placeholder:normal-case placeholder:text-text-muted text-xs focus:border-brand-accent focus:outline-none"
+                    className="w-full px-3 py-2 rounded-xl bg-surface border border-border-subtle text-text-primary uppercase placeholder:normal-case placeholder:text-text-muted text-xs focus:border-brand-accent focus:outline-none font-sans tabular-nums"
                   />
                 </div>
 
                 {/* Cost Breakdown & Total */}
-                <div className="p-4 rounded-xl bg-surface border border-border-subtle space-y-2.5 font-mono text-xs">
+                <div className="p-4 rounded-xl bg-surface border border-border-subtle space-y-2.5 font-sans text-xs">
                   <div className="flex justify-between text-text-muted">
                     <span>Subtotal Kaos & Sablon ({totalQty} pcs)</span>
-                    <span>Rp {effectiveSubtotal.toLocaleString("id-ID")}</span>
+                    <span className="font-mono tabular-nums">Rp {effectiveSubtotal.toLocaleString("id-ID")}</span>
                   </div>
 
                   <div className="flex justify-between text-text-muted">
@@ -1375,15 +1542,45 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
                       Ongkos Kirim {deliveryMethod === "FREE_MAKASSAR" ? "(Gratis Makassar)" : ""}
                     </span>
                     <span className={shippingCost === 0 ? "text-emerald-400 font-bold" : ""}>
-                      {shippingCost === 0 ? "Rp 0" : `Rp ${shippingCost.toLocaleString("id-ID")}`}
+                      <span className="font-mono tabular-nums">{shippingCost === 0 ? "Rp 0" : `Rp ${shippingCost.toLocaleString("id-ID")}`}</span>
                     </span>
                   </div>
 
                   <div className="flex justify-between items-baseline pt-2.5 border-t border-border-subtle">
                     <span className="font-bold text-text-primary text-xs">TOTAL PEMBAYARAN:</span>
-                    <span className="text-brand-accent font-bold text-xl tracking-tight">
+                    <span className="text-brand-accent font-bold text-xl tracking-tight font-mono tabular-nums">
                       Rp {grandTotal.toLocaleString("id-ID")}
                     </span>
+                  </div>
+                </div>
+
+                {/* Trust badges info area (presentasi saja — tanpa ubah logika/API/DB) */}
+                <div
+                  className="grid grid-cols-2 gap-2 font-sans text-[10px]"
+                  aria-label="Jaminan belanja Kaos Kami"
+                >
+                  <div className="flex items-center gap-1.5 px-2.5 py-2 rounded-lg bg-surface border border-border-subtle text-text-primary">
+                    <ShieldCheck size={13} className="text-emerald-400 shrink-0" />
+                    <span className="font-bold leading-tight">Anti-Cacat Ganti Baru</span>
+                  </div>
+                  <div className="flex items-center gap-1.5 px-2.5 py-2 rounded-lg bg-surface border border-border-subtle text-text-primary">
+                    <Package size={13} className="text-brand-accent shrink-0" />
+                    <span className="font-bold leading-tight">Combed Asli 24s</span>
+                  </div>
+                  <div className="flex items-center gap-1.5 px-2.5 py-2 rounded-lg bg-surface border border-border-subtle text-text-primary">
+                    <Truck size={13} className="text-brand-accent shrink-0" />
+                    <span className="font-bold leading-tight">Gratis Ongkir Makassar</span>
+                  </div>
+                  <div className="flex items-center gap-1.5 px-2.5 py-2 rounded-lg bg-surface border border-brand-accent/30 text-text-primary">
+                    <ShieldCheck size={13} className="text-brand-accent shrink-0" />
+                    <span className="font-bold leading-tight">iPaymu Payment Gateway</span>
+                  </div>
+                  <div className="col-span-2 flex items-center justify-between gap-1.5 px-2.5 py-2 rounded-lg bg-surface border border-border-subtle text-text-muted text-[10px]">
+                    <div className="flex items-center gap-1.5 text-text-primary">
+                      <CreditCard size={13} className="text-emerald-400 shrink-0" />
+                      <span className="font-bold">QRIS &amp; Virtual Account (Berizin BI)</span>
+                    </div>
+                    <span className="font-mono text-emerald-400 font-bold">256-bit SSL</span>
                   </div>
                 </div>
 
@@ -1399,7 +1596,7 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
 
                 {/* Card Khusus Pengujian Admin (Bypass Pembayaran) */}
                 {isAdmin && (
-                  <div className="p-4 rounded-xl border border-amber-500/40 bg-amber-500/10 dark:bg-amber-950/20 space-y-3 font-mono text-xs animate-fadeIn">
+                  <div className="p-4 rounded-xl border border-amber-500/40 bg-amber-500/10 dark:bg-amber-950/20 space-y-3 font-sans text-xs animate-fadeIn">
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-2">
                         <div className="w-6 h-6 rounded-lg bg-amber-500 text-black flex items-center justify-center font-black">
@@ -1428,7 +1625,7 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
                     {adminBypassActive ? (
                       <div className="space-y-2 pt-2 border-t border-amber-500/20 text-[11px]">
                         <p className="text-text-muted leading-relaxed">
-                          ⚡ <strong>Bypass Pembayaran Aktif:</strong> Biaya Rp 0 (tanpa charge Duitku & verifikasi OTP dilewati). Pesanan diberi tanda <code className="text-amber-400 font-bold">[TEST]</code> agar omzet toko tetap akurat.
+                          ⚡ <strong>Bypass Pembayaran Aktif:</strong> Biaya Rp 0 (tanpa tagihan gateway & verifikasi OTP dilewati). Pesanan diberi tanda <code className="text-amber-400 font-bold">[TEST]</code> agar omzet toko tetap akurat.
                         </p>
                         <div className="space-y-1.5 pt-1">
                           <label className="flex items-center gap-2 cursor-pointer p-1.5 rounded-lg hover:bg-black/5 dark:hover:bg-white/5 transition-colors">
@@ -1459,7 +1656,7 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
                       </div>
                     ) : (
                       <p className="text-[10px] text-text-muted">
-                        Saklar OFF: Anda bertindak sebagai pembeli biasa 100% (alur normal Duitku & OTP).
+                        Saklar OFF: Anda bertindak sebagai pembeli biasa 100% (alur normal QRIS & OTP).
                       </p>
                     )}
                   </div>
@@ -1470,10 +1667,10 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
                   <button
                     type="submit"
                     disabled={isLoading}
-                    className={`w-full py-3.5 px-5 rounded-xl font-mono text-xs font-bold tracking-wider uppercase transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 active:scale-[0.99] ${
+                    className={`w-full py-3.5 px-5 rounded-xl font-sans text-xs font-bold tracking-wider uppercase transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 active:scale-[0.99] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-accent focus-visible:ring-offset-2 focus-visible:ring-offset-canvas ${
                       adminBypassActive
-                        ? "bg-gradient-to-r from-amber-500 to-amber-600 text-black shadow-[0_0_20px_rgba(245,158,11,0.4)] hover:brightness-110"
-                        : "bg-brand-accent text-canvas shadow-[0_0_20px_rgba(230,81,0,0.4)] hover:brightness-110"
+                        ? "bg-amber-500 text-black shadow-sm hover:brightness-110"
+                        : "bg-brand-accent text-canvas shadow-sm hover:brightness-110"
                     }`}
                   >
                     {isLoading ? (
@@ -1490,58 +1687,102 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
                     ) : (
                       <>
                         <CreditCard size={15} />
-                        <span>BAYAR SEKARANG (DUITKU)</span>
+                        <span>BAYAR SEKARANG (DIRECT QRIS)</span>
                         <ArrowRight size={14} />
                       </>
                     )}
                   </button>
                   <ShopClosedNotice />
-                  <p className="text-center font-mono text-[10px] text-text-muted flex items-center justify-center gap-1">
+                  <p className="text-center font-sans text-[10px] text-text-muted flex items-center justify-center gap-1">
                     <Lock size={11} className="text-emerald-400" />
                     <span>
                       {adminBypassActive
                         ? "Mode pengujian admin — transaksi simulasi internal"
-                        : "Pembayaran resmi & aman didukung Sandbox Duitku Gateway (QRIS & VA)"}
+                        : "Pembayaran resmi & aman didukung iPaymu Payment Gateway (Direct QRIS)"}
                     </span>
                   </p>
                 </div>
               </div>
             </div>
 
-            {/* Mobile Bottom Sticky Bar (< md) */}
+            {/* V2 Mobile Bottom Sticky Bar — tahap-aware (tak submit dini di tahap 1) */}
             <div className="md:hidden sticky bottom-0 -mx-4 -mb-4 sm:-mx-6 sm:-mb-6 p-4 bg-surface/95 border-t border-border-subtle backdrop-blur-xl flex items-center justify-between gap-3 shadow-2xl z-20">
               <div>
-                <p className="text-[10px] font-mono text-text-muted uppercase">TOTAL BAYAR</p>
-                <p className="text-base font-mono font-bold text-brand-accent">
-                  {adminBypassActive ? "Rp 0 (Bypass)" : `Rp ${grandTotal.toLocaleString("id-ID")}`}
+                <p className="text-[10px] font-sans text-text-muted uppercase">
+                  {step === 1 ? "TOTAL SEMENTARA" : "TOTAL BAYAR"}
                 </p>
-              </div>
-              <button
-                type="submit"
-                disabled={isLoading}
-                className={`py-2.5 px-5 rounded-xl font-mono font-bold text-xs uppercase flex items-center gap-1.5 shadow-lg active:scale-95 transition-all cursor-pointer disabled:opacity-50 ${
-                  adminBypassActive
-                    ? "bg-amber-500 text-black shadow-[0_0_16px_rgba(245,158,11,0.4)]"
-                    : "bg-brand-accent text-canvas"
-                }`}
-              >
-                {isLoading ? (
-                  <>
-                    <Loader2 size={14} className="animate-spin" />
-                    <span>MEMPROSES...</span>
-                  </>
-                ) : (
-                  <>
-                    <span>{adminBypassActive ? "⚡ PESAN (BYPASS)" : "BAYAR SEKARANG"}</span>
-                    <ArrowRight size={14} />
-                  </>
+                <p className="text-base font-mono tabular-nums font-bold text-brand-accent">
+                  {adminBypassActive && step === 2 ? "Rp 0 (Bypass)" : `Rp ${grandTotal.toLocaleString("id-ID")}`}
+                </p>
+                {step === 2 && (
+                  <button
+                    type="button"
+                    onClick={handleBackToAddress}
+                    className="text-[10px] font-sans font-bold text-brand-accent hover:underline cursor-pointer"
+                  >
+                    ← Ubah Alamat/Kurir
+                  </button>
                 )}
-              </button>
+              </div>
+              {step === 1 ? (
+                <button
+                  type="button"
+                  onClick={handleNextToPayment}
+                  className="py-2.5 px-5 rounded-xl font-sans font-bold text-xs uppercase flex items-center gap-1.5 shadow-lg active:scale-95 transition-all cursor-pointer bg-brand-accent text-canvas"
+                >
+                  <span>LANJUT</span>
+                  <ArrowRight size={14} />
+                </button>
+              ) : (
+                <button
+                  type="submit"
+                  disabled={isLoading}
+                  className={`py-2.5 px-5 rounded-xl font-sans font-bold text-xs uppercase flex items-center gap-1.5 shadow-lg active:scale-95 transition-all cursor-pointer disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-accent focus-visible:ring-offset-2 focus-visible:ring-offset-canvas ${
+                    adminBypassActive
+                      ? "bg-amber-500 text-black shadow-[0_0_16px_rgba(245,158,11,0.4)]"
+                      : "bg-brand-accent text-canvas"
+                  }`}
+                >
+                  {isLoading ? (
+                    <>
+                      <Loader2 size={14} className="animate-spin" />
+                      <span>MEMPROSES...</span>
+                    </>
+                  ) : (
+                    <>
+                      <span>{adminBypassActive ? "⚡ PESAN (BYPASS)" : "BAYAR SEKARANG"}</span>
+                      <ArrowRight size={14} />
+                    </>
+                  )}
+                </button>
+              )}
             </div>
           </form>
 
-          {/* Modal Autentikasi jika user memilih login */}
-          <AuthModal isOpen={isAuthModalOpen} onClose={() => setIsAuthModalOpen(false)} />
+          {/* Blueprint Bab 37.2 + 41: AuthModal eks-lusif di atas (early-return
+              tutup-dulu-baru-buka) — JANGAN render AuthModal bertumpuk di sini. */}
+
+          {/* Modal Direct QRIS 100% In-App (iPaymu) */}
+          {directQrisData && (
+            <DirectQrisModal
+              isOpen={Boolean(directQrisData)}
+              onClose={() => {
+                const oid = directQrisData.orderId;
+                setDirectQrisData(null);
+                onClose();
+                window.location.href = `/orders/${oid}`;
+              }}
+              orderId={directQrisData.orderId}
+              orderNumber={directQrisData.orderNumber}
+              amountIdr={directQrisData.amountIdr}
+              qrImage={directQrisData.qrImage}
+              qrString={directQrisData.qrString}
+              invoiceUrl={directQrisData.invoiceUrl}
+              onPaymentSuccess={() => {
+                if (isCartCheckout) clearCart();
+              }}
+            />
+          )}
         </div>
       </div>,
       document.body

@@ -72,7 +72,7 @@ export default function Image() {
             fontWeight: 700,
           }}
         >
-          Combed 24s/30s · Studio 3D · Tanpa Minimal Order
+          Combed 24s Premium · Studio 3D · Tanpa Minimal Order
         </div>
       </div>
     ),

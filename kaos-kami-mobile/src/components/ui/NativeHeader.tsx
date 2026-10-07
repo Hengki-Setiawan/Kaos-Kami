@@ -4,6 +4,7 @@ import React from 'react';
 import { ChevronLeft } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { haptic } from '@/lib/bridge/haptics';
+import { Z_CLASS_NAV } from '@/lib/zIndex';
 
 export interface NativeHeaderProps {
   title: string;
@@ -32,7 +33,7 @@ export function NativeHeader({
 
   return (
     <header
-      className={`sticky top-0 z-40 bg-canvas/85 backdrop-blur-2xl border-b border-border-subtle px-4 pt-[env(safe-area-inset-top)] min-h-14 flex items-center justify-between transition-colors ${className}`}
+      className={`sticky top-0 ${Z_CLASS_NAV} bg-canvas/85 backdrop-blur-2xl border-b border-border-subtle px-4 pt-[env(safe-area-inset-top)] min-h-14 flex items-center justify-between transition-colors ${className}`}
     >
       <div className="flex items-center gap-3 min-w-0">
         {showBack && (
@@ -45,7 +46,7 @@ export function NativeHeader({
           </button>
         )}
         <div className="min-w-0">
-          <h1 className="text-base font-bold text-text-primary font-['Syne'] truncate leading-tight">
+          <h1 className="text-base font-bold text-text-primary font-sans truncate leading-tight">
             {title}
           </h1>
           {subtitle && (

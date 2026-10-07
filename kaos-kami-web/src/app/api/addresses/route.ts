@@ -6,6 +6,7 @@ import { db } from "@/lib/db";
 import { Address } from "@/lib/drizzle-schema";
 import { getAuthenticatedUser } from "@/lib/security/authGuard";
 import { normalizePhoneId } from "@/lib/phone";
+import { checkRateLimitAsync, getClientIp, rateLimitHeaders } from "@/lib/security/rateLimiter";
 
 const AddressPayloadSchema = z.object({
   id: z.string().optional(),
@@ -27,6 +28,10 @@ const AddressPayloadSchema = z.object({
  */
 export async function GET(req: NextRequest) {
   try {
+    const rl = await checkRateLimitAsync(`addresses:ip:${getClientIp(req)}`, 60, 60);
+    if (rl.isLimited) {
+      return NextResponse.json({ error: "Terlalu sering. Tunggu sebentar." }, { status: 429, headers: rateLimitHeaders(rl, 60) });
+    }
     const viewer = await getAuthenticatedUser().catch(() => null);
     if (!viewer) {
       return NextResponse.json({ error: "Unauthorized: silakan login" }, { status: 401 });
@@ -50,6 +55,10 @@ export async function GET(req: NextRequest) {
  */
 export async function POST(req: NextRequest) {
   try {
+    const rl = await checkRateLimitAsync(`addresses-mut:ip:${getClientIp(req)}`, 30, 60);
+    if (rl.isLimited) {
+      return NextResponse.json({ error: "Terlalu sering. Tunggu sebentar." }, { status: 429, headers: rateLimitHeaders(rl, 30) });
+    }
     const viewer = await getAuthenticatedUser().catch(() => null);
     if (!viewer) {
       return NextResponse.json({ error: "Unauthorized: silakan login" }, { status: 401 });
@@ -112,6 +121,10 @@ export async function POST(req: NextRequest) {
  */
 export async function PUT(req: NextRequest) {
   try {
+    const rl = await checkRateLimitAsync(`addresses-mut:ip:${getClientIp(req)}`, 30, 60);
+    if (rl.isLimited) {
+      return NextResponse.json({ error: "Terlalu sering. Tunggu sebentar." }, { status: 429, headers: rateLimitHeaders(rl, 30) });
+    }
     const viewer = await getAuthenticatedUser().catch(() => null);
     if (!viewer) {
       return NextResponse.json({ error: "Unauthorized: silakan login" }, { status: 401 });
@@ -184,6 +197,10 @@ export async function PUT(req: NextRequest) {
  */
 export async function DELETE(req: NextRequest) {
   try {
+    const rl = await checkRateLimitAsync(`addresses-mut:ip:${getClientIp(req)}`, 30, 60);
+    if (rl.isLimited) {
+      return NextResponse.json({ error: "Terlalu sering. Tunggu sebentar." }, { status: 429, headers: rateLimitHeaders(rl, 30) });
+    }
     const viewer = await getAuthenticatedUser().catch(() => null);
     if (!viewer) return NextResponse.json({ error: "Unauthorized: silakan login" }, { status: 401 });
     const parsed = z.object({ id: z.string().min(1).max(64) }).safeParse(await req.json().catch(() => ({})));

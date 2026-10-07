@@ -33,7 +33,7 @@ export const FONT_PRESETS: { id: TextDecalOptions["fontFamily"]; name: string; c
   {
     id: "streetwear-bold",
     name: "STREETWEAR BOLD",
-    cssFont: "900 72px 'Syne', Impact, sans-serif",
+    cssFont: "900 72px 'Plus Jakarta Sans', Impact, sans-serif",
   },
   {
     id: "varsity-college",
@@ -82,7 +82,7 @@ export async function generateTextDecalDataUrl(options: TextDecalOptions): Promi
   const baseFont = (px: number) => preset.cssFont.replace(/\d+px/, `${px}px`);
 
   // Tunggu font web selesai dimuat (audit #29 — sebelumnya fallback font
-  // diam-diam bila Syne/JetBrains belum siap). Timeout 1,5 dtk agar HP
+  // diam-diam bila JetBrains belum siap). Timeout 1,5 dtk agar HP
   // offline tak menggantung UI; family preset di-load eksplisit.
   try {
     const fonts = (document as Document & { fonts?: FontFaceSet }).fonts;

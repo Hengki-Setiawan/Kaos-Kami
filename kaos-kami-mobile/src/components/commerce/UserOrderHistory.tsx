@@ -98,7 +98,7 @@ export function UserOrderHistory({
           <Package className="w-6 h-6" />
         </div>
         <div>
-          <h3 className="text-sm font-bold text-white font-['Syne']">Belum Ada Riwayat Pesanan</h3>
+          <h3 className="text-sm font-bold text-white font-sans">Belum Ada Riwayat Pesanan</h3>
           <p className="text-[11px] text-zinc-400 mt-1">
             Pesanan sablon DTF yang Anda selesaikan akan otomatis tercatat dan tersimpan rapi di HP.
           </p>
@@ -119,7 +119,7 @@ export function UserOrderHistory({
   return (
     <div className="space-y-2.5 select-none">
       <div className="flex items-center justify-between px-1">
-        <span className="text-xs font-bold text-white font-['Syne']">
+        <span className="text-xs font-bold text-white font-sans">
           Riwayat ({orders.length} Pesanan)
         </span>
         <button

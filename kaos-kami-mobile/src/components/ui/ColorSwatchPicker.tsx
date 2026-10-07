@@ -36,7 +36,7 @@ export function ColorSwatchPicker({
     <div className="w-full">
       {label && (
         <div className="flex items-center justify-between mb-2">
-          <span className="text-xs font-semibold text-white font-['Syne']">{label}</span>
+          <span className="text-xs font-semibold text-white font-sans">{label}</span>
           <span className="text-[11px] text-zinc-400">
             {STREETWEAR_SWATCHES.find((s) => s.hex.toLowerCase() === selectedHex.toLowerCase())?.name || selectedHex}
           </span>
