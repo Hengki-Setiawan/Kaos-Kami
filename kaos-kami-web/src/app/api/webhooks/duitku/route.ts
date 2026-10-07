@@ -33,7 +33,7 @@ export async function GET(_req: NextRequest) {
  * varian HMAC-SHA256 — logika di DuitkuPaymentProvider).
  * Secret kosong → selalu false.
  */
-export function verifyDuitkuCallbackForAudit(
+function verifyDuitkuCallbackForAudit(
   merchantCode: string,
   amount: string | number,
   merchantOrderId: string,
