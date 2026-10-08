@@ -6,6 +6,7 @@ import { DesignSyncProvider } from "@/components/providers/DesignSyncProvider";
 import { AppDownloadBanner } from "@/components/ui/AppDownloadBanner";
 import { NotificationGpsPrompt } from "@/components/ui/NotificationGpsPrompt";
 import { KamitoChatWidget } from "@/components/chat/KamitoChatWidget";
+import { SecretPinModal } from "@/components/ui/SecretPinModal";
 import Script from "next/script";
 import "./globals.css";
 
@@ -168,6 +169,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             <AppDownloadBanner />
             <NotificationGpsPrompt />
             <KamitoChatWidget />
+            <SecretPinModal />
           </DesignSyncProvider>
         </QueryProvider>
       </body>

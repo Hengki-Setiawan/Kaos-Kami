@@ -79,9 +79,9 @@ export const HeroOverlay: React.FC = () => {
   }, []);
 
   const isE2EText = (str: string | null) => !str || str.includes("E2E");
-  const cleanTitle = cmsTitle && !isE2EText(cmsTitle) ? cmsTitle : "SABLON DTF PRESISI\n& APPAREL PREMIUM MAKASSAR";
+  const cleanTitle = cmsTitle && !isE2EText(cmsTitle) ? cmsTitle : "SABLON DIGITAL PRESISI\n& APPAREL PREMIUM MAKASSAR";
   const titleLines = cleanTitle.split("\n");
-  const subtitle = cmsSubtitle && !isE2EText(cmsSubtitle) ? cmsSubtitle : "Kaos katun combed 24s & sablon DTF presisi tanpa minimum order. Pesan satuan, pratinjau 360° akurat sebelum cetak.";
+  const subtitle = cmsSubtitle && !isE2EText(cmsSubtitle) ? cmsSubtitle : "Kaos katun combed 24s & sablon digital presisi tanpa minimum order. Pesan satuan, pratinjau 360° akurat sebelum cetak.";
 
   return (
     <section
@@ -94,7 +94,7 @@ export const HeroOverlay: React.FC = () => {
       {/* Top Clean Editorial Category */}
       <div className="max-w-xs sm:max-w-md pt-2">
         <span className="font-sans text-xs sm:text-sm font-semibold text-brand-accent block">
-          Kaos Kami // 3D DTF Studio Makassar
+          Kaos Kami // 3D Studio Makassar
         </span>
       </div>
 

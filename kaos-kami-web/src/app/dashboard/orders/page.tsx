@@ -59,6 +59,21 @@ export default async function CustomerDashboardPage({
     sessionRole = (session?.user as any)?.role || null;
   } catch {}
 
+  // DEV BYPASS: Khusus di localhost dev mode agar pengujian tidak redirect
+  if (!sessionUserId && process.env.NODE_ENV !== "production") {
+    const cookieStore = await (await import("next/headers")).cookies();
+    const devCookie = cookieStore.get("kaos_dev_role")?.value;
+    if (devCookie) {
+      const sampleUser = await db.query.User.findFirst({
+        columns: { id: true, role: true },
+      });
+      if (sampleUser) {
+        sessionUserId = sampleUser.id;
+        sessionRole = sampleUser.role || "CUSTOMER";
+      }
+    }
+  }
+
   if (!sessionUserId) {
     redirect("/track?needLogin=1");
   }

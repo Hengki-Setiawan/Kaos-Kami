@@ -85,7 +85,7 @@ export interface ApparelSpec {
 
 export const APPAREL_PHYSICAL_SPECS: Record<string, ApparelSpec> = {
   tshirt: {
-    name: "Kaos Polos & Custom Kaos Kami",
+    name: "T-Shirt Cotton Combed 24s",
     chestWidthCm: 56.0,
     bodyLengthCm: 74.0,
     maxFrontWidthCm: 30.0,
@@ -519,7 +519,7 @@ export function computePhysicalPrintDimensions(
   targetSide: DecalTargetSide = "front"
 ): PhysicalPrintDimension {
   const spec: ApparelSpec = APPAREL_PHYSICAL_SPECS[apparelType] || APPAREL_PHYSICAL_SPECS["tshirt"] || {
-    name: "Kaos Polos & Custom Kaos Kami",
+    name: "T-Shirt Cotton Combed 24s",
     chestWidthCm: 56.0,
     bodyLengthCm: 74.0,
     maxFrontWidthCm: 30.0,

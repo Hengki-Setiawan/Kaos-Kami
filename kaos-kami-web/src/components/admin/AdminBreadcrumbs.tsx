@@ -48,7 +48,7 @@ export function AdminBreadcrumbs() {
     crumbs.push({ href: "/admin", label: "Pesanan & Analitik" });
   }
   return (
-    <nav aria-label="Breadcrumb admin" className="px-5 sm:px-8 pt-4">
+    <nav aria-label="Breadcrumb admin" className="px-1 py-0.5">
       <ol className="flex flex-wrap items-center gap-1 font-mono text-[11px] text-text-muted">
         {crumbs.map((c, i) => {
           const last = i === crumbs.length - 1;

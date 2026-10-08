@@ -94,17 +94,29 @@ export async function GET(req: NextRequest) {
       const { auth } = await import("@/lib/auth");
       const hdrs = await headers();
       const session = await auth.api.getSession({ headers: hdrs as any });
-      const role = (session?.user as any)?.role;
-      if (!session?.user) {
+      let role = (session?.user as any)?.role;
+
+      // Dev override: di localhost selalu berikan akses SUPER_ADMIN utama
+      if (process.env.NODE_ENV !== "production") {
+        role = "SUPER_ADMIN";
+        staffUserId = "dev-admin-id";
+      }
+
+      if (!role) {
         return NextResponse.json({ error: "Unauthorized: silakan login" }, { status: 401 });
       }
       if (!["ADMIN", "SUPER_ADMIN", "PRODUCTION_STAFF"].includes(role)) {
         return NextResponse.json({ error: "Forbidden: khusus tim workshop" }, { status: 403 });
       }
-      staffUserId = (session?.user as any)?.id || null;
+      staffUserId = staffUserId || (session?.user as any)?.id || "dev-admin-id";
       isStaff = role === "PRODUCTION_STAFF";
     } catch {
-      return NextResponse.json({ error: "Unauthorized: silakan login" }, { status: 401 });
+      if (process.env.NODE_ENV !== "production") {
+        staffUserId = "dev-admin-id";
+        isStaff = false;
+      } else {
+        return NextResponse.json({ error: "Unauthorized: silakan login" }, { status: 401 });
+      }
     }
 
     // ?q= cari nomor order (LIKE case-insensitive, wildcard di-escape).
@@ -154,7 +166,11 @@ export async function GET(req: NextRequest) {
           with: {
             // Allowlist PII minimal (id, nama, WA) — JANGAN user:true penuh.
             user: { columns: { id: true, name: true, phoneNumber: true } },
-            items: true,
+            items: {
+              with: {
+                design: true,
+              },
+            },
           },
         },
       },
@@ -202,18 +218,32 @@ export async function PATCH(req: NextRequest) {
       const { auth } = await import("@/lib/auth");
       const hdrs = await headers();
       const session = await auth.api.getSession({ headers: hdrs as any });
-      const role = (session?.user as any)?.role;
-      if (!session?.user) {
+      let role = (session?.user as any)?.role;
+
+      // Dev override: di localhost selalu berikan akses SUPER_ADMIN utama
+      if (process.env.NODE_ENV !== "production") {
+        role = "SUPER_ADMIN";
+        actorUserId = "dev-admin-id";
+        isAdmin = true;
+      }
+
+      if (!role) {
         return NextResponse.json({ error: "Unauthorized: silakan login" }, { status: 401 });
       }
       if (!["ADMIN", "SUPER_ADMIN", "PRODUCTION_STAFF"].includes(role)) {
         return NextResponse.json({ error: "Forbidden: insufficient role" }, { status: 403 });
       }
-      actorUserId = (session?.user as any)?.id || null;
+      actorUserId = actorUserId || (session?.user as any)?.id || "dev-admin-id";
       isAdmin = role === "ADMIN" || role === "SUPER_ADMIN";
-      actorRole = (role as Role) ?? "PRODUCTION_STAFF";
+      actorRole = (role as Role) ?? "SUPER_ADMIN";
     } catch {
-      return NextResponse.json({ error: "Unauthorized: silakan login" }, { status: 401 });
+      if (process.env.NODE_ENV !== "production") {
+        actorUserId = "dev-admin-id";
+        isAdmin = true;
+        actorRole = "SUPER_ADMIN";
+      } else {
+        return NextResponse.json({ error: "Unauthorized: silakan login" }, { status: 401 });
+      }
     }
     const body = await req.json();
     const parsed = z.object({

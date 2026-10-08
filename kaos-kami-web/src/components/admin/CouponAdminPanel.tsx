@@ -37,12 +37,12 @@ export function CouponAdminPanel() {
         }),
       });
       const data = await res.json();
-      if (!res.ok || data.error) throw new Error(data.error || "Gagal");
-      setMsg("✅ Kupon dibuat.");
+      if (!res.ok || data.error) throw new Error(data.error || "Gagal membuat kupon");
+      setMsg("Kupon berhasil dibuat.");
       setForm({ code: "", discountType: "PERCENT", discountValue: 10, minSpendIdr: 0, maxUses: "", expiresAt: "", isActive: true });
       router.refresh();
     } catch (e: any) {
-      setMsg(`❌ ${e?.message || "Gagal"}`);
+      setMsg(e?.message || "Gagal membuat kupon");
     } finally {
       setBusy(false);
     }

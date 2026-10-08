@@ -131,6 +131,9 @@ export const CleanDecal = forwardRef<THREE.Mesh, CleanDecalProps>(function Clean
   },
   forwardRef
 ) {
+  // Infer side if not explicitly provided. Allows decals to be correctly filtered based on mesh metadata.
+  const inferredSide = targetSide ?? (mesh?.current?.userData?.side as string) ?? "front";
+
   const ref = useRef<THREE.Mesh>(null!);
   useImperativeHandle(forwardRef, () => ref.current);
 
@@ -214,7 +217,7 @@ export const CleanDecal = forwardRef<THREE.Mesh, CleanDecalProps>(function Clean
       state.current.position,
       state.current.rotation,
       0.05,
-      targetSide
+      inferredSide
     );
 
     parent.matrixWorld = matrixWorld;
@@ -222,7 +225,7 @@ export const CleanDecal = forwardRef<THREE.Mesh, CleanDecalProps>(function Clean
     return () => {
       target.geometry?.dispose();
     };
-  }, [mesh, targetSide, ...vecToArray(position), ...vecToArray(scale), ...vecToArray(rotation)]);
+  }, [mesh, inferredSide, ...vecToArray(position), ...vecToArray(scale), ...vecToArray(rotation)]);
 
   return (
     <mesh

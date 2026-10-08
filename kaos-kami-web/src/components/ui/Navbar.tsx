@@ -72,6 +72,25 @@ export const Navbar: React.FC = () => {
 
   const isLight = studioTheme === "gallery";
 
+  // 5x Klik Logo untuk memicu Secret PIN Bypass Modal (Super Admin & User)
+  const logoClickRef = React.useRef<{ count: number; lastTime: number }>({ count: 0, lastTime: 0 });
+  const handleLogoClick = (e: React.MouseEvent) => {
+    const now = Date.now();
+    if (now - logoClickRef.current.lastTime > 2500) {
+      logoClickRef.current = { count: 1, lastTime: now };
+    } else {
+      logoClickRef.current.count += 1;
+      logoClickRef.current.lastTime = now;
+    }
+
+    if (logoClickRef.current.count >= 5) {
+      e.preventDefault();
+      e.stopPropagation();
+      logoClickRef.current = { count: 0, lastTime: 0 };
+      window.dispatchEvent(new CustomEvent("open-secret-pin-modal"));
+    }
+  };
+
   return (
     <>
       <header
@@ -83,7 +102,9 @@ export const Navbar: React.FC = () => {
       <div className="flex items-center gap-6 xl:gap-8 shrink-0">
         <Link
           href="/"
-          className="hover:opacity-85 transition-opacity flex items-center shrink-0"
+          onClick={handleLogoClick}
+          className="hover:opacity-85 transition-opacity flex items-center shrink-0 cursor-pointer select-none"
+          title="Kaos Kami Studio"
         >
           {/* eslint-disable-next-line @next/next/no-img-element -- logo adaptif tema via CSS; kedua img ada di SSR sehingga 0 hydration mismatch */}
           <img

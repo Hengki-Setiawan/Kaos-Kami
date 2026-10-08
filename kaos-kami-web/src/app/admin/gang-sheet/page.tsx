@@ -1,22 +1,11 @@
 "use client";
 
-// Halaman builder gang-sheet DTF (kolektor + review + ekspor).
-// RBAC: ikut layout /admin (server gate ADMIN/SUPER_ADMIN/PRODUCTION_STAFF) —
-// halaman ini tidak menambah logika auth sendiri.
-// Kontrak (impor langsung, tanpa shim):
-// - packGangSheet + konstanta dari "@/lib/gangPacker"
-// - exportGangSheetPNG dari "@/lib/gangExport"
-//
-// KONTRAK TILED-MASTER (titik pakai — baca bareng gangExport.ts):
-// - JANGAN bikin endpoint compose server (Workers tak bisa: tanpa DOM Canvas,
-//   batas Worker 3MB, kanvas raksasa = OOM). Rakit ulang SELALU di client.
-// - Panel A3/besar tersimpan di LS `kaoskami_master_assets["<apparel>:<panel>"]`
-//   = { url (= tile0), tiles[] (set lengkap R2), cols, rows, tiled:true }.
-// - tile0 (= `url`) = pratinjau/kompatibel-legacy; `tiles[]` = cetak penuh.
-//   Task produksi (`printFileUrl`) membawa tile0; perakitan penuh tiled =
-//   tugas halaman admin ini (client) bila butuh resolusi penuh.
+// Halaman builder gang-sheet DTF (kolektor + review + ekspor + integrasi kanban).
+// RBAC: ikut layout /admin (server gate ADMIN/SUPER_ADMIN/PRODUCTION_STAFF)
+// Standar DTF Profesional: 100% Ukuran Asli Pesanan Dijaga, Tanpa Distorsi/Stretching, Multi-Tournament Strip Packing, 0 R2 Overhead.
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import Link from "next/link";
 import {
   GANG_BIN_H_MM,
   GANG_BIN_W_MM,
@@ -27,7 +16,39 @@ import {
   type GangPlacement,
   type GangRect,
 } from "@/lib/gangPacker";
-import { exportGangSheetPNG } from "@/lib/gangExport";
+import {
+  exportGangSheetPNG,
+  exportAllGangSheetsZip,
+  downloadFile,
+} from "@/lib/gangExport";
+import {
+  FileText,
+  AlertCircle,
+  Printer,
+  Sparkles,
+  Archive,
+  Download,
+  RotateCcw,
+  CheckCircle2,
+  ChevronDown,
+  ChevronUp,
+  Phone,
+  ExternalLink,
+  Search,
+  RefreshCw,
+  Trash2,
+  Undo2,
+  Redo2,
+  ZoomIn,
+  ZoomOut,
+  Eye,
+  X,
+  Check,
+  Layers,
+  Sun,
+  Moon,
+  Grid,
+} from "lucide-react";
 
 // ─── Tipe baris task (bentuk GET /api/admin/production-tasks) ───
 
@@ -45,9 +66,14 @@ interface TaskRow {
   printWidthCm: number | null;
   printHeightCm: number | null;
   printFileUrl: string | null;
+  rawAssetUrl?: string | null;
+  placementSide?: string | null;
+  offsetFromCollarCm?: number | null;
   notes: string | null;
   order: {
     orderNumber: string;
+    customerName?: string | null;
+    customerPhone?: string | null;
     items: OrderItemRingkas[];
   } | null;
 }
@@ -69,13 +95,11 @@ function todayLocalYYYYMMDD(now: Date = new Date()): string {
   return `${y}-${m}-${d}`;
 }
 
-/** Qty bawaan: join ke item induk via orderItemId; fallback 1 bila tak ketemu. */
 function qtyDariItemInduk(t: TaskRow): number {
   const q = t.order?.items?.find((it) => it.id === t.orderItemId)?.quantity;
   return Number.isInteger(q) && (q as number) >= 1 ? (q as number) : 1;
 }
 
-/** Label baris: snapshot item induk, lalu notes, lalu fallback. */
 function labelBaris(t: TaskRow): string {
   const snap = t.order?.items?.find((it) => it.id === t.orderItemId)?.snapshotName?.trim();
   if (snap) return snap;
@@ -101,22 +125,132 @@ function cmToMm(cm: number): number {
   return Math.round(cm * 10);
 }
 
-// ─── Halaman ───
+// ─── Modal Pratinjau Desain HD ───
+
+function ModalPratinjauDesain({
+  task,
+  onClose,
+}: {
+  task: TaskRow;
+  onClose: () => void;
+}) {
+  const imgUrl = task.printFileUrl || task.rawAssetUrl;
+  const orderNo = task.order?.orderNumber || "—";
+  const itemLabel = labelBaris(task);
+  const qty = qtyDariItemInduk(task);
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm animate-in fade-in duration-150">
+      <div className="relative w-full max-w-xl rounded-2xl bg-surface border border-border-subtle shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
+        {/* Header Modal */}
+        <div className="flex items-center justify-between px-5 py-4 border-b border-border-subtle bg-surface-elevated">
+          <div className="flex items-center gap-2.5">
+            <div className="h-8 w-8 rounded-lg bg-amber-400/10 text-amber-500 flex items-center justify-center font-mono font-bold text-xs">
+              HD
+            </div>
+            <div>
+              <h3 className="text-sm font-black text-text-primary flex items-center gap-2">
+                <span>{orderNo}</span>
+                <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-black/5 dark:bg-white/10 text-text-muted">
+                  Qty: {qty}
+                </span>
+              </h3>
+              <p className="text-xs text-text-muted truncate max-w-sm">{itemLabel}</p>
+            </div>
+          </div>
+          <button
+            onClick={onClose}
+            className="p-1.5 rounded-lg text-text-muted hover:text-text-primary hover:bg-black/5 dark:hover:bg-white/5 transition-colors"
+          >
+            <X size={18} />
+          </button>
+        </div>
+
+        {/* Gambar Preview */}
+        <div className="flex-1 overflow-auto p-6 flex flex-col items-center justify-center bg-neutral-950/60 min-h-[280px]">
+          {imgUrl ? (
+            <div className="relative group max-w-full max-h-[360px] flex items-center justify-center p-2 rounded-xl border border-white/10 bg-black/40">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={imgUrl}
+                alt={itemLabel}
+                className="max-h-[340px] max-w-full object-contain rounded drop-shadow-md"
+              />
+            </div>
+          ) : (
+            <div className="text-center text-text-muted text-xs font-mono">
+              Tidak ada berkas gambar untuk task ini
+            </div>
+          )}
+        </div>
+
+        {/* Spesifikasi Teknis DTF */}
+        <div className="p-4 bg-surface border-t border-border-subtle grid grid-cols-2 gap-3 text-xs">
+          <div className="p-2.5 rounded-lg bg-black/5 dark:bg-white/5 border border-border-subtle">
+            <p className="text-[10px] font-mono uppercase text-text-muted">Ukuran Cetak Asli Pelanggan</p>
+            <p className="font-bold text-text-primary font-mono text-sm mt-0.5">
+              {fmtCm(task.printWidthCm)} × {fmtCm(task.printHeightCm)} cm
+            </p>
+            <p className="text-[10px] text-emerald-600 dark:text-emerald-400 mt-0.5">
+              ✓ 100% Rasio Asli Terjaga
+            </p>
+          </div>
+          <div className="p-2.5 rounded-lg bg-black/5 dark:bg-white/5 border border-border-subtle">
+            <p className="text-[10px] font-mono uppercase text-text-muted">Posisi Sablon</p>
+            <p className="font-bold text-text-primary capitalize text-sm mt-0.5">
+              {task.placementSide === "back" ? "Punggung Belakang" : "Dada Depan"}
+            </p>
+            <p className="text-[10px] text-text-muted mt-0.5">
+              {task.offsetFromCollarCm ? `Turun ${task.offsetFromCollarCm} cm dari kerah` : "Posisi standar"}
+            </p>
+          </div>
+        </div>
+
+        {/* Footer Modal */}
+        <div className="flex items-center justify-between px-5 py-3 border-t border-border-subtle bg-surface-elevated">
+          {imgUrl ? (
+            <a
+              href={imgUrl}
+              target="_blank"
+              rel="noreferrer"
+              className="text-xs text-amber-500 hover:text-amber-400 font-bold flex items-center gap-1.5"
+            >
+              <ExternalLink size={13} />
+              <span>Buka Gambar Asli</span>
+            </a>
+          ) : <span />}
+          <button
+            onClick={onClose}
+            className="px-4 py-1.5 rounded-lg bg-amber-400 hover:bg-amber-300 text-black font-bold text-xs"
+          >
+            Tutup
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── Halaman Utama ───
 
 export default function GangSheetBuilderPage() {
-  // (1) KOLEKTOR
-  const [tasks, setTasks] = useState<TaskRow[]>([]);
+  // (1) KOLEKTOR & ANTREAN
+  const [semuaTasks, setSemuaTasks] = useState<TaskRow[]>([]);
+  const [tabAntrean, setTabAntrean] = useState<"antrean" | "masuk" | "sudah">("antrean");
   const [memuat, setMemuat] = useState(true);
   const [galatMuat, setGalatMuat] = useState<string | null>(null);
   const [cari, setCari] = useState("");
   const [centang, setCentang] = useState<Record<string, boolean>>({});
-  const [qtyEdit, setQtyEdit] = useState<Record<string, number>>({});
   const [hargaPerMeter, setHargaPerMeter] = useState(35000);
-  // Qty 0/>99 = ERROR jujur (bukan clamp diam) — kunci auto-susun sampai dibetulkan.
-  const [qtyError, setQtyError] = useState<Record<string, string>>({});
-  // Draft localStorage: centang + qty + kotak review + field ekspor.
   const [draftPulih, setDraftPulih] = useState(false);
-  // Undo hapus/reset (satu level, jujur).
+  const [taskPratinjau, setTaskPratinjau] = useState<TaskRow | null>(null);
+
+  // Parameter Packing Presisi & Celah (Murni Dimensi Asli Tanpa Pemangkasan)
+  const [rollOrientation, setRollOrientation] = useState<"vertical" | "horizontal">("vertical");
+  const [gapMm, setGapMm] = useState<number>(3); // 3mm default rapat standar DTF profesional
+  const [marginMm, setMarginMm] = useState<number>(5); // 5mm margin aman tepi roll
+
+  // Undo hapus / reset
   const [undoHapus, setUndoHapus] = useState<{ bin: number; idx: number; item: GangPlacement } | null>(null);
   const [undoReset, setUndoReset] = useState<{ bin: number; snapshot: GangPlacement[] } | null>(null);
 
@@ -128,7 +262,82 @@ export default function GangSheetBuilderPage() {
   // (3) REVIEW
   const [terpilih, setTerpilih] = useState<number | null>(null);
   const [zoom, setZoom] = useState(1);
-  const [tampilPotong, setTampilPotong] = useState(false);
+  const [bgPratinjau, setBgPratinjau] = useState<"dark" | "light" | "gray" | "checker">("dark");
+
+  useEffect(() => {
+    try {
+      const savedBg = window.localStorage.getItem("kaoskami_gang_bg");
+      if (savedBg === "dark" || savedBg === "light" || savedBg === "gray" || savedBg === "checker") {
+        setBgPratinjau(savedBg as "dark" | "light" | "gray" | "checker");
+      }
+    } catch {}
+  }, []);
+
+  function handleBgChange(mode: "dark" | "light" | "gray" | "checker") {
+    setBgPratinjau(mode);
+    try {
+      window.localStorage.setItem("kaoskami_gang_bg", mode);
+    } catch {}
+  }
+
+  // Riwayat Undo / Redo untuk manipulasi kanvas (Geser / Putar / Hapus)
+  const [riwayatSusun, setRiwayatSusun] = useState<GangPlacement[][][]>([]);
+  const [indeksRiwayat, setIndeksRiwayat] = useState<number>(-1);
+  const sebelumSeretRef = useRef<GangPlacement[][] | null>(null);
+
+  const catatRiwayat = useCallback((snapshot: GangPlacement[][]) => {
+    setRiwayatSusun((prev) => {
+      const terpotong = prev.slice(0, indeksRiwayat + 1);
+      const baru = [...terpotong, snapshot.map((b) => b.map((p) => ({ ...p })))];
+      if (baru.length > 30) baru.shift();
+      return baru;
+    });
+    setIndeksRiwayat((idx) => Math.min(idx + 1, 29));
+  }, [indeksRiwayat]);
+
+  const mundurSusun = useCallback(() => {
+    if (indeksRiwayat > 0) {
+      const targetIdx = indeksRiwayat - 1;
+      const snapshot = riwayatSusun[targetIdx];
+      if (snapshot) {
+        setKotakEdit(snapshot.map((b) => b.map((p) => ({ ...p }))));
+        setIndeksRiwayat(targetIdx);
+        setTerpilih(null);
+      }
+    }
+  }, [indeksRiwayat, riwayatSusun]);
+
+  const majuSusun = useCallback(() => {
+    if (indeksRiwayat < riwayatSusun.length - 1) {
+      const targetIdx = indeksRiwayat + 1;
+      const snapshot = riwayatSusun[targetIdx];
+      if (snapshot) {
+        setKotakEdit(snapshot.map((b) => b.map((p) => ({ ...p }))));
+        setIndeksRiwayat(targetIdx);
+        setTerpilih(null);
+      }
+    }
+  }, [indeksRiwayat, riwayatSusun]);
+
+  useEffect(() => {
+    function handleKeyDown(e: KeyboardEvent) {
+      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "z") {
+        e.preventDefault();
+        if (e.shiftKey) {
+          majuSusun();
+        } else {
+          mundurSusun();
+        }
+      } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "y") {
+        e.preventDefault();
+        majuSusun();
+      }
+    }
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [mundurSusun, majuSusun]);
+
   const svgRef = useRef<SVGSVGElement | null>(null);
   const seretRef = useRef<{
     idx: number;
@@ -139,23 +348,35 @@ export default function GangSheetBuilderPage() {
     pxPerMm: number;
   } | null>(null);
 
-  // (4) EKSPOR
+  // (4) EKSPOR & KANBAN
   const [gangId, setGangId] = useState(() => `GANG-${todayLocalYYYYMMDD()}`);
   const [dpi, setDpi] = useState<150 | 300>(300);
   const [nomorMaklon, setNomorMaklon] = useState("");
   const [mengekspor, setMengekspor] = useState(false);
+  const [mengeksporZip, setMengeksporZip] = useState(false);
+  const [progressZip, setProgressZip] = useState<string | null>(null);
+  const [memajukanKanban, setMemajukanKanban] = useState(false);
   const [galatEkspor, setGalatEkspor] = useState<string | null>(null);
   const [pesanSukses, setPesanSukses] = useState<string | null>(null);
-  const [rekap, setRekap] = useState<string | null>(null);
-  const [namaFile, setNamaFile] = useState<string | null>(null);
-  const [unduhUrl, setUnduhUrl] = useState<string | null>(null);
   const [peringatanEkspor, setPeringatanEkspor] = useState<string[]>([]);
+  const [tampilCatatanKualitas, setTampilCatatanKualitas] = useState(false);
   const [disalin, setDisalin] = useState(false);
-  const [rollOrientation, setRollOrientation] = useState<"vertical" | "horizontal">("vertical");
-  // Meter yg sudah diekspor OK (pesan jujur per-bin: meter lain yg tertinggal ditandai).
   const [meterDiekspor, setMeterDiekspor] = useState<number[]>([]);
-  // SPK fallback: bila popup diblokir, render SPK di tab yg sama (modal + print).
-  const [spkFallbackHtml, setSpkFallbackHtml] = useState<string | null>(null);
+
+  // Simpan & baca nomor WA maklon tunggal dari localStorage
+  useEffect(() => {
+    try {
+      const savedWa = window.localStorage.getItem("kaoskami_maklon_wa");
+      if (savedWa) setNomorMaklon(savedWa);
+    } catch {}
+  }, []);
+
+  function handleWaChange(val: string) {
+    setNomorMaklon(val);
+    try {
+      window.localStorage.setItem("kaoskami_maklon_wa", val);
+    } catch {}
+  }
 
   // ── Muat task ──
   const muatTask = useCallback(async () => {
@@ -174,9 +395,7 @@ export default function GangSheetBuilderPage() {
           throw new Error(data?.error || `Server ${res.status}`);
         }
         const list = Array.isArray(data.tasks) ? (data.tasks as TaskRow[]) : [];
-        // Antrean Gang Sheet: HANYA menampilkan desain yang belum masuk ke tahap cetak/selesai (DESIGN_PREP & SCREEN_PRINT_SETUP).
-        // Desain yang sudah PRINTING, PRESSING, QC, PACKAGING, atau DONE otomatis disembunyikan agar tidak tercetak ganda!
-        setTasks(list.filter((x) => x && x.order && (x.stage === "DESIGN_PREP" || x.stage === "SCREEN_PRINT_SETUP")));
+        setSemuaTasks(list.filter((x) => x && x.order));
       } finally {
         window.clearTimeout(t);
       }
@@ -191,35 +410,73 @@ export default function GangSheetBuilderPage() {
     void muatTask();
   }, [muatTask]);
 
-  // Bersihkan URL objek lama saat diganti / unmount (hindari bocor memori).
-  useEffect(() => {
-    return () => {
-      if (unduhUrl) URL.revokeObjectURL(unduhUrl);
-    };
-  }, [unduhUrl]);
+  // Pisahkan task sesuai alur Kanban:
+  // 1. Antrean Gang Sheet: SCREEN_PRINT_SETUP (desain yang sudah disetujui / diproses dari Kanban 1)
+  const siapTasks = useMemo(
+    () => semuaTasks.filter((t) => t.stage === "SCREEN_PRINT_SETUP"),
+    [semuaTasks],
+  );
 
-  // ── DRAFT localStorage (centang/qty/kotak + field ekspor) ──
-  const DRAFT_KEY = "kaoskami_gang_draft_v1";
-  // Pulihkan sekali saat mount (defensif: JSON rusak = abaikan jujur).
+  // 2. Desain Masuk di Kanban 1: DESIGN_PREP (belum diklik "Proses ke Gang Sheet")
+  const desainMasukTasks = useMemo(
+    () => semuaTasks.filter((t) => t.stage === "DESIGN_PREP"),
+    [semuaTasks],
+  );
+
+  // 3. Sudah di Kanban 3 (PRINTING / PRESSING / QC / Selesai)
+  const sudahTasks = useMemo(
+    () => semuaTasks.filter((t) => t.stage !== "SCREEN_PRINT_SETUP" && t.stage !== "DESIGN_PREP"),
+    [semuaTasks],
+  );
+
+  const taskDitampilkan = useMemo(() => {
+    const dasar =
+      tabAntrean === "antrean"
+        ? siapTasks
+        : tabAntrean === "masuk"
+        ? desainMasukTasks
+        : sudahTasks;
+    const q = cari.trim().toLowerCase();
+    if (!q) return dasar;
+    return dasar.filter((t) => `${t.order?.orderNumber || ""} ${labelBaris(t)}`.toLowerCase().includes(q));
+  }, [tabAntrean, siapTasks, desainMasukTasks, sudahTasks, cari]);
+
+  // Aksi cepat memindahkan task dari Kanban 1 (DESIGN_PREP) ke Antrean Gang Sheet (SCREEN_PRINT_SETUP)
+  async function masukkanKeAntreanGangSheet(ids: string[]) {
+    if (ids.length === 0) return;
+    try {
+      const res = await fetch("/api/admin/production-tasks", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({
+          taskIds: ids,
+          stage: "SCREEN_PRINT_SETUP", // Masuk ke Antrean Gang Sheet
+          notes: "Diproses masuk Antrean Gang Sheet",
+          appendNotes: true,
+        }),
+      });
+      const data = await res.json().catch(() => null);
+      if (!res.ok) throw new Error(data?.error || `Server ${res.status}`);
+      setPesanSukses(`✓ Berhasil memasukkan ${ids.length} desain ke Antrean Gang Sheet!`);
+      setTimeout(() => setPesanSukses(null), 3500);
+      setTabAntrean("antrean");
+      await muatTask();
+    } catch (err) {
+      setGalatMuat(`Gagal memindahkan ke antrean: ${err instanceof Error ? err.message : "koneksi bermasalah"}`);
+    }
+  }
+
+  // ── DRAFT localStorage ──
+  const DRAFT_KEY = "kaoskami_gang_draft_v4";
   useEffect(() => {
     try {
       const raw = window.localStorage.getItem(DRAFT_KEY);
       if (!raw) return;
-      const d = JSON.parse(raw) as {
-        centang?: Record<string, boolean>;
-        qtyEdit?: Record<string, number>;
-        kotakEdit?: GangPlacement[][];
-        binAktif?: number;
-        gangId?: string;
-        dpi?: 150 | 300;
-        hargaPerMeter?: number;
-      };
+      const d = JSON.parse(raw);
       if (d.centang && typeof d.centang === "object") setCentang(d.centang);
-      if (d.qtyEdit && typeof d.qtyEdit === "object") setQtyEdit(d.qtyEdit);
       if (Array.isArray(d.kotakEdit) && d.kotakEdit.length > 0) {
         setKotakEdit(d.kotakEdit);
-        // `hasil` packer tak disimpan utuh (fungsi) — bangun ulang cangkang
-        // minimal agar review tetap render; susun ulang bila perlu akurat.
         setHasil((prev) =>
           prev ?? {
             bins: d.kotakEdit as GangPlacement[][],
@@ -227,177 +484,137 @@ export default function GangSheetBuilderPage() {
             utilizationPct: 0,
             binWmm: 580,
             binHmm: 1000,
-            strategyName: "Draft tersimpan (susun ulang untuk angka akurat)",
-            maxReachMm: undefined,
-          } as GangPackResult,
+            strategyName: "Draft Tersimpan",
+          }
         );
       }
-      if (Number.isInteger(d.binAktif)) setBinAktif(Math.max(0, d.binAktif as number));
+      if (Number.isInteger(d.binAktif)) setBinAktif(Math.max(0, d.binAktif));
       if (typeof d.gangId === "string" && d.gangId) setGangId(d.gangId);
       if (d.dpi === 150 || d.dpi === 300) setDpi(d.dpi);
-      if (Number.isFinite(d.hargaPerMeter)) setHargaPerMeter(Math.max(0, Math.round(d.hargaPerMeter as number)));
+      if (Number.isFinite(d.hargaPerMeter)) setHargaPerMeter(Math.max(0, Math.round(d.hargaPerMeter)));
+      if (Number.isFinite(d.gapMm)) setGapMm(d.gapMm);
       setDraftPulih(true);
-    } catch {
-      /* draft rusak = mulai bersih, tanpa crash */
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    } catch {}
   }, []);
-  // Simpan otomatis (debounce 500ms) setiap draft berubah.
+
   useEffect(() => {
     const t = window.setTimeout(() => {
       try {
         window.localStorage.setItem(
           DRAFT_KEY,
-          JSON.stringify({ centang, qtyEdit, kotakEdit, binAktif, gangId, dpi, hargaPerMeter }),
+          JSON.stringify({ centang, kotakEdit, binAktif, gangId, dpi, hargaPerMeter, gapMm }),
         );
-      } catch {
-        /* kuota penuh = abaikan, draft memori tetap jalan */
-      }
+      } catch {}
     }, 500);
     return () => window.clearTimeout(t);
-  }, [centang, qtyEdit, kotakEdit, binAktif, gangId, dpi, hargaPerMeter]);
+  }, [centang, kotakEdit, binAktif, gangId, dpi, hargaPerMeter, gapMm]);
 
-  function hapusDraft() {
-    try {
-      window.localStorage.removeItem(DRAFT_KEY);
-    } catch { /* abaikan */ }
-    setDraftPulih(false);
-  }
-
-  // ── Turunan kolektor ──
-  const tersaring = useMemo(() => {
-    const q = cari.trim().toLowerCase();
-    if (!q) return tasks;
-    return tasks.filter((t) =>
-      `${t.order?.orderNumber || ""} ${labelBaris(t)}`.toLowerCase().includes(q),
-    );
-  }, [tasks, cari]);
-
-  const qtyEfektif = useCallback(
-    (t: TaskRow) => {
-      const v = qtyEdit[t.id] ?? qtyDariItemInduk(t);
-      return Number.isInteger(v) && v >= 1 ? Math.min(99, v) : 1;
-    },
-    [qtyEdit],
-  );
-
-  /** Validasi qty mentah: 0 / >99 / non-angka = ERROR (bukan clamp diam). */
-  function validasiQty(taskId: string, mentah: string): void {
-    const teks = mentah.trim();
-    if (teks === "") {
-      setQtyError((prev) => ({ ...prev, [taskId]: "Qty wajib diisi (1–99)." }));
-      return;
-    }
-    const v = Number(teks);
-    if (!Number.isFinite(v) || !Number.isInteger(v)) {
-      setQtyError((prev) => ({ ...prev, [taskId]: `Qty "${teks}" tidak valid — isi bilangan bulat 1–99.` }));
-      return;
-    }
-    if (v < 1) {
-      setQtyError((prev) => ({ ...prev, [taskId]: "Qty 0 tidak valid — minimal 1. Hapus centang bila tak dicetak." }));
-      return;
-    }
-    if (v > 99) {
-      setQtyError((prev) => ({ ...prev, [taskId]: "Qty >99 tidak valid — maksimal 99 per baris. Pecah jadi 2 baris bila perlu." }));
-      return;
-    }
-    setQtyError((prev) => {
-      if (!(taskId in prev)) return prev;
-      const next = { ...prev };
-      delete next[taskId];
-      return next;
-    });
-    setQtyEdit((prev) => ({ ...prev, [taskId]: v }));
-  }
-
-  const jumlahQtyError = useMemo(
-    () => Object.keys(qtyError).filter((id) => centang[id]).length,
-    [qtyError, centang],
-  );
-
-  const idSiap = useMemo(() => tasks.filter((t) => siapCetak(t).ok).map((t) => t.id), [tasks]);
-
+  // Filter yang terpilih dan valid untuk disusun
   const dipilihValid = useMemo(
-    () => tasks.filter((t) => centang[t.id] && siapCetak(t).ok),
-    [tasks, centang],
+    () => siapTasks.filter((t) => centang[t.id] && siapCetak(t).ok),
+    [siapTasks, centang],
   );
 
   const totalKopiDiminta = useMemo(
-    () => dipilihValid.reduce((s, t) => s + qtyEfektif(t), 0),
-    [dipilihValid, qtyEfektif],
+    () => dipilihValid.reduce((s, t) => s + qtyDariItemInduk(t), 0),
+    [dipilihValid],
   );
 
-  // ── (2) AUTO-SUSUN ──
-  const [galatSusun, setGalatSusun] = useState<string | null>(null);
-  function susunOtomatis() {
-    setGalatSusun(null);
-    if (jumlahQtyError > 0) {
-      setGalatSusun(
-        `Ada ${jumlahQtyError} qty tak valid (0 / >99 / bukan angka) — betulkan dulu sebelum susun. Tak ada clamp diam-diam.`,
-      );
-      return;
-    }
-    const rects: GangRect[] = dipilihValid.map((t) => ({
-      id: t.id,
-      wMm: cmToMm(t.printWidthCm as number),
-      hMm: cmToMm(t.printHeightCm as number),
-      qty: qtyEfektif(t),
-      label: labelBaris(t),
-      orderNumber: t.order?.orderNumber || "—",
-      masterUrl: t.printFileUrl,
-      allowRotation: true,
-    }));
-    if (rects.length === 0) return;
-    const binW = rollOrientation === "vertical" ? 580 : 1000;
-    const binH = rollOrientation === "vertical" ? 1000 : 580;
-    const r = packGangSheet(rects, { binWmm: binW, binHmm: binH });
-    setHasil(r);
-    setKotakEdit(r.bins.map((b) => b.map((p) => ({ ...p }))));
-    setBinAktif(0);
-    setTerpilih(null);
-    setMeterDiekspor([]);
-    setPesanSukses(null);
-    setUndoHapus(null);
-    setUndoReset(null);
-  }
-
-  function pilihSemuaSiap() {
-    setCentang((prev) => {
-      const next = { ...prev };
-      for (const id of idSiap) next[id] = true;
-      return next;
+  // Helper pembaca aspek rasio alami gambar (menghapus letterbox kosong buatan)
+  function dapatkanDimensiGambar(url: string): Promise<{ naturalW: number; naturalH: number } | null> {
+    return new Promise((resolve) => {
+      if (!url) return resolve(null);
+      const img = new Image();
+      img.crossOrigin = "anonymous";
+      img.onload = () => resolve({ naturalW: img.naturalWidth, naturalH: img.naturalHeight });
+      img.onerror = () => resolve(null);
+      img.src = url;
     });
   }
 
-  function bersihkanPilihan() {
-    setCentang({});
+  // ── (2) AUTO-SUSUN DENGAN UKURAN 100% ASLI & ALGORITMA MULTI-TOURNAMENT ──
+  const [galatSusun, setGalatSusun] = useState<string | null>(null);
+
+  async function susunOtomatis() {
+    setGalatSusun(null);
+    if (dipilihValid.length === 0) return;
+
+    try {
+      // 1. Baca aspek rasio alami gambar agar kavling cetak tepat mengikuti batas fisik karya seni (tanpa letterbox kosong)
+      const urlUnik = Array.from(new Set(dipilihValid.map((t) => t.printFileUrl).filter(Boolean))) as string[];
+      const dimPairs = await Promise.all(
+        urlUnik.map(async (u) => {
+          const dim = await dapatkanDimensiGambar(u);
+          return [u, dim] as const;
+        })
+      );
+      const dimMap = new Map<string, { naturalW: number; naturalH: number } | null>(dimPairs);
+
+      // 2. Hitung dimensi kavling fisik sebenarnya (proporsional 1:1, tanpa ruang transparan palsu)
+      const rects: GangRect[] = dipilihValid.map((t) => {
+        let actW = cmToMm(t.printWidthCm as number);
+        let actH = cmToMm(t.printHeightCm as number);
+
+        const dim = t.printFileUrl ? dimMap.get(t.printFileUrl) : null;
+        if (dim && dim.naturalW > 0 && dim.naturalH > 0) {
+          const imgRatio = dim.naturalW / dim.naturalH;
+          const boxRatio = actW / actH;
+          if (imgRatio > boxRatio) {
+            // Gambar lebih lebar: lebar maksimum tetap, tinggi disesuaikan proporsinya
+            actH = Math.max(10, Math.round(actW / imgRatio));
+          } else {
+            // Gambar lebih tinggi: tinggi maksimum tetap, lebar disesuaikan proporsinya
+            actW = Math.max(10, Math.round(actH * imgRatio));
+          }
+        }
+
+        return {
+          id: t.id,
+          wMm: actW,
+          hMm: actH,
+          qty: qtyDariItemInduk(t),
+          label: labelBaris(t),
+          orderNumber: t.order?.orderNumber || "—",
+          masterUrl: t.printFileUrl,
+          allowRotation: true,
+        };
+      });
+
+      const binW = rollOrientation === "vertical" ? 580 : 1000;
+      const binH = rollOrientation === "vertical" ? 1000 : 580;
+
+      const r = packGangSheet(rects, {
+        binWmm: binW,
+        binHmm: binH,
+        gapMm: gapMm,
+        marginMm: marginMm,
+      });
+
+      setHasil(r);
+      const snapshot = r.bins.map((b) => b.map((p) => ({ ...p })));
+      setKotakEdit(snapshot);
+      setRiwayatSusun([snapshot]);
+      setIndeksRiwayat(0);
+      setBinAktif(0);
+      setTerpilih(null);
+      setMeterDiekspor([]);
+      setPesanSukses(null);
+      setUndoHapus(null);
+      setUndoReset(null);
+    } catch (e) {
+      setGalatSusun(e instanceof Error ? e.message : "Gagal menyusun gang sheet");
+    }
   }
 
-  // ── Turunan hasil ──
-  const binCount = hasil?.bins.length ?? 0;
-  const kopiTerpasang = useMemo(
-    () => (kotakEdit ?? []).reduce((s, b) => s + b.length, 0),
-    [kotakEdit],
-  );
-  const totalBiaya = binCount * (Number.isFinite(hargaPerMeter) ? Math.max(0, hargaPerMeter) : 0);
-  const biayaPerDesain = kopiTerpasang > 0 ? totalBiaya / kopiTerpasang : 0;
-
+  // ── Manipulasi Kanvas ──
   const isiBinAktif: GangPlacement[] = useMemo(
     () => (kotakEdit && kotakEdit[binAktif]) || [],
     [kotakEdit, binAktif],
   );
 
-  const utilLive = useMemo(() => {
-    if (!hasil) return 0;
-    const luas = isiBinAktif.reduce((s, p) => s + p.wMm * p.hMm, 0);
-    const total = hasil.binWmm * hasil.binHmm;
-    return total > 0 ? (luas / total) * 100 : 0;
-  }, [hasil, isiBinAktif]);
-
   const itemTerpilih: GangPlacement | null =
     terpilih !== null ? (isiBinAktif[terpilih] ?? null) : null;
 
-  // ── (3) REVIEW: geser / putar / hapus ──
   function perbaruiKotak(idx: number, patch: Partial<GangPlacement>) {
     setKotakEdit((prev) => {
       if (!prev) return prev;
@@ -405,38 +622,41 @@ export default function GangSheetBuilderPage() {
       if (!cur || !cur[idx]) return prev;
       const next = prev.map((b) => [...b]);
       const nb: GangPlacement[] = [...cur];
-      const lama = nb[idx] as GangPlacement;
-      nb[idx] = { ...lama, ...patch };
+      nb[idx] = { ...nb[idx], ...patch } as GangPlacement;
       next[binAktif] = nb;
       return next;
     });
   }
 
   function putarTerpilih() {
-    if (!hasil || terpilih === null) return;
+    if (!hasil || terpilih === null || !kotakEdit) return;
     const p = isiBinAktif[terpilih];
     if (!p) return;
     const w = p.hMm;
     const h = p.wMm;
     const x = Math.min(Math.max(0, p.xMm), Math.max(0, hasil.binWmm - w));
     const y = Math.min(Math.max(0, p.yMm), Math.max(0, hasil.binHmm - h));
-    perbaruiKotak(terpilih, { wMm: w, hMm: h, xMm: x, yMm: y, rot: !p.rot });
+    const next = kotakEdit.map((b, bi) =>
+      bi === binAktif
+        ? b.map((item, ii) =>
+            ii === terpilih ? { ...item, wMm: w, hMm: h, xMm: x, yMm: y, rot: !item.rot } : item
+          )
+        : [...b]
+    );
+    setKotakEdit(next);
+    catatRiwayat(next);
   }
 
   function hapusTerpilih() {
-    if (terpilih === null) return;
+    if (terpilih === null || !kotakEdit) return;
     const korban = isiBinAktif[terpilih];
     if (!korban) return;
-    // Simpan untuk UNDO hapus (satu level).
     setUndoHapus({ bin: binAktif, idx: terpilih, item: { ...korban } });
-    setKotakEdit((prev) => {
-      if (!prev) return prev;
-      const cur = prev[binAktif];
-      if (!cur) return prev;
-      const next = prev.map((b) => [...b]);
-      next[binAktif] = cur.filter((_, i) => i !== terpilih);
-      return next;
-    });
+    const next = kotakEdit.map((b, bi) =>
+      bi === binAktif ? b.filter((_, i) => i !== terpilih) : [...b]
+    );
+    setKotakEdit(next);
+    catatRiwayat(next);
     setTerpilih(null);
   }
 
@@ -450,193 +670,99 @@ export default function GangSheetBuilderPage() {
       const cur = [...next[bin]!];
       cur.splice(Math.min(idx, cur.length), 0, { ...item });
       next[bin] = cur;
+      catatRiwayat(next);
       return next;
     });
     setBinAktif(bin);
   }
 
-  function resetBinAktif() {
-    if (!hasil) return;
-    // Simpan snapshot untuk UNDO reset (satu level).
-    const cur = kotakEdit?.[binAktif];
-    if (cur) setUndoReset({ bin: binAktif, snapshot: cur.map((p) => ({ ...p })) });
-    setKotakEdit((prev) => {
-      if (!prev) return prev;
-      const next = prev.map((b) => [...b]);
-      next[binAktif] = (hasil.bins[binAktif] || []).map((p) => ({ ...p }));
+  function resetMeteranAktif() {
+    if (!hasil || !kotakEdit) return;
+    const curBin = kotakEdit[binAktif];
+    if (!curBin || curBin.length === 0) return;
+
+    // 1. Ambil semua task ID yang ada di meter ini untuk dikembalikan ke antrean
+    const taskIdsDiMeter = Array.from(new Set(curBin.map((p) => p.id)));
+
+    // Catat snapshot untuk undo
+    setUndoReset({ bin: binAktif, snapshot: curBin.map((p) => ({ ...p })) });
+
+    // 2. Kembalikan ke antrean (hapus centang dari task-task di meter ini)
+    setCentang((prev) => {
+      const next = { ...prev };
+      for (const id of taskIdsDiMeter) {
+        delete next[id];
+      }
       return next;
     });
+
+    // 3. Hapus meter ini dari kotakEdit
+    const nextKotak = kotakEdit.filter((_, bi) => bi !== binAktif);
+    const reindexedKotak = nextKotak.map((b, bi) =>
+      b.map((p) => ({ ...p, bin: bi }))
+    );
+
+    if (reindexedKotak.length === 0) {
+      setKotakEdit(null);
+      setHasil(null);
+      setBinAktif(0);
+      catatRiwayat([]);
+    } else {
+      setKotakEdit(reindexedKotak);
+      setHasil((prev) =>
+        prev
+          ? {
+              ...prev,
+              bins: reindexedKotak,
+            }
+          : null
+      );
+      setBinAktif((cur) => Math.max(0, Math.min(cur, reindexedKotak.length - 1)));
+      catatRiwayat(reindexedKotak);
+    }
+
     setTerpilih(null);
-    setUndoHapus(null);
+    setPesanSukses(
+      `✓ Meter ${binAktif + 1} dihapus & ${taskIdsDiMeter.length} desain dikembalikan ke daftar antrean.`
+    );
+    setTimeout(() => setPesanSukses(null), 4000);
   }
 
-  function undoResetTerakhir() {
+  function resetSemuaMeteran() {
+    if (!hasil && !kotakEdit) return;
+    setCentang({});
+    setKotakEdit(null);
+    setHasil(null);
+    setBinAktif(0);
+    setTerpilih(null);
+    catatRiwayat([]);
+    setPesanSukses("✓ Seluruh meteran berhasil dihapus dan semua desain dikembalikan ke antrean.");
+    setTimeout(() => setPesanSukses(null), 4000);
+  }
+
+  function undoResetMeteran() {
     if (!undoReset) return;
     const { bin, snapshot } = undoReset;
     setUndoReset(null);
-    setKotakEdit((prev) => {
-      if (!prev || !prev[bin]) return prev;
-      const next = prev.map((b) => [...b]);
-      next[bin] = snapshot.map((p) => ({ ...p }));
+    // Kembalikan centang untuk item yang di-undo
+    setCentang((prev) => {
+      const next = { ...prev };
+      for (const p of snapshot) {
+        next[p.id] = true;
+      }
       return next;
+    });
+    setKotakEdit((prev) => {
+      const cur = prev ? [...prev] : [];
+      cur.splice(Math.min(bin, cur.length), 0, snapshot.map((p) => ({ ...p })));
+      const reindexed = cur.map((b, bi) => b.map((p) => ({ ...p, bin: bi })));
+      catatRiwayat(reindexed);
+      return reindexed;
     });
     setBinAktif(bin);
   }
 
-  /** Rakit HTML SPK Job Ticket (dipakai popup + fallback tab-sama). */
-  function rakitSpkHtml(): string {
-    if (!hasil || isiBinAktif.length === 0) return "";
-    const barisHtml = isiBinAktif.map((p, idx) => `
-      <tr>
-        <td style="border: 1px solid #ccc; padding: 6px; text-align: center;">${idx + 1}</td>
-        <td style="border: 1px solid #ccc; padding: 6px; font-weight: bold; font-family: monospace;">${p.orderNumber}</td>
-        <td style="border: 1px solid #ccc; padding: 6px;">${p.label}</td>
-        <td style="border: 1px solid #ccc; padding: 6px; text-align: center; font-family: monospace;">${(p.wMm / 10).toFixed(1)} × ${(p.hMm / 10).toFixed(1)} cm</td>
-        <td style="border: 1px solid #ccc; padding: 6px; text-align: center; font-family: monospace;">X:${(p.xMm / 10).toFixed(1)} Y:${(p.yMm / 10).toFixed(1)} cm ${p.rot ? '(Putar 90°)' : ''}</td>
-        <td style="border: 1px solid #ccc; padding: 6px; text-align: center;">[ &nbsp; ]</td>
-      </tr>
-    `).join("");
-
-    return `
-      <!DOCTYPE html>
-      <html>
-      <head>
-        <title>SPK Job Ticket - ${gangId} (Meter ${binAktif + 1})</title>
-        <style>
-          body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; font-size: 12px; color: #111; padding: 24px; }
-          .header { display: flex; justify-content: space-between; border-bottom: 2px solid #000; padding-bottom: 12px; margin-bottom: 16px; }
-          .title { font-size: 18px; font-weight: 900; letter-spacing: -0.5px; }
-          .badge { background: #eee; padding: 4px 8px; border-radius: 4px; font-family: monospace; font-weight: bold; }
-          table { width: 100%; border-collapse: collapse; margin-top: 12px; }
-          th { background: #f4f4f4; border: 1px solid #ccc; padding: 8px; font-size: 11px; text-align: left; }
-          .sop { margin-top: 20px; padding: 12px; background: #fafafa; border: 1px dashed #999; border-radius: 6px; line-height: 1.5; }
-          .sig-grid { display: flex; justify-content: space-between; margin-top: 36px; text-align: center; }
-          .sig-box { width: 30%; }
-          .sig-line { margin-top: 60px; border-bottom: 1px solid #000; }
-        </style>
-      </head>
-      <body>
-        <div class="header">
-          <div>
-            <div class="title">KAOS KAMI MAKASSAR — SPK JOB TICKET DTF</div>
-            <div style="color: #666; margin-top: 4px;">Workshop: Jl. Galangan Kapal, Lrg. Permandian 1, Kaluku Bodoa, Tallo | WA: 0812-4400-2026</div>
-          </div>
-          <div style="text-align: right;">
-            <div class="badge">${gangId}</div>
-            <div style="margin-top: 4px; font-size: 11px;">Meter ${binAktif + 1} dari ${hasil.bins.length} | ${new Date().toLocaleString("id-ID")}</div>
-          </div>
-        </div>
-
-        <div style="display: flex; gap: 16px; margin-bottom: 16px; background: #f9f9f9; padding: 10px; border-radius: 6px; font-size: 11px;">
-          <div><strong>Dimensi Roll:</strong> ${hasil.binWmm} × ${hasil.binHmm} mm</div>
-          <div><strong>Total Kopi:</strong> ${isiBinAktif.length} artwork</div>
-          <div><strong>Utilisasi Luas:</strong> ${utilLive.toFixed(1)}%</div>
-          <div><strong>Strategi:</strong> ${hasil.strategyName || "Multi-Heuristic"}</div>
-        </div>
-
-        <table>
-          <thead>
-            <tr>
-              <th style="width: 30px; text-align: center;">No</th>
-              <th>No. Order</th>
-              <th>Deskripsi / Item</th>
-              <th style="text-align: center;">Ukuran Cetak</th>
-              <th style="text-align: center;">Posisi Roll</th>
-              <th style="width: 70px; text-align: center;">QC Check</th>
-            </tr>
-          </thead>
-          <tbody>
-            ${barisHtml}
-          </tbody>
-        </table>
-
-        <div class="sop">
-          <strong>SOP PRODUKSI WORKSHOP TALLO:</strong><br/>
-          1. <strong>Print RIP:</strong> Cek nozzle check & tinta putih sebelum cetak roll.<br/>
-          2. <strong>Powder & Shaker:</strong> Pastikan bubuk lem merata dan oven cure pada suhu 120°C.<br/>
-          3. <strong>Heat Press Kaos:</strong> Suhu 160°C, 15 detik, tekanan 4-5 bar. Cold peel (tunggu dingin), lalu press ulang 5 detik teflon.
-        </div>
-
-        <div class="sig-grid">
-          <div class="sig-box">
-            <div>Operator Cetak DTF</div>
-            <div class="sig-line"></div>
-            <div style="margin-top: 4px; font-size: 10px; color: #666;">(Nama & Tanda Tangan)</div>
-          </div>
-          <div class="sig-box">
-            <div>Operator Press Kaos</div>
-            <div class="sig-line"></div>
-            <div style="margin-top: 4px; font-size: 10px; color: #666;">(Nama & Tanda Tangan)</div>
-          </div>
-          <div class="sig-box">
-            <div>QC & Packaging Final</div>
-            <div class="sig-line"></div>
-            <div style="margin-top: 4px; font-size: 10px; color: #666;">(Nama & Tanda Tangan)</div>
-          </div>
-        </div>
-      </body>
-      </html>
-    `;
-  }
-
-  function cetakSPK() {
-    if (!hasil || isiBinAktif.length === 0) return;
-    const html = rakitSpkHtml();
-    let printWindow: Window | null = null;
-    try {
-      printWindow = window.open("", "_blank", "width=850,height=1100");
-    } catch {
-      printWindow = null;
-    }
-    if (!printWindow) {
-      // Fallback TANPA popup-blocker: render SPK di tab yg sama (modal + tombol print).
-      setSpkFallbackHtml(html);
-      return;
-    }
-    try {
-      printWindow.document.write(html);
-      printWindow.document.close();
-      // Print otomatis setelah render (best-effort).
-      printWindow.onload = () => {
-        try {
-          printWindow?.print();
-        } catch { /* abaikan */ }
-      };
-    } catch {
-      setSpkFallbackHtml(html);
-    }
-  }
-
-  /** Cetak SPK fallback (tab sama) via iframe tersembunyi — halaman draft tetap utuh. */
-  function cetakSpkFallback() {
-    if (!spkFallbackHtml) return;
-    try {
-      const frame = document.createElement("iframe");
-      frame.style.position = "fixed";
-      frame.style.right = "0";
-      frame.style.bottom = "0";
-      frame.style.width = "0";
-      frame.style.height = "0";
-      frame.style.border = "0";
-      document.body.appendChild(frame);
-      const doc = frame.contentDocument || frame.contentWindow?.document;
-      if (!doc) throw new Error("iframe tak tersedia");
-      doc.open();
-      doc.write(spkFallbackHtml);
-      doc.close();
-      window.setTimeout(() => {
-        try {
-          frame.contentWindow?.focus();
-          frame.contentWindow?.print();
-        } catch { /* abaikan */ }
-        window.setTimeout(() => frame.remove(), 1000);
-      }, 300);
-    } catch {
-      setGalatEkspor("Gagal mencetak SPK fallback — salin manual isi SPK dari pratinjau.");
-    }
-  }
-
-  // Drag pointer → geser kotak, snap 1 mm, jepit di dalam lembar.
+  // Pointer Drag di Kanvas
   function onKotakPointerDown(e: React.PointerEvent, idx: number) {
     const p = isiBinAktif[idx];
     const svg = svgRef.current;
@@ -647,11 +773,12 @@ export default function GangSheetBuilderPage() {
     const pxPerMm = rect.width / (hasil?.binWmm || GANG_BIN_W_MM);
     if (!Number.isFinite(pxPerMm) || pxPerMm <= 0) return;
     seretRef.current = { idx, awalCX: e.clientX, awalCY: e.clientY, asalX: p.xMm, asalY: p.yMm, pxPerMm };
+    if (kotakEdit) {
+      sebelumSeretRef.current = kotakEdit.map((b) => b.map((item) => ({ ...item })));
+    }
     try {
       (e.target as Element).setPointerCapture?.(e.pointerId);
-    } catch {
-      /* abaikan */
-    }
+    } catch {}
   }
 
   function onSvgPointerMove(e: React.PointerEvent) {
@@ -667,102 +794,91 @@ export default function GangSheetBuilderPage() {
   }
 
   function akhiriSeret() {
+    if (seretRef.current && sebelumSeretRef.current && kotakEdit) {
+      const s = seretRef.current;
+      const awal = sebelumSeretRef.current[binAktif]?.[s.idx];
+      const akhir = kotakEdit[binAktif]?.[s.idx];
+      if (awal && akhir && (awal.xMm !== akhir.xMm || awal.yMm !== akhir.yMm)) {
+        catatRiwayat(kotakEdit);
+      }
+    }
     seretRef.current = null;
+    sebelumSeretRef.current = null;
   }
 
-  // ── (4) EKSPOR ──
+  // ── (3) INTEGRASI KANBAN BAGIAN 2 (SCREEN_PRINT_SETUP) ──
+  async function majukanKeKanban(taskIdsTarget?: string[]) {
+    const ids = taskIdsTarget ?? Array.from(new Set(isiBinAktif.map((p) => p.id)));
+    if (ids.length === 0) return;
+    setMemajukanKanban(true);
+    setGalatEkspor(null);
+    try {
+      const res = await fetch("/api/admin/production-tasks", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({
+          taskIds: ids,
+          stage: "PRINTING", // Maju ke Pilar 3 Kanban: "3. Siap Sablon / Sedang Dicetak"
+          notes: `Tersusun di Gang Sheet (${gangId})`,
+          appendNotes: true,
+        }),
+      });
+      const data = await res.json().catch(() => null);
+      if (!res.ok) throw new Error(data?.error || `Server ${res.status}`);
+
+      setPesanSukses(`✓ Berhasil memajukan ${ids.length} task ke Kanban Pilar 3 (Siap Sablon / Sedang Dicetak)!`);
+      // Bersihkan task yang berhasil dari centang
+      setCentang((prev) => {
+        const next = { ...prev };
+        for (const id of ids) delete next[id];
+        return next;
+      });
+      await muatTask();
+    } catch (err) {
+      setGalatEkspor(`Gagal memajukan ke Kanban: ${err instanceof Error ? err.message : "koneksi bermasalah"}`);
+    } finally {
+      setMemajukanKanban(false);
+    }
+  }
+
+  // ── (4) EKSPOR PNG SATUAN + AUTO-DOWNLOAD TXT SPK ──
   async function eksporPng() {
     if (!hasil || isiBinAktif.length === 0 || mengekspor) return;
     setMengekspor(true);
     setGalatEkspor(null);
     setPesanSukses(null);
-    setDisalin(false);
     try {
       const out = await exportGangSheetPNG({
         placements: isiBinAktif,
         binWmm: hasil.binWmm,
         binHmm: hasil.binHmm,
         dpi,
-        cutLines: tampilPotong,
+        cutLines: false,
         gangId: gangId.trim() || undefined,
+        alphaTrim: false, // Murni ukuran asli
       });
-      if (unduhUrl) URL.revokeObjectURL(unduhUrl);
-      const url = URL.createObjectURL(out.blob);
-      setUnduhUrl(url);
-      setRekap(out.recapText);
-      setNamaFile(out.filename);
+
       setPeringatanEkspor(out.warnings);
-      // Unduh otomatis sekali; tautan unduh-ulang tetap tersedia.
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = out.filename;
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
 
-      // WARNINGS = TAHAN AUTO-ADVANCE (jujur: PNG timpang / ada yg dilewati).
-      if (out.warnings.length > 0) {
-        setPesanSukses(
-          `Meter ${binAktif + 1} diekspor ke "${out.filename}" TAPI auto-advance DITAHAN — ada ${out.warnings.length} peringatan (mis. gambar dilewati/CORS). Periksa daftar peringatan di bawah, betulkan, lalu ekspor ulang. Status task BELUM dimajukan agar tak tercetak dobel/salah.`,
-        );
-        return;
-      }
+      // 1. Unduh PNG
+      downloadFile(out.blob, out.filename, "image/png");
 
-      // AUTO-ADVANCE STAGE (defensif: API paralel mendukung appendNotes + failed[]).
+      // 2. Ekstrak otomatis berkas TXT SPK (tanpa mengotori UI)
+      const txtFilename = out.filename.replace(/\.png$/i, "_SPK_REKAP.txt");
+      downloadFile(out.recapText, txtFilename, "text/plain");
+
       const taskIdsInBin = Array.from(new Set(isiBinAktif.map((p) => p.id)));
-      if (taskIdsInBin.length > 0) {
-        try {
-          const patchRes = await fetch("/api/admin/production-tasks", {
-            method: "PATCH",
-            headers: { "Content-Type": "application/json" },
-            credentials: "include",
-            body: JSON.stringify({
-              taskIds: taskIdsInBin,
-              stage: "PRINTING",
-              notes: `Dicetak via Gang Sheet: ${out.filename}`,
-              // Server baru: append (tak menimpa catatan lama). Server lama:
-              // kunci tak dikenal diabaikan zod → notes menimpa (tetap jalan).
-              appendNotes: true,
-            }),
-          });
-          const patchJson = await patchRes.json().catch(() => null);
-          if (!patchRes.ok) {
-            throw new Error(patchJson?.error || `Server ${patchRes.status}`);
-          }
-          // Server baru mengembalikan failed[] — tampilkan jujur per task.
-          const gagal: string[] = Array.isArray(patchJson?.failed) ? patchJson.failed : [];
-          const okCount = taskIdsInBin.length - gagal.length;
-          const meterLain = hasil.bins.length - 1;
-          const sisaDiminta = meterDiekspor.length + 1 < hasil.bins.length;
-          if (gagal.length > 0) {
-            setPesanSukses(
-              `Meter ${binAktif + 1}: ${okCount} desain maju ke PRINTING, ${gagal.length} GAGAL (${gagal.slice(0, 5).join(", ")}${gagal.length > 5 ? "…" : ""}). Centang task gagal TIDAK dibersihkan — periksa lalu ulangi.${meterLain > 0 && sisaDiminta ? ` Meter lain (${hasil.bins.length - 1} meter) BELUM diekspor — masih di antrean.` : ""}`,
-            );
-            setCentang((prev) => {
-              const next = { ...prev };
-              for (const id of taskIdsInBin) {
-                if (!gagal.includes(id)) delete next[id];
-              }
-              return next;
-            });
-          } else {
-            setMeterDiekspor((prev) => (prev.includes(binAktif) ? prev : [...prev, binAktif]));
-            setPesanSukses(
-              `✓ Meter ${binAktif + 1} OK: ${taskIdsInBin.length} desain diekspor ke "${out.filename}" dan maju ke PRINTING.${hasil.bins.length > 1 ? (meterDiekspor.length + 1 >= hasil.bins.length ? " Semua meter selesai." : ` Meter lain BELUM diekspor (${hasil.bins.length - meterDiekspor.length - 1} meter tertinggal) — masih di antrean, ekspor satu per satu.`) : " Desain ini dibersihkan dari antrean susun agar tidak tercetak dobel."}`,
-            );
-            setCentang((prev) => {
-              const next = { ...prev };
-              for (const id of taskIdsInBin) delete next[id];
-              return next;
-            });
-          }
-          await muatTask();
-        } catch (updateErr) {
-          console.error("Gagal auto-advance stage task:", updateErr);
-          setPesanSukses(
-            `Meter ${binAktif + 1} diekspor ke "${out.filename}" TAPI status task GAGAL dimajukan (${updateErr instanceof Error ? updateErr.message : "koneksi"}). PNG tetap terunduh — majukan manual dari kanban bila perlu.`,
-          );
-        }
+
+      if (out.hasSkippedItem) {
+        setPesanSukses(
+          `Meter ${binAktif + 1} diekspor (${out.filename}), namun ada gambar yang terlewat.`,
+        );
+      } else {
+        setMeterDiekspor((prev) => (prev.includes(binAktif) ? prev : [...prev, binAktif]));
+        setPesanSukses(
+          `✓ Meter ${binAktif + 1} berhasil diunduh (${out.filename}). Desain tetap di antrean hingga Anda menekan "Masuk ke Kanban (Siap Sablon)".`,
+        );
       }
     } catch (e) {
       setGalatEkspor(e instanceof Error ? e.message : "Gagal mengekspor PNG");
@@ -771,721 +887,974 @@ export default function GangSheetBuilderPage() {
     }
   }
 
-  async function salinRekap() {
-    if (!rekap) return;
+  // ── (5) EKSPOR SEMUA METER (ZIP LOSSLESS LENGKAP) ──
+  async function eksporSemuaZip() {
+    if (!kotakEdit || kotakEdit.length === 0 || mengeksporZip) return;
+    setMengeksporZip(true);
+    setProgressZip("Memulai perenderan paket maklon...");
+    setGalatEkspor(null);
+    setPesanSukses(null);
     try {
-      await navigator.clipboard.writeText(rekap);
-      setDisalin(true);
-      window.setTimeout(() => setDisalin(false), 2000);
-    } catch {
-      setGalatEkspor("Gagal menyalin — blokir izin clipboard browser, salin manual dari kotak rekap.");
+      const binW = rollOrientation === "vertical" ? 580 : 1000;
+      const binH = rollOrientation === "vertical" ? 1000 : 580;
+
+      const res = await exportAllGangSheetsZip({
+        bins: kotakEdit,
+        binWmm: binW,
+        binHmm: binH,
+        dpi,
+        cutLines: false,
+        gangId,
+        alphaTrim: false, // Murni ukuran asli
+        onProgress: (_m, _total, msg) => setProgressZip(msg),
+      });
+
+      setPeringatanEkspor(res.warnings);
+
+      // 1. Unduh ZIP
+      downloadFile(res.zipBlob, res.filename, "application/zip");
+
+      // 2. Beri tanda meter sudah diekspor tanpa memajukan Kanban otomatis
+      setMeterDiekspor(Array.from({ length: res.meterCount }, (_, i) => i));
+
+      setPesanSukses(
+        `✓ Paket Maklon Berhasil Diunduh (${res.meterCount} Meter, ${res.totalDesain} Desain) dalam format ZIP 300 DPI! Desain tetap di antrean hingga Anda menekan "Masuk ke Kanban (Siap Sablon)".`,
+      );
+    } catch (err) {
+      setGalatEkspor(`Gagal mengekspor ZIP: ${err instanceof Error ? err.message : "Terjadi kesalahan perenderan"}`);
+    } finally {
+      setMengeksporZip(false);
+      setProgressZip(null);
     }
   }
 
-  const digitMaklon = nomorMaklon.replace(/\D/g, "");
-  const waHref =
-    rekap && digitMaklon
-      ? `https://wa.me/${digitMaklon}?text=${encodeURIComponent(rekap)}`
-      : null;
+  // ── Rekap Ringkas WhatsApp ──
+  const utilLive = useMemo(() => {
+    if (!hasil || isiBinAktif.length === 0) return 0;
+    const luasIsi = isiBinAktif.reduce((acc, p) => acc + p.wMm * p.hMm, 0);
+    const luasBin = (hasil.binWmm || 580) * (hasil.binHmm || 1000);
+    return Math.min(100, (luasIsi / luasBin) * 100);
+  }, [hasil, isiBinAktif]);
 
-  // P1-3: SVG review sadar tema — baca data-theme (gallery=terang #FFFFFF, else gelap #101014).
-  const [isGangLight, setIsGangLight] = useState(false);
-  useEffect(() => {
-    const sync = () => {
-      try {
-        setIsGangLight(document.documentElement.getAttribute("data-theme") === "gallery");
-      } catch {
-        setIsGangLight(false);
-      }
-    };
-    sync();
-    const obs = new MutationObserver(sync);
+  const rekapRingkas = useMemo(() => {
+    if (!hasil || isiBinAktif.length === 0) return "";
+    const list = isiBinAktif
+      .map((p, i) => `${i + 1}. [${p.orderNumber}] ${p.label} - ${(p.wMm / 10).toFixed(1)}x${(p.hMm / 10).toFixed(1)}cm`)
+      .join("\n");
+    return `Halo Tim Maklon Cetak,\nBerikut SPK Gang Sheet ${gangId} (Meter ${binAktif + 1} dari ${hasil.bins.length}):\n- Ukuran Roll: ${hasil.binWmm / 10} × ${hasil.binHmm / 10} cm\n- Total Desain: ${isiBinAktif.length} pcs\n- Utilisasi: ${utilLive.toFixed(1)}%\n\nRincian Item:\n${list}\n\nMohon diproses dengan resolusi 300 DPI. Terima kasih!`;
+  }, [hasil, isiBinAktif, gangId, binAktif, utilLive]);
+
+  async function salinRekap() {
+    if (!rekapRingkas) return;
     try {
-      obs.observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
-    } catch {
-      /* abaikan */
-    }
-    return () => obs.disconnect();
-  }, []);
-  const gangPaperFill = isGangLight ? "#FFFFFF" : "#101014";
-  const gangGuideStroke = isGangLight ? "#a1a1aa" : "#3f3f46";
+      await navigator.clipboard.writeText(rekapRingkas);
+      setDisalin(true);
+      window.setTimeout(() => setDisalin(false), 2000);
+    } catch {}
+  }
 
-  // ── Render ──
+  const binCount = hasil?.bins.length || 0;
+  const totalBiaya = binCount * hargaPerMeter;
+
   return (
-    <div className="p-5 sm:p-8 space-y-6 max-w-6xl mx-auto print:bg-white">
-      {/* Kepala */}
-      <div className="pb-4 border-b border-border-subtle">
-        <h1 className="font-sans text-2xl sm:text-3xl font-bold uppercase tracking-tight text-text-primary">
-          Gang-Sheet Builder
-        </h1>
-        <p className="font-mono text-xs text-text-muted mt-1">
-          Kumpulkan desain siap-cetak → susun otomatis ke roll film{" "}
-          {GANG_BIN_W_MM}×{GANG_BIN_H_MM}mm (gap {GANG_GAP_MM}mm, margin {GANG_MARGIN_MM}mm) →
-          review → ekspor PNG ke maklon.
-        </p>
+    <div className="p-4 sm:p-6 max-w-[1600px] mx-auto space-y-6">
+      {/* Modal Pratinjau Desain HD */}
+      {taskPratinjau && (
+        <ModalPratinjauDesain
+          task={taskPratinjau}
+          onClose={() => setTaskPratinjau(null)}
+        />
+      )}
+
+      {/* ── HEADER HALAMAN ── */}
+      <div className="flex flex-wrap items-center justify-between gap-4 pb-4 border-b border-border-subtle">
+        <div>
+          <div className="flex items-center gap-2">
+            <span className="px-2 py-0.5 rounded-full bg-amber-400/20 text-amber-700 dark:text-amber-300 font-mono text-[10px] font-bold">
+              PRODUKSI WORKSHOP
+            </span>
+            <span className="text-xs text-text-muted font-mono">Kota Makassar</span>
+          </div>
+          <h1 className="text-xl sm:text-2xl font-black text-text-primary tracking-tight mt-1 flex items-center gap-2">
+            <Layers className="text-amber-500" size={24} />
+            <span>Gang Sheet DTF Maklon</span>
+          </h1>
+          <p className="text-xs text-text-muted mt-0.5">
+            Strip Packing Presisi · 100% Ukuran & Rasio Asli Pelanggan Terjaga · Integrasi Kanban Pilar 2
+          </p>
+        </div>
+
+        {/* Action Header: Kembali ke Kanban Produksi */}
+        <div className="flex items-center gap-2.5">
+          <Link
+            href="/admin/production"
+            className="px-3 py-1.5 rounded-xl border border-border-subtle bg-surface hover:bg-surface-elevated text-text-primary text-xs font-bold transition-all flex items-center gap-1.5 shadow-sm"
+          >
+            <Printer size={14} />
+            <span>Kanban Produksi</span>
+          </Link>
+          <button
+            onClick={() => void muatTask()}
+            disabled={memuat}
+            className="p-2 rounded-xl border border-border-subtle bg-surface hover:bg-surface-elevated text-text-muted hover:text-text-primary text-xs transition-all disabled:opacity-50"
+            title="Segarkan antrean"
+          >
+            <RefreshCw size={14} className={memuat ? "animate-spin" : ""} />
+          </button>
+        </div>
       </div>
 
-      {/* (1) KOLEKTOR */}
-      <section className="rounded-2xl border border-border-subtle bg-surface p-4 space-y-3">
-        <div className="flex flex-col sm:flex-row sm:items-center gap-2 justify-between">
-          <h2 className="font-bold text-text-primary">1 — Kolektor desain siap-cetak</h2>
-          <div className="flex gap-2">
-            <input
-              value={cari}
-              onChange={(e) => setCari(e.target.value)}
-              placeholder="Cari nomor order / desain…"
-              className="px-3 py-2 rounded-xl bg-surface border border-border-subtle text-sm text-text-primary placeholder:text-text-muted w-56"
-            />
-            <button
-              onClick={() => void muatTask()}
-              disabled={memuat}
-              className="px-3 py-2 rounded-xl bg-black/5 dark:bg-white/5 border border-border-subtle text-sm text-text-primary font-bold disabled:opacity-50"
-            >
-              {memuat ? "Memuat…" : "Muat ulang"}
-            </button>
+      {/* Pesan Sukses / Galat Global */}
+      {pesanSukses && (
+        <div className="p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-700 dark:text-emerald-300 text-xs font-bold flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Check size={14} className="text-emerald-500 shrink-0" />
+            <span>{pesanSukses}</span>
+            {undoReset && (
+              <button
+                onClick={undoResetMeteran}
+                className="ml-2 px-2.5 py-1 rounded-md bg-emerald-600 hover:bg-emerald-500 text-white text-[11px] font-bold shadow-sm transition-colors cursor-pointer"
+              >
+                Batalkan Hapus (Undo)
+              </button>
+            )}
           </div>
+          <button onClick={() => setPesanSukses(null)} className="text-text-muted hover:text-text-primary">
+            <X size={14} />
+          </button>
         </div>
-
-        {galatMuat && (
-          <p className="text-sm text-red-700 dark:text-red-400 font-mono">
-            {galatMuat}{" "}
-            <button onClick={() => void muatTask()} className="underline">
-              coba lagi
-            </button>
-          </p>
-        )}
-
-        {!memuat && !galatMuat && tersaring.length === 0 && (
-          <p className="text-sm text-text-muted font-mono py-6 text-center">
-            Belum ada task produksi — tunggu order masuk / settlement.
-          </p>
-        )}
-
-        {tersaring.length > 0 && (
-          <div className="overflow-x-auto -mx-4 px-4">
-            <table className="w-full text-sm min-w-[720px]">
-              <thead>
-                <tr className="text-left font-sans text-[11px] uppercase text-text-muted border-b border-border-subtle bg-surface-elevated">
-                  <th className="py-2 pr-2 w-10">Pilih</th>
-                  <th className="py-2 pr-2">Desain</th>
-                  <th className="py-2 pr-2">Order</th>
-                  <th className="py-2 pr-2">Ukuran</th>
-                  <th className="py-2 pr-2 w-24">Qty</th>
-                  <th className="py-2">Status</th>
-                </tr>
-              </thead>
-              <tbody>
-                {tersaring.map((t) => {
-                  const st = siapCetak(t);
-                  const orderNo = t.order?.orderNumber || "—";
-                  return (
-                    <tr key={t.id} className="border-b border-border-subtle align-middle">
-                      <td className="py-2 pr-2">
-                        <input
-                          type="checkbox"
-                          aria-label={`Pilih ${orderNo}`}
-                          checked={!!centang[t.id]}
-                          disabled={!st.ok}
-                          onChange={(e) =>
-                            setCentang((prev) => ({ ...prev, [t.id]: e.target.checked }))
-                          }
-                          className="h-4 w-4 accent-amber-400"
-                        />
-                      </td>
-                      <td className="py-2 pr-2">
-                        <div className="flex items-center gap-2.5">
-                          {t.printFileUrl ? (
-                            // eslint-disable-next-line @next/next/no-img-element -- thumbnail eksternal/R2; next/image tak menambah nilai di panel admin
-                            <img
-                              src={t.printFileUrl}
-                              alt={labelBaris(t)}
-                              className="h-11 w-11 rounded-lg object-cover bg-surface border border-border-subtle shrink-0"
-                              loading="lazy"
-                            />
-                          ) : (
-                            <div className="h-11 w-11 rounded-lg bg-surface border border-dashed border-border-strong text-[9px] text-text-muted flex items-center justify-center text-center shrink-0">
-                              tanpa
-                              <br />
-                              file
-                            </div>
-                          )}
-                          <span className="text-text-primary font-medium line-clamp-2">{labelBaris(t)}</span>
-                        </div>
-                      </td>
-                      <td className="py-2 pr-2 font-mono text-xs text-text-muted whitespace-nowrap">
-                        {orderNo}
-                      </td>
-                      <td className="py-2 pr-2 font-mono text-xs text-text-muted whitespace-nowrap">
-                        {fmtCm(t.printWidthCm)}×{fmtCm(t.printHeightCm)} cm
-                      </td>
-                      <td className="py-2 pr-2">
-                        <input
-                          type="number"
-                          aria-label={`Qty ${orderNo}`}
-                          aria-invalid={qtyError[t.id] ? true : undefined}
-                          min={1}
-                          max={99}
-                          value={qtyEdit[t.id] ?? qtyDariItemInduk(t)}
-                          disabled={!st.ok}
-                          onChange={(e) => validasiQty(t.id, e.target.value)}
-                          title={`Bawaan dari item induk: ${qtyDariItemInduk(t)}`}
-                          className={`w-20 px-2 py-1.5 rounded-lg bg-surface border text-text-primary text-sm disabled:opacity-50 placeholder:text-text-muted ${qtyError[t.id] ? "border-red-500" : "border-border-subtle"}`}
-                        />
-                        {qtyError[t.id] && (
-                          <p className="text-[11px] text-red-700 dark:text-red-300 font-mono mt-1 max-w-[180px]" role="alert">
-                            {qtyError[t.id]}
-                          </p>
-                        )}
-                      </td>
-                      <td className="py-2">
-                        {st.ok ? (
-                          <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border border-emerald-500/30">
-                            Siap
-                          </span>
-                        ) : (
-                          <span
-                            className="text-[11px] font-mono px-2 py-0.5 rounded-full bg-black/5 dark:bg-white/5 text-text-muted border border-border-subtle"
-                            title={st.alasan}
-                          >
-                            {st.alasan}
-                          </span>
-                        )}
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        )}
-
-        {/* Banner jujur: N task × Q pcs + status draft */}
-        {dipilihValid.length > 0 && (
-          <div className="px-3 py-2 rounded-xl bg-sky-500/10 border border-sky-500/30 text-sky-800 dark:text-sky-200 font-mono text-xs font-bold" role="status">
-            🧾 {dipilihValid.length} task × {totalKopiDiminta} pcs siap disusun
-            {jumlahQtyError > 0 && <span className="text-red-700 dark:text-red-300"> · ⚠️ {jumlahQtyError} qty error — betulkan dulu</span>}
-          </div>
-        )}
-        {draftPulih && (
-          <div className="px-3 py-2 rounded-xl bg-black/5 dark:bg-white/5 border border-border-subtle font-mono text-[11px] text-text-muted flex flex-wrap items-center justify-between gap-2">
-            <span>💾 Draft sebelumnya dipulihkan dari perangkat ini (centang/qty/kotak).</span>
-            <button onClick={hapusDraft} className="underline font-bold text-text-primary">
-              Hapus draft
-            </button>
-          </div>
-        )}
-        {galatSusun && (
-          <p className="text-sm text-red-700 dark:text-red-300 font-mono" role="alert">
-            ⚠️ {galatSusun}
-          </p>
-        )}
-        <div className="flex flex-col lg:flex-row gap-3 lg:items-end justify-between pt-1">
-          <div className="flex flex-wrap gap-2">
-            <button
-              onClick={pilihSemuaSiap}
-              className="px-3 py-2 rounded-xl bg-black/5 dark:bg-white/5 border border-border-subtle text-sm text-text-primary font-bold"
-            >
-              Pilih semua siap ({idSiap.length})
-            </button>
-            <button
-              onClick={bersihkanPilihan}
-              className="px-3 py-2 rounded-xl bg-black/5 dark:bg-white/5 border border-border-subtle text-sm text-text-muted"
-            >
-              Bersihkan
-            </button>
-          </div>
-          <div className="flex flex-wrap items-end gap-3">
-            <div className="flex flex-col gap-1">
-              <span className="text-xs text-text-muted font-mono">Orientasi Roll Mesin:</span>
-              <div className="flex gap-1">
-                <button
-                  type="button"
-                  onClick={() => setRollOrientation("vertical")}
-                  className={`px-3 py-1.5 rounded-lg border font-bold text-xs transition-all ${
-                    rollOrientation === "vertical"
-                      ? "bg-amber-400 text-black border-amber-400 font-black shadow-sm"
-                      : "bg-surface border-border-subtle text-text-muted hover:text-text-primary"
-                  }`}
-                >
-                  Roll 58×100 cm (Standar DTF)
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setRollOrientation("horizontal")}
-                  className={`px-3 py-1.5 rounded-lg border font-bold text-xs transition-all ${
-                    rollOrientation === "horizontal"
-                      ? "bg-amber-400 text-black border-amber-400 font-black shadow-sm"
-                      : "bg-surface border-border-subtle text-text-muted hover:text-text-primary"
-                  }`}
-                >
-                  100×58 cm (Landscape)
-                </button>
-              </div>
-            </div>
-
-            <label className="text-xs text-text-muted font-mono">
-              Harga film /meter (Rp)
-              <input
-                type="number"
-                min={0}
-                step={500}
-                value={hargaPerMeter}
-                onChange={(e) => setHargaPerMeter(Math.max(0, Math.round(Number(e.target.value) || 0)))}
-                className="ml-2 w-28 px-2 py-1.5 rounded-lg bg-surface border border-border-subtle text-text-primary text-sm"
-              />
-            </label>
-            <button
-              onClick={susunOtomatis}
-              disabled={dipilihValid.length === 0}
-              className="px-5 py-2.5 rounded-xl bg-amber-400 text-black font-black text-sm uppercase tracking-wide disabled:opacity-40 hover:brightness-110 shadow-[0_0_12px_rgba(251,191,36,0.25)]"
-            >
-              Auto-susun ({dipilihValid.length} desain · {totalKopiDiminta} kopi)
-            </button>
-          </div>
+      )}
+      {galatEkspor && (
+        <div className="p-3 rounded-xl bg-red-500/10 border border-red-500/30 text-red-600 dark:text-red-400 text-xs font-bold flex items-center justify-between">
+          <span>{galatEkspor}</span>
+          <button onClick={() => setGalatEkspor(null)} className="text-text-muted hover:text-text-primary">
+            <X size={14} />
+          </button>
         </div>
-      </section>
-
-      {/* (2) HASIL SUSUN */}
-      {hasil && (
-        <section className="rounded-2xl border border-border-subtle bg-surface p-4 space-y-3">
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <h2 className="font-bold text-text-primary">2 — Hasil susunan</h2>
-            <button
-              onClick={cetakSPK}
-              className="px-3 py-1.5 rounded-lg bg-amber-400 hover:bg-amber-300 text-black text-xs font-bold font-mono flex items-center gap-1.5 transition-colors"
-            >
-              <span>🖨️</span> Cetak SPK Roll (A4)
-            </button>
-          </div>
-          {hasil.strategyName && (
-            <div className="flex flex-wrap items-center justify-between gap-2 p-3 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-600 dark:text-amber-400 font-mono text-xs animate-fadeIn">
-              <div className="flex items-center gap-2">
-                <span className="text-base">🏆</span>
-                <span>
-                  <strong>Pemenang Turnamen (10 Kombinasi):</strong> {hasil.strategyName}
-                </span>
-              </div>
-              {hasil.maxReachMm ? (
-                <span className="text-[11px] text-text-muted">
-                  Panjang Roll Efektif: {(hasil.maxReachMm / 10).toFixed(1)} cm
-                </span>
-              ) : null}
-            </div>
-          )}
-          <div className="grid sm:grid-cols-3 gap-3">
-            <div className="rounded-xl bg-surface border border-border-subtle p-3">
-              <p className="font-sans text-[11px] uppercase text-text-muted">Utilisasi (packer)</p>
-              <p className="text-2xl font-black text-amber-700 dark:text-amber-400">{hasil.utilizationPct.toFixed(1)}%</p>
-              <p className="font-mono text-[11px] text-text-muted">
-                Review meter ini: {utilLive.toFixed(1)}% · {kopiTerpasang} kopi terpasang
-              </p>
-              <p className="font-sans text-[11px] font-bold text-text-muted mt-1">
-                Efisiensi: {hasil.utilizationPct.toFixed(1)}%
-              </p>
-              <div className="h-2 rounded-full bg-black/10 dark:bg-white/10 mt-2 overflow-hidden">
-                <div
-                  className="h-full bg-amber-400 rounded-full"
-                  style={{ width: `${Math.min(100, Math.max(0, hasil.utilizationPct))}%` }}
-                />
-              </div>
-            </div>
-            <div className="rounded-xl bg-surface border border-border-subtle p-3">
-              <p className="font-sans text-[11px] uppercase text-text-muted">Estimasi biaya film</p>
-              <p className="text-2xl font-black text-text-primary">{fmtRp(totalBiaya)}</p>
-              <p className="font-mono text-[11px] text-text-muted">
-                ≈ {fmtRp(biayaPerDesain)}/desain · {binCount} meter × {fmtRp(hargaPerMeter)}
-              </p>
-            </div>
-            <div className="rounded-xl bg-surface border border-border-subtle p-3">
-              <p className="font-sans text-[11px] uppercase text-text-muted">Lembar</p>
-              <div className="flex flex-wrap gap-1.5 mt-1">
-                {hasil.bins.map((_, i) => (
-                  <button
-                    key={i}
-                    onClick={() => {
-                      setBinAktif(i);
-                      setTerpilih(null);
-                    }}
-                    title={meterDiekspor.includes(i) ? `Meter ${i + 1} sudah diekspor OK` : `Meter ${i + 1} belum diekspor`}
-                    className={`px-3 py-1.5 rounded-lg text-sm font-bold border ${
-                      i === binAktif
-                        ? "bg-amber-400 text-black border-amber-400"
-                        : "bg-black/5 dark:bg-white/5 text-text-primary border-border-subtle"
-                    }`}
-                  >
-                    {meterDiekspor.includes(i) ? `✓ Meter ${i + 1}` : `Meter ${i + 1}`}
-                  </button>
-                ))}
-              </div>
-              <p className="font-mono text-[11px] text-text-muted mt-1.5">
-                {hasil.binWmm}×{hasil.binHmm}mm per meter
-              </p>
-            </div>
-          </div>
-
-          {binCount > 1 && (
-            <p className="text-sm font-bold text-amber-700 dark:text-amber-300 bg-amber-400/10 border border-amber-400/30 rounded-xl px-3 py-2">
-              Muatan meluber ke meter-2 (total {binCount} meter film). Siapkan roll {binCount} meter;
-              tiap meter diekspor sebagai PNG terpisah.
-            </p>
-          )}
-          {hasil.unplaced.length > 0 && (
-            <div className="text-sm text-red-700 dark:text-red-300 bg-red-500/10 border border-red-500/30 rounded-xl px-3 py-2">
-              <p className="font-bold">{hasil.unplaced.length} desain tak muat di lembar kosong (cek dimensi):</p>
-              <ul className="list-disc ml-5 font-mono text-xs mt-1">
-                {hasil.unplaced.map((u) => (
-                  <li key={u.id}>
-                    Order {u.orderNumber} — {labelBaris({ id: u.id, orderId: "", orderItemId: "", stage: "", printWidthCm: u.wMm / 10, printHeightCm: u.hMm / 10, printFileUrl: u.masterUrl, notes: u.label, order: null })}
-                  </li>
-                ))}
-              </ul>
-            </div>
-          )}
-        </section>
       )}
 
-      {/* (3) REVIEW */}
-      {hasil && kotakEdit && (
-        <section className="rounded-2xl border border-border-subtle bg-surface p-4 space-y-3">
-          <div className="flex flex-col sm:flex-row sm:items-center gap-2 justify-between">
-            <h2 className="font-bold text-text-primary">3 — Review meter {binAktif + 1}</h2>
-            <div className="flex flex-wrap items-center gap-2 text-sm">
-              <label className="font-mono text-xs text-text-muted flex items-center gap-1.5">
-                Zoom
-                <input
-                  type="range"
-                  min={0.4}
-                  max={2}
-                  step={0.1}
-                  value={zoom}
-                  onChange={(e) => setZoom(Number(e.target.value))}
-                  className="w-28"
-                />
-                <span className="w-10">{Math.round(zoom * 100)}%</span>
-              </label>
-              <label className="font-mono text-xs text-text-primary flex items-center gap-1.5 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={tampilPotong}
-                  onChange={(e) => setTampilPotong(e.target.checked)}
-                  className="h-4 w-4 accent-amber-400"
-                />
-                Garis potong
-              </label>
+      {/* ── GRID UTAMA: 2 KOLOM SEIMBANG (KIRI: TASK & ANTREAN, KANAN: ROLL PREVIEW) ── */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+        {/* ── KOLOM KIRI (5 / 12): ANTREAN & SELEKSI DESAIN ── */}
+        <div className="lg:col-span-5 space-y-4">
+          <div className="rounded-2xl border border-border-subtle bg-surface p-4 space-y-4 shadow-sm">
+            {/* Tab Antrean: Antrean Gang Sheet vs Desain Masuk (Kanban 1) vs Sudah Sablon */}
+            <div className="flex items-center gap-1 p-1 rounded-xl bg-black/5 dark:bg-white/5 border border-border-subtle">
               <button
-                onClick={putarTerpilih}
-                disabled={terpilih === null}
-                className="px-3 py-1.5 rounded-lg bg-black/5 dark:bg-white/5 border border-border-subtle text-text-primary font-bold disabled:opacity-40"
+                type="button"
+                onClick={() => setTabAntrean("antrean")}
+                className={`flex-1 py-1.5 px-2 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1.5 ${
+                  tabAntrean === "antrean"
+                    ? "bg-amber-400 text-black shadow-sm font-black"
+                    : "text-text-muted hover:text-text-primary"
+                }`}
               >
-                Putar 90°
+                <span>Antrean Roll</span>
+                <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-black/10 dark:bg-white/20">
+                  {siapTasks.length}
+                </span>
               </button>
               <button
-                onClick={hapusTerpilih}
-                disabled={terpilih === null}
-                className="px-3 py-1.5 rounded-lg bg-red-500/15 border border-red-500/30 text-red-700 dark:text-red-300 font-bold disabled:opacity-40"
+                type="button"
+                onClick={() => setTabAntrean("masuk")}
+                className={`flex-1 py-1.5 px-2 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1.5 ${
+                  tabAntrean === "masuk"
+                    ? "bg-blue-600 text-white shadow-sm font-black"
+                    : "text-text-muted hover:text-text-primary"
+                }`}
               >
-                Hapus
+                <span>Kanban 1</span>
+                <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-black/10 dark:bg-white/20">
+                  {desainMasukTasks.length}
+                </span>
               </button>
-              {undoHapus && (
-                <button
-                  onClick={undoHapusTerakhir}
-                  className="px-3 py-1.5 rounded-lg bg-sky-500/15 border border-sky-500/40 text-sky-800 dark:text-sky-200 font-bold"
-                  title="Kembalikan kotak yg baru dihapus"
-                >
-                  ↩ Undo hapus
-                </button>
-              )}
               <button
-                onClick={resetBinAktif}
-                className="px-3 py-1.5 rounded-lg bg-black/5 dark:bg-white/5 border border-border-subtle text-text-muted"
+                type="button"
+                onClick={() => setTabAntrean("sudah")}
+                className={`flex-1 py-1.5 px-2 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1.5 ${
+                  tabAntrean === "sudah"
+                    ? "bg-surface text-text-primary shadow-sm border border-border-subtle font-bold"
+                    : "text-text-muted hover:text-text-primary"
+                }`}
               >
-                Reset
-              </button>
-              {undoReset && (
-                <button
-                  onClick={undoResetTerakhir}
-                  className="px-3 py-1.5 rounded-lg bg-sky-500/15 border border-sky-500/40 text-sky-800 dark:text-sky-200 font-bold"
-                  title="Kembalikan susunan sebelum reset"
-                >
-                  ↩ Undo reset
-                </button>
-              )}
-            </div>
-          </div>
-
-          <p className="font-mono text-[11px] text-text-muted">
-            Klik kotak untuk memilih · seret untuk geser (snap 1mm, tertahan di dalam lembar) ·{" "}
-            {itemTerpilih
-              ? `terpilih: Order ${itemTerpilih.orderNumber} — ${(itemTerpilih.wMm / 10).toFixed(1)}×${(itemTerpilih.hMm / 10).toFixed(1)}cm @ ${itemTerpilih.xMm},${itemTerpilih.yMm}mm${itemTerpilih.rot ? " (diputar)" : ""}`
-              : "belum ada yang dipilih"}
-          </p>
-
-          <div className="overflow-auto rounded-xl bg-zinc-200 dark:bg-black/60 border border-border-subtle p-3 touch-none select-none">
-            <svg
-              ref={svgRef}
-              viewBox={`0 0 ${hasil.binWmm} ${hasil.binHmm}`}
-              role="application"
-              aria-label={`Review gang-sheet meter ${binAktif + 1}`}
-              onPointerMove={onSvgPointerMove}
-              onPointerUp={akhiriSeret}
-              onPointerCancel={akhiriSeret}
-              onPointerLeave={akhiriSeret}
-              onClick={() => setTerpilih(null)}
-              className="block h-auto mx-auto"
-              style={{ width: `${Math.round(zoom * 100)}%`, minWidth: "320px", cursor: "default" }}
-            >
-              {/* Latar + panduan margin aman — sadar data-theme */}
-              <rect x={0} y={0} width={hasil.binWmm} height={hasil.binHmm} fill={gangPaperFill} />
-              <rect
-                x={GANG_MARGIN_MM}
-                y={GANG_MARGIN_MM}
-                width={hasil.binWmm - GANG_MARGIN_MM * 2}
-                height={hasil.binHmm - GANG_MARGIN_MM * 2}
-                fill="none"
-                stroke={gangGuideStroke}
-                strokeWidth={2}
-                strokeDasharray="10 8"
-              />
-              {isiBinAktif.map((p, idx) => {
-                const aktif = idx === terpilih;
-                const labelCm = `${(p.wMm / 10).toFixed(1)}×${(p.hMm / 10).toFixed(1)}cm`;
-                const muatTeks = p.wMm >= 90 && p.hMm >= 60;
-                return (
-                  // eslint-disable-next-line jsx-a11y/click-events-have-key-events -- klik mouse + tombol Putar/Hapus sebagai alternatif keyboard
-                  <g
-                    key={`${p.id}-${p.copyIndex}-${idx}`}
-                    onPointerDown={(e) => onKotakPointerDown(e, idx)}
-                    onClick={(e) => e.stopPropagation()}
-                    style={{ cursor: "grab" }}
-                  >
-                    <rect
-                      x={p.xMm}
-                      y={p.yMm}
-                      width={p.wMm}
-                      height={p.hMm}
-                      fill={aktif ? "rgba(251,191,36,0.18)" : "rgba(255,255,255,0.07)"}
-                      stroke={aktif ? "#fbbf24" : "#e4e4e7"}
-                      strokeWidth={aktif ? 4 : 2}
-                      strokeDasharray={tampilPotong ? "12 8" : undefined}
-                    />
-                    {p.masterUrl && (
-                      <image
-                        href={p.masterUrl}
-                        x={p.xMm + 2}
-                        y={p.yMm + 2}
-                        width={Math.max(1, p.wMm - 4)}
-                        height={Math.max(1, p.hMm - 4)}
-                        preserveAspectRatio="xMidYMid meet"
-                        opacity={0.85}
-                      />
-                    )}
-                    {muatTeks ? (
-                      <>
-                        <text
-                          x={p.xMm + p.wMm / 2}
-                          y={p.yMm + 26}
-                          textAnchor="middle"
-                          fontSize={20}
-                          fontWeight={800}
-                          fill="#ffffff"
-                          stroke="#000000"
-                          strokeWidth={4}
-                          paintOrder="stroke"
-                        >
-                          {p.orderNumber}
-                        </text>
-                        <text
-                          x={p.xMm + p.wMm / 2}
-                          y={p.yMm + 50}
-                          textAnchor="middle"
-                          fontSize={17}
-                          fill="#fde68a"
-                          stroke="#000000"
-                          strokeWidth={4}
-                          paintOrder="stroke"
-                        >
-                          {labelCm}
-                        </text>
-                      </>
-                    ) : (
-                      <text
-                        x={p.xMm + p.wMm / 2}
-                        y={p.yMm + p.hMm / 2}
-                        textAnchor="middle"
-                        dominantBaseline="central"
-                        fontSize={Math.max(14, Math.min(22, p.wMm / 4))}
-                        fontWeight={800}
-                        fill="#ffffff"
-                        stroke="#000000"
-                        strokeWidth={3}
-                        paintOrder="stroke"
-                      >
-                        {idx + 1}
-                      </text>
-                    )}
-                  </g>
-                );
-              })}
-            </svg>
-          </div>
-          <p className="font-mono text-[11px] text-text-muted">
-            Kotak sempit hanya menampilkan nomor urut — detail order tetap ada di rekap ekspor. Gambar
-            pratinjau bisa kosong bila file R2 menolak hotlink; PNG ekspor mencatatnya jujur di
-            peringatan.
-          </p>
-        </section>
-      )}
-
-      {/* (4) EKSPOR */}
-      {hasil && kotakEdit && (
-        <section className="rounded-2xl border border-border-subtle bg-surface p-4 space-y-3">
-          <h2 className="font-bold text-text-primary">4 — Ekspor ke maklon</h2>
-          <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-3 text-sm">
-            <label className="font-mono text-xs text-text-muted">
-              ID gang
-              <input
-                value={gangId}
-                onChange={(e) => setGangId(e.target.value)}
-                className="mt-1 w-full px-2.5 py-2 rounded-lg bg-surface border border-border-subtle text-text-primary placeholder:text-text-muted"
-              />
-            </label>
-            <div className="font-mono text-xs text-text-muted">
-              Resolusi
-              <div className="mt-1 flex gap-1.5">
-                {([150, 300] as const).map((d) => (
-                  <button
-                    key={d}
-                    onClick={() => setDpi(d)}
-                    className={`px-3 py-2 rounded-lg border font-bold ${
-                      dpi === d
-                        ? "bg-amber-400 text-black border-amber-400"
-                        : "bg-black/5 dark:bg-white/5 text-text-primary border-border-subtle"
-                    }`}
-                  >
-                    {d} DPI
-                  </button>
-                ))}
-              </div>
-              <p className="mt-1 text-[10px] text-text-muted">
-                300 = HD maksimal (±puluhan MB, wajar). 150 bila browser/HP macet.
-              </p>
-            </div>
-            <label className="font-mono text-xs text-text-muted">
-              Nomor WA maklon (cth 62812…)
-              <input
-                value={nomorMaklon}
-                onChange={(e) => setNomorMaklon(e.target.value)}
-                inputMode="tel"
-                placeholder="6281234567890"
-                className="mt-1 w-full px-2.5 py-2 rounded-lg bg-surface border border-border-subtle text-text-primary placeholder:text-text-muted"
-              />
-            </label>
-            <div className="flex items-end">
-              <button
-                onClick={() => void eksporPng()}
-                disabled={mengekspor || isiBinAktif.length === 0}
-                className="w-full px-4 py-2.5 rounded-xl bg-emerald-400 text-black font-black text-sm uppercase disabled:opacity-40"
-              >
-                {mengekspor ? "Merender PNG…" : `Ekspor meter ${binAktif + 1} → PNG`}
+                <span>Sudah Sablon</span>
+                <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-black/10 dark:bg-white/20">
+                  {sudahTasks.length}
+                </span>
               </button>
             </div>
-          </div>
 
-          {isiBinAktif.length === 0 && (
-            <p className="text-sm text-amber-700 dark:text-amber-300 font-mono">
-              Meter ini kosong (semua kotak dihapus) — pilih meter lain atau Reset.
-            </p>
-          )}
-          {galatEkspor && <p className="text-sm text-red-700 dark:text-red-400 font-mono">{galatEkspor}</p>}
-          {pesanSukses && (
-            <div className="p-3 rounded-xl bg-emerald-500/15 border border-emerald-500/30 text-emerald-800 dark:text-emerald-300 font-bold text-sm">
-              {pesanSukses}
-            </div>
-          )}
-
-          {rekap && (
-            <div className="space-y-2">
-              <div className="flex flex-wrap gap-2">
-                {unduhUrl && namaFile && (
-                  <a
-                    href={unduhUrl}
-                    download={namaFile}
-                    className="px-4 py-2 rounded-xl bg-white text-black text-sm font-bold"
-                  >
-                    Unduh ulang {namaFile}
-                  </a>
-                )}
-                {waHref ? (
-                  <a
-                    href={waHref}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="px-4 py-2 rounded-xl bg-emerald-500 text-white text-sm font-bold"
-                  >
-                    Kirim rekap via WA
-                  </a>
-                ) : (
-                  <span className="px-4 py-2 rounded-xl bg-black/5 dark:bg-white/5 border border-border-subtle text-text-muted text-sm font-mono">
-                    Isi nomor WA maklon untuk tombol kirim
+            {/* Banner Khusus Tab Desain Masuk (Kanban 1) */}
+            {tabAntrean === "masuk" && (
+              <div className="p-3 rounded-xl bg-blue-500/10 border border-blue-500/20 text-blue-700 dark:text-blue-300 text-xs space-y-2">
+                <div className="flex items-start justify-between gap-2">
+                  <div className="flex items-center gap-1.5 font-bold">
+                    <FileText size={14} className="shrink-0 text-blue-500" />
+                    <span>Desain Masuk (Kanban Pilar 1)</span>
+                  </div>
+                  <span className="font-mono text-[10px] bg-blue-500/20 px-2 py-0.5 rounded-full font-bold">
+                    {desainMasukTasks.length} Belum Masuk Roll
                   </span>
+                </div>
+                <p className="text-[11px] text-text-muted leading-relaxed">
+                  Pesanan di sini belum masuk antrean gang sheet. Klik tombol di bawah untuk memasukkan semua ke antrean gang sheet atau pilih per baris.
+                </p>
+                {desainMasukTasks.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => void masukkanKeAntreanGangSheet(desainMasukTasks.map((t) => t.id))}
+                    className="w-full py-2 px-3 rounded-lg bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs flex items-center justify-center gap-1.5 shadow-sm transition-all cursor-pointer"
+                  >
+                    <Layers size={14} />
+                    <span>+ Masukkan Semua ({desainMasukTasks.length}) ke Antrean Gang Sheet</span>
+                  </button>
                 )}
-                <button
-                  onClick={() => void salinRekap()}
-                  className="px-4 py-2 rounded-xl bg-black/5 dark:bg-white/5 border border-border-subtle text-text-primary text-sm font-bold"
-                >
-                  {disalin ? "Tersalin ✓" : "Salin rekap"}
-                </button>
-                <button
-                  onClick={cetakSPK}
-                  className="px-4 py-2 rounded-xl bg-amber-400 hover:bg-amber-300 text-black text-sm font-bold flex items-center gap-1.5 transition-colors"
-                >
-                  <span>🖨️</span> Cetak SPK / Job Ticket A4
-                </button>
               </div>
-              {peringatanEkspor.length > 0 && (
-                <ul className="text-xs font-mono text-amber-700 dark:text-amber-300 bg-amber-400/10 border border-amber-400/30 rounded-xl px-3 py-2 list-disc ml-5">
-                  {peringatanEkspor.map((w, i) => (
-                    <li key={i}>{w}</li>
-                  ))}
-                </ul>
+            )}
+
+            {/* Pencarian & Tombol Pilih Semua */}
+            <div className="flex items-center gap-2">
+              <div className="relative flex-1">
+                <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-text-muted" />
+                <input
+                  type="text"
+                  placeholder="Cari order atau nama desain..."
+                  value={cari}
+                  onChange={(e) => setCari(e.target.value)}
+                  className="w-full pl-9 pr-3 py-1.5 rounded-xl border border-border-subtle bg-surface text-xs text-text-primary placeholder:text-text-muted focus:outline-none focus:ring-1 focus:ring-amber-400"
+                />
+              </div>
+
+              {tabAntrean === "antrean" && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    const allChecked = siapTasks.every((t) => centang[t.id]);
+                    const next: Record<string, boolean> = {};
+                    if (!allChecked) {
+                      for (const t of siapTasks) {
+                        if (siapCetak(t).ok) next[t.id] = true;
+                      }
+                    }
+                    setCentang(next);
+                  }}
+                  className="px-3 py-1.5 rounded-xl bg-black/5 dark:bg-white/5 border border-border-subtle text-xs font-bold text-text-primary hover:bg-black/10 transition-colors whitespace-nowrap cursor-pointer"
+                >
+                  {siapTasks.every((t) => centang[t.id]) ? "Lepas Semua" : "Pilih Semua"}
+                </button>
               )}
-              <pre className="whitespace-pre-wrap font-mono text-xs text-text-primary bg-surface border border-border-subtle rounded-xl p-3 max-h-72 overflow-auto">
-                {rekap}
-              </pre>
             </div>
-          )}
-        </section>
-      )}
-      {/* SPK fallback: popup diblokir → render di tab yg sama (draft tetap utuh) */}
-      {spkFallbackHtml && (
-        <div className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4" role="dialog" aria-label="SPK Job Ticket">
-          <div className="bg-white text-black rounded-2xl max-w-3xl w-full max-h-[85vh] flex flex-col overflow-hidden">
-            <div className="p-4 border-b border-neutral-200 flex flex-wrap items-center justify-between gap-2">
-              <p className="font-bold text-sm">🖨️ SPK Job Ticket — popup diblokir, tampil di tab ini</p>
-              <div className="flex gap-2">
-                <button
-                  onClick={cetakSpkFallback}
-                  className="px-4 py-2 rounded-xl bg-amber-400 text-black text-sm font-bold"
-                >
-                  Cetak
-                </button>
-                <button
-                  onClick={() => setSpkFallbackHtml(null)}
-                  className="px-4 py-2 rounded-xl bg-neutral-100 border border-neutral-300 text-sm font-bold"
-                >
-                  Kembali (draft aman)
-                </button>
+
+            {/* Pengaturan Jarak Item & Margin Tepi (Space Optimization) - Khusus Tab Antrean */}
+            {tabAntrean === "antrean" && (
+              <div className="p-3 rounded-xl bg-black/5 dark:bg-white/5 border border-border-subtle space-y-2">
+                <div className="flex items-center justify-between text-xs">
+                  <span className="font-bold text-text-primary">
+                    Optimasi Ruang Roll Film (58 cm)
+                  </span>
+                  <span className="text-[10px] font-mono text-emerald-600 dark:text-emerald-400 font-bold">
+                    Ukuran Asli 100% Terjaga
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-2 gap-2 pt-1 text-[11px]">
+                  <div>
+                    <div className="flex justify-between text-text-muted mb-1">
+                      <span>Jarak Item (Gap):</span>
+                      <strong className="text-text-primary font-mono">{gapMm} mm</strong>
+                    </div>
+                    <input
+                      type="range"
+                      min={2}
+                      max={8}
+                      step={1}
+                      value={gapMm}
+                      onChange={(e) => setGapMm(Number(e.target.value))}
+                      className="w-full accent-amber-400"
+                    />
+                  </div>
+                  <div>
+                    <div className="flex justify-between text-text-muted mb-1">
+                      <span>Margin Tepi:</span>
+                      <strong className="text-text-primary font-mono">{marginMm} mm</strong>
+                    </div>
+                    <input
+                      type="range"
+                      min={2}
+                      max={10}
+                      step={1}
+                      value={marginMm}
+                      onChange={(e) => setMarginMm(Number(e.target.value))}
+                      className="w-full accent-amber-400"
+                    />
+                  </div>
+                </div>
               </div>
+            )}
+
+            {/* Tabel Antrean */}
+            <div className="max-h-[460px] overflow-y-auto rounded-xl border border-border-subtle">
+              {taskDitampilkan.length === 0 ? (
+                <div className="py-12 text-center text-xs text-text-muted font-sans px-4">
+                  {memuat
+                    ? "Memuat antrean..."
+                    : tabAntrean === "antrean"
+                    ? "Belum ada desain di Antrean Gang Sheet. Silakan klik tab 'Kanban 1' untuk memasukkan desain baru."
+                    : tabAntrean === "masuk"
+                    ? "Tidak ada pesanan baru di Kanban 1 (semua sudah dimasukkan ke antrean roll)."
+                    : "Belum ada task di tahap sablon / selesai."}
+                </div>
+              ) : (
+                <table className="w-full text-xs">
+                  <thead className="bg-surface-elevated text-text-muted font-mono uppercase text-[10px] sticky top-0 border-b border-border-subtle z-10">
+                    <tr>
+                      {tabAntrean === "antrean" && <th className="p-2 w-8 text-center">Pilih</th>}
+                      <th className="p-2 text-left">Desain & Order</th>
+                      <th className="p-2 text-center">Ukuran Asli</th>
+                      <th className="p-2 w-12 text-center">Qty</th>
+                      <th className="p-2 text-center">
+                        {tabAntrean === "masuk" ? "Aksi" : tabAntrean === "antrean" ? "Status" : "Detail"}
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-border-subtle">
+                    {taskDitampilkan.map((t) => {
+                      const st = siapCetak(t);
+                      const orderNo = t.order?.orderNumber || "—";
+                      const isChecked = !!centang[t.id];
+                      const qty = qtyDariItemInduk(t);
+                      // Cek apakah item sedang berada di salah satu meteran roll
+                      const meterIndex = kotakEdit?.findIndex((bin) => bin.some((p) => p.id === t.id));
+                      const diMeter = meterIndex !== undefined && meterIndex !== -1 ? meterIndex + 1 : null;
+
+                      return (
+                        <tr
+                          key={t.id}
+                          className={`hover:bg-black/5 dark:hover:bg-white/5 transition-colors ${
+                            isChecked ? "bg-amber-400/5" : ""
+                          }`}
+                        >
+                          {tabAntrean === "antrean" && (
+                            <td className="p-2 text-center">
+                              <input
+                                type="checkbox"
+                                checked={isChecked}
+                                disabled={!st.ok}
+                                onChange={(e) =>
+                                  setCentang((prev) => ({ ...prev, [t.id]: e.target.checked }))
+                                }
+                                className="h-3.5 w-3.5 accent-amber-400 rounded cursor-pointer"
+                              />
+                            </td>
+                          )}
+                          <td className="p-2">
+                            <div className="flex items-center gap-2">
+                              {/* Thumbnail interaktif dengan ikon mata hover */}
+                              <div
+                                onClick={() => setTaskPratinjau(t)}
+                                className="relative h-8 w-8 rounded bg-black/10 shrink-0 border border-border-subtle overflow-hidden cursor-pointer group"
+                                title="Klik untuk pratinjau gambar HD"
+                              >
+                                {t.printFileUrl ? (
+                                  // eslint-disable-next-line @next/next/no-img-element
+                                  <img
+                                    src={t.printFileUrl}
+                                    alt=""
+                                    className="h-full w-full object-cover transition-transform group-hover:scale-110"
+                                    loading="lazy"
+                                  />
+                                ) : (
+                                  <div className="h-full w-full flex items-center justify-center text-[8px] text-text-muted">
+                                    N/A
+                                  </div>
+                                )}
+                                <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center text-white transition-opacity">
+                                  <Eye size={12} />
+                                </div>
+                              </div>
+                              <div className="min-w-0">
+                                <button
+                                  type="button"
+                                  onClick={() => setTaskPratinjau(t)}
+                                  className="font-bold text-text-primary truncate block text-left hover:underline"
+                                >
+                                  {orderNo}
+                                </button>
+                                <p className="text-[10px] text-text-muted truncate">{labelBaris(t)}</p>
+                              </div>
+                            </div>
+                          </td>
+                          <td className="p-2 text-center font-mono whitespace-nowrap text-[11px]">
+                            {fmtCm(t.printWidthCm)}×{fmtCm(t.printHeightCm)}
+                          </td>
+                          {/* Qty Terkunci sesuai Order Pelanggan */}
+                          <td className="p-2 text-center">
+                            <span className="inline-flex items-center justify-center min-w-[24px] px-1.5 py-0.5 rounded-md bg-black/5 dark:bg-white/10 font-mono font-bold text-xs text-text-primary">
+                              {qty}
+                            </span>
+                          </td>
+                          <td className="p-2 text-center">
+                            {tabAntrean === "masuk" ? (
+                              <button
+                                type="button"
+                                onClick={() => void masukkanKeAntreanGangSheet([t.id])}
+                                className="px-2 py-1 rounded-lg bg-blue-600 hover:bg-blue-500 text-white font-bold text-[10px] flex items-center gap-1 shadow-sm transition-all whitespace-nowrap mx-auto cursor-pointer"
+                                title="Masukkan desain pesanan ini ke Antrean Gang Sheet"
+                              >
+                                <Layers size={11} />
+                                <span>+ Masukkan</span>
+                              </button>
+                            ) : tabAntrean === "antrean" ? (
+                              diMeter ? (
+                                <span className="inline-block px-1.5 py-0.5 rounded text-[10px] bg-amber-500/10 text-amber-600 dark:text-amber-400 font-mono font-bold border border-amber-500/20 whitespace-nowrap">
+                                  Meter {diMeter}
+                                </span>
+                              ) : (
+                                <span className="inline-block px-1.5 py-0.5 rounded text-[10px] bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 font-mono font-bold whitespace-nowrap">
+                                  Siap Susun
+                                </span>
+                              )
+                            ) : (
+                              <button
+                                type="button"
+                                onClick={() => setTaskPratinjau(t)}
+                                className="p-1 rounded text-text-muted hover:text-text-primary hover:bg-black/5 dark:hover:bg-white/5"
+                                title="Lihat Pratinjau Desain"
+                              >
+                                <Eye size={13} />
+                              </button>
+                            )}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              )}
             </div>
-            <iframe
-              title="Pratinjau SPK"
-              srcDoc={spkFallbackHtml}
-              className="w-full flex-1 bg-white"
-              style={{ minHeight: "60vh" }}
-            />
+
+            {/* Tombol Utama Auto-Susun (Hanya tampil di Tab Antrean Roll) */}
+            {tabAntrean === "antrean" && (
+              <div className="pt-2">
+                <button
+                  type="button"
+                  onClick={susunOtomatis}
+                  disabled={dipilihValid.length === 0}
+                  className="w-full py-3 rounded-xl bg-amber-400 hover:bg-amber-300 disabled:opacity-40 text-black font-black text-sm uppercase tracking-wide flex items-center justify-center gap-2 shadow-sm transition-all cursor-pointer"
+                >
+                  <Sparkles size={16} />
+                  <span>
+                    Auto-Susun ({dipilihValid.length} Desain · {totalKopiDiminta} Kopi)
+                  </span>
+                </button>
+                {galatSusun && (
+                  <p className="text-xs text-red-500 font-mono mt-1 text-center">{galatSusun}</p>
+                )}
+              </div>
+            )}
           </div>
         </div>
-      )}
+
+        {/* ── KOLOM KANAN (7 / 12): PRATINJAU ROLL & EKSPOR MAKLON ── */}
+        <div className="lg:col-span-7 space-y-4">
+          <div className="rounded-2xl border border-border-subtle bg-surface p-4 space-y-4 shadow-sm">
+            {/* Header Pratinjau & Tab Lembar Meteran */}
+            <div className="flex flex-wrap items-center justify-between gap-3 pb-3 border-b border-border-subtle">
+              <div className="flex items-center gap-2">
+                <h2 className="font-bold text-text-primary text-sm flex items-center gap-1.5">
+                  <Printer size={16} className="text-emerald-500" />
+                  <span>Hasil Susunan Roll</span>
+                </h2>
+                {hasil && (
+                  <div className="flex gap-1">
+                    {hasil.bins.map((_, i) => (
+                      <button
+                        key={i}
+                        onClick={() => {
+                          setBinAktif(i);
+                          setTerpilih(null);
+                        }}
+                        className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all ${
+                          binAktif === i
+                            ? "bg-amber-400 text-black shadow-sm font-black"
+                            : meterDiekspor.includes(i)
+                            ? "bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 border border-emerald-500/40"
+                            : "bg-black/5 dark:bg-white/5 text-text-muted hover:text-text-primary"
+                        }`}
+                      >
+                        {meterDiekspor.includes(i) ? `[OK] Meter ${i + 1}` : `Meter ${i + 1}`}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* Kontrol Kanvas (Zoom, Undo/Redo, & Background Pratinjau) */}
+              {hasil && (
+                <div className="flex flex-wrap items-center gap-2">
+                  {/* Selector Warna Background Pratinjau (Gelap / Terang / Abu-abu / Transparan) */}
+                  <div className="flex items-center p-0.5 rounded-lg bg-black/5 dark:bg-white/5 border border-border-subtle gap-0.5">
+                    <button
+                      type="button"
+                      onClick={() => handleBgChange("dark")}
+                      className={`px-2 py-1 rounded-md text-[11px] font-semibold flex items-center gap-1 transition-all ${
+                        bgPratinjau === "dark"
+                          ? "bg-neutral-800 text-white shadow-sm"
+                          : "text-text-muted hover:text-text-primary"
+                      }`}
+                      title="Latar Gelap (standar inspeksi desain putih/terang)"
+                    >
+                      <Moon size={12} />
+                      <span>Gelap</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleBgChange("light")}
+                      className={`px-2 py-1 rounded-md text-[11px] font-semibold flex items-center gap-1 transition-all ${
+                        bgPratinjau === "light"
+                          ? "bg-white text-neutral-900 shadow-sm border border-neutral-200"
+                          : "text-text-muted hover:text-text-primary"
+                      }`}
+                      title="Latar Terang (inspeksi desain hitam pekat / sablon gelap)"
+                    >
+                      <Sun size={12} />
+                      <span>Terang</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleBgChange("gray")}
+                      className={`px-2 py-1 rounded-md text-[11px] font-semibold flex items-center gap-1 transition-all ${
+                        bgPratinjau === "gray"
+                          ? "bg-zinc-500 text-white shadow-sm font-bold"
+                          : "text-text-muted hover:text-text-primary"
+                      }`}
+                      title="Latar Abu-Abu Netral (standar RIP DTF: cek tinta putih & hitam sekaligus)"
+                    >
+                      <div className="w-2.5 h-2.5 rounded-full bg-zinc-300 border border-zinc-400" />
+                      <span>Abu-abu</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleBgChange("checker")}
+                      className={`px-2 py-1 rounded-md text-[11px] font-semibold flex items-center gap-1 transition-all ${
+                        bgPratinjau === "checker"
+                          ? "bg-amber-400 text-black shadow-sm font-bold"
+                          : "text-text-muted hover:text-text-primary"
+                      }`}
+                      title="Latar Transparan Catur (inspeksi batas alpha/transparansi)"
+                    >
+                      <Grid size={12} />
+                      <span>Transparan</span>
+                    </button>
+                  </div>
+
+                  {/* Kontrol Zoom Kanvas */}
+                  <div className="flex items-center gap-1">
+                    <button
+                      onClick={() => setZoom((z) => Math.max(0.6, z - 0.2))}
+                      className="p-1 rounded-lg bg-black/5 dark:bg-white/5 border border-border-subtle text-text-muted hover:text-text-primary"
+                      title="Perkecil Kanvas"
+                    >
+                      <ZoomOut size={13} />
+                    </button>
+                    <span className="text-[11px] font-mono text-text-muted w-10 text-center">
+                      {Math.round(zoom * 100)}%
+                    </span>
+                    <button
+                      onClick={() => setZoom((z) => Math.min(2.0, z + 0.2))}
+                      className="p-1 rounded-lg bg-black/5 dark:bg-white/5 border border-border-subtle text-text-muted hover:text-text-primary"
+                      title="Perbesar Kanvas"
+                    >
+                      <ZoomIn size={13} />
+                    </button>
+                  </div>
+
+                  {/* Tombol Undo & Redo (Mundur & Maju) */}
+                  <div className="flex items-center gap-1 border-l border-border-subtle pl-2">
+                    <button
+                      type="button"
+                      onClick={mundurSusun}
+                      disabled={indeksRiwayat <= 0}
+                      className="px-2 py-1 rounded-lg bg-black/5 dark:bg-white/5 border border-border-subtle text-text-muted hover:text-text-primary disabled:opacity-30 disabled:cursor-not-allowed flex items-center gap-1 text-[11px] font-bold transition-all"
+                      title="Undo / Mundur (Ctrl+Z)"
+                    >
+                      <Undo2 size={13} />
+                      <span className="hidden sm:inline">Mundur</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={majuSusun}
+                      disabled={indeksRiwayat >= riwayatSusun.length - 1}
+                      className="px-2 py-1 rounded-lg bg-black/5 dark:bg-white/5 border border-border-subtle text-text-muted hover:text-text-primary disabled:opacity-30 disabled:cursor-not-allowed flex items-center gap-1 text-[11px] font-bold transition-all"
+                      title="Redo / Maju (Ctrl+Y atau Ctrl+Shift+Z)"
+                    >
+                      <Redo2 size={13} />
+                      <span className="hidden sm:inline">Maju</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={resetMeteranAktif}
+                      className="px-2.5 py-1 rounded-lg bg-red-500/10 hover:bg-red-500/20 text-red-600 dark:text-red-400 border border-red-500/30 flex items-center gap-1 text-[11px] font-bold transition-all ml-1 shadow-sm cursor-pointer"
+                      title={`Hapus lembar Meter ${binAktif + 1} dan kembalikan semua desainnya ke daftar antrean`}
+                    >
+                      <Trash2 size={13} />
+                      <span>Hapus Meter {binAktif + 1}</span>
+                    </button>
+                    {kotakEdit && kotakEdit.length > 1 && (
+                      <button
+                        type="button"
+                        onClick={resetSemuaMeteran}
+                        className="px-2 py-1 rounded-lg bg-black/5 hover:bg-black/10 text-text-muted hover:text-red-600 dark:hover:text-red-400 border border-border-subtle flex items-center gap-1 text-[11px] font-semibold transition-all shadow-sm cursor-pointer"
+                        title="Kosongkan seluruh meteran roll dan kembalikan semua desain ke daftar antrean"
+                      >
+                        <RotateCcw size={13} />
+                        <span>Kosongkan Semua</span>
+                      </button>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Metrik Utilisasi & Estimasi */}
+            {hasil ? (
+              <div className="grid grid-cols-3 gap-2.5">
+                <div className="p-2.5 rounded-xl bg-black/5 dark:bg-white/5 border border-border-subtle">
+                  <p className="text-[10px] font-mono uppercase text-text-muted">Utilisasi Roll</p>
+                  <p className="text-lg font-black text-amber-600 dark:text-amber-400">
+                    {utilLive.toFixed(1)}%
+                  </p>
+                  <p className="text-[10px] text-text-muted font-mono">{isiBinAktif.length} kopi di meter ini</p>
+                </div>
+                <div className="p-2.5 rounded-xl bg-black/5 dark:bg-white/5 border border-border-subtle">
+                  <p className="text-[10px] font-mono uppercase text-text-muted">Estimasi Biaya</p>
+                  <p className="text-lg font-black text-text-primary">{fmtRp(totalBiaya)}</p>
+                  <p className="text-[10px] text-text-muted font-mono">
+                    {binCount} meter × {fmtRp(hargaPerMeter)}
+                  </p>
+                </div>
+                <div className="p-2.5 rounded-xl bg-black/5 dark:bg-white/5 border border-border-subtle">
+                  <p className="text-[10px] font-mono uppercase text-text-muted">Strategi Penyusunan</p>
+                  <p className="text-xs font-bold text-text-primary truncate mt-1">
+                    {hasil.strategyName || "Multi-Tournament 16x"}
+                  </p>
+                  <p className="text-[10px] text-emerald-600 dark:text-emerald-400 font-mono mt-0.5">
+                    100% Ukuran Asli Terjaga
+                  </p>
+                </div>
+              </div>
+            ) : (
+              <div className="py-20 text-center text-xs text-text-muted">
+                Pilih desain di sebelah kiri lalu klik &ldquo;Auto-Susun&rdquo; untuk melihat pratinjau lembar film roll.
+              </div>
+            )}
+
+            {/* ── KANVAS SVG PRATINJAU ROLL FILM (MURNI DESAIN TANPA FRAME / DISTORSI) ── */}
+            {hasil && kotakEdit && (
+              <div className="space-y-2">
+                <div
+                  className={`w-full overflow-auto max-h-[520px] rounded-2xl border border-border-subtle p-4 flex justify-center transition-colors ${
+                    bgPratinjau === "light"
+                      ? "bg-slate-200/90"
+                      : bgPratinjau === "gray"
+                      ? "bg-zinc-800/90"
+                      : bgPratinjau === "checker"
+                      ? "bg-neutral-900/80"
+                      : "bg-neutral-900/60"
+                  }`}
+                >
+                  <svg
+                    ref={svgRef}
+                    viewBox={`0 0 ${hasil.binWmm} ${hasil.binHmm}`}
+                    style={{
+                      width: `${(hasil.binWmm / 2.5) * zoom}px`,
+                      height: `${(hasil.binHmm / 2.5) * zoom}px`,
+                      maxWidth: "none",
+                    }}
+                    onPointerMove={onSvgPointerMove}
+                    onPointerUp={akhiriSeret}
+                    className="select-none touch-none shadow-2xl rounded-lg"
+                  >
+                    <defs>
+                      {/* Pola catur transparan khas software grafis untuk inspeksi alpha/transparansi */}
+                      <pattern id="dtf-film-checker" width="20" height="20" patternUnits="userSpaceOnUse">
+                        <rect width="10" height="10" fill="#f1f5f9" />
+                        <rect x="10" width="10" height="10" fill="#cbd5e1" />
+                        <rect y="10" width="10" height="10" fill="#cbd5e1" />
+                        <rect x="10" y="10" width="10" height="10" fill="#f1f5f9" />
+                      </pattern>
+                    </defs>
+
+                    {/* Background PET Film Transparan / Meja DTF (Hitam / Putih / Abu-abu / Catur Transparan) */}
+                    <rect
+                      x={0}
+                      y={0}
+                      width={hasil.binWmm}
+                      height={hasil.binHmm}
+                      fill={
+                        bgPratinjau === "light"
+                          ? "#ffffff"
+                          : bgPratinjau === "gray"
+                          ? "#71717a"
+                          : bgPratinjau === "checker"
+                          ? "url(#dtf-film-checker)"
+                          : "#18181b"
+                      }
+                      stroke={bgPratinjau === "light" ? "rgba(0,0,0,0.15)" : "rgba(255,255,255,0.15)"}
+                      strokeWidth={1.5}
+                      rx={2}
+                    />
+
+                    {/* Render Desain User (100% Ukuran Asli, Bebas Distorsi, Murni Tanpa Frame / Garis Potong) */}
+                    {isiBinAktif.map((p, idx) => {
+                      const isSelected = terpilih === idx;
+
+                      return (
+                        <g
+                          key={`${p.id}-${p.copyIndex}-${idx}`}
+                          onPointerDown={(e) => onKotakPointerDown(e, idx)}
+                          className="cursor-move group"
+                        >
+                          {/* Gambar Murni Desain Pelanggan - Aspek Rasio Terkunci Sempurna */}
+                          {p.masterUrl ? (
+                            p.rot ? (
+                              <g
+                                transform={`translate(${p.xMm + p.wMm}, ${p.yMm}) rotate(90)`}
+                              >
+                                <image
+                                  href={p.masterUrl}
+                                  x={0}
+                                  y={0}
+                                  width={p.hMm}
+                                  height={p.wMm}
+                                  preserveAspectRatio="xMidYMid meet"
+                                />
+                              </g>
+                            ) : (
+                              <image
+                                href={p.masterUrl}
+                                x={p.xMm}
+                                y={p.yMm}
+                                width={p.wMm}
+                                height={p.hMm}
+                                preserveAspectRatio="xMidYMid meet"
+                              />
+                            )
+                          ) : (
+                            <rect
+                              x={p.xMm}
+                              y={p.yMm}
+                              width={p.wMm}
+                              height={p.hMm}
+                              fill={bgPratinjau === "light" ? "rgba(0,0,0,0.05)" : "rgba(255,255,255,0.05)"}
+                            />
+                          )}
+
+                          {/* Seleksi Emas / Handle HANYA Muncul Saat Item Dipilih */}
+                          {isSelected && (
+                            <g>
+                              <rect
+                                x={p.xMm}
+                                y={p.yMm}
+                                width={p.wMm}
+                                height={p.hMm}
+                                fill="rgba(245, 158, 11, 0.1)"
+                                stroke="#f59e0b"
+                                strokeWidth={1.5}
+                                strokeDasharray="4 2"
+                              />
+                              {/* 4 Titik Handle Sudut */}
+                              <rect x={p.xMm - 2} y={p.yMm - 2} width={4} height={4} fill="#f59e0b" />
+                              <rect x={p.xMm + p.wMm - 2} y={p.yMm - 2} width={4} height={4} fill="#f59e0b" />
+                              <rect x={p.xMm - 2} y={p.yMm + p.hMm - 2} width={4} height={4} fill="#f59e0b" />
+                              <rect x={p.xMm + p.wMm - 2} y={p.yMm + p.hMm - 2} width={4} height={4} fill="#f59e0b" />
+                            </g>
+                          )}
+                        </g>
+                      );
+                    })}
+                  </svg>
+                </div>
+
+                {/* Toolbar Interaksi Kotak Terpilih */}
+                <div className="flex flex-wrap items-center justify-between gap-2 p-2 rounded-xl bg-black/5 dark:bg-white/5 border border-border-subtle text-xs">
+                  <div className="flex items-center gap-1.5">
+                    {itemTerpilih ? (
+                      <span className="font-mono text-text-primary">
+                        Terpilih: <strong>{itemTerpilih.orderNumber}</strong> ({fmtCm(itemTerpilih.wMm / 10)}×{fmtCm(itemTerpilih.hMm / 10)} cm)
+                      </span>
+                    ) : (
+                      <span className="text-text-muted">Klik desain pada kanvas untuk menggeser posisi atau memutar 90°</span>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <button
+                      onClick={putarTerpilih}
+                      disabled={!itemTerpilih}
+                      className="px-2.5 py-1 rounded-lg bg-surface border border-border-subtle text-text-primary disabled:opacity-40 font-bold flex items-center gap-1"
+                    >
+                      <RotateCcw size={12} />
+                      <span>Putar 90°</span>
+                    </button>
+                    <button
+                      onClick={hapusTerpilih}
+                      disabled={!itemTerpilih}
+                      className="px-2.5 py-1 rounded-lg bg-surface border border-red-500/30 text-red-600 dark:text-red-400 disabled:opacity-40 font-bold flex items-center gap-1"
+                    >
+                      <Trash2 size={12} />
+                      <span>Hapus</span>
+                    </button>
+                    {undoHapus && (
+                      <button
+                        onClick={undoHapusTerakhir}
+                        className="px-2.5 py-1 rounded-lg bg-amber-400/20 text-amber-700 dark:text-amber-300 font-bold flex items-center gap-1"
+                      >
+                        <Undo2 size={12} />
+                        <span>Undo Hapus</span>
+                      </button>
+                    )}
+                    {undoReset && (
+                      <button
+                        onClick={undoResetMeteran}
+                        className="px-2.5 py-1 rounded-lg bg-amber-400/20 text-amber-700 dark:text-amber-300 font-bold flex items-center gap-1"
+                        title="Batalkan reset dan pulihkan posisi sebelum direset"
+                      >
+                        <Undo2 size={12} />
+                        <span>Undo Reset</span>
+                      </button>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* ── PANEL EKSPOR & INTEGRASI KANBAN ── */}
+            {hasil && (
+              <div className="pt-2 border-t border-border-subtle space-y-3">
+                {/* Opsi Ekspor & Nomor WhatsApp Maklon Tunggal */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="text-[11px] font-mono text-text-muted block mb-1">
+                      No. WhatsApp Vendor Maklon DTF:
+                    </label>
+                    <div className="relative">
+                      <Phone size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-text-muted" />
+                      <input
+                        type="text"
+                        placeholder="Contoh: 081234567890"
+                        value={nomorMaklon}
+                        onChange={(e) => handleWaChange(e.target.value)}
+                        className="w-full pl-8 pr-3 py-1.5 rounded-xl border border-border-subtle bg-surface text-xs font-mono"
+                      />
+                    </div>
+                  </div>
+                  <div>
+                    <label className="text-[11px] font-mono text-text-muted block mb-1">
+                      Kode Batch SPK:
+                    </label>
+                    <input
+                      type="text"
+                      value={gangId}
+                      onChange={(e) => setGangId(e.target.value)}
+                      className="w-full px-3 py-1.5 rounded-xl border border-border-subtle bg-surface text-xs font-mono font-bold"
+                    />
+                  </div>
+                </div>
+
+                {/* Toolbar Tombol Ekspor Lengkap */}
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 pt-1">
+                  {/* 1. Ekspor Semua (ZIP) */}
+                  <button
+                    onClick={() => void eksporSemuaZip()}
+                    disabled={mengeksporZip || !kotakEdit || kotakEdit.length === 0}
+                    className="py-2.5 px-3 rounded-xl bg-amber-400 hover:bg-amber-300 disabled:opacity-40 text-black font-black text-xs flex items-center justify-center gap-1.5 shadow-sm transition-all"
+                  >
+                    <Archive size={14} className={mengeksporZip ? "animate-spin" : ""} />
+                    <span>{mengeksporZip ? "Mengemas ZIP..." : `Ekspor Semua (${kotakEdit?.length || 1} Mtr ZIP)`}</span>
+                  </button>
+
+                  {/* 2. Ekspor Meter Ini (PNG + TXT) */}
+                  <button
+                    onClick={() => void eksporPng()}
+                    disabled={mengekspor || isiBinAktif.length === 0}
+                    className="py-2.5 px-3 rounded-xl bg-surface border border-border-subtle hover:bg-surface-elevated disabled:opacity-40 text-text-primary font-bold text-xs flex items-center justify-center gap-1.5 transition-all"
+                  >
+                    <Download size={14} className={mengekspor ? "animate-spin" : ""} />
+                    <span>{mengekspor ? "Menyimpan PNG..." : `Ekspor Meter ${binAktif + 1} (PNG+TXT)`}</span>
+                  </button>
+
+                  {/* 3. Tombol Mandiri Majukan ke Kanban Pilar 3 (Siap Sablon) */}
+                  <button
+                    type="button"
+                    onClick={() => void majukanKeKanban()}
+                    disabled={memajukanKanban || isiBinAktif.length === 0}
+                    className="py-2.5 px-3 rounded-xl bg-emerald-500 hover:bg-emerald-400 disabled:opacity-40 text-white font-bold text-xs flex items-center justify-center gap-1.5 shadow-sm transition-all cursor-pointer"
+                    title={`Majukan ${isiBinAktif.length} desain di Meter ${binAktif + 1} ke Kanban Pilar 3 (Siap Sablon / Sedang Dicetak)`}
+                  >
+                    <CheckCircle2 size={14} className={memajukanKanban ? "animate-spin" : ""} />
+                    <span>{memajukanKanban ? "Memproses..." : "Masuk ke Kanban (Siap Sablon)"}</span>
+                  </button>
+                </div>
+
+                {/* Sub-bar Salin WhatsApp SPK */}
+                <div className="flex items-center justify-between p-2.5 rounded-xl bg-black/5 dark:bg-white/5 border border-border-subtle text-xs">
+                  <div className="flex items-center gap-2">
+                    <span className="text-text-muted">Format Rekap:</span>
+                    <span className="font-mono font-bold text-text-primary">
+                      SPK {gangId} · Meter {binAktif + 1}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    {nomorMaklon.trim() && (
+                      <a
+                        href={`https://wa.me/${nomorMaklon.replace(/[^0-9]/g, "")}?text=${encodeURIComponent(
+                          rekapRingkas,
+                        )}`}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="px-2.5 py-1 rounded-lg bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 font-bold flex items-center gap-1 text-[11px]"
+                      >
+                        <Phone size={11} />
+                        <span>Buka WA Vendor</span>
+                      </a>
+                    )}
+                    <button
+                      onClick={() => void salinRekap()}
+                      className="px-2.5 py-1 rounded-lg bg-surface border border-border-subtle text-text-primary hover:bg-surface-elevated font-bold flex items-center gap-1 text-[11px]"
+                    >
+                      {disalin ? <Check size={11} className="text-emerald-500" /> : <FileText size={11} />}
+                      <span>{disalin ? "Tersalin!" : "Salin Rekap WA"}</span>
+                    </button>
+                  </div>
+                </div>
+
+                {/* Accordion Catatan Kualitas Ekspor */}
+                {peringatanEkspor.length > 0 && (
+                  <div className="rounded-xl border border-amber-500/30 bg-amber-500/5 p-2.5 text-xs space-y-1">
+                    <button
+                      onClick={() => setTampilCatatanKualitas(!tampilCatatanKualitas)}
+                      className="w-full flex items-center justify-between text-amber-700 dark:text-amber-400 font-bold"
+                    >
+                      <span className="flex items-center gap-1.5">
+                        <AlertCircle size={13} />
+                        <span>Catatan Kualitas Ekspor ({peringatanEkspor.length})</span>
+                      </span>
+                      {tampilCatatanKualitas ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
+                    </button>
+                    {tampilCatatanKualitas && (
+                      <ul className="list-disc list-inside text-[11px] text-text-muted space-y-0.5 pt-1">
+                        {peringatanEkspor.map((w, i) => (
+                          <li key={i}>{w}</li>
+                        ))}
+                      </ul>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
     </div>
   );
 }

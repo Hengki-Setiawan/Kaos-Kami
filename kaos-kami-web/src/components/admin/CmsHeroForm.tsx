@@ -30,7 +30,7 @@ export function CmsHeroForm() {
 
   const save = async () => {
     if (title.trim().length < 2) {
-      setMsg("❌ Judul minimal 2 karakter.");
+      setMsg("Judul minimal 2 karakter.");
       return;
     }
     setBusy(true);
@@ -42,10 +42,10 @@ export function CmsHeroForm() {
         body: JSON.stringify({ heroTitle: title.trim(), heroSubtitle: subtitle.trim() }),
       });
       const data = await res.json();
-      if (!res.ok || data.error) throw new Error(data.error || "Gagal simpan");
-      setMsg("✅ Tersimpan — beranda memakai judul baru (maks 5 menit cache).");
+      if (!res.ok || data.error) throw new Error(data.error || "Gagal menyimpan");
+      setMsg("Tersimpan — beranda memakai judul baru (maks 5 menit cache).");
     } catch (e: any) {
-      setMsg(`❌ ${e?.message || "Gagal"}`);
+      setMsg(e?.message || "Gagal menyimpan judul CMS");
     } finally {
       setBusy(false);
     }

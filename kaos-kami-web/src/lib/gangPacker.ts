@@ -36,7 +36,16 @@ export const GANG_GAP_MM = 10;
 /** Tepi aman dari pinggir sheet dalam mm (diteruskan sebagai border packer). */
 export const GANG_MARGIN_MM = 10;
 
-/** Satu desain persegi yang diminta dicetak sebanyak `qty` kopi. */
+export interface CropBounds {
+  cropX: number;
+  cropY: number;
+  cropW: number;
+  cropH: number;
+  naturalW: number;
+  naturalH: number;
+}
+
+/** Satu desain persegi yang diminta dicetak sebanyak `qty` kopi (dimensi asli dari pesanan). */
 export interface GangRect {
   id: string;
   wMm: number;
@@ -48,7 +57,7 @@ export interface GangRect {
   allowRotation?: boolean;
 }
 
-/** Satu kopi desain yang sudah dapat posisi di dalam bin. */
+/** Satu kopi desain yang sudah dapat posisi di dalam bin (dimensi asli dan aspek rasio 100% terjaga). */
 export interface GangPlacement {
   id: string;
   orderNumber: string;
@@ -61,6 +70,9 @@ export interface GangPlacement {
   rot: boolean;
   bin: number;
   copyIndex: number;
+  origWMm?: number;
+  origHMm?: number;
+  allowRotation?: boolean;
 }
 
 /** Hasil packing: daftar bin, rect yang tak muat, dan utilisasi. */
@@ -93,6 +105,9 @@ interface DataKopi {
   label: string;
   masterUrl: string | null;
   copyIndex: number;
+  origWMm: number;
+  origHMm: number;
+  bolehRotasi: boolean;
 }
 
 // ─── Helper kecil ───
@@ -175,6 +190,66 @@ function pembandingOrderClustering(a: KopiGang, b: KopiGang): number {
   );
 }
 
+/** Sortir lebar menurun: menempatkan panel horizontal lebar di baris pertama. */
+function pembandingWidth(a: KopiGang, b: KopiGang): number {
+  return (
+    b.w - a.w ||
+    b.h - a.h ||
+    b.w * b.h - a.w * a.h ||
+    bandingString(a.sumber.id, b.sumber.id) ||
+    a.copyIndex - b.copyIndex
+  );
+}
+
+/** Sortir tinggi menurun: menempatkan panel vertikal di tepi sisi. */
+function pembandingHeight(a: KopiGang, b: KopiGang): number {
+  return (
+    b.h - a.h ||
+    b.w - a.w ||
+    b.w * b.h - a.w * a.h ||
+    bandingString(a.sumber.id, b.sumber.id) ||
+    a.copyIndex - b.copyIndex
+  );
+}
+
+/** Sortir aspect ratio menurun: mengelompokkan bentuk proporsional agar celah terisi rapat. */
+function pembandingRatio(a: KopiGang, b: KopiGang): number {
+  const rA = a.w / (a.h || 1);
+  const rB = b.w / (b.h || 1);
+  return (
+    rB - rA ||
+    b.w * b.h - a.w * a.h ||
+    bandingString(a.sumber.id, b.sumber.id) ||
+    a.copyIndex - b.copyIndex
+  );
+}
+
+/** Sortir diagonal menurun: mendahulukan desain dengan dimensi sudut terbesar. */
+function pembandingDiagonal(a: KopiGang, b: KopiGang): number {
+  const diagA = a.w * a.w + a.h * a.h;
+  const diagB = b.w * b.w + b.h * b.h;
+  return (
+    diagB - diagA ||
+    b.w * b.h - a.w * a.h ||
+    bandingString(a.sumber.id, b.sumber.id) ||
+    a.copyIndex - b.copyIndex
+  );
+}
+
+/** Sortir elongation menurun: mendahulukan desain memanjang/banner agar jadi pondasi tepi. */
+function pembandingElongation(a: KopiGang, b: KopiGang): number {
+  const rasioA = Math.max(a.w / (a.h || 1), a.h / (a.w || 1));
+  const rasioB = Math.max(b.w / (b.h || 1), b.h / (b.w || 1));
+  const elongA = a.w * a.h * rasioA;
+  const elongB = b.w * b.h * rasioB;
+  return (
+    elongB - elongA ||
+    b.w * b.h - a.w * a.h ||
+    bandingString(a.sumber.id, b.sumber.id) ||
+    a.copyIndex - b.copyIndex
+  );
+}
+
 /**
  * Ubah isi packer menjadi GangPlacement per bin.
  * Indeks array luar == field `bin` (0-based) agar bins[p.bin] selalu tepat.
@@ -182,8 +257,6 @@ function pembandingOrderClustering(a: KopiGang, b: KopiGang): number {
 function petakanBin(packer: MaxRectsPacker): GangPlacement[][] {
   const hasil: GangPlacement[][] = [];
   for (const bin of packer.bins) {
-    // Defensif: pra-saring menjamin tiap kopi muat di bin kosong, sehingga
-    // librari tak pernah membuat OversizedElementBin. Cabang ini tak terjangkau.
     if (!(bin instanceof MaxRectsBin)) continue;
     const nomorBin = hasil.length;
     const isi: GangPlacement[] = [];
@@ -201,6 +274,9 @@ function petakanBin(packer: MaxRectsPacker): GangPlacement[][] {
         rot: r.rot,
         bin: nomorBin,
         copyIndex: d.copyIndex,
+        origWMm: d.origWMm,
+        origHMm: d.origHMm,
+        allowRotation: d.bolehRotasi,
       });
     }
     hasil.push(isi);
@@ -208,22 +284,390 @@ function petakanBin(packer: MaxRectsPacker): GangPlacement[][] {
   return hasil;
 }
 
+// ─── Algoritma Matematis Lanjutan (2-Phase Hybrid Optimization) ───
+
+/** Uji tabrakan dua kotak dengan batas jarak pengaman (gap). */
+function cekTabrakan(
+  x1: number,
+  y1: number,
+  w1: number,
+  h1: number,
+  x2: number,
+  y2: number,
+  w2: number,
+  h2: number,
+  gap: number,
+): boolean {
+  if (x1 + w1 + gap <= x2) return false;
+  if (x2 + w2 + gap <= x1) return false;
+  if (y1 + h1 + gap <= y2) return false;
+  if (y2 + h2 + gap <= y1) return false;
+  return true;
+}
+
+/**
+ * Bottom-Left Gravity Compaction (BL-Compaction):
+ * Menggeser setiap desain ke batas minimum Y (ke atas/bawah sesuai orientasi roll)
+ * dan batas minimum X (ke bibir kiri sheet) sejauh mungkin tanpa bertabrakan,
+ * melenyapkan rongga Tetris kosong pasca-penempatan greedy.
+ */
+function kompakkanBottomLeft(
+  items: GangPlacement[],
+  binW: number,
+  binH: number,
+  gap: number,
+  margin: number,
+): GangPlacement[] {
+  if (items.length <= 1) return items;
+
+  const res = items.map((p) => ({ ...p }));
+  let adaPerubahan = true;
+  let iterasi = 0;
+  const maxIterasi = 4;
+
+  while (adaPerubahan && iterasi < maxIterasi) {
+    adaPerubahan = false;
+    iterasi++;
+
+    // Urutkan item dari Y terkecil lalu X terkecil secara stabil
+    res.sort(
+      (a, b) =>
+        a.yMm - b.yMm ||
+        a.xMm - b.xMm ||
+        bandingString(a.id, b.id) ||
+        a.copyIndex - b.copyIndex,
+    );
+
+    for (let i = 0; i < res.length; i++) {
+      const cur = res[i];
+      if (!cur) continue;
+
+      // 1. Tarik ke Y minimum sejauh mungkin
+      let targetY = margin;
+      for (let j = 0; j < res.length; j++) {
+        if (i === j) continue;
+        const other = res[j];
+        if (!other) continue;
+        if (other.yMm + other.hMm <= cur.yMm) {
+          const xOverlap = !(
+            cur.xMm + cur.wMm + gap <= other.xMm ||
+            other.xMm + other.wMm + gap <= cur.xMm
+          );
+          if (xOverlap) {
+            const batasY = other.yMm + other.hMm + gap;
+            if (batasY > targetY) targetY = batasY;
+          }
+        }
+      }
+
+      if (targetY < cur.yMm) {
+        let tabrak = false;
+        for (let j = 0; j < res.length; j++) {
+          if (i === j) continue;
+          const other = res[j];
+          if (!other) continue;
+          if (
+            cekTabrakan(
+              cur.xMm,
+              targetY,
+              cur.wMm,
+              cur.hMm,
+              other.xMm,
+              other.yMm,
+              other.wMm,
+              other.hMm,
+              gap,
+            )
+          ) {
+            tabrak = true;
+            break;
+          }
+        }
+        if (!tabrak && targetY + cur.hMm <= binH - margin) {
+          cur.yMm = targetY;
+          adaPerubahan = true;
+        }
+      }
+
+      // 2. Tarik ke X minimum sejauh mungkin
+      let targetX = margin;
+      for (let j = 0; j < res.length; j++) {
+        if (i === j) continue;
+        const other = res[j];
+        if (!other) continue;
+        if (other.xMm + other.wMm <= cur.xMm) {
+          const yOverlap = !(
+            cur.yMm + cur.hMm + gap <= other.yMm ||
+            other.yMm + other.hMm + gap <= cur.yMm
+          );
+          if (yOverlap) {
+            const batasX = other.xMm + other.wMm + gap;
+            if (batasX > targetX) targetX = batasX;
+          }
+        }
+      }
+
+      if (targetX < cur.xMm) {
+        let tabrak = false;
+        for (let j = 0; j < res.length; j++) {
+          if (i === j) continue;
+          const other = res[j];
+          if (!other) continue;
+          if (
+            cekTabrakan(
+              targetX,
+              cur.yMm,
+              cur.wMm,
+              cur.hMm,
+              other.xMm,
+              other.yMm,
+              other.wMm,
+              other.hMm,
+              gap,
+            )
+          ) {
+            tabrak = true;
+            break;
+          }
+        }
+        if (!tabrak && targetX + cur.wMm <= binW - margin) {
+          cur.xMm = targetX;
+          adaPerubahan = true;
+        }
+      }
+    }
+  }
+
+  return res;
+}
+
+/** Uji penyisipan item ke ruang kosong pada bin yang sudah ada (Extreme Corner Points). */
+function cobaSisipkanItem(
+  item: GangPlacement,
+  binItems: GangPlacement[],
+  binW: number,
+  binH: number,
+  gap: number,
+  margin: number,
+): { sukses: boolean; x: number; y: number; w: number; h: number; rot: boolean } | null {
+  const bolehRotasi = item.allowRotation !== false;
+
+  const candX: number[] = [margin];
+  const candY: number[] = [margin];
+
+  for (const b of binItems) {
+    candX.push(b.xMm + b.wMm + gap);
+    candY.push(b.yMm + b.hMm + gap);
+  }
+
+  const unikX = Array.from(new Set(candX))
+    .filter((x) => x >= margin && x < binW - margin)
+    .sort((a, b) => a - b);
+  const unikY = Array.from(new Set(candY))
+    .filter((y) => y >= margin && y < binH - margin)
+    .sort((a, b) => a - b);
+
+  const variasi: { w: number; h: number; rot: boolean }[] = [
+    { w: item.wMm, h: item.hMm, rot: item.rot },
+  ];
+  if (bolehRotasi) {
+    variasi.push({ w: item.hMm, h: item.wMm, rot: !item.rot });
+  }
+
+  for (const v of variasi) {
+    for (const cy of unikY) {
+      if (cy + v.h > binH - margin) continue;
+      for (const cx of unikX) {
+        if (cx + v.w > binW - margin) continue;
+
+        let tabrak = false;
+        for (const exist of binItems) {
+          if (
+            cekTabrakan(
+              cx,
+              cy,
+              v.w,
+              v.h,
+              exist.xMm,
+              exist.yMm,
+              exist.wMm,
+              exist.hMm,
+              gap,
+            )
+          ) {
+            tabrak = true;
+            break;
+          }
+        }
+
+        if (!tabrak) {
+          return { sukses: true, x: cx, y: cy, w: v.w, h: v.h, rot: v.rot };
+        }
+      }
+    }
+  }
+
+  return null;
+}
+
+/**
+ * Optimasi Lintas-Bin (Cross-Bin Backfill):
+ * Menelusuri item pada meter terakhir (tail bin), lalu mencoba menyisipkannya
+ * ke celah-celah kosong meter terdahulu. Jika seluruh item meter terakhir muat di meter
+ * terdahulu, meter terakhir langsung TERELIMINASI (menghemat 1 meter roll penuh!).
+ */
+function optimasiLintasBin(
+  bins: GangPlacement[][],
+  binW: number,
+  binH: number,
+  gap: number,
+  margin: number,
+): GangPlacement[][] {
+  if (bins.length <= 1) return bins;
+
+  let hasilBins = bins.map((b) => b.map((p) => ({ ...p })));
+
+  let adaMigrasi = true;
+  let putaran = 0;
+  while (adaMigrasi && hasilBins.length > 1 && putaran < 6) {
+    adaMigrasi = false;
+    putaran++;
+    const lastBinIdx = hasilBins.length - 1;
+    const lastBin = hasilBins[lastBinIdx];
+    if (!lastBin || lastBin.length === 0) {
+      hasilBins.pop();
+      adaMigrasi = true;
+      continue;
+    }
+
+    // Urutkan item di bin terakhir dari luas terkecil ke terbesar (paling mudah masuk ke sela)
+    const itemDiuji = [...lastBin].sort((a, b) => a.wMm * a.hMm - b.wMm * b.hMm);
+
+    for (const item of itemDiuji) {
+      for (let targetBinIdx = 0; targetBinIdx < lastBinIdx; targetBinIdx++) {
+        const targetBin = hasilBins[targetBinIdx];
+        if (!targetBin) continue;
+        const res = cobaSisipkanItem(item, targetBin, binW, binH, gap, margin);
+        if (res && res.sukses) {
+          const curLast = hasilBins[lastBinIdx];
+          if (curLast) {
+            hasilBins[lastBinIdx] = curLast.filter(
+              (p) => !(p.id === item.id && p.copyIndex === item.copyIndex),
+            );
+          }
+          targetBin.push({
+            ...item,
+            bin: targetBinIdx,
+            xMm: res.x,
+            yMm: res.y,
+            wMm: res.w,
+            hMm: res.h,
+            rot: res.rot,
+          });
+          hasilBins[targetBinIdx] = kompakkanBottomLeft(
+            targetBin,
+            binW,
+            binH,
+            gap,
+            margin,
+          );
+          adaMigrasi = true;
+          break;
+        }
+      }
+
+      const curLast = hasilBins[lastBinIdx];
+      if (curLast && curLast.length === 0) {
+        hasilBins.pop();
+        adaMigrasi = true;
+        break;
+      }
+    }
+
+    const curLastBin = hasilBins[lastBinIdx];
+    if (curLastBin && curLastBin.length > 0) {
+      hasilBins[lastBinIdx] = kompakkanBottomLeft(
+        curLastBin,
+        binW,
+        binH,
+        gap,
+        margin,
+      );
+    }
+  }
+
+  return hasilBins.map((b, bi) => b.map((p) => ({ ...p, bin: bi })));
+}
+
+/** Menghitung skor kualitas fisik solusi cetak roll DTF. */
+interface SkorPacking {
+  jumlahBin: number;
+  totalPanjangRollMm: number;
+  reachBinTerakhir: number;
+  luasTerpakai: number;
+  jumlahPutar: number;
+}
+
+function hitungSkorSolusi(
+  kandidat: GangPlacement[][],
+  binW: number,
+  binH: number,
+  margin: number,
+): SkorPacking {
+  const jumlahBin = kandidat.length;
+  if (jumlahBin === 0) {
+    return {
+      jumlahBin: 0,
+      totalPanjangRollMm: 0,
+      reachBinTerakhir: 0,
+      luasTerpakai: 0,
+      jumlahPutar: 0,
+    };
+  }
+
+  let luasTerpakai = 0;
+  let jumlahPutar = 0;
+  let reachBinTerakhir = margin;
+
+  for (let bi = 0; bi < jumlahBin; bi++) {
+    const b = kandidat[bi];
+    if (!b) continue;
+    let maxReachBin = margin;
+    for (const p of b) {
+      luasTerpakai += p.wMm * p.hMm;
+      if (p.rot) jumlahPutar += 1;
+      const reach = p.yMm + p.hMm + margin;
+      if (reach > maxReachBin) maxReachBin = reach;
+    }
+    if (bi === jumlahBin - 1) {
+      reachBinTerakhir = maxReachBin;
+    }
+  }
+
+  const totalPanjangRollMm = (jumlahBin - 1) * binH + reachBinTerakhir;
+
+  return {
+    jumlahBin,
+    totalPanjangRollMm,
+    reachBinTerakhir,
+    luasTerpakai,
+    jumlahPutar,
+  };
+}
+
 // ─── Fungsi utama (kontrak) ───
 
 /**
  * Susun rect ke gang-sheet 1000x580 mm (atau ukuran custom via opts).
  *
- * Aturan yang diterapkan:
+ * Standar DTF Industri:
  * (1) `qty` di-expand menjadi kopi individual (copyIndex 0-based per rect).
- * (2) Packer: smart:false, pot:false, square:false, allowRotation:true,
- *     border=margin, padding=gap.
- * (3) Multi-Heuristic Tournament: 5 urutan sortir (luas, keliling, sisi-terpanjang,
- *     sisi-terpendek, order-cluster) x 2 packing logic (MAX_EDGE & MAX_AREA) = 10 turnamen.
- *     Pemenang dipilih berdasarkan: bin paling sedikit, utilisasi luas tertinggi,
- *     jangkauan fisik roll terpendek (hemat film), dan rotasi paling sedikit.
- * (4) Overflow meluber ke bin berikutnya (bin 0, 1, 2, ...).
- * (5) Semua satuan mm integer (input dibulatkan, output dibulatkan).
- * (6) utilizationPct = total(w*h) / (jumlahBin*binW*binH) * 100 TANPA gap.
+ * (2) Multi-Heuristic Tournament: 10 urutan sortir x 2 packing logic = 20 turnamen deterministik.
+ * (3) Fase 2: 2D Bottom-Left Gravity Compaction (BL-Compaction) menutup rongga Tetris.
+ * (4) Fase 3: Optimasi Lintas-Bin (Cross-Bin Backfill) memangkas tail waste dan mengeliminasi meter sisa.
+ * (5) Evaluasi Fisik Nyata: Pemenang dipilih berdasarkan meter terendah, jangkauan roll terpendek,
+ *     dan rotasi potongan paling ergonomis.
+ * (6) Semua satuan mm integer, 100% dimensi asli terjaga, 0 distorsi/stretching.
  */
 export function packGangSheet(
   rects: GangRect[],
@@ -236,42 +680,35 @@ export function packGangSheet(
   const margin = bulatkanMm(opts?.marginMm, GANG_MARGIN_MM, 0);
 
   // 2. Expand qty menjadi kopi individual + pra-saring yang tak muat.
-  //    Area cetak efektif = bin dikurangi margin di semua sisi.
   const gunaW = binW - margin * 2;
   const gunaH = binH - margin * 2;
   const kopi: KopiGang[] = [];
   const takMuat = new Set<GangRect>();
   for (const r of rects ?? []) {
-    if (!r) continue; // lewati entri null (defensif untuk pemanggil JS)
+    if (!r) continue;
     const w = Math.round(r.wMm);
     const h = Math.round(r.hMm);
     const qty = Math.floor(r.qty);
-    // Dimensi tak valid (NaN/nol/negatif): tak ada satu kopi pun yang bisa dicetak.
     if (!Number.isFinite(w) || !Number.isFinite(h) || w <= 0 || h <= 0) {
       if (Number.isFinite(r.qty) && r.qty > 0) takMuat.add(r);
       continue;
     }
-    // qty nol/negatif/tak valid: tidak ada yang diminta, jadi bukan unplaced.
     if (!Number.isFinite(qty) || qty <= 0) continue;
-    // allowRotation undefined = boleh diputar (default); hanya false eksplisit yang mengunci.
     const bolehRotasi = r.allowRotation !== false;
-    const muatNormal = w <= gunaW && h <= gunaH;
-    const muatPutar = bolehRotasi && h <= gunaW && w <= gunaH;
+    const actW = w;
+    const actH = h;
+    const muatNormal = actW <= gunaW && actH <= gunaH;
+    const muatPutar = bolehRotasi && actH <= gunaW && actW <= gunaH;
     if (!muatNormal && !muatPutar) {
-      takMuat.add(r); // bahkan 1 kopi pun tak muat di bin kosong
+      takMuat.add(r);
       continue;
     }
-    // Kasus khusus: hanya muat bila diputar, TAPI dimensi mentah melebihi bin
-    // penuh (mis. 500x600 di bin 1000x580). Cek oversize librari buta-rotasi dan
-    // akan membuangnya ke OversizedElementBin, jadi tukar dimensi di depan.
-    // Flag rot awal = true membuat field `rot` hasil akhir tetap benar relatif
-    // ke input (putar-balik oleh packer akan men-toggle-nya kembali ke false).
-    const praRotasi = !muatNormal && muatPutar && (w > binW || h > binH);
+    const praRotasi = !muatNormal && muatPutar && (actW > binW || actH > binH);
     for (let i = 0; i < qty; i++) {
       kopi.push({
         sumber: r,
-        w: praRotasi ? h : w,
-        h: praRotasi ? w : h,
+        w: praRotasi ? actH : actW,
+        h: praRotasi ? actW : actH,
         copyIndex: i,
         bolehRotasi,
         praRotasi,
@@ -279,13 +716,18 @@ export function packGangSheet(
     }
   }
 
-  // 3. Multi-Heuristic Tournament: 5 urutan x 2 packing logic (10 turnamen deterministik)
+  // 3. Multi-Heuristic Tournament: 10 urutan x 2 packing logic (20 turnamen deterministik)
   const urutan = [
     { nama: "Area-Descending", fn: pembandingArea },
     { nama: "Perimeter-Descending", fn: pembandingPerimeter },
     { nama: "Max-Edge-Descending", fn: pembandingSisiMax },
     { nama: "Min-Edge-Descending", fn: pembandingSisiMin },
+    { nama: "Diagonal-Descending", fn: pembandingDiagonal },
+    { nama: "Elongation-Descending", fn: pembandingElongation },
     { nama: "Order-Clustered", fn: pembandingOrderClustering },
+    { nama: "Width-Descending", fn: pembandingWidth },
+    { nama: "Height-Descending", fn: pembandingHeight },
+    { nama: "Ratio-Descending", fn: pembandingRatio },
   ];
   const logikaList = [
     { nama: "MAX_EDGE", val: PACKING_LOGIC.MAX_EDGE },
@@ -293,9 +735,7 @@ export function packGangSheet(
   ];
 
   let terbaik: GangPlacement[][] | null = null;
-  let utilTerbaik = -1;
-  let jangkauanTerbaik = Infinity;
-  let rotTerbaik = Infinity;
+  let terbaikSkor: SkorPacking | null = null;
   let strategiTerbaik = "";
 
   for (const logika of logikaList) {
@@ -317,54 +757,54 @@ export function packGangSheet(
           label: k.sumber.label,
           masterUrl: k.sumber.masterUrl,
           copyIndex: k.copyIndex,
+          origWMm: k.sumber.wMm,
+          origHMm: k.sumber.hMm,
+          bolehRotasi: k.bolehRotasi,
         };
         rc.data = data;
         packer.add(rc);
       }
-      const kandidat = petakanBin(packer);
-      let luas = 0;
-      let putar = 0;
-      let maxReach = 0;
+      const dasar = petakanBin(packer);
 
-      for (const b of kandidat) {
-        for (const p of b) {
-          luas += p.wMm * p.hMm;
-          if (p.rot) putar += 1;
-          const reach = p.xMm + p.wMm;
-          if (reach > maxReach) maxReach = reach;
-        }
-      }
+      // Fase 2: Bottom-Left Gravity Compaction per bin
+      const terkompakkan = dasar.map((b) =>
+        kompakkanBottomLeft(b, binW, binH, gap, margin),
+      );
 
-      const util =
-        kandidat.length > 0 ? (luas / (kandidat.length * binW * binH)) * 100 : 0;
+      // Fase 3: Optimasi Lintas-Bin (Backfill dari tail bin ke sela bin depan)
+      const kandidat = optimasiLintasBin(
+        terkompakkan,
+        binW,
+        binH,
+        gap,
+        margin,
+      );
 
-      // Evaluasi pemenang:
-      // 1. Bin paling sedikit (paling hemat roll)
-      // 2. Utilisasi luas tertinggi
-      // 3. Jangkauan fisik X terpendek (panjang film terpakai paling minim)
-      // 4. Rotasi paling sedikit
+      const skor = hitungSkorSolusi(kandidat, binW, binH, margin);
+
+      // Evaluasi pemenang fisik:
+      // 1. Bin paling sedikit (menghemat 1 meter penuh)
+      // 2. Panjang total roll fisik terpendek (menghemat sisa film di meter terakhir)
+      // 3. Rotasi paling sedikit (ergonomis untuk pemotongan workshop)
       let menang = false;
-      if (terbaik === null) {
+      if (terbaik === null || terbaikSkor === null) {
         menang = true;
-      } else if (kandidat.length < terbaik.length) {
+      } else if (skor.jumlahBin < terbaikSkor.jumlahBin) {
         menang = true;
-      } else if (kandidat.length === terbaik.length) {
-        if (util > utilTerbaik + 0.05) {
+      } else if (skor.jumlahBin === terbaikSkor.jumlahBin) {
+        if (skor.totalPanjangRollMm < terbaikSkor.totalPanjangRollMm - 1) {
           menang = true;
-        } else if (Math.abs(util - utilTerbaik) <= 0.05) {
-          if (maxReach < jangkauanTerbaik) {
-            menang = true;
-          } else if (maxReach === jangkauanTerbaik && putar < rotTerbaik) {
-            menang = true;
-          }
+        } else if (
+          Math.abs(skor.totalPanjangRollMm - terbaikSkor.totalPanjangRollMm) <= 1 &&
+          skor.jumlahPutar < terbaikSkor.jumlahPutar
+        ) {
+          menang = true;
         }
       }
 
       if (menang) {
         terbaik = kandidat;
-        utilTerbaik = util;
-        jangkauanTerbaik = maxReach;
-        rotTerbaik = putar;
+        terbaikSkor = skor;
         strategiTerbaik = `${itemUrutan.nama} (${logika.nama})`;
       }
     }
@@ -381,11 +821,11 @@ export function packGangSheet(
 
   return {
     bins,
-    unplaced: (rects ?? []).filter((r) => takMuat.has(r)), // urutan input, duplikat dipertahankan
+    unplaced: (rects ?? []).filter((r) => takMuat.has(r)),
     utilizationPct,
     binWmm: binW,
     binHmm: binH,
     strategyName: strategiTerbaik,
-    maxReachMm: Number.isFinite(jangkauanTerbaik) ? jangkauanTerbaik : 0,
+    maxReachMm: terbaikSkor ? Math.round(terbaikSkor.reachBinTerakhir) : 0,
   };
 }

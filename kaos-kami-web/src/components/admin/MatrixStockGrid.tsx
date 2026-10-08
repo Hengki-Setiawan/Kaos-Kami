@@ -126,7 +126,7 @@ export function MatrixStockGrid({ categories, initialVariants }: MatrixStockGrid
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Gagal menyimpan stok");
 
-      setStatusMessage({ text: "✓ Stok tersimpan di database", type: "success" });
+      setStatusMessage({ text: "Stok tersimpan di database", type: "success" });
       setTimeout(() => setStatusMessage(null), 3000);
     } catch (e: any) {
       setStatusMessage({ text: `Gagal: ${e.message}`, type: "error" });
@@ -166,7 +166,7 @@ export function MatrixStockGrid({ categories, initialVariants }: MatrixStockGrid
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Gagal menyimpan batch");
 
-      setStatusMessage({ text: `✓ Berhasil update ${itemsToUpdate.length} ukuran ke ${val} pcs`, type: "success" });
+      setStatusMessage({ text: `Berhasil update ${itemsToUpdate.length} ukuran ke ${val} pcs`, type: "success" });
       setBatchInputs((prev) => ({ ...prev, [key]: "" }));
       setTimeout(() => setStatusMessage(null), 3500);
     } catch (e: any) {

@@ -29,9 +29,10 @@ export async function GET(req: NextRequest) {
     if (!viewer) {
       return NextResponse.json({ error: "Unauthorized: Silakan login terlebih dahulu" }, { status: 401 });
     }
-    const row = await db.query.User.findFirst({
-      where: (t, { eq }) => eq(t.id, viewer.id),
+    const row = await (db.query.User as any).findFirst({
+      where: (t: any, { eq }: any) => eq(t.id, viewer.id),
       columns: { id: true, name: true, email: true, phoneNumber: true, role: true, phoneVerified: true, emailVerified: true, createdAt: true },
+      with: { addresses: true },
     });
     if (!row) return NextResponse.json({ error: "Akun tidak ditemukan" }, { status: 404 });
     return NextResponse.json({ success: true, user: row });

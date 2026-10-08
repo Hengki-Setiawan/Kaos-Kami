@@ -3,6 +3,7 @@
 import React, { useState } from "react";
 import { useRouter } from "next/navigation";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
+import { CheckCircle2, Package, Truck, CheckCheck, RefreshCw } from "lucide-react";
 
 // Resi Indonesia: alfanumerik + beberapa tanda, 5–64 karakter.
 const RESI_RE = /^[A-Za-z0-9][A-Za-z0-9 .\-/]{3,62}[A-Za-z0-9]$/;
@@ -99,10 +100,10 @@ export function OrderAdminActions({
     setMsg(null);
     try {
       await callApi({ trackingNumber: v });
-      setMsg("✅ Resi tersimpan.");
+      setMsg("Resi berhasil disimpan.");
       router.refresh();
     } catch (e: any) {
-      setMsg(`❌ ${e?.message || "Gagal"}`);
+      setMsg(e?.message || "Gagal menyimpan resi");
     } finally {
       setBusyAction(null);
     }
@@ -121,10 +122,10 @@ export function OrderAdminActions({
     setMsg(null);
     try {
       await callApi({ status });
-      setMsg(`✅ Status pesanan diubah ke ${status}.`);
+      setMsg(`Status pesanan diubah ke ${status}.`);
       router.refresh();
     } catch (e: any) {
-      setMsg(`❌ ${e?.message || "Gagal update status"}`);
+      setMsg(e?.message || "Gagal update status");
     } finally {
       setBusyAction(null);
     }
@@ -141,18 +142,18 @@ export function OrderAdminActions({
           cancel: true,
           cancelReason: reason || "Dibatalkan oleh workshop via admin.",
         });
-        setMsg("✅ Order dibatalkan.");
+        setMsg("Order berhasil dibatalkan.");
       } else {
         await callApi({
           refund: true,
           refundReason: reason || "Dana dikembalikan manual via transfer/QRIS oleh admin.",
         });
-        setMsg("✅ Order ditandai REFUNDED.");
+        setMsg("Order ditandai REFUNDED.");
       }
       setReasonInput("");
       router.refresh();
     } catch (e: any) {
-      setMsg(`❌ ${e?.message || "Gagal"}`);
+      setMsg(e?.message || "Gagal memproses aksi");
     } finally {
       setBusyAction(null);
     }
@@ -177,9 +178,11 @@ export function OrderAdminActions({
             <button
               onClick={() => setAsking("completed")}
               disabled={busyAction !== null}
-              className="px-3.5 py-2 rounded-xl bg-emerald-500/20 border border-emerald-500/40 hover:bg-emerald-500 hover:text-canvas text-emerald-300 font-bold uppercase tracking-wider text-[11px] disabled:opacity-50 transition-all flex items-center gap-1.5"
+              title="Tandai pesanan selesai dan sudah diterima pembeli"
+              className="px-3 py-1.5 rounded-xl bg-emerald-500/20 border border-emerald-500/40 hover:bg-emerald-500 hover:text-canvas text-emerald-300 font-bold uppercase tracking-wider text-[11px] disabled:opacity-50 transition-all flex items-center gap-1.5 cursor-pointer"
             >
-              <span>{busyAction === "completed" ? "…" : "✔ Tandai Selesai / Diambil (COMPLETED)"}</span>
+              <CheckCircle2 size={13} />
+              <span>{busyAction === "completed" ? "…" : "Selesai"}</span>
             </button>
           )}
 
@@ -187,9 +190,11 @@ export function OrderAdminActions({
             <button
               onClick={() => void doSetStatus("READY_TO_SHIP")}
               disabled={busyAction !== null}
-              className="px-3.5 py-2 rounded-xl bg-blue-500/20 border border-blue-500/40 hover:bg-blue-500 hover:text-white text-blue-300 font-bold uppercase tracking-wider text-[11px] disabled:opacity-50 transition-all"
+              title="Tandai pesanan siap kirim atau siap diambil di workshop"
+              className="px-3 py-1.5 rounded-xl bg-blue-500/20 border border-blue-500/40 hover:bg-blue-500 hover:text-white text-blue-300 font-bold uppercase tracking-wider text-[11px] disabled:opacity-50 transition-all flex items-center gap-1.5 cursor-pointer"
             >
-              <span>{busyAction === "ready" ? "…" : "📦 Tandai Siap Kirim / Ambil"}</span>
+              <Package size={13} />
+              <span>{busyAction === "ready" ? "…" : "Siap Kirim"}</span>
             </button>
           )}
 
@@ -197,9 +202,11 @@ export function OrderAdminActions({
             <button
               onClick={() => void doSetStatus("SHIPPED")}
               disabled={busyAction !== null}
-              className="px-3.5 py-2 rounded-xl bg-sky-500/20 border border-sky-500/40 hover:bg-sky-500 hover:text-white text-sky-300 font-bold uppercase tracking-wider text-[11px] disabled:opacity-50 transition-all"
+              title="Tandai pesanan sedang dikirim oleh kurir"
+              className="px-3 py-1.5 rounded-xl bg-sky-500/20 border border-sky-500/40 hover:bg-sky-500 hover:text-white text-sky-300 font-bold uppercase tracking-wider text-[11px] disabled:opacity-50 transition-all flex items-center gap-1.5 cursor-pointer"
             >
-              <span>{busyAction === "shipped" ? "…" : "🚚 Tandai Dikirim (SHIPPED)"}</span>
+              <Truck size={13} />
+              <span>{busyAction === "shipped" ? "…" : "Dikirim"}</span>
             </button>
           )}
 
@@ -207,9 +214,11 @@ export function OrderAdminActions({
             <button
               onClick={() => void doSetStatus("DELIVERED")}
               disabled={busyAction !== null}
-              className="px-3.5 py-2 rounded-xl bg-surface border border-border-subtle hover:border-emerald-500/50 text-text-primary font-bold uppercase tracking-wider text-[11px] disabled:opacity-50 transition-all"
+              title="Tandai paket telah diterima pelanggan"
+              className="px-3 py-1.5 rounded-xl bg-surface border border-border-subtle hover:border-emerald-500/50 text-text-primary font-bold uppercase tracking-wider text-[11px] disabled:opacity-50 transition-all flex items-center gap-1.5 cursor-pointer"
             >
-              <span>{busyAction === "delivered" ? "…" : "📬 Tandai Diterima (DELIVERED)"}</span>
+              <CheckCheck size={13} />
+              <span>{busyAction === "delivered" ? "…" : "Diterima"}</span>
             </button>
           )}
         </div>
@@ -229,9 +238,9 @@ export function OrderAdminActions({
           <button
             onClick={saveTracking}
             disabled={busyAction !== null}
-            className="px-4 py-2 rounded-xl bg-brand-accent text-canvas font-bold uppercase tracking-wider text-[11px] hover:brightness-110 disabled:opacity-50 transition-all"
+            className="px-4 py-2 rounded-xl bg-brand-accent text-canvas font-bold uppercase tracking-wider text-[11px] hover:brightness-110 disabled:opacity-50 transition-all cursor-pointer"
           >
-            {busyAction === "resi" ? "…" : "Simpan resi"}
+            {busyAction === "resi" ? "…" : "Simpan Resi"}
           </button>
         </div>
       )}
@@ -242,9 +251,11 @@ export function OrderAdminActions({
           <button
             onClick={() => void syncDuitku()}
             disabled={busyAction !== null}
-            className="px-4 py-2 rounded-xl bg-blue-500/15 border border-blue-500/40 text-blue-300 font-bold uppercase tracking-wider text-[11px] hover:bg-blue-500/25 disabled:opacity-50 transition-all flex items-center gap-1.5"
+            title="Sinkronisasi status transaksi dengan gateway Duitku"
+            className="px-3.5 py-1.5 rounded-xl bg-blue-500/15 border border-blue-500/40 text-blue-300 font-bold uppercase tracking-wider text-[11px] hover:bg-blue-500/25 disabled:opacity-50 transition-all flex items-center gap-1.5 cursor-pointer"
           >
-            <span>{busyAction === "sync" ? "Menghubungi Duitku…" : "🔄 Sinkronkan Status Duitku"}</span>
+            <RefreshCw size={12} className={busyAction === "sync" ? "animate-spin" : ""} />
+            <span>{busyAction === "sync" ? "Memeriksa…" : "Cek Duitku"}</span>
           </button>
         </div>
       )}
@@ -256,18 +267,18 @@ export function OrderAdminActions({
             <button
               onClick={() => setAsking("batal")}
               disabled={busyAction !== null}
-              className="px-4 py-2 rounded-xl bg-red-500/10 border border-red-500/40 text-red-300 font-bold uppercase tracking-wider text-[11px] hover:bg-red-500/20 disabled:opacity-50 transition-all"
+              className="px-3.5 py-1.5 rounded-xl bg-red-500/10 border border-red-500/40 text-red-300 font-bold uppercase tracking-wider text-[11px] hover:bg-red-500/20 disabled:opacity-50 transition-all cursor-pointer"
             >
-              {busyAction === "batal" ? "…" : "Batalkan order"}
+              {busyAction === "batal" ? "…" : "Batalkan"}
             </button>
           )}
           {canRefund && (
             <button
               onClick={() => setAsking("refund")}
               disabled={busyAction !== null}
-              className="px-4 py-2 rounded-xl bg-amber-500/10 border border-amber-500/40 text-amber-300 font-bold uppercase tracking-wider text-[11px] hover:bg-amber-500/20 disabled:opacity-50 transition-all"
+              className="px-3.5 py-1.5 rounded-xl bg-amber-500/10 border border-amber-500/40 text-amber-300 font-bold uppercase tracking-wider text-[11px] hover:bg-amber-500/20 disabled:opacity-50 transition-all cursor-pointer"
             >
-              {busyAction === "refund" ? "…" : "Tandai refund (iPaymu / Transfer)"}
+              {busyAction === "refund" ? "…" : "Refund"}
             </button>
           )}
         </div>

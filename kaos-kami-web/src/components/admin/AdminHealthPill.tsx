@@ -3,7 +3,7 @@
 /**
  * AdminHealthPill — pill status live Turso(DB)/R2 via GET /api/health existing.
  * UI-only read-only (cache no-store, poll 60s). TANPA API baru.
- * Fonnte: /api/health existing TAK punya cek Fonnte → dot statis abu 🟡
+ * Fonnte: /api/health existing TAK punya cek Fonnte -> dot statis abu (standby)
  * dengan tooltip jujur + link ke /api/health.
  */
 

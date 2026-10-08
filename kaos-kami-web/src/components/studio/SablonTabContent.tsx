@@ -20,6 +20,7 @@ import {
   Sliders,
   Move,
   RotateCw,
+  RotateCcw,
   ChevronDown,
   Ruler,
 } from "lucide-react";
@@ -149,23 +150,14 @@ export const SablonTabContent: React.FC<SablonTabContentProps> = ({
   };
   return (
     <>
-      {/* Header Tab Sablon + Akses Cepat Lab Kain */}
+      {/* Header Tab Sablon */}
       <div className="flex items-center justify-between p-2.5 rounded-2xl bg-surface/80 border border-border-subtle gap-2 mb-2">
         <div className="flex items-center space-x-2 min-w-0">
           <span className="w-2 h-2 rounded-full bg-brand-accent animate-pulse" />
           <span className="text-xs font-sans font-bold text-text-primary uppercase tracking-tight">
-            SABLON DTF ({decals.length})
+            SABLON ({decals.length})
           </span>
         </div>
-        <button
-          type="button"
-          onClick={toggleClothLab}
-          className="flex items-center space-x-1.5 px-2.5 py-1 rounded-xl bg-brand-accent/10 hover:bg-brand-accent/20 border border-brand-accent/30 text-brand-accent text-[11px] font-mono font-bold transition-all cursor-pointer"
-          title="Buka Lab Kain 3D & Simulasi Fisika"
-        >
-          <FlaskConical size={12} />
-          <span>LAB KAIN</span>
-        </button>
       </div>
 
       {/* Sub-mode 1: SABLON DTF Standard */}
@@ -520,40 +512,42 @@ export const SablonTabContent: React.FC<SablonTabContentProps> = ({
 
               {/* Collapsible Background Remover Panel */}
               {showBgRemover && (
-                <div className="p-3 rounded-xl bg-surface border border-brand-accent/30 space-y-2.5 animate-fadeIn">
-                  <span className="block text-[10px] font-sans text-text-muted font-bold uppercase">
-                    PILIHAN HAPUS WARNA LATAR:
+                <div className="p-3 rounded-2xl bg-surface border border-brand-accent/30 space-y-2.5 animate-fadeIn shadow-sm">
+                  <span className="block text-[11px] font-sans text-text-muted font-semibold uppercase tracking-wider">
+                    Pilihan Warna Latar:
                   </span>
                   <div className="grid grid-cols-2 gap-2">
                     <button
                       type="button"
                       onClick={() => setBgTarget("white")}
                       aria-pressed={bgTarget === "white"}
-                      className={`py-1.5 rounded-lg border text-[10px] font-mono font-bold transition-all ${
+                      className={`flex items-center justify-center gap-2 py-2 px-3 rounded-xl border text-xs font-sans font-semibold transition-all cursor-pointer ${
                         bgTarget === "white"
-                          ? "bg-brand-accent/20 border-brand-accent text-brand-accent"
-                          : "bg-surface border-border-subtle text-text-muted hover:text-text-primary"
+                          ? "bg-brand-accent/15 border-brand-accent text-brand-accent shadow-sm"
+                          : "bg-surface border-border-subtle text-text-muted hover:text-text-primary hover:bg-surface/80"
                       }`}
                     >
-                      ⬜ LATAR PUTIH
+                      <span className="w-3 h-3 rounded-full bg-white border border-neutral-300 shadow-sm shrink-0" />
+                      <span>Latar Putih</span>
                     </button>
                     <button
                       type="button"
                       onClick={() => setBgTarget("black")}
                       aria-pressed={bgTarget === "black"}
-                      className={`py-1.5 rounded-lg border text-[10px] font-mono font-bold transition-all ${
+                      className={`flex items-center justify-center gap-2 py-2 px-3 rounded-xl border text-xs font-sans font-semibold transition-all cursor-pointer ${
                         bgTarget === "black"
-                          ? "bg-brand-accent/20 border-brand-accent text-brand-accent"
-                          : "bg-surface border-border-subtle text-text-muted hover:text-text-primary"
+                          ? "bg-brand-accent/15 border-brand-accent text-brand-accent shadow-sm"
+                          : "bg-surface border-border-subtle text-text-muted hover:text-text-primary hover:bg-surface/80"
                       }`}
                     >
-                      ⬛ LATAR HITAM
+                      <span className="w-3 h-3 rounded-full bg-neutral-900 border border-neutral-700 shadow-sm shrink-0" />
+                      <span>Latar Hitam</span>
                     </button>
                   </div>
                   <div>
-                    <div className="flex justify-between text-[10px] font-mono text-text-muted mb-1">
-                      <span className="font-bold">Toleransi Pembersihan</span>
-                      <span className="text-text-primary font-bold">{bgTolerance}</span>
+                    <div className="flex justify-between text-xs font-sans text-text-muted mb-1">
+                      <span className="font-semibold">Toleransi Pembersihan</span>
+                      <span className="text-text-primary font-bold font-mono">{bgTolerance}</span>
                     </div>
                     <input
                       type="range"
@@ -571,10 +565,10 @@ export const SablonTabContent: React.FC<SablonTabContentProps> = ({
                       type="button"
                       disabled={isEnhancingImage}
                       onClick={handleRemoveWhiteBg}
-                      className="flex-1 flex items-center justify-center gap-1.5 py-1.5 px-2 rounded-lg bg-brand-accent text-canvas text-[10px] font-mono font-bold hover:brightness-110 transition-all disabled:opacity-50"
+                      className="flex-1 flex items-center justify-center gap-1.5 py-2 px-3 rounded-xl bg-brand-accent text-canvas text-xs font-sans font-bold hover:brightness-110 active:scale-95 transition-all disabled:opacity-50 cursor-pointer shadow-sm"
                     >
-                      {isEnhancingImage ? <Loader2 size={12} className="animate-spin" /> : <Wand2 size={12} />}
-                      <span>TERAPKAN</span>
+                      {isEnhancingImage ? <Loader2 size={13} className="animate-spin" /> : <Wand2 size={13} />}
+                      <span>Terapkan Hapus Latar</span>
                     </button>
                     {(() => {
                       try {
@@ -584,10 +578,11 @@ export const SablonTabContent: React.FC<SablonTabContentProps> = ({
                         <button
                           type="button"
                           onClick={() => void handleRestoreOriginal()}
-                          className="py-1.5 px-2 rounded-lg bg-surface border border-emerald-500/40 text-emerald-300 text-[10px] font-mono font-bold hover:bg-emerald-500/10 transition-all"
+                          className="flex items-center gap-1 py-2 px-3 rounded-xl bg-surface border border-border-subtle text-text-primary text-xs font-sans font-semibold hover:border-brand-accent transition-all cursor-pointer"
                           title="Pulihkan file upload awal"
                         >
-                          ↩ ASLI
+                          <RotateCcw size={12} />
+                          <span>Asli</span>
                         </button>
                       );
                     })()}
@@ -858,20 +853,20 @@ export const SablonTabContent: React.FC<SablonTabContentProps> = ({
             <FlaskConical size={16} />
           </div>
           <div className="min-w-0">
-            <span className="text-xs font-mono font-bold text-text-primary block truncate">
+            <span className="text-xs font-sans font-bold text-text-primary block truncate">
               Uji Fisika Kain & Simulasi 3D
             </span>
-            <span className="text-[10px] font-mono text-text-muted block truncate">
-              Angin, stretch elastisitas, senter & pencahayaan
+            <span className="text-[11px] font-sans text-text-muted block truncate">
+              Simulasi angin, kelenturan kain & pencahayaan
             </span>
           </div>
         </div>
         <button
           type="button"
           onClick={toggleClothLab}
-          className="px-3 py-1.5 rounded-xl bg-brand-accent/15 hover:bg-brand-accent hover:text-canvas border border-brand-accent/30 text-brand-accent text-xs font-mono font-bold transition-all shrink-0 cursor-pointer"
+          className="px-3.5 py-1.5 rounded-xl bg-brand-accent text-canvas font-sans text-xs font-bold transition-all shrink-0 cursor-pointer hover:brightness-110 active:scale-95 shadow-sm"
         >
-          BUKA LAB
+          Buka Lab
         </button>
       </div>
     </>

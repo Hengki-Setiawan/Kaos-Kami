@@ -47,6 +47,7 @@ export async function confirmOrderPaid(
   // Spawn ProductionTask PER DECAL (bukan per item — audit lengan/hood:
   // sebelumnya hanya decal pertama yang masuk produksi, sablon lengan/hood
   // tak terlihat admin). Item katalog tanpa desain = 1 task default.
+  let totalTasksSpawned = 0;
   for (const item of order.items) {
     const spawnOne = async (opts: {
       side: string;
@@ -162,7 +163,8 @@ export async function confirmOrderPaid(
     } catch (e) {
       console.warn("Failed to spawn decal tasks, fallback single", e);
     }
-    if (spawned === 0) {
+    const isReadyMadeCatalog = Boolean((item as any).productVariantId && !(item as any).designId);
+    if (spawned === 0 && !isReadyMadeCatalog) {
       // Fallback lama: 1 task default (item katalog / desain tanpa decal).
       await spawnOne({
         side: "front",
@@ -172,7 +174,24 @@ export async function confirmOrderPaid(
         masterUrl: null,
         label: "default",
       });
+      spawned++;
     }
+    totalTasksSpawned += spawned;
+  }
+
+  // Jalur Cepat E-Commerce: Jika semua item produk jadi tanpa sablon kustom (totalTasksSpawned === 0),
+  // pesanan bypass Kanban Workshop dan langsung siap kemas / jemput kurir (READY_TO_SHIP).
+  if (totalTasksSpawned === 0 && order.items.length > 0) {
+    await db
+      .update(Order)
+      .set({ status: "READY_TO_SHIP" })
+      .where(eq(Order.id, order.id));
+    await db.insert(OrderStatusEvent).values({
+      id: nanoid(),
+      orderId: order.id,
+      status: "READY_TO_SHIP",
+      note: "Pesanan Produk Jadi E-Commerce: Jalur cepat langsung Siap Kemas dan Kirim (tanpa antrean sablon DTF).",
+    });
   }
 
   // Kurangi stok varian katalog HANYA bila cukup (anti oversell diam-diam).

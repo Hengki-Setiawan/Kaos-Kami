@@ -899,9 +899,9 @@ export const CustomizerDrawer: React.FC = () => {
       } catch {}
       const label = bgTarget === "white" ? "putih" : "hitam";
       const downBadge = srcW > 0 && wasBgDownscaled(srcW, srcH)
-        ? ` ⚠️ Master turun resolusi ke ${BG_MAX_SIDE}px (cap aman HP).`
+        ? ` Master turun resolusi ke ${BG_MAX_SIDE}px (cap aman HP).`
         : "";
-      setEnhancementMessage(`✨ Background ${label} berhasil dihilangkan (Transparan, tepi choke 1px).${downBadge}`);
+      setEnhancementMessage(`Background ${label} berhasil dihilangkan (Transparan, tepi choke 1px).${downBadge}`);
       setTimeout(() => setEnhancementMessage(null), 5000);
     } catch (err: any) {
       setEnhancementMessage("Gagal menghapus background: " + (err?.message || "Kesalahan"));
@@ -956,7 +956,7 @@ export const CustomizerDrawer: React.FC = () => {
           const s = await getImageSize(data.enhancedUrl);
           updateDecal(activeDecal.id, { printPx: { w: s.w, h: s.h } });
         } catch {}
-        setEnhancementMessage("🔍 Resolusi grafis berhasil dipertajam untuk sablon DTF!");
+        setEnhancementMessage("Resolusi grafis berhasil dipertajam untuk sablon presisi!");
         setTimeout(() => setEnhancementMessage(null), 3000);
       }
     } catch (err: any) {
@@ -992,14 +992,14 @@ export const CustomizerDrawer: React.FC = () => {
   const openCheckoutWithMasterGate = () => {
     if (isCurrentVariantOut) {
       setEnhancementMessage(
-        `⚠️ Stok varian ${currentApparelInfo.name} (${activeColorName} - Ukuran ${selectedSize}) sedang habis di workshop. Silakan pilih warna atau ukuran lain.`
+        `Stok varian ${currentApparelInfo.name} (${activeColorName} - Ukuran ${selectedSize}) sedang habis di workshop. Silakan pilih warna atau ukuran lain.`
       );
       setTimeout(() => setEnhancementMessage(null), 6000);
       return;
     }
     if (unsavedMasters.length > 0 && !masterWarnDismissed) {
       setEnhancementMessage(
-        `⚠️ Master belum tersimpan (${unsavedMasters.length} decal masih base64 lokal): ${unsavedMasters.slice(0, 3).map((m) => m.name).join(", ")}${unsavedMasters.length > 3 ? "…" : ""}. Kualitas tetap master penuh saat checkout. Klik PESAN sekali lagi untuk lanjut.`
+        `Master belum tersimpan (${unsavedMasters.length} decal masih base64 lokal): ${unsavedMasters.slice(0, 3).map((m) => m.name).join(", ")}${unsavedMasters.length > 3 ? "…" : ""}. Kualitas tetap master penuh saat checkout. Klik PESAN sekali lagi untuk lanjut.`
       );
       setMasterWarnDismissed(true);
       setTimeout(() => setEnhancementMessage(null), 8000);
@@ -1273,14 +1273,14 @@ export const CustomizerDrawer: React.FC = () => {
             // 🟡 Safari/mechanical blocker: jujur tanpa crash, lanjut stream asli.
             console.warn("Watermark video tamu dilewati:", wrapped.reason);
             setEnhancementMessage(
-              `⚠️ Watermark tamu dilewati (${wrapped.reason}). Video tetap tersimpan tanpa watermark. Masuk untuk versi bersih.`
+              `Watermark tamu dilewati (${wrapped.reason}). Video tetap tersimpan tanpa watermark. Masuk untuk versi bersih.`
             );
             setTimeout(() => setEnhancementMessage(null), 5000);
           }
         } catch (e) {
           console.warn("Kompositor watermark tamu gagal, lanjut tanpa watermark:", e);
           setEnhancementMessage(
-            "⚠️ Kompositor watermark gagal. Video tetap tersimpan tanpa watermark."
+            "Kompositor watermark gagal. Video tetap tersimpan tanpa watermark."
           );
           setTimeout(() => setEnhancementMessage(null), 5000);
         }
@@ -1293,8 +1293,8 @@ export const CustomizerDrawer: React.FC = () => {
         await export360Gif(activeStream, totalMs, onTick);
         setEnhancementMessage(
           guestWatermarked
-            ? "✅ GIF 360° tersimpan (Preview Tamu ber-watermark). Masuk untuk versi bersih."
-            : "✅ GIF 360° tersimpan, siap dibagikan ke medsos."
+            ? "GIF 360° tersimpan (Preview Tamu ber-watermark). Masuk untuk versi bersih."
+            : "GIF 360° tersimpan, siap dibagikan ke medsos."
         );
       } else {
         // Coba mediabunny terlebih dahulu bila browser mendukung; jika gagal/tak didukung, fallback ke native MediaRecorder
@@ -1317,8 +1317,8 @@ export const CustomizerDrawer: React.FC = () => {
 
         setEnhancementMessage(
           guestWatermarked
-            ? `✅ Video 360° ${format.toUpperCase()} tersimpan (Preview Tamu ber-watermark), siap dibagikan.`
-            : `✅ Video 360° ${format.toUpperCase()} tersimpan, siap dibagikan.`
+            ? `Video 360° ${format.toUpperCase()} tersimpan (Preview Tamu ber-watermark), siap dibagikan.`
+            : `Video 360° ${format.toUpperCase()} tersimpan, siap dibagikan.`
         );
       }
       setTimeout(() => setEnhancementMessage(null), 5000);
@@ -1366,8 +1366,8 @@ export const CustomizerDrawer: React.FC = () => {
       link.click();
       setEnhancementMessage(
         !session
-          ? `✅ Gambar mockup (${viewName}) berhasil diunduh (Mode Tamu). Masuk untuk versi 2K bersih tanpa watermark!`
-          : `✅ Gambar mockup HD (${viewName}) bersih berhasil diunduh.`
+          ? `Gambar mockup (${viewName}) berhasil diunduh (Mode Tamu). Masuk untuk versi 2K bersih tanpa watermark!`
+          : `Gambar mockup HD (${viewName}) bersih berhasil diunduh.`
       );
       setTimeout(() => setEnhancementMessage(null), 4000);
     } catch (err) {
@@ -1402,7 +1402,7 @@ export const CustomizerDrawer: React.FC = () => {
     const settled = await waitForCameraPresetSettled(2000);
     await new Promise<void>((r) => requestAnimationFrame(() => requestAnimationFrame(() => r())));
     if (!settled) {
-      setEnhancementMessage("⚠️ Kamera belum settle: hasil mungkin dari sudut lama.");
+      setEnhancementMessage("Kamera belum settle: hasil mungkin dari sudut lama.");
       setTimeout(() => setEnhancementMessage(null), 3000);
     }
     await doExportMockupImage(viewName);
@@ -1413,7 +1413,7 @@ export const CustomizerDrawer: React.FC = () => {
     const settled = await waitForCameraPresetSettled(2000);
     await new Promise<void>((r) => requestAnimationFrame(() => requestAnimationFrame(() => r())));
     if (!settled) {
-      setEnhancementMessage("⚠️ Kamera belum settle: hasil mungkin dari sudut lama.");
+      setEnhancementMessage("Kamera belum settle: hasil mungkin dari sudut lama.");
       setTimeout(() => setEnhancementMessage(null), 3000);
     }
     await doExportMockupImage(viewName);
@@ -1553,7 +1553,7 @@ export const CustomizerDrawer: React.FC = () => {
           title: "Mockup Kaos Kami",
           text: shareText,
         });
-        setEnhancementMessage(deepLink ? "✅ Mockup + tautan desain dibagikan." : "✅ Mockup dibagikan (tautan desain tak tersedia: offline/tamu).");
+        setEnhancementMessage(deepLink ? "Mockup + tautan desain dibagikan." : "Mockup dibagikan (tautan desain tak tersedia: offline/tamu).");
       } else {
         // Fallback: unduh PNG (perilaku lama, tetap berguna di desktop).
         handleExportPNG("bagikan");
@@ -1593,7 +1593,7 @@ export const CustomizerDrawer: React.FC = () => {
       }
     };
     // Tamu tetap bisa: simpanan tamu tersimpan di server (userId null) + lokal.
-    setEnhancementMessage("⏳ Menyiapkan tautan desain…");
+    setEnhancementMessage("Menyiapkan tautan desain…");
     void (async () => {
       try {
         const localId = saveCurrentDesign(undefined, undefined);
@@ -1607,7 +1607,7 @@ export const CustomizerDrawer: React.FC = () => {
         }
         const link = `${window.location.origin}/studio?designId=${encodeURIComponent(did)}`;
         await copyText(link, `Tautan: ${link}`);
-        setEnhancementMessage(sync.serverId ? "✅ Tautan desain disalin: penerima membuka karya yg sama." : "✅ Tautan disalin (berlaku di perangkat ini; login untuk lintas perangkat).");
+        setEnhancementMessage(sync.serverId ? "Tautan desain disalin: penerima membuka karya yg sama." : "Tautan disalin (berlaku di perangkat ini; login untuk lintas perangkat).");
         setTimeout(() => setEnhancementMessage(null), 4000);
       } catch {
         setEnhancementMessage("Gagal siapkan tautan. Salin manual dari address bar.");
@@ -1651,14 +1651,14 @@ export const CustomizerDrawer: React.FC = () => {
     setActiveTab("options");
     setOptionSubMode("saved");
     // Sinkron server: tampilkan status KUOTA jujur (server maks 5/akun).
-    setEnhancementMessage("⏳ Menyimpan ke server…");
+    setEnhancementMessage("Menyimpan ke server…");
     void syncDesignToServer(localId).then((r) => {
       if (r.quotaExceeded) {
         setEnhancementMessage("Koleksi cloud Anda sudah penuh (5/5): tersimpan lokal saja. Hapus desain lama di dashboard untuk memberi ruang, ya.");
       } else if (r.error) {
-        setEnhancementMessage("⚠️ Tersimpan lokal; sinkron server gagal. Coba lagi nanti.");
+        setEnhancementMessage("Tersimpan lokal; sinkron server gagal. Coba lagi nanti.");
       } else {
-        setEnhancementMessage("✅ Desain berhasil disimpan ke koleksi Anda.");
+        setEnhancementMessage("Desain berhasil disimpan ke koleksi Anda.");
       }
       setTimeout(() => setEnhancementMessage(null), 4000);
     });
@@ -1745,8 +1745,10 @@ export const CustomizerDrawer: React.FC = () => {
       {/* Collapsed Floating Recovery Pill - Hanya aktif saat di Studio Mode, tidak pernah di Story Mode */}
       {isDrawerCollapsed && !isHideWebsiteUI && viewMode === "studio" && (
         <div
-          className={`fixed bottom-6 z-50 pointer-events-auto transition-all left-4 right-4 sm:left-auto ${
-            drawerPosition === "left" ? "sm:left-6 sm:right-auto" : "sm:right-6"
+          className={`fixed z-40 pointer-events-auto transition-all ${
+            drawerPosition === "left"
+              ? "left-4 sm:left-6 right-auto bottom-20 md:bottom-22"
+              : "right-4 sm:right-6 left-auto bottom-20 md:bottom-22"
           }`}
         >
           <button
@@ -1755,7 +1757,7 @@ export const CustomizerDrawer: React.FC = () => {
               e.stopPropagation();
               setIsDrawerCollapsed(false);
             }}
-            className="w-full sm:w-auto flex items-center justify-between sm:justify-start space-x-3 px-4 py-3 rounded-2xl glass-panel-elevated shadow-2xl border-2 border-brand-accent text-text-primary hover:bg-brand-accent/10 active:scale-95 transition-all group ring-4 ring-brand-accent/20 cursor-pointer"
+            className="w-full sm:w-auto flex items-center justify-between sm:justify-start space-x-3 px-4 py-2.5 rounded-2xl glass-panel-elevated shadow-2xl border-2 border-brand-accent text-text-primary hover:bg-brand-accent/10 active:scale-95 transition-all group ring-4 ring-brand-accent/20 cursor-pointer"
             title="Klik untuk membuka kembali menu kustomisasi"
             aria-label="Buka Menu Kustomisasi"
           >
@@ -1764,9 +1766,9 @@ export const CustomizerDrawer: React.FC = () => {
                 className="w-4 h-4 rounded-full border border-white/40 shadow-sm shrink-0"
                 style={{ backgroundColor: selectedColor }}
               />
-              <span className="font-sans font-semibold text-xs uppercase tracking-wider text-text-primary flex items-center gap-1.5">
+              <span className="font-sans font-semibold text-xs tracking-wider text-text-primary flex items-center gap-1.5">
                 <SlidersHorizontal size={13} className="text-brand-accent shrink-0" />
-                <span>BUKA MENU · {currentApparelInfo.name}</span>
+                <span>Kustomisasi · {currentApparelInfo.name}</span>
               </span>
             </div>
             <div className="flex items-center space-x-2">
@@ -2058,7 +2060,7 @@ export const CustomizerDrawer: React.FC = () => {
                 : "tersimpan";
             const ukuran =
               quality.pxW > 0 && quality.pxH > 0 ? ` (${quality.pxW}×${quality.pxH}px)` : "";
-            setEnhancementMessage(`✅ Gambar tersimpan: ${label}${ukuran}.`);
+            setEnhancementMessage(`Gambar tersimpan: ${label}${ukuran}.`);
             setTimeout(() => setEnhancementMessage(null), 5000);
           }}
         />

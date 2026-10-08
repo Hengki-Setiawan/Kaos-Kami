@@ -130,8 +130,8 @@ export const ExportStudioModal: React.FC = () => {
 
       setFeedbackMsg(
         !session
-          ? "✅ Mockup berhasil diunduh (Mode Tamu dengan Watermark Halus)."
-          : "✅ Mockup Ultra HD 2K Bersih berhasil diunduh!"
+          ? "Mockup berhasil diunduh (Mode Tamu dengan Watermark Halus)."
+          : "Mockup Ultra HD 2K Bersih berhasil diunduh!"
       );
       setTimeout(() => setFeedbackMsg(null), 4000);
     } catch (err) {

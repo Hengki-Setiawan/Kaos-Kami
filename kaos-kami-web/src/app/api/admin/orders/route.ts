@@ -78,9 +78,17 @@ export async function GET(req: NextRequest) {
       columns: {
         id: true, orderNumber: true, status: true, totalIdr: true,
         deliveryMethod: true, trackingNumber: true, createdAt: true,
-        reviewNote: true, reviewedAt: true,
+        reviewNote: true, reviewedAt: true, courierNotes: true,
       },
-      with: { user: { columns: { id: true, name: true, phoneNumber: true } } },
+      with: {
+        user: { columns: { id: true, name: true, phoneNumber: true, email: true } },
+        shippingAddress: true,
+        items: {
+          with: {
+            productVariant: true,
+          },
+        },
+      },
     });
     const hasMore = rows.length > limitRaw;
     const page = rows.slice(0, limitRaw);
@@ -90,10 +98,7 @@ export async function GET(req: NextRequest) {
       : null;
     return NextResponse.json({
       success: true,
-      orders: page.map((o: any) => ({
-        ...o,
-        user: o.user ? { ...o.user, phoneNumber: maskPhone(o.user.phoneNumber || "") } : o.user,
-      })),
+      orders: page,
       nextCursor,
       hasMore,
     });

@@ -171,16 +171,58 @@ export const Footer: React.FC = () => {
           </div>
         </div>
 
-        {/* Bottom Bar: Clean & Minimal */}
-        <div className="pt-6 border-t border-border-subtle flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-text-muted">
+        {/* Payment Partner & Integrasi Resmi iPaymu */}
+        <div className="pt-6 pb-2 border-t border-border-subtle flex flex-col lg:flex-row items-center justify-between gap-4">
+          <div className="flex flex-wrap items-center gap-3.5">
+            <div className="text-left">
+              <span className="text-[10px] font-bold text-text-muted uppercase tracking-wider block">
+                Mitra Resmi Pembayaran Digital:
+              </span>
+              <span className="text-xs font-semibold text-text-primary">
+                iPaymu Payment Gateway
+              </span>
+            </div>
+            <a
+              href="https://ipaymu.com"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-3 p-2 px-4 rounded-2xl bg-white dark:bg-white/95 border border-border-subtle hover:border-brand-accent/60 shadow-md transition-all group"
+              title="Didukung Resmi oleh PT Inti Prima Mandiri Utama (iPaymu Payment Gateway Indonesia)"
+            >
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src="/brand/ipaymu-color.png"
+                alt="iPaymu Payment Gateway Indonesia"
+                className="h-8 sm:h-9 w-auto object-contain transition-transform group-hover:scale-105"
+              />
+              <span className="text-[11px] font-bold text-slate-800 border-l border-slate-200 pl-2.5 hidden sm:inline-block">
+                Verified Gateway
+              </span>
+            </a>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-2 text-[11px] text-text-muted">
+            <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-black/5 dark:bg-white/5 border border-border-subtle font-medium shadow-xs">
+              <ShieldCheck size={14} className="text-emerald-500 shrink-0" />
+              <span>QRIS Bebas Biaya Admin</span>
+            </span>
+            <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-black/5 dark:bg-white/5 border border-border-subtle font-medium shadow-xs">
+              <span>Virtual Account Multi-Bank</span>
+            </span>
+            <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border border-emerald-500/30 font-bold text-[10px] shadow-xs">
+              ✓ Terlisensi Bank Indonesia
+            </span>
+          </div>
+        </div>
+
+        {/* Bottom Bar: Copyright */}
+        <div className="pt-4 border-t border-border-subtle/50 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-text-muted">
           <p suppressHydrationWarning>
             © {new Date().getFullYear()} Kaos Kami Makassar. Seluruh hak cipta dilindungi.
           </p>
-
-          <div className="flex items-center gap-2 text-[11px]">
-            <ShieldCheck size={14} className="text-emerald-500 shrink-0" />
-            <span>Didukung iPaymu Payment Gateway · QRIS &amp; Transfer Bank Resmi</span>
-          </div>
+          <p className="text-[11px] text-text-muted">
+            Platform 3D Interactive Apparel E-Commerce & DTF Sablon Platform · Kota Makassar
+          </p>
         </div>
       </div>
     </footer>

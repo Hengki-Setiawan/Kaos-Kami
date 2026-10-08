@@ -97,14 +97,14 @@ export const ClothLabModal: React.FC = () => {
               <FlaskConical size={20} />
             </div>
             <div>
-              <h3 id="cloth-lab-title" className="text-sm sm:text-base font-bold text-text-primary font-mono tracking-tight flex items-center gap-2">
-                <span>LABORATORIUM KAIN & SIMULASI 3D</span>
-                <span className="px-2 py-0.5 rounded-full text-[9px] font-mono font-bold bg-brand-accent text-canvas">
-                  STUDIO LAB
+              <h3 id="cloth-lab-title" className="text-sm sm:text-base font-bold text-text-primary font-sans tracking-tight flex items-center gap-2">
+                <span>Laboratorium Kain &amp; Simulasi 3D</span>
+                <span className="px-2 py-0.5 rounded-full text-[10px] font-sans font-bold bg-brand-accent text-canvas">
+                  Studio Lab
                 </span>
               </h3>
-              <p className="text-[11px] text-text-muted font-mono mt-0.5">
-                {APPAREL_CATALOG[activeApparel]?.name ?? "Apparel 3D"} · {activeColorName} · {decals.length} Sablon Terpasang
+              <p className="text-xs text-text-muted font-sans mt-0.5">
+                {APPAREL_CATALOG[activeApparel]?.name ?? "Pakaian 3D"} · {activeColorName} · {decals.length} Sablon Terpasang
               </p>
             </div>
           </div>
@@ -112,26 +112,26 @@ export const ClothLabModal: React.FC = () => {
           <button
             type="button"
             onClick={() => setIsClothLabOpen(false)}
-            className="w-8 h-8 rounded-full bg-surface border border-border-subtle text-text-muted hover:text-text-primary hover:bg-surface/80 flex items-center justify-center transition-all cursor-pointer"
+            className="w-8 h-8 rounded-full bg-surface border border-border-subtle text-text-muted hover:text-text-primary hover:bg-surface/80 flex items-center justify-center transition-all cursor-pointer shadow-sm"
             aria-label="Tutup Lab Kain"
           >
-            <X size={16} />
+            <X size={15} />
           </button>
         </div>
 
         {/* Section Tabs */}
         <div className="flex border-b border-border-subtle px-4 py-2 bg-surface/40 gap-1 overflow-x-auto no-scrollbar">
           {[
-            { id: "physics", label: "FISIKA KAIN", icon: Sparkles },
-            { id: "inspect", label: "INSPEKSI 3D", icon: Eye },
-            { id: "camera", label: "KAMERA & SUDUT", icon: Compass },
-            { id: "lighting", label: "PENCAHAYAAN", icon: Sun },
+            { id: "physics", label: "Fisika Kain", icon: Sparkles },
+            { id: "inspect", label: "Inspeksi 3D", icon: Eye },
+            { id: "camera", label: "Sudut Kamera", icon: Compass },
+            { id: "lighting", label: "Pencahayaan", icon: Sun },
           ].map(({ id, label, icon: Icon }) => (
             <button
               key={id}
               type="button"
               onClick={() => setActiveSection(id as any)}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl font-mono text-xs font-bold transition-all whitespace-nowrap cursor-pointer ${
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl font-sans text-xs font-semibold transition-all whitespace-nowrap cursor-pointer ${
                 activeSection === id
                   ? "bg-brand-accent text-canvas shadow-sm"
                   : "text-text-muted hover:text-text-primary hover:bg-surface/60"
@@ -149,8 +149,8 @@ export const ClothLabModal: React.FC = () => {
           {activeSection === "physics" && (
             <div className="space-y-4">
               <div className="p-3.5 rounded-2xl bg-brand-accent/5 border border-brand-accent/20">
-                <p className="text-xs text-text-muted leading-relaxed">
-                  Uji ketahanan kain dan sablon DTF secara interaktif: simulasi hembusan angin (*wind tunnel*), uji elastisitas regangan kain (*tensile stretch*), dan inspeksi pantulan grazing dengan senter 3D.
+                <p className="text-xs text-text-muted font-sans leading-relaxed">
+                  Uji ketahanan kain dan sablon secara interaktif: simulasi hembusan angin (*wind tunnel*), kelenturan tarikan bahan (*tensile stretch*), dan pantulan pencahayaan dengan senter 3D.
                 </p>
               </div>
               <TestLabControls />
@@ -161,8 +161,8 @@ export const ClothLabModal: React.FC = () => {
           {activeSection === "inspect" && (
             <div className="space-y-4">
               <div className="p-3.5 rounded-2xl bg-brand-accent/5 border border-brand-accent/20">
-                <p className="text-xs text-text-muted leading-relaxed">
-                  Periksa presisi cetak DTF melalui layer inspeksi teknis: garis laser simetri dada, visualisasi bleed area, kilau glaze tinta, dan pratinjau manekin 3D.
+                <p className="text-xs text-text-muted font-sans leading-relaxed">
+                  Periksa presisi sablon melalui layer inspeksi teknis: garis laser simetri dada, visualisasi area sablon, kilau tinta, dan pratinjau manekin 3D.
                 </p>
               </div>
               <InspectControls />
@@ -174,9 +174,9 @@ export const ClothLabModal: React.FC = () => {
             <div className="space-y-4">
               <div className="p-4 rounded-2xl glass-panel border border-border-subtle space-y-3.5 shadow-sm">
                 <div className="flex justify-between items-center pb-2 border-b border-border-subtle/60">
-                  <span className="text-xs font-mono font-bold text-text-primary flex items-center space-x-1.5">
+                  <span className="text-xs font-sans font-bold text-text-primary flex items-center space-x-1.5">
                     <Compass size={14} className="text-brand-accent" />
-                    <span>UJI SUDUT PANDANG (360°)</span>
+                    <span>Uji Sudut Pandang (360°)</span>
                   </span>
                   <div className="flex items-center space-x-2">
                     <span className="text-xs font-mono font-bold text-brand-accent bg-brand-accent/10 px-2 py-0.5 rounded-md border border-brand-accent/20">
@@ -188,16 +188,16 @@ export const ClothLabModal: React.FC = () => {
                 {/* 4 Quick Angle Presets */}
                 <div className="grid grid-cols-4 gap-1.5">
                   {[
-                    { label: "DEPAN", deg: 0 },
-                    { label: "SERONG", deg: 45 },
-                    { label: "SAMPING", deg: 90 },
-                    { label: "BELAKANG", deg: 180 },
+                    { label: "Depan", deg: 0 },
+                    { label: "Serong", deg: 45 },
+                    { label: "Samping", deg: 90 },
+                    { label: "Belakang", deg: 180 },
                   ].map(({ label, deg }) => (
                     <button
                       key={label}
                       type="button"
                       onClick={() => setModelRotY(deg)}
-                      className={`py-2 px-1 rounded-xl font-mono text-[10px] font-bold border transition-all truncate text-center cursor-pointer ${
+                      className={`py-2 px-1 rounded-xl font-sans text-xs font-semibold border transition-all truncate text-center cursor-pointer ${
                         modelRotY === deg
                           ? "bg-brand-accent text-canvas border-brand-accent shadow-sm scale-[1.02]"
                           : "bg-surface/70 border-border-subtle text-text-muted hover:text-text-primary hover:bg-surface"
@@ -222,15 +222,15 @@ export const ClothLabModal: React.FC = () => {
 
                 {/* Skala Zoom Mockup */}
                 <div className="pt-2 border-t border-border-subtle/50 space-y-1.5">
-                  <div className="flex justify-between text-[10px] font-mono text-text-muted mb-1">
+                  <div className="flex justify-between text-xs font-sans text-text-muted mb-1">
                     <span className="flex items-center space-x-1">
-                      <ZoomIn size={11} /> <span>SKALA ZOOM MOCKUP</span>
+                      <ZoomIn size={12} /> <span>Skala Zoom Mockup</span>
                     </span>
                     <button
                       type="button"
                       onClick={() => setModelScale(1.0)}
                       title="Klik untuk reset zoom ke 100%"
-                      className="font-bold text-text-primary hover:text-brand-accent transition-colors cursor-pointer"
+                      className="font-bold font-mono text-text-primary hover:text-brand-accent transition-colors cursor-pointer"
                     >
                       {Math.round(modelScale * 100)}%
                     </button>
@@ -254,15 +254,15 @@ export const ClothLabModal: React.FC = () => {
           {activeSection === "lighting" && (
             <div className="p-4 rounded-2xl glass-panel border border-border-subtle space-y-4 shadow-sm">
               <div className="flex justify-between items-center pb-2 border-b border-border-subtle/60">
-                <span className="text-xs font-mono font-bold text-text-primary flex items-center space-x-1.5">
+                <span className="text-xs font-sans font-bold text-text-primary flex items-center space-x-1.5">
                   <Sun size={14} className="text-brand-accent" />
-                  <span>SUASANA PENCAHAYAAN STUDIO</span>
+                  <span>Suasana Pencahayaan Studio</span>
                 </span>
               </div>
 
               {/* Pilihan Mood Pencahayaan */}
               <div className="space-y-1.5">
-                <span className="block text-[10px] font-sans text-text-muted font-bold uppercase">PRESET CAHAYA:</span>
+                <span className="block text-xs font-sans text-text-muted font-semibold uppercase tracking-wider">Preset Cahaya:</span>
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                   {STUDIO_MOODS.map((m) => (
                     <button
@@ -275,8 +275,8 @@ export const ClothLabModal: React.FC = () => {
                           : "bg-surface border-border-subtle text-text-muted hover:text-text-primary hover:bg-surface/80"
                       }`}
                     >
-                      <span className="block text-[11px] font-sans font-bold uppercase truncate">{m.label}</span>
-                      <span className="block text-[9px] text-text-muted truncate mt-0.5">{m.desc}</span>
+                      <span className="block text-xs font-sans font-bold uppercase truncate">{m.label}</span>
+                      <span className="block text-[10px] text-text-muted truncate mt-0.5">{m.desc}</span>
                     </button>
                   ))}
                 </div>
@@ -285,19 +285,19 @@ export const ClothLabModal: React.FC = () => {
               {/* Mode Kerangka (Wireframe) */}
               <div className="pt-3 border-t border-border-subtle/50 flex justify-between items-center">
                 <div>
-                  <span className="text-xs font-mono text-text-primary font-bold block">MODE KERANGKA (WIREFRAME)</span>
-                  <span className="text-[10px] text-text-muted block">Inspeksi topologi mesh 3D</span>
+                  <span className="text-xs font-sans text-text-primary font-bold block">Mode Kerangka (Wireframe)</span>
+                  <span className="text-[11px] font-sans text-text-muted block">Inspeksi topologi mesh 3D</span>
                 </div>
                 <button
                   type="button"
                   onClick={toggleWireframe}
-                  className={`px-4 py-2 rounded-xl font-mono text-xs font-bold transition-all cursor-pointer ${
+                  className={`px-4 py-2 rounded-xl font-sans text-xs font-bold transition-all cursor-pointer ${
                     isWireframe
                       ? "bg-brand-accent text-canvas shadow-sm"
                       : "bg-surface text-text-muted border border-border-subtle hover:text-text-primary"
                   }`}
                 >
-                  {isWireframe ? "AKTIF" : "NONAKTIF"}
+                  {isWireframe ? "Aktif" : "Nonaktif"}
                 </button>
               </div>
             </div>
@@ -305,14 +305,14 @@ export const ClothLabModal: React.FC = () => {
         </div>
 
         {/* Footer */}
-        <div className="px-5 py-3 border-t border-border-subtle bg-surface/80 flex justify-between items-center text-[11px] font-mono text-text-muted">
+        <div className="px-5 py-3 border-t border-border-subtle bg-surface/80 flex justify-between items-center text-xs font-sans text-text-muted">
           <span>Tekan ESC untuk menutup</span>
           <button
             type="button"
             onClick={() => setIsClothLabOpen(false)}
-            className="px-4 py-1.5 rounded-xl bg-surface border border-border-subtle hover:bg-surface/80 text-text-primary font-bold cursor-pointer transition-all"
+            className="px-4 py-1.5 rounded-xl bg-brand-accent text-canvas font-sans text-xs font-bold hover:brightness-110 active:scale-95 cursor-pointer transition-all shadow-sm"
           >
-            SELESAI
+            Selesai
           </button>
         </div>
       </div>

@@ -2,7 +2,7 @@
 
 import React, { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Plus, X, Sparkles, Check, AlertCircle } from "lucide-react";
+import { Plus, X, Sparkles, Check, AlertCircle, Zap } from "lucide-react";
 
 interface CategoryOption {
   id: string;
@@ -190,7 +190,7 @@ export function AddProductModal({ categories }: { categories: CategoryOption[] }
             {successMsg && (
               <div className="p-3.5 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 flex items-center gap-2">
                 <Check size={15} className="shrink-0" />
-                <span>✓ Produk dan seluruh variasi ukuran berhasil disimpan ke database!</span>
+                <span>Produk dan seluruh variasi ukuran berhasil disimpan ke database!</span>
               </div>
             )}
 
@@ -288,7 +288,7 @@ export function AddProductModal({ categories }: { categories: CategoryOption[] }
                             : "bg-surface border-border-subtle text-text-muted opacity-60"
                         }`}
                       >
-                        {sz.enabled ? `✓ ${sz.size}` : `+ ${sz.size}`}
+                        {sz.enabled ? sz.size : `+ ${sz.size}`}
                       </button>
                     ))}
                   </div>
@@ -296,8 +296,8 @@ export function AddProductModal({ categories }: { categories: CategoryOption[] }
 
                 {/* Mass Apply Bar */}
                 <div className="p-2.5 rounded-xl bg-surface border border-border-subtle flex flex-col sm:flex-row items-center gap-2 text-[11px]">
-                  <span className="font-bold text-text-primary text-[10px] shrink-0 uppercase">
-                    ⚡ Terapkan Massal:
+                  <span className="font-bold text-text-primary text-[10px] shrink-0 uppercase flex items-center gap-1">
+                    <Zap size={11} className="text-brand-accent" /> Terapkan Massal:
                   </span>
                   <div className="flex items-center gap-1.5 w-full sm:w-auto">
                     <span className="text-text-muted text-[10px]">Harga Rp</span>
@@ -453,7 +453,7 @@ export function AddProductModal({ categories }: { categories: CategoryOption[] }
                       : "bg-surface border-border-subtle text-text-muted"
                   }`}
                 >
-                  {isPreDesigned ? "★ EDISI GRAFIS MOCKUP" : "KAOS POLOS BASIC"}
+                  {isPreDesigned ? "EDISI GRAFIS MOCKUP" : "KAOS POLOS BASIC"}
                 </button>
               </div>
 

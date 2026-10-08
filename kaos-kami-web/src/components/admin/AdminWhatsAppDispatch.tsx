@@ -58,7 +58,7 @@ export function AdminWhatsAppDispatch({
     },
     {
       id: "courier_depart",
-      title: "🛵 Kurir Tim Berangkat (Antar Gratis Makassar)",
+      title: "Kurir Tim Berangkat (Antar Gratis Makassar)",
       message: `Halo Kak *${recipientName}*! Paket Kaos Kami untuk pesanan *#${orderNumber}* sedang dibawa oleh kurir workshop menuju lokasi Anda. Mohon pastikan nomor HP aktif ya Kak. Terima kasih!`,
     },
     {

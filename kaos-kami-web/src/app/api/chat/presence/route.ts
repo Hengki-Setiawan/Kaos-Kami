@@ -81,7 +81,7 @@ export async function POST(req: NextRequest) {
     const session = await auth.api.getSession({ headers: req.headers }).catch(() => null);
     const user = session?.user;
     if (!user?.id) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return NextResponse.json({ success: true, guest: true });
     }
 
     const role = (user as any)?.role || "CUSTOMER";

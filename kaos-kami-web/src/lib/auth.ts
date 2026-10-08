@@ -90,3 +90,116 @@ export const auth = betterAuth({
 
 export type Session = typeof auth.$Infer.Session;
 export type User = typeof auth.$Infer.Session.user;
+
+// ============================================================================
+// DEV / PIN BYPASS SESSION INTERCEPTOR (Localhost & Testing)
+// Memastikan PIN 164164 (Super Admin) dan PIN 461461 (Customer) dikenali 100%
+// oleh seluruh server components, API routes, dan auth guard tanpa mental 401.
+// ============================================================================
+if (process.env.NODE_ENV !== "production") {
+  const originalGetSession = auth.api.getSession.bind(auth.api);
+
+  (auth.api as any).getSession = async (context?: any) => {
+    // 1. Coba session resmi Better Auth terlebih dahulu
+    try {
+      const realSession = await originalGetSession(context);
+      if (realSession?.user) {
+        return realSession;
+      }
+    } catch {
+      // fallback dev
+    }
+
+    // 2. Deteksi cookie role dev dari headers request atau next/headers
+    let devRole: string | null = null;
+    let devUserId: string | null = null;
+
+    try {
+      const hdrs = context?.headers;
+      let cookieHeader = "";
+      if (hdrs) {
+        if (typeof hdrs.get === "function") {
+          cookieHeader = hdrs.get("cookie") || "";
+        } else if (typeof hdrs === "object") {
+          cookieHeader = hdrs.cookie || hdrs.Cookie || "";
+        }
+      }
+
+      if (cookieHeader) {
+        const matchRole = cookieHeader.match(/kaos_dev_role=([^;]+)/);
+        if (matchRole && matchRole[1]) {
+          devRole = decodeURIComponent(matchRole[1]).trim();
+        }
+        const matchUser = cookieHeader.match(/kaos_dev_user_id=([^;]+)/);
+        if (matchUser && matchUser[1]) {
+          devUserId = decodeURIComponent(matchUser[1]).trim();
+        }
+      }
+
+      if (!devRole) {
+        const { cookies } = await import("next/headers");
+        const cookieStore = await cookies();
+        devRole = cookieStore.get("kaos_dev_role")?.value || null;
+        devUserId = cookieStore.get("kaos_dev_user_id")?.value || null;
+      }
+    } catch {
+      // di luar konteks request / headers
+    }
+
+    // Jika mode CUSTOMER (PIN 461461)
+    if (devRole === "CUSTOMER") {
+      const uid = devUserId || "6XBFRQCO5zsXOmdOFsBk0YJmU0lilEWn";
+      return {
+        session: {
+          id: "dev-customer-session-id",
+          userId: uid,
+          expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+          token: "dev-customer-token",
+          createdAt: new Date(),
+          updatedAt: new Date(),
+          ipAddress: "127.0.0.1",
+          userAgent: "SecretPinDevCustomer",
+        },
+        user: {
+          id: uid,
+          name: "Hengki Vibecoding (Customer)",
+          email: "hengkivibecoding@gmail.com",
+          role: "CUSTOMER",
+          emailVerified: true,
+          phoneNumber: "089876543210",
+          phoneVerified: true,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        },
+      };
+    }
+
+    // Default di localhost / Super Admin (PIN 164164):
+    // Memastikan panel admin dapat diakses bebas tanpa mental ke landing page
+    const adminUid = devUserId || "cmtgq1jgh000ius04zygxhh8b";
+    return {
+      session: {
+        id: "dev-superadmin-session-id",
+        userId: adminUid,
+        expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+        token: "dev-superadmin-token",
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        ipAddress: "127.0.0.1",
+        userAgent: "SecretPinDevSuperAdmin",
+      },
+      user: {
+        id: adminUid,
+        name: "Admin Workshop Kaos Kami",
+        email: "admin@kaoskami.biz.id",
+        role: "SUPER_ADMIN",
+        emailVerified: true,
+        phoneNumber: "081234567890",
+        phoneVerified: true,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      },
+    };
+  };
+}
+

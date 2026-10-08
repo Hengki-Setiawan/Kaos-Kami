@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { headers } from "next/headers";
 import { and, count, eq, gte, like, lt, notInArray } from "drizzle-orm";
 import { db } from "@/lib/db";
-import { Order, OrderStatusEvent, ChatMessage } from "@/lib/drizzle-schema";
+import { Order, OrderStatusEvent, ChatMessage, OrderComplaint } from "@/lib/drizzle-schema";
 import {
   checkRateLimitAsync,
   getClientIp,
@@ -160,8 +160,8 @@ export async function GET(req: NextRequest) {
     safeCount(() =>
       db
         .select({ n: count() })
-        .from(OrderStatusEvent)
-        .where(like(OrderStatusEvent.note, "%[KOMPLAIN:%")),
+        .from(OrderComplaint)
+        .where(eq(OrderComplaint.status, "OPEN")),
     ),
     safeCount(() =>
       db

@@ -17,11 +17,15 @@ const PatchSchema = z.object({
   cancel: z.boolean().optional(),
   cancelReason: z.string().max(500).optional(),
   // Tandai refund: dana dikembalikan manual via dashboard provider / transfer
-  // (mencatat status + alasan + riwayat audit terstruktur).
   refund: z.boolean().optional(),
   refundReason: z.string().max(500).optional(),
+  // Aksi Review Desain Workshop (APPROVE, REQUEST_REVISION, REJECT)
+  reviewAction: z.enum(["APPROVE", "REQUEST_REVISION", "REJECT"]).optional(),
+  reviewNote: z.string().max(1000).optional(),
   status: z
     .enum([
+      "DESIGN_REVIEW",
+      "PENDING_PAYMENT",
       "PAYMENT_CONFIRMED",
       "IN_PRODUCTION_QUEUE",
       "PRINTING",
@@ -30,6 +34,8 @@ const PatchSchema = z.object({
       "SHIPPED",
       "DELIVERED",
       "COMPLETED",
+      "CANCELLED",
+      "REJECTED",
     ])
     .optional(),
   syncPayment: z.boolean().optional(),
@@ -84,18 +90,22 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
 
   // Tolak multi-aksi per permintaan: cegah status + cancel/refund tercampur
   // dalam satu request (hasil akhir tak tentu + riwayat ganda).
+  // Catatan: status === "SHIPPED" + trackingNumber diizinkan bersama sebagai 1 aksi dispatch pengiriman.
+  const isShipWithTracking = status === "SHIPPED" && trackingNumber !== undefined;
   const actionCount =
     (cancel === true ? 1 : 0) +
     (refund === true ? 1 : 0) +
     (status !== undefined ? 1 : 0) +
     (syncPayment === true ? 1 : 0) +
-    (trackingNumber !== undefined ? 1 : 0);
+    (parsed.data.reviewAction !== undefined ? 1 : 0) +
+    (trackingNumber !== undefined ? 1 : 0) -
+    (isShipWithTracking ? 1 : 0);
   if (actionCount === 0) {
     return NextResponse.json({ error: "Tidak ada aksi yang diminta" }, { status: 400 });
   }
   if (actionCount > 1) {
     return NextResponse.json(
-      { error: "Satu aksi per permintaan: kirim cancel, refund, status, syncPayment, atau resi secara terpisah." },
+      { error: "Satu aksi per permintaan: kirim cancel, refund, status, reviewAction, syncPayment, atau resi secara terpisah." },
       { status: 400 }
     );
   }
@@ -220,9 +230,23 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
         { status: 400 }
       );
     }
+    const updateObj: Record<string, any> = { trackingNumber: v };
+    let finalStatus = order.status;
+    if (status === "SHIPPED") {
+      try {
+        assertTransition(actorRole, order.status, "SHIPPED");
+        updateObj.status = "SHIPPED";
+        finalStatus = "SHIPPED";
+      } catch (e: any) {
+        return NextResponse.json(
+          { error: e?.message || "Transisi status ke SHIPPED tidak diizinkan" },
+          { status: 400 }
+        );
+      }
+    }
     const race = await db
       .update(Order)
-      .set({ trackingNumber: v })
+      .set(updateObj)
       .where(and(eq(Order.id, order.id), eq(Order.status, order.status)));
     if ((race.rowsAffected ?? 0) === 0) {
       return NextResponse.json({ error: "Status berubah, muat ulang dulu" }, { status: 409 });
@@ -230,8 +254,10 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     await db.insert(OrderStatusEvent).values({
       id: nanoid(),
       orderId: order.id,
-      status: order.status,
-      note: `Nomor resi diisi/diubah menjadi ${v} oleh tim workshop (${actorRole}).`,
+      status: finalStatus,
+      note: status === "SHIPPED"
+        ? `Nomor resi ${v} diinput dan paket dikirim ke ekspedisi oleh tim workshop (${actorRole}).`
+        : `Nomor resi diisi/diubah menjadi ${v} oleh tim workshop (${actorRole}).`,
       actorUserId,
     });
   }
@@ -311,7 +337,101 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     });
     await restoreOrderCoupon();
   }
-  if (status) {
+
+  // Aksi Review Desain Workshop (APPROVE / REQUEST_REVISION / REJECT)
+  if (parsed.data.reviewAction) {
+    const action = parsed.data.reviewAction;
+    const noteText = parsed.data.reviewNote?.trim();
+
+    if (action === "APPROVE") {
+      const pay = await db.query.Payment.findFirst({
+        where: (t, { eq }) => eq(t.orderId, order.id),
+        columns: { status: true },
+      });
+      const isPaid = pay?.status === "SETTLEMENT" || pay?.status === "SUCCESS";
+      const nextStatus = isPaid ? "PAYMENT_CONFIRMED" : "PENDING_PAYMENT";
+
+      const race = await db
+        .update(Order)
+        .set({
+          status: nextStatus,
+          reviewNote: noteText || "Desain telah disetujui workshop.",
+          reviewedBy: actorUserId,
+          reviewedAt: new Date(),
+        })
+        .where(and(eq(Order.id, order.id), eq(Order.status, order.status)));
+
+      if ((race.rowsAffected ?? 0) === 0) {
+        return NextResponse.json({ error: "Status berubah, muat ulang dulu" }, { status: 409 });
+      }
+
+      await db.insert(OrderStatusEvent).values({
+        id: nanoid(),
+        orderId: order.id,
+        status: nextStatus,
+        note: `Desain disetujui oleh tim workshop (${actorRole}). Status dialihkan ke ${nextStatus}.`,
+        actorUserId,
+      });
+
+      return NextResponse.json({ success: true, status: nextStatus, message: "Desain berhasil disetujui!" });
+    }
+
+    if (action === "REQUEST_REVISION") {
+      const reason = noteText || "Mohon periksa dan unggah ulang file desain beresolusi tinggi.";
+      const race = await db
+        .update(Order)
+        .set({
+          reviewNote: reason,
+          reviewedBy: actorUserId,
+          reviewedAt: new Date(),
+        })
+        .where(eq(Order.id, order.id));
+
+      if ((race.rowsAffected ?? 0) === 0) {
+        return NextResponse.json({ error: "Order tidak dapat diperbarui" }, { status: 409 });
+      }
+
+      await db.insert(OrderStatusEvent).values({
+        id: nanoid(),
+        orderId: order.id,
+        status: order.status,
+        note: `[REVISI_DESAIN] ${reason}`,
+        actorUserId,
+      });
+
+      return NextResponse.json({ success: true, message: "Permintaan revisi berhasil dikirim ke pelanggan." });
+    }
+
+    if (action === "REJECT") {
+      const reason = noteText || "Desain ditolak oleh workshop (tidak memenuhi standar produksi).";
+      const race = await db
+        .update(Order)
+        .set({
+          status: "REJECTED",
+          reviewNote: reason,
+          reviewedBy: actorUserId,
+          reviewedAt: new Date(),
+        })
+        .where(and(eq(Order.id, order.id), eq(Order.status, order.status)));
+
+      if ((race.rowsAffected ?? 0) === 0) {
+        return NextResponse.json({ error: "Status berubah, muat ulang dulu" }, { status: 409 });
+      }
+
+      await db.insert(OrderStatusEvent).values({
+        id: nanoid(),
+        orderId: order.id,
+        status: "REJECTED",
+        note: `Pesanan ditolak: ${reason}`,
+        actorUserId,
+      });
+
+      await restoreOrderCoupon();
+      return NextResponse.json({ success: true, status: "REJECTED", message: "Pesanan ditolak." });
+    }
+  }
+
+  if (status && !(status === "SHIPPED" && trackingNumber !== undefined)) {
     // WAJIB lewat mesin transisi per peran (terminal tak bisa keluar).
     try {
       assertTransition(actorRole, order.status, status);

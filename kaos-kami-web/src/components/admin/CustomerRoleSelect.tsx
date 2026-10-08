@@ -41,11 +41,11 @@ export function CustomerRoleSelect({
       });
       clearTimeout(t);
       const data = await res.json().catch(() => null);
-      if (!res.ok || !data || data.error) throw new Error(data?.error || "Gagal");
-      setMsg("✅ Role diubah.");
+      if (!res.ok || !data || data.error) throw new Error(data?.error || "Gagal mengubah role");
+      setMsg("Role berhasil diubah.");
       router.refresh();
     } catch (e: any) {
-      setMsg(`❌ ${e?.message || "Gagal"}`);
+      setMsg(e?.message || "Gagal mengubah role");
     } finally {
       setBusy(false);
     }

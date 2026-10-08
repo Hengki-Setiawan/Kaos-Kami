@@ -6,6 +6,7 @@ import { Printer, ArrowLeft } from "lucide-react";
 import { PrintButton } from "@/components/ui/PrintButton";
 import { DECAL_SIDE_LABELS } from "@/lib/constants";
 import { maskName, maskPhone } from "@/lib/mask";
+import { FlatWorkshopBlueprintViewer } from "@/components/admin/FlatWorkshopBlueprintViewer";
 
 interface JobTicketPageProps {
   params: Promise<{ id: string }>;
@@ -68,7 +69,7 @@ export default async function JobTicketPage({ params }: JobTicketPageProps) {
         {/* Priority & Turnaround Banner */}
         <div className="p-2 border-2 border-black bg-gray-100 flex justify-between items-center font-bold">
           <span>
-            PRIORITAS: {order.courierNotes?.includes("EXPRESS") ? "⚡ EXPRESS 24 JAM" : "REGULER"}
+            PRIORITAS: {order.courierNotes?.includes("EXPRESS") ? "EXPRESS 24 JAM" : "REGULER"}
           </span>
           <span>PENGIRIMAN: {order.deliveryMethod}</span>
         </div>
@@ -128,7 +129,7 @@ export default async function JobTicketPage({ params }: JobTicketPageProps) {
                     </td>
                     <td className="p-2 border border-black">
                       {!task?.placementSide ? (
-                        <strong>⚠ POSISI BELUM DITENTUKAN — konfirmasi sebelum press</strong>
+                        <strong>POSISI BELUM DITENTUKAN — konfirmasi sebelum press</strong>
                       ) : (
                         <>{sideLabel} ({task?.offsetFromCollarCm ? `~${task.offsetFromCollarCm.toFixed(1)} cm dari rib` : "offset belum terukur"})</>
                       )}
@@ -139,6 +140,41 @@ export default async function JobTicketPage({ params }: JobTicketPageProps) {
             </tbody>
           </table>
         </div>
+
+        {/* Blueprint Posisi Sablon Meja Press (Skala Real-CM) */}
+        {order.productionTasks.length > 0 && (
+          <div className="space-y-4">
+            <h3 className="font-black text-sm uppercase tracking-wider flex items-center justify-between">
+              <span>LEMBAR KERJA BLUEPRINT MEJA HEAT PRESS (UKURAN FISIK REAL-CM):</span>
+              <span className="text-[11px] font-normal text-gray-600">Panduan Meja Sablon 40×50 cm</span>
+            </h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {order.productionTasks.map((task: any, idx: number) => {
+                const item = order.items.find((it: any) => it.id === task.orderItemId);
+                return (
+                  <div key={task.id} className="border-2 border-black p-3 rounded-lg space-y-2 bg-white">
+                    <div className="flex items-center justify-between border-b border-black pb-1.5 text-xs font-bold">
+                      <span>#{idx + 1}. {item?.snapshotName || "Item"} (Size {item?.snapshotSize || "L"})</span>
+                      <span className="font-mono text-xs">{task.placementSide || "Dada Depan"}</span>
+                    </div>
+                    <FlatWorkshopBlueprintViewer
+                      placementParams={{
+                        apparelType: item?.snapshotName,
+                        size: item?.snapshotSize,
+                        targetSide: task.placementSide,
+                        printWidthCm: task.printWidthCm,
+                        printHeightCm: task.printHeightCm,
+                        offsetFromCollarCm: task.offsetFromCollarCm,
+                      }}
+                      artworkUrl={task.printFileUrl || task.mockupPreviewUrl || item?.snapshotImageUrl}
+                      showPrintGuide={true}
+                    />
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
 
         {/* Operator Quality Checklist */}
         <div className="border-2 border-black p-4 space-y-2">

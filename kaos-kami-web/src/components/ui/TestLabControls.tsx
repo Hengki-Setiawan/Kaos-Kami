@@ -134,29 +134,29 @@ export const TestLabControls: React.FC = () => {
     <div className="p-4 rounded-2xl glass-panel border border-border-subtle space-y-3.5 shadow-sm">
       {/* Header Test Lab */}
       <div className="flex justify-between items-center pb-2 border-b border-border-subtle/60">
-        <span className="text-xs font-mono font-bold tracking-wider text-text-primary flex items-center gap-1.5">
+        <span className="text-xs font-sans font-bold tracking-wider text-text-primary flex items-center gap-1.5">
           <Activity size={15} className="text-brand-accent animate-pulse" />
-          <span>3D TEST LAB & SIMULASI FISIKA</span>
+          <span>Simulasi Fisika &amp; Lingkungan 3D</span>
         </span>
-        <span className="text-[10px] font-sans font-bold uppercase px-2 py-0.5 rounded-full border border-brand-accent/30 bg-brand-accent/10 text-brand-accent">
-          {testLabMode === "none" ? "STANDAR" : testLabMode.toUpperCase()}
+        <span className="text-[10px] font-sans font-bold uppercase px-2.5 py-0.5 rounded-full border border-brand-accent/30 bg-brand-accent/10 text-brand-accent">
+          {testLabMode === "none" ? "Standar" : testLabMode.toUpperCase()}
         </span>
       </div>
 
       {/* Mode Selector Tabs */}
       <div className="grid grid-cols-4 gap-1.5">
         {[
-          { id: "none", label: "STANDAR", icon: Sliders },
-          { id: "stretch", label: "TARIK KAIN", icon: Activity },
-          { id: "flashlight", label: "SENTER 3D", icon: Flashlight },
-          { id: "windtunnel", label: "ANGIN 3D", icon: Wind },
+          { id: "none", label: "Standar", icon: Sliders },
+          { id: "stretch", label: "Tarik Kain", icon: Activity },
+          { id: "flashlight", label: "Senter 3D", icon: Flashlight },
+          { id: "windtunnel", label: "Angin 3D", icon: Wind },
         ].map(({ id, label, icon: Icon }) => (
           <button
             key={id}
             type="button"
             onClick={() => handleSelectMode(id as TestLabMode)}
             aria-pressed={testLabMode === id}
-            className={`py-2 px-1.5 rounded-xl text-center border font-mono text-[10px] font-bold transition-all flex flex-col items-center gap-1 ${
+            className={`py-2 px-1.5 rounded-xl text-center border font-sans text-xs font-semibold transition-all flex flex-col items-center gap-1 cursor-pointer ${
               testLabMode === id
                 ? "bg-brand-accent text-canvas border-brand-accent shadow-md scale-[1.02]"
                 : "bg-surface border-border-subtle text-text-muted hover:text-text-primary hover:border-border"
@@ -168,13 +168,13 @@ export const TestLabControls: React.FC = () => {
         ))}
       </div>
 
-      {/* --- PANEL 1: UJI TARIK KAIN & ELASTISITAS DTF --- */}
+      {/* --- PANEL 1: UJI TARIK KAIN & ELASTISITAS --- */}
       {testLabMode === "stretch" && (
         <div className="p-3.5 rounded-xl bg-surface/80 border border-border-subtle space-y-3 animate-in fade-in slide-in-from-top-1 duration-200">
           <div className="flex justify-between items-center">
-            <span className="text-xs font-bold text-text-primary flex items-center gap-1.5">
+            <span className="text-xs font-sans font-bold text-text-primary flex items-center gap-1.5">
               <Activity size={13} className="text-brand-accent" />
-              Tarik Kain &amp; Elastisitas DTF
+              Kelenturan Bahan &amp; Tarikan Kain
             </span>
             <span className="text-xs font-mono font-bold text-brand-accent">
               {stretchPercentage}%
@@ -183,28 +183,28 @@ export const TestLabControls: React.FC = () => {
 
           {/* Pengatur Arah Tarik */}
           <div className="space-y-1">
-            <span className="text-[10px] font-sans font-bold text-text-muted uppercase">
+            <span className="text-[11px] font-sans font-semibold text-text-muted">
               Arah Gaya Tarik:
             </span>
             <div className="grid grid-cols-3 gap-1.5">
               {[
-                { id: "horizontal", label: "HORIZONTAL", icon: ArrowRightLeft },
-                { id: "vertical", label: "VERTIKAL", icon: ArrowUpDown },
-                { id: "biaxial", label: "BIAXIAL (2 ARAH)", icon: Move },
+                { id: "horizontal", label: "Horizontal", icon: ArrowRightLeft },
+                { id: "vertical", label: "Vertikal", icon: ArrowUpDown },
+                { id: "biaxial", label: "2 Arah", icon: Move },
               ].map(({ id, label, icon: Icon }) => (
                 <button
                   key={id}
                   type="button"
                   onClick={() => setStretchDirection(id as StretchDirection)}
                   aria-pressed={stretchDirection === id}
-                  className={`py-1.5 px-1 rounded-lg border text-center transition-all flex flex-col items-center gap-0.5 ${
+                  className={`py-1.5 px-1 rounded-xl border text-center transition-all flex flex-col items-center gap-0.5 cursor-pointer ${
                     stretchDirection === id
-                      ? "bg-brand-accent/20 border-brand-accent text-brand-accent font-bold"
+                      ? "bg-brand-accent/20 border-brand-accent text-brand-accent font-semibold"
                       : "bg-surface border-border-subtle text-text-muted hover:text-text-primary"
                   }`}
                 >
                   <Icon size={12} />
-                  <span className="text-[9px] font-mono">{label}</span>
+                  <span className="text-[10px] font-sans">{label}</span>
                 </button>
               ))}
             </div>

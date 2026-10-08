@@ -220,11 +220,6 @@ export function KamitoChatWidget() {
     }
   };
 
-  // Jangan render tombol bila user di halaman admin
-  if (pathname?.startsWith("/admin")) {
-    return null;
-  }
-
   // Posisi dock studio
   const isStudioRoute = pathname?.startsWith("/studio");
   const isStudioMode = Boolean(isStudioRoute);
@@ -341,6 +336,11 @@ export function KamitoChatWidget() {
       : isStudioMode
       ? "bottom-28 right-4 md:right-8 md:bottom-24"
       : "bottom-6 right-6";
+
+  // Jangan render tombol bila user di halaman admin (setelah seluruh hooks dieksekusi anti-Rules-of-Hooks)
+  if (pathname?.startsWith("/admin")) {
+    return null;
+  }
 
   return (
     <div

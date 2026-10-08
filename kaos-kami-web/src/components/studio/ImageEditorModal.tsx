@@ -1,7 +1,16 @@
 "use client";
 
 import React, { useCallback, useEffect, useRef, useState } from "react";
-import { Save, PenTool, X, RotateCcw } from "lucide-react";
+import {
+  X,
+  RotateCcw,
+  SlidersHorizontal,
+  Crop,
+  Sparkles,
+  RotateCw,
+  FlipHorizontal,
+  Undo2,
+} from "lucide-react";
 import { useConfiguratorStore } from "@/store/useConfiguratorStore";
 import { useDeviceTier } from "@/hooks/useDeviceTier";
 import { BottomSheet } from "@/components/ui/BottomSheet";
@@ -56,10 +65,10 @@ function SliderRow(props: {
   onChange: (v: number) => void;
 }) {
   return (
-    <div>
-      <div className="flex justify-between text-[11px] font-sans text-text-muted mb-1">
-        <span className="font-bold uppercase">{props.label}</span>
-        <span className="text-text-primary font-bold font-mono tabular-nums">{props.display}</span>
+    <div className="space-y-1">
+      <div className="flex justify-between text-[11px] font-sans text-text-muted">
+        <span className="font-semibold">{props.label}</span>
+        <span className="text-text-primary font-bold font-mono text-[11px] tabular-nums">{props.display}</span>
       </div>
       <input
         type="range"
@@ -68,7 +77,7 @@ function SliderRow(props: {
         step={props.step}
         value={props.value}
         onChange={(e) => props.onChange(parseFloat(e.target.value))}
-        className="w-full accent-brand-accent cursor-pointer"
+        className="w-full accent-brand-accent cursor-pointer h-1.5"
       />
     </div>
   );
@@ -303,7 +312,7 @@ export const ImageEditorModal: React.FC<ImageEditorModalProps> = ({
         const srcSz = await (await import("@/lib/imageEditPipeline")).getImageSize(editBaseRef.current).catch(() => null);
         const outSz = await (await import("@/lib/imageEditPipeline")).getImageSize(finalUrl).catch(() => null);
         if (srcSz && outSz && Math.max(srcSz.w, srcSz.h) > 3000 && Math.max(outSz.w, outSz.h) <= 3000) {
-          showPesan("⚠️ Master turun resolusi ke 3000px (cap aman HP) — file asli tetap di tombol Kembalikan asli.", 6000);
+          showPesan("Master turun resolusi ke 3000px (cap aman HP) — file asli tetap di tombol Kembalikan asli.", 6000);
         }
       } catch {}
       let quality: EditedQuality | null = null;
@@ -344,82 +353,90 @@ export const ImageEditorModal: React.FC<ImageEditorModalProps> = ({
   const crop = job.crop;
 
   const content = (
-    <div className="space-y-4 font-mono text-xs">
-      {/* Pratinjau */}
-      <div className="rounded-xl overflow-hidden border border-border-subtle bg-black/50 flex items-center justify-center min-h-[180px] max-h-[300px]">
+    <div className="space-y-3 font-sans text-xs">
+      {/* Pratinjau Gambar */}
+      <div className="rounded-2xl overflow-hidden border border-border-subtle bg-neutral-950 flex items-center justify-center min-h-[130px] max-h-[180px] p-2 relative shadow-inner">
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
           src={previewUrl}
           alt={`Pratinjau edit ${decalName}`}
-          className="max-h-[300px] w-auto object-contain"
+          className="max-h-[160px] w-auto object-contain select-none"
         />
+        {isPreviewBusy && (
+          <div className="absolute inset-0 bg-black/40 backdrop-blur-[1px] flex items-center justify-center text-[10px] text-white font-medium">
+            Merender pratinjau…
+          </div>
+        )}
       </div>
-      {isPreviewBusy && (
-        <p className="text-[10px] text-text-muted -mt-2">Merender pratinjau…</p>
-      )}
 
-      {/* Tab */}
-      <div className="flex gap-1.5" role="tablist" aria-label="Mode edit gambar">
+      {/* Tab Navigasi */}
+      <div className="flex gap-1 p-1 rounded-xl bg-surface-elevated/40 border border-border-subtle/50" role="tablist" aria-label="Mode edit gambar">
         {(
           [
-            { id: "sesuaikan", label: "🎚 SESUAIKAN" },
-            { id: "potong", label: "✂ POTONG & PUTAR" },
-            { id: "efek", label: "🎨 EFEK SABLON" },
-          ] as Array<{ id: EditorTab; label: string }>
-        ).map((t) => (
-          <button
-            key={t.id}
-            role="tab"
-            aria-selected={tab === t.id}
-            onClick={() => setTab(t.id)}
-            className={`flex-1 min-h-[44px] px-2 py-2 rounded-xl border text-[10px] font-bold transition-all ${
-              tab === t.id
-                ? "bg-brand-accent text-canvas border-brand-accent"
-                : "bg-surface border-border-subtle text-text-muted hover:text-text-primary"
-            }`}
-          >
-            {t.label}
-          </button>
-        ))}
+            { id: "sesuaikan", label: "Sesuaikan", icon: SlidersHorizontal },
+            { id: "potong", label: "Potong & Putar", icon: Crop },
+            { id: "efek", label: "Efek Warna", icon: Sparkles },
+          ] as Array<{ id: EditorTab; label: string; icon: any }>
+        ).map((t) => {
+          const Icon = t.icon;
+          return (
+            <button
+              key={t.id}
+              role="tab"
+              aria-selected={tab === t.id}
+              onClick={() => setTab(t.id)}
+              className={`flex-1 flex items-center justify-center gap-1.5 py-1.5 px-2 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+                tab === t.id
+                  ? "bg-brand-accent text-canvas shadow-sm"
+                  : "text-text-muted hover:text-text-primary hover:bg-surface/60"
+              }`}
+            >
+              <Icon size={12} />
+              <span>{t.label}</span>
+            </button>
+          );
+        })}
       </div>
 
       {/* F1 — Sesuaikan */}
       {tab === "sesuaikan" && (
-        <div className="p-3 rounded-xl bg-surface/60 border border-border-subtle space-y-3">
-          <SliderRow label="Kecerahan" value={a.brightness} min={-1} max={1} step={0.01}
-            display={Math.round(a.brightness * 100).toString()} onChange={(v) => patchAdjust({ brightness: v })} />
-          <SliderRow label="Kontras" value={a.contrast} min={-1} max={1} step={0.01}
-            display={Math.round(a.contrast * 100).toString()} onChange={(v) => patchAdjust({ contrast: v })} />
-          <SliderRow label="Saturasi" value={a.saturation} min={-1} max={1} step={0.01}
-            display={Math.round(a.saturation * 100).toString()} onChange={(v) => patchAdjust({ saturation: v })} />
-          <SliderRow label="Vibrance" value={a.vibrance} min={-1} max={1} step={0.01}
-            display={Math.round(a.vibrance * 100).toString()} onChange={(v) => patchAdjust({ vibrance: v })} />
-          <SliderRow label="Hue" value={a.hue} min={-180} max={180} step={1}
-            display={`${Math.round(a.hue)}°`} onChange={(v) => patchAdjust({ hue: v })} />
-          <SliderRow label="Gamma" value={a.gamma} min={0.2} max={3} step={0.01}
-            display={a.gamma.toFixed(2)} onChange={(v) => patchAdjust({ gamma: v })} />
-          <SliderRow label="Blur" value={a.blur} min={0} max={5} step={0.1}
-            display={`${a.blur.toFixed(1)}px`} onChange={(v) => patchAdjust({ blur: v })} />
-          <SliderRow label="Ketajaman" value={a.sharpen} min={0} max={1} step={0.01}
-            display={`${Math.round(a.sharpen * 100)}%`} onChange={(v) => patchAdjust({ sharpen: v })} />
-          <div className="grid grid-cols-2 gap-2 pt-1">
+        <div className="p-3 rounded-2xl bg-surface/60 border border-border-subtle space-y-2.5">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-3 gap-y-2">
+            <SliderRow label="Kecerahan" value={a.brightness} min={-1} max={1} step={0.01}
+              display={Math.round(a.brightness * 100).toString()} onChange={(v) => patchAdjust({ brightness: v })} />
+            <SliderRow label="Kontras" value={a.contrast} min={-1} max={1} step={0.01}
+              display={Math.round(a.contrast * 100).toString()} onChange={(v) => patchAdjust({ contrast: v })} />
+            <SliderRow label="Saturasi" value={a.saturation} min={-1} max={1} step={0.01}
+              display={Math.round(a.saturation * 100).toString()} onChange={(v) => patchAdjust({ saturation: v })} />
+            <SliderRow label="Vibrance" value={a.vibrance} min={-1} max={1} step={0.01}
+              display={Math.round(a.vibrance * 100).toString()} onChange={(v) => patchAdjust({ vibrance: v })} />
+            <SliderRow label="Hue Warna" value={a.hue} min={-180} max={180} step={1}
+              display={`${Math.round(a.hue)}°`} onChange={(v) => patchAdjust({ hue: v })} />
+            <SliderRow label="Gamma" value={a.gamma} min={0.2} max={3} step={0.01}
+              display={a.gamma.toFixed(2)} onChange={(v) => patchAdjust({ gamma: v })} />
+            <SliderRow label="Blur" value={a.blur} min={0} max={5} step={0.1}
+              display={`${a.blur.toFixed(1)}px`} onChange={(v) => patchAdjust({ blur: v })} />
+            <SliderRow label="Ketajaman" value={a.sharpen} min={0} max={1} step={0.01}
+              display={`${Math.round(a.sharpen * 100)}%`} onChange={(v) => patchAdjust({ sharpen: v })} />
+          </div>
+          <div className="grid grid-cols-2 gap-2 pt-1 border-t border-border-subtle/50">
             <button
               type="button"
               onClick={() => patchAdjust({ grayscale: !a.grayscale })}
-              className={`min-h-[44px] py-2 rounded-xl border text-[11px] font-bold transition-all ${
-                a.grayscale ? "bg-text-primary text-canvas border-text-primary" : "bg-surface border-border-subtle text-text-primary"
+              className={`py-1.5 px-2 rounded-xl border text-xs font-semibold transition-all cursor-pointer ${
+                a.grayscale ? "bg-text-primary text-canvas border-text-primary" : "bg-surface border-border-subtle text-text-primary hover:bg-surface-elevated"
               }`}
             >
-              {a.grayscale ? "✓ GRAYSCALE" : "GRAYSCALE"}
+              {a.grayscale ? "Grayscale (Aktif)" : "Grayscale"}
             </button>
             <button
               type="button"
               onClick={() => patchAdjust({ sepia: !a.sepia })}
-              className={`min-h-[44px] py-2 rounded-xl border text-[11px] font-bold transition-all ${
-                a.sepia ? "bg-text-primary text-canvas border-text-primary" : "bg-surface border-border-subtle text-text-primary"
+              className={`py-1.5 px-2 rounded-xl border text-xs font-semibold transition-all cursor-pointer ${
+                a.sepia ? "bg-text-primary text-canvas border-text-primary" : "bg-surface border-border-subtle text-text-primary hover:bg-surface-elevated"
               }`}
             >
-              {a.sepia ? "✓ SEPIA" : "SEPIA"}
+              {a.sepia ? "Sepia (Aktif)" : "Sepia"}
             </button>
           </div>
         </div>
@@ -427,38 +444,39 @@ export const ImageEditorModal: React.FC<ImageEditorModalProps> = ({
 
       {/* F2 — Potong & Putar */}
       {tab === "potong" && (
-        <div className="p-3 rounded-xl bg-surface/60 border border-border-subtle space-y-3">
+        <div className="p-3 rounded-2xl bg-surface/60 border border-border-subtle space-y-2.5">
           <div className="grid grid-cols-2 gap-2">
             <button
               type="button"
               onClick={handleRotate90}
-              className="min-h-[44px] py-2 rounded-xl bg-surface border border-border-subtle text-text-primary text-[11px] font-bold hover:border-brand-accent transition-all"
+              className="flex items-center justify-center gap-1.5 py-2 px-3 rounded-xl bg-surface border border-border-subtle text-text-primary text-xs font-semibold hover:border-brand-accent transition-all cursor-pointer"
             >
-              🔄 PUTAR 90°
+              <RotateCw size={13} />
+              <span>Putar 90°</span>
             </button>
             <button
               type="button"
               onClick={handleFlipX}
-              className={`min-h-[44px] py-2 rounded-xl border text-[11px] font-bold transition-all ${
-                job.flipX ? "bg-brand-accent/20 border-brand-accent text-brand-accent" : "bg-surface border-border-subtle text-text-primary hover:border-brand-accent"
+              className={`flex items-center justify-center gap-1.5 py-2 px-3 rounded-xl border text-xs font-semibold transition-all cursor-pointer ${
+                job.flipX ? "bg-brand-accent/15 border-brand-accent text-brand-accent" : "bg-surface border-border-subtle text-text-primary hover:border-brand-accent"
               }`}
             >
-              {job.flipX ? "✓ BALIK HORIZONTAL AKTIF" : "⇋ BALIK HORIZONTAL"}
+              <FlipHorizontal size={13} />
+              <span>{job.flipX ? "Balik Aktif" : "Balik Horizontal"}</span>
             </button>
           </div>
-          <p className="text-[10px] text-text-muted leading-relaxed">
-            Balik horizontal WAJIB untuk teks di punggung agar terbaca benar dari depan. Putaran
-            tersimpan permanen di gambar (bukan sekadar rotasi gizmo 3D).
+          <p className="text-[11px] font-sans text-text-muted leading-relaxed">
+            Balik horizontal untuk teks sablon agar terbaca benar. Putaran tersimpan permanen di gambar master.
           </p>
-          <SliderRow label="Putar bebas" value={job.rotateDeg} min={-180} max={180} step={1}
+          <SliderRow label="Putar Bebas" value={job.rotateDeg} min={-180} max={180} step={1}
             display={`${Math.round(job.rotateDeg)}°`}
             onChange={(v) => commit({ ...job, rotateDeg: v })} />
           <div className="pt-1 space-y-2">
             <div className="flex items-center justify-between">
-              <span className="font-bold text-[11px] uppercase">Bingkai potong (% dari gambar)</span>
+              <span className="font-semibold text-xs font-sans">Bingkai Potong (% Gambar)</span>
               {crop && (
-                <button type="button" onClick={handleClearCrop} className="text-[10px] text-brand-accent hover:underline font-bold">
-                  HAPUS CROP
+                <button type="button" onClick={handleClearCrop} className="text-xs text-brand-accent hover:underline font-semibold cursor-pointer">
+                  Hapus Potong
                 </button>
               )}
             </div>
@@ -466,9 +484,9 @@ export const ImageEditorModal: React.FC<ImageEditorModalProps> = ({
               <button
                 type="button"
                 onClick={() => patchCrop({ x: 0.1, y: 0.1, w: 0.8, h: 0.8 })}
-                className="w-full min-h-[44px] py-2 rounded-xl border border-dashed border-border-strong text-text-muted text-[11px] font-bold hover:border-brand-accent hover:text-text-primary transition-all"
+                className="w-full py-2 rounded-xl border border-dashed border-border-strong text-text-muted text-xs font-semibold hover:border-brand-accent hover:text-text-primary transition-all cursor-pointer"
               >
-                + MULAI POTONG (80% TENGAH)
+                + Mulai Potong (80% Area Tengah)
               </button>
             ) : (
               <div className="grid grid-cols-2 gap-2">
@@ -488,80 +506,79 @@ export const ImageEditorModal: React.FC<ImageEditorModalProps> = ({
 
       {/* F4 — Efek Sablon */}
       {tab === "efek" && (
-        <div className="space-y-2">
+        <div className="space-y-1.5">
           {SABLON_PRESETS.map((p) => (
             <button
               key={p.id}
               type="button"
               onClick={() => handlePreset(p.id)}
-              className={`w-full min-h-[48px] p-3 rounded-xl border text-left transition-all ${
+              className={`w-full p-2.5 rounded-xl border text-left transition-all cursor-pointer ${
                 job.preset === p.id
-                  ? "bg-brand-accent/15 border-brand-accent"
+                  ? "bg-brand-accent/15 border-brand-accent shadow-sm"
                   : "bg-surface border-border-subtle hover:border-brand-accent/50"
               }`}
             >
-              <span className={`block text-[11px] font-bold ${job.preset === p.id ? "text-brand-accent" : "text-text-primary"}`}>
-                {job.preset === p.id ? "✓ " : ""}{p.nama.toUpperCase()}
+              <span className={`block text-xs font-semibold ${job.preset === p.id ? "text-brand-accent font-bold" : "text-text-primary"}`}>
+                {job.preset === p.id ? "• " : ""}{p.nama}
               </span>
-              <span className="block text-[10px] text-text-muted mt-0.5">{p.deskripsi}</span>
+              <span className="block text-[11px] text-text-muted mt-0.5">{p.deskripsi}</span>
             </button>
           ))}
-          <p className="text-[10px] text-text-muted leading-relaxed">
-            Efek dirender ke gambar final sehingga tampil sama di 3D maupun file master produksi.
-          </p>
         </div>
       )}
 
       {pesan && (
-        <div className="p-2.5 rounded-xl bg-brand-accent/15 border border-brand-accent/30 text-brand-accent text-[11px] font-mono">
+        <div className="p-2.5 rounded-xl bg-brand-accent/15 border border-brand-accent/30 text-brand-accent text-xs font-medium">
           {pesan}
         </div>
       )}
 
-      {/* M3.3 — Kembalikan asli (tampil bila original tersimpan) */}
+      {/* Kembalikan Asli */}
       {hasOriginal && (
         <button
           type="button"
           onClick={handleRestoreOriginal}
-          className="w-full min-h-[44px] px-3 rounded-xl bg-surface border border-emerald-500/40 text-emerald-300 text-[11px] font-bold uppercase hover:bg-emerald-500/10 transition-all"
-          title="Pulihkan file upload awal (batalkan semua BG/edit)"
+          className="w-full flex items-center justify-center gap-1.5 py-2 px-3 rounded-xl bg-surface border border-emerald-500/30 text-emerald-300 text-xs font-semibold hover:bg-emerald-500/10 transition-all cursor-pointer"
+          title="Pulihkan file upload awal (batalkan semua edit)"
         >
-          ↩ KEMBALIKAN ASLI (FILE UPLOAD AWAL)
+          <RotateCcw size={13} />
+          <span>Kembalikan ke File Asli</span>
         </button>
       )}
 
-      {/* Aksi: Undo + Reset + Batal + Simpan */}
+      {/* Footer Aksi */}
       <div className="flex gap-2 pt-1">
         <button
           type="button"
           onClick={handleUndo}
           disabled={history.length === 0}
           title={`Urungkan (${history.length}/10)`}
-          className="min-h-[48px] px-3 rounded-xl bg-surface border border-border-subtle text-text-primary text-[11px] font-bold disabled:opacity-40 hover:border-brand-accent transition-all"
+          className="flex items-center gap-1 py-2 px-3 rounded-xl bg-surface border border-border-subtle text-text-primary text-xs font-semibold disabled:opacity-40 hover:border-brand-accent transition-all cursor-pointer"
         >
-          {history.length}/10
+          <Undo2 size={13} />
+          <span>{history.length}/10</span>
         </button>
         <button
           type="button"
           onClick={handleReset}
-          className="min-h-[48px] px-3 rounded-xl bg-surface border border-border-subtle text-text-primary text-[11px] font-bold hover:border-brand-accent transition-all"
+          className="py-2 px-3 rounded-xl bg-surface border border-border-subtle text-text-primary text-xs font-semibold hover:border-brand-accent transition-all cursor-pointer"
         >
-          RESET
+          Reset
         </button>
         <button
           type="button"
           onClick={onClose}
-          className="flex-1 min-h-[48px] px-3 rounded-xl bg-surface border border-border-subtle text-text-muted text-[11px] font-bold hover:text-text-primary transition-all"
+          className="flex-1 py-2 px-3 rounded-xl bg-surface border border-border-subtle text-text-muted text-xs font-semibold hover:text-text-primary transition-all cursor-pointer"
         >
-          BATAL
+          Batal
         </button>
         <button
           type="button"
           onClick={() => void handleSave()}
           disabled={isSaving}
-          className="flex-[2] min-h-[48px] px-3 rounded-xl bg-brand-accent text-canvas text-xs font-bold uppercase disabled:opacity-50 hover:brightness-110 transition-all"
+          className="flex-[2] py-2 px-4 rounded-xl bg-brand-accent text-canvas text-xs font-bold disabled:opacity-50 hover:brightness-110 active:scale-95 transition-all cursor-pointer shadow-sm"
         >
-          {isSaving ? "MENYIMPAN…" : "SIMPAN KE MOCKUP"}
+          {isSaving ? "Menyimpan…" : "Simpan ke Mockup"}
         </button>
       </div>
     </div>
@@ -570,9 +587,9 @@ export const ImageEditorModal: React.FC<ImageEditorModalProps> = ({
   if (isMobile) {
     return (
       <BottomSheet defaultSnap="full" onClose={onClose}>
-        <div className="font-mono text-xs mb-2">
-          <span className="text-[10px] text-brand-accent tracking-widest uppercase">{"// EDIT GAMBAR"}</span>
-          <h3 className="text-sm font-black uppercase text-text-primary truncate">{decalName}</h3>
+        <div className="text-xs mb-2">
+          <span className="px-2 py-0.5 rounded-full text-[10px] font-sans font-bold bg-brand-accent/15 text-brand-accent">Edit Gambar</span>
+          <h3 className="text-sm font-bold text-text-primary truncate mt-1">{decalName}</h3>
         </div>
         {content}
       </BottomSheet>
@@ -584,24 +601,26 @@ export const ImageEditorModal: React.FC<ImageEditorModalProps> = ({
       role="dialog"
       aria-modal="true"
       aria-label={`Edit gambar ${decalName}`}
-      className="fixed inset-0 z-[70] flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm"
+      className="fixed inset-0 z-[70] flex items-center justify-center p-3 sm:p-4 bg-black/70 backdrop-blur-md animate-fade-in"
       onClick={(e) => {
         if (e.target === e.currentTarget) onClose();
       }}
     >
-      <div className="w-full max-w-2xl max-h-[90vh] overflow-y-auto rounded-2xl bg-surface border border-border-subtle shadow-2xl p-4 sm:p-5">
-        <div className="flex items-center justify-between mb-3">
-          <div>
-            <span className="text-[10px] font-sans text-brand-accent tracking-widest uppercase">{"// EDIT GAMBAR"}</span>
-            <h3 className="text-base font-sans font-bold uppercase text-text-primary truncate">{decalName}</h3>
+      <div className="w-full max-w-lg max-h-[88dvh] overflow-y-auto rounded-3xl bg-surface/95 border border-border-subtle shadow-2xl p-4 sm:p-5 backdrop-blur-2xl">
+        <div className="flex items-center justify-between mb-3 pb-2 border-b border-border-subtle/50">
+          <div className="min-w-0">
+            <span className="px-2 py-0.5 rounded-full text-[10px] font-sans font-bold bg-brand-accent/15 text-brand-accent">
+              Edit Gambar Sablon
+            </span>
+            <h3 className="text-sm sm:text-base font-sans font-bold text-text-primary truncate mt-0.5">{decalName}</h3>
           </div>
           <button
             type="button"
             onClick={onClose}
             aria-label="Tutup editor gambar"
-            className="min-w-[44px] min-h-[44px] px-2 rounded-xl bg-surface border border-border-subtle text-text-muted hover:text-text-primary transition-all font-bold flex items-center justify-center"
+            className="w-8 h-8 rounded-full bg-surface border border-border-subtle text-text-muted hover:text-text-primary transition-all flex items-center justify-center cursor-pointer shadow-sm"
           >
-            <X size={16} />
+            <X size={15} />
           </button>
         </div>
         {content}

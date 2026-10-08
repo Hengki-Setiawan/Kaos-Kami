@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
+import { X } from "lucide-react";
 import { Z_CLASS_MODAL } from "@/lib/zIndex";
 import { CouponAdminPanel } from "@/components/admin/CouponAdminPanel";
 
@@ -50,9 +51,10 @@ export function CouponCreateModal() {
                 type="button"
                 onClick={() => setOpen(false)}
                 aria-label="Tutup modal kupon"
-                className="px-3 py-1.5 rounded-lg bg-surface border border-border-subtle text-text-primary text-xs font-bold"
+                className="px-3 py-1.5 rounded-lg bg-surface border border-border-subtle text-text-primary text-xs font-bold flex items-center gap-1.5 hover:bg-surface-elevated transition-colors"
               >
-                TUTUP ✕
+                <span>TUTUP</span>
+                <X size={13} />
               </button>
             </div>
             <CouponAdminPanel />

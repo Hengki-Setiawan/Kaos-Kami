@@ -14,10 +14,12 @@ import {
   Ruler,
   Eye,
   Layers,
+  AlertTriangle,
 } from "lucide-react";
 import OrderInspector3D from "@/components/admin/OrderInspector3D";
 import { OrderAdminActions } from "@/components/admin/OrderAdminActions";
 import { AdminWhatsAppDispatch } from "@/components/admin/AdminWhatsAppDispatch";
+import { computeFlatWorkshopPlacement } from "@/lib/workshopBlueprint";
 
 interface AdminOrderDetailPageProps {
   params: Promise<{ id: string }>;
@@ -149,25 +151,25 @@ export default async function AdminOrderDetailPage({ params }: AdminOrderDetailP
           <a
             href={`/admin/orders/${order.id}/job-ticket`}
             target="_blank"
-            className="py-2.5 px-3.5 rounded-xl bg-surface border border-white/10 hover:border-brand-accent text-white font-bold transition-all flex items-center gap-1.5"
+            className="py-2 px-3 rounded-xl bg-surface border border-white/10 hover:border-brand-accent text-white font-bold transition-all flex items-center gap-1.5 text-xs"
           >
             <Printer size={14} className="text-brand-accent" />
-            <span>CETAK JOB TICKET (PDF)</span>
+            <span>Job Ticket (PDF)</span>
           </a>
           <a
             href={`/admin/orders/${order.id}/gang-sheet`}
             target="_blank"
-            className="py-2.5 px-3.5 rounded-xl bg-surface border border-white/10 hover:border-brand-accent text-white font-bold transition-all flex items-center gap-1.5"
+            className="py-2 px-3 rounded-xl bg-surface border border-white/10 hover:border-brand-accent text-white font-bold transition-all flex items-center gap-1.5 text-xs"
           >
             <Layers size={14} className="text-brand-accent" />
-            <span>GANG SHEET A3</span>
+            <span>Gang Sheet A3</span>
           </a>
           <Link
             href="/admin/gang-sheet"
-            className="py-2.5 px-3.5 rounded-xl bg-amber-400 text-black font-black transition-all flex items-center gap-1.5 hover:brightness-110 shadow-[0_0_12px_rgba(251,191,36,0.3)]"
+            className="py-2 px-3 rounded-xl bg-amber-400 text-black font-black transition-all flex items-center gap-1.5 hover:brightness-110 shadow-[0_0_12px_rgba(251,191,36,0.3)] text-xs"
           >
             <Layers size={14} />
-            <span>BUILDER GANG SHEET 100×58</span>
+            <span>Gang Sheet 100×58</span>
           </Link>
         </div>
         <OrderAdminActions
@@ -256,45 +258,83 @@ export default async function AdminOrderDetailPage({ params }: AdminOrderDetailP
                     // Join eksplisit per item; TANPA fallback idx (audit H12/H14 —
                     // fallback bisa pasang dimensi item lain ke baris ini).
                     const task = order.productionTasks.find((t: any) => t.orderItemId === item.id);
+                    const flat = task
+                      ? computeFlatWorkshopPlacement({
+                          apparelType: item.snapshotName,
+                          size: item.snapshotSize,
+                          targetSide: task.placementSide,
+                          printWidthCm: task.printWidthCm,
+                          printHeightCm: task.printHeightCm,
+                          offsetFromCollarCm: task.offsetFromCollarCm,
+                        })
+                      : null;
+
                     return (
-                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 p-3 rounded-lg bg-black/50 border border-white/5 text-[11px]">
-                        <div>
-                          <span className="block text-text-muted">LEBAR CETAK (MAX 30CM):</span>
-                          {task?.printWidthCm ? (
-                            <div className="flex items-center gap-1 mt-0.5">
-                              <span className="font-bold text-emerald-400">
-                                📏 {task.printWidthCm.toFixed(1)} cm
+                      <div className="space-y-2 p-3 rounded-lg bg-black/50 border border-white/5 text-[11px]">
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                          <div>
+                            <span className="block text-text-muted">LEBAR CETAK (MAX 30CM):</span>
+                            {task?.printWidthCm ? (
+                              <div className="flex items-center gap-1.5 mt-0.5">
+                                <span className="font-bold text-emerald-400 flex items-center gap-1">
+                                  <Ruler size={11} className="text-brand-accent shrink-0" />
+                                  <span>{task.printWidthCm.toFixed(1)} cm</span>
+                                </span>
+                                {task.printWidthCm <= 30.0 ? (
+                                  <span className="px-1.5 py-0.2 text-[9px] rounded bg-emerald-500/20 text-emerald-300 font-bold">
+                                    Aman DTF
+                                  </span>
+                                ) : (
+                                  <span className="px-1.5 py-0.2 text-[9px] rounded bg-rose-500/20 text-rose-300 font-bold flex items-center gap-1">
+                                    <AlertTriangle size={9} />
+                                    <span>Over 30cm</span>
+                                  </span>
+                                )}
+                              </div>
+                            ) : (
+                              <span className="font-bold text-amber-400 flex items-center gap-1 mt-0.5">
+                                <AlertTriangle size={11} />
+                                <span>Belum terukur — hitung di Studio</span>
                               </span>
-                              {task.printWidthCm <= 30.0 ? (
-                                <span className="px-1.5 py-0.2 text-[9px] rounded bg-emerald-500/20 text-emerald-300 font-bold">
-                                  ✓ Aman DTF
-                                </span>
-                              ) : (
-                                <span className="px-1.5 py-0.2 text-[9px] rounded bg-rose-500/20 text-rose-300 font-bold">
-                                  ⚠ Over 30cm
-                                </span>
-                              )}
+                            )}
+                          </div>
+                          <div>
+                            <span className="block text-text-muted">TINGGI CETAK:</span>
+                            {task?.printHeightCm ? (
+                              <span className="font-bold text-emerald-400 mt-0.5 flex items-center gap-1">
+                                <Ruler size={11} className="text-brand-accent shrink-0" />
+                                <span>{task.printHeightCm.toFixed(1)} cm</span>
+                              </span>
+                            ) : (
+                              <span className="font-bold text-amber-400 mt-0.5 block">Belum terukur</span>
+                            )}
+                          </div>
+                          <div>
+                            <span className="block text-text-muted">JARAK DARI KERAH:</span>
+                            {task?.offsetFromCollarCm ? (
+                              <span className="font-bold text-brand-accent mt-0.5 block">↓ ~{task.offsetFromCollarCm.toFixed(1)} cm di bawah rib</span>
+                            ) : (
+                              <span className="font-bold text-amber-400 mt-0.5 block">Belum terukur</span>
+                            )}
+                          </div>
+                        </div>
+
+                        {flat && (
+                          <div className="pt-2 border-t border-white/5 grid grid-cols-1 sm:grid-cols-3 gap-2 text-[10px]">
+                            <div>
+                              <span className="text-text-muted block">JAHITAN SAMPING KIRI:</span>
+                              <span className="font-bold text-cyan-400">← {flat.leftSeamMarginCm.toFixed(1)} cm</span>
                             </div>
-                          ) : (
-                            <span className="font-bold text-amber-400">⚠ Belum terukur — hitung di Studio</span>
-                          )}
-                        </div>
-                        <div>
-                          <span className="block text-text-muted">TINGGI CETAK:</span>
-                          {task?.printHeightCm ? (
-                            <span className="font-bold text-emerald-400 mt-0.5 block">📏 {task.printHeightCm.toFixed(1)} cm</span>
-                          ) : (
-                            <span className="font-bold text-amber-400">⚠ Belum terukur</span>
-                          )}
-                        </div>
-                        <div>
-                          <span className="block text-text-muted">JARAK DARI KERAH:</span>
-                          {task?.offsetFromCollarCm ? (
-                            <span className="font-bold text-white mt-0.5 block">~{task.offsetFromCollarCm.toFixed(1)} cm di bawah rib</span>
-                          ) : (
-                            <span className="font-bold text-amber-400">⚠ Belum terukur</span>
-                          )}
-                        </div>
+                            <div>
+                              <span className="text-text-muted block">JAHITAN SAMPING KANAN:</span>
+                              <span className="font-bold text-cyan-400">{flat.rightSeamMarginCm.toFixed(1)} cm →</span>
+                            </div>
+                            <div>
+                              <span className="text-text-muted block">SISA KELIM BAWAH:</span>
+                              <span className="font-bold text-emerald-400">↑ {flat.bottomHemMarginCm.toFixed(1)} cm</span>
+                            </div>
+                          </div>
+                        )}
                       </div>
                     );
                   })()}

@@ -8,6 +8,7 @@ import {
   MAKASSAR_DELIVERY_OPTIONS,
   MAKASSAR_SUBDISTRICTS,
   WORKSHOP_LOCATION,
+  isMakassarAddress,
   type DeliveryMethod,
 } from "@/lib/shipping/deliveryOptions";
 import { calculate6VariablePrice, materialFinishToPricing } from "@/lib/pricingEngine";
@@ -31,6 +32,8 @@ import {
   Sparkles,
   ExternalLink,
   Shirt,
+  Clock,
+  Zap,
 } from "lucide-react";
 
 import { useSession } from "@/lib/auth-client";
@@ -235,9 +238,11 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
     setIsClient(true);
   }, []);
 
-  // Prefill otomatis saat akun login terdeteksi
+  const [addressDetectionNotice, setAddressDetectionNotice] = useState<string | null>(null);
+
+  // Prefill otomatis saat akun login terdeteksi & auto-deteksi alamat Makassar
   useEffect(() => {
-    if (session?.user) {
+    if (session?.user && isOpen) {
       if (!recipientName && session.user.name) {
         setRecipientName(session.user.name);
       }
@@ -248,8 +253,45 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
       if (!phoneNumber && userPhone) {
         setPhoneNumber(userPhone);
       }
+
+      // Ambil alamat tersimpan akun untuk pendeteksian otomatis wilayah
+      void (async () => {
+        try {
+          const res = await fetch("/api/user/profile");
+          const data = await res.json().catch(() => null);
+          if (data?.success && data?.user?.addresses?.length > 0) {
+            const savedAddr = data.user.addresses.find((a: any) => a.isDefault) || data.user.addresses[0];
+            if (savedAddr) {
+              if (savedAddr.fullAddress) setFullAddress(savedAddr.fullAddress);
+              if (savedAddr.recipientName) setRecipientName(savedAddr.recipientName);
+              if (savedAddr.phoneNumber) setPhoneNumber(savedAddr.phoneNumber);
+              if (savedAddr.district && MAKASSAR_SUBDISTRICTS.includes(savedAddr.district)) {
+                setDistrict(savedAddr.district);
+              }
+
+              const isMks = isMakassarAddress({
+                fullAddress: savedAddr.fullAddress,
+                city: savedAddr.city,
+                district: savedAddr.district,
+                province: savedAddr.province,
+              });
+
+              if (isMks) {
+                setDeliveryMethod("FREE_MAKASSAR");
+                setAddressDetectionNotice("Alamat akun di Kota Makassar terdeteksi: Gratis Antar Tim Kaos Kami aktif (Rp 0).");
+              } else if (savedAddr.city) {
+                setDeliveryMethod("EXPEDITION_MANUAL");
+                setDestQuery(savedAddr.city);
+                setAddressDetectionNotice(`Alamat akun luar Makassar (${savedAddr.city}) terdeteksi: Ekspedisi reguler otomatis aktif.`);
+              }
+            }
+          }
+        } catch {
+          // Defensif jika fetch gagal
+        }
+      })();
     }
-  }, [session, recipientName, email, phoneNumber]);
+  }, [session, isOpen]);
 
   // Hitung mundur (cooldown) kirim ulang OTP
   useEffect(() => {
@@ -335,7 +377,7 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
         body: JSON.stringify({ phoneNumber: norm }),
       });
       if (data.alreadyVerified) {
-        setOtpMsg("✅ Nomor ini sudah terverifikasi permanen — langsung klik BAYAR tanpa kode.");
+        setOtpMsg("Nomor ini sudah terverifikasi permanen — langsung klik BAYAR tanpa kode.");
         return;
       }
       setOtpSent(true);
@@ -587,8 +629,9 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
       Boolean(normPhone) &&
       cleanPhone(normPhone) === cleanPhone(sessionUser?.phoneNumber);
 
+    const isCatalogCart = isCartCheckout || !decals || decals.length === 0;
     const isSandboxBypass = process.env.NODE_ENV !== "production";
-    if (!isAccountPhoneVerified && !isSandboxBypass && !adminBypassActive && !/^\d{6}$/.test(otpCode.trim())) {
+    if (!isAccountPhoneVerified && !isSandboxBypass && !adminBypassActive && !isCatalogCart && !/^\d{6}$/.test(otpCode.trim())) {
       setErrorMessage("Kode OTP 6 digit wajib diisi. Klik KIRIM OTP untuk menerima kode via WhatsApp.");
       return;
     }
@@ -735,7 +778,7 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
       // (bayar hanya setelah admin ACC via tombol di sana).
       if ((data as any)?.status === "DESIGN_REVIEW" || (!(data as any)?.paymentUrl && !(data as any)?.qrImage && !(data as any)?.qrString && data.orderId)) {
         if (isCartCheckout) clearCart();
-        window.location.href = "/dashboard/orders";
+        window.location.href = (data as any)?.invoiceUrl || `/orders/${data.orderId}`;
         return;
       }
 
@@ -797,10 +840,10 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
             </div>
             <div className="min-w-0">
               <h2 className="font-sans text-base sm:text-lg font-bold uppercase tracking-tight text-text-primary truncate">
-                CHECKOUT PESANAN SABLON DTF
+                CHECKOUT PESANAN SABLON
               </h2>
               <p className="font-sans text-[10px] sm:text-[11px] text-text-muted truncate">
-                Workshop Makassar · Jaminan Kualitas Sablon DTF & Cotton Combed
+                Workshop Makassar · Jaminan Kualitas Sablon Presisi & Cotton Combed
               </p>
             </div>
           </div>
@@ -1046,6 +1089,22 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
                   <span>2 · METODE PENGIRIMAN</span>
                 </div>
 
+                {addressDetectionNotice && (
+                  <div className="p-3 rounded-xl bg-brand-accent/10 border border-brand-accent/30 text-xs text-text-primary flex items-center justify-between gap-2 animate-fadeIn">
+                    <div className="flex items-center gap-2">
+                      <MapPin size={14} className="text-brand-accent shrink-0" />
+                      <span className="font-medium">{addressDetectionNotice}</span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setAddressDetectionNotice(null)}
+                      className="text-text-muted hover:text-text-primary p-1 cursor-pointer"
+                    >
+                      <X size={13} />
+                    </button>
+                  </div>
+                )}
+
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
                   {MAKASSAR_DELIVERY_OPTIONS.map((opt) => {
                     const isSelected = deliveryMethod === opt.method;
@@ -1124,8 +1183,9 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
                         Buka Titik Lokasi di Google Maps (Navigasi) ↗
                       </a>
                     </div>
-                    <p className="font-sans text-[10px] text-text-muted">
-                      🕒 Jam Operasional: {WORKSHOP_LOCATION.operatingHours}. Pesanan siap diambil setelah notifikasi selesai produksi.
+                    <p className="font-sans text-[10px] text-text-muted flex items-center gap-1.5 pt-0.5">
+                      <Clock size={12} className="text-text-muted shrink-0" />
+                      <span>Jam Operasional: {WORKSHOP_LOCATION.operatingHours}. Pesanan siap diambil setelah notifikasi selesai produksi.</span>
                     </p>
                   </div>
                 )}
@@ -1298,7 +1358,17 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
                         rows={2}
                         required
                         value={fullAddress}
-                        onChange={(e) => setFullAddress(e.target.value)}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          setFullAddress(val);
+                          if (val.length > 5) {
+                            const isMks = isMakassarAddress({ fullAddress: val, district: destQuery });
+                            if (isMks) {
+                              setDeliveryMethod("FREE_MAKASSAR");
+                              setAddressDetectionNotice("Alamat Kota Makassar terdeteksi: Dialihkan ke Gratis Antar Tim Kaos Kami (Rp 0).");
+                            }
+                          }
+                        }}
                         placeholder="Nama jalan, nomor rumah, RT/RW, kelurahan, kecamatan"
                         className="w-full px-3 py-2 rounded-xl bg-surface border border-border-subtle focus:border-brand-accent text-xs font-sans text-text-primary focus:outline-none leading-relaxed"
                       />
@@ -1408,7 +1478,7 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
                     <div className="space-y-3">
                       <div>
                         <p className="font-sans font-semibold text-sm uppercase text-text-primary">
-                          {activeApparel} (SABLON DTF)
+                          {activeApparel} (CUSTOM SABLON)
                         </p>
                       </div>
 
@@ -1473,7 +1543,7 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
                                 : "bg-surface border-border-subtle text-text-muted hover:text-text-primary"
                             }`}
                           >
-                            {useCustomSizeBreakdown ? "✓ Rincian Ukuran Aktif" : "⚡ Bagi Ukuran (S–XXL)"}
+                            {useCustomSizeBreakdown ? "Rincian Ukuran Aktif" : "Bagi Ukuran (S–XXL)"}
                           </button>
                         </div>
 
@@ -1600,7 +1670,7 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-2">
                         <div className="w-6 h-6 rounded-lg bg-amber-500 text-black flex items-center justify-center font-black">
-                          ⚡
+                          <Zap size={14} className="fill-black" />
                         </div>
                         <div>
                           <span className="font-extrabold text-amber-500 uppercase tracking-wider block">
@@ -1625,7 +1695,7 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
                     {adminBypassActive ? (
                       <div className="space-y-2 pt-2 border-t border-amber-500/20 text-[11px]">
                         <p className="text-text-muted leading-relaxed">
-                          ⚡ <strong>Bypass Pembayaran Aktif:</strong> Biaya Rp 0 (tanpa tagihan gateway & verifikasi OTP dilewati). Pesanan diberi tanda <code className="text-amber-400 font-bold">[TEST]</code> agar omzet toko tetap akurat.
+                          <strong>Bypass Pembayaran Aktif:</strong> Biaya Rp 0 (tanpa tagihan gateway &amp; verifikasi OTP dilewati). Pesanan diberi tanda <code className="text-amber-400 font-bold">[TEST]</code> agar omzet toko tetap akurat.
                         </p>
                         <div className="space-y-1.5 pt-1">
                           <label className="flex items-center gap-2 cursor-pointer p-1.5 rounded-lg hover:bg-black/5 dark:hover:bg-white/5 transition-colors">
@@ -1637,7 +1707,7 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
                               className="accent-amber-500"
                             />
                             <span>
-                              <strong className="text-amber-400">Langsung Lunas</strong> &amp; Terbitkan Tiket Produksi DTF di Kanban
+                              <strong className="text-amber-400">Langsung Lunas</strong> &amp; Terbitkan Tiket Produksi di Kanban
                             </span>
                           </label>
                           <label className="flex items-center gap-2 cursor-pointer p-1.5 rounded-lg hover:bg-black/5 dark:hover:bg-white/5 transition-colors">
@@ -1681,7 +1751,7 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
                     ) : adminBypassActive ? (
                       <>
                         <ShieldCheck size={16} className="stroke-[2.5]" />
-                        <span>⚡ PESAN UJI COBA (BYPASS PEMBAYARAN RP 0)</span>
+                        <span>PESAN UJI COBA (BYPASS PEMBAYARAN RP 0)</span>
                         <ArrowRight size={14} />
                       </>
                     ) : (
@@ -1750,7 +1820,7 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
                     </>
                   ) : (
                     <>
-                      <span>{adminBypassActive ? "⚡ PESAN (BYPASS)" : "BAYAR SEKARANG"}</span>
+                      <span>{adminBypassActive ? "PESAN (BYPASS)" : "BAYAR SEKARANG"}</span>
                       <ArrowRight size={14} />
                     </>
                   )}

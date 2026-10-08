@@ -477,12 +477,25 @@ export async function POST(req: NextRequest) {
       Boolean(sessionUser?.phoneNumber) &&
       cleanUserPhone === cleanOrderPhone.replace(/^0/, "62");
 
+    // Tamu & pembeli produk katalog e-commerce (ready stock tanpa kustomisasi sablon)
+    // dapat langsung checkout tanpa kewajiban OTP agar alur pembelian cepat & lancar.
+    const isAllCatalogReadyStock = items.every(
+      (it) => !!it.productVariantId && (!Array.isArray(it.decals) || it.decals.length === 0)
+    );
     const isSandboxMode = process.env.IPAYMU_ENV === "sandbox";
-    if (process.env.CHECKOUT_OTP_REQUIRED === "false" || isAlreadyVerified || isSandboxMode || isAdminBypassActive) {
+    if (
+      isAllCatalogReadyStock ||
+      process.env.CHECKOUT_OTP_REQUIRED === "false" ||
+      isAlreadyVerified ||
+      isSandboxMode ||
+      isAdminBypassActive
+    ) {
       if (isAdminBypassActive) {
         console.log(`[checkout] Mode pengujian Admin (${sessionUser?.email}) — gerbang OTP dilewati.`);
       } else if (isAlreadyVerified) {
         console.log(`[checkout] Akun ${sessionUser?.id} (${cleanOrderPhone}) sudah phoneVerified — gerbang OTP dilewati.`);
+      } else if (isAllCatalogReadyStock) {
+        console.log(`[checkout] Pembelian produk jadi e-commerce katalog (${cleanOrderPhone}) — gerbang OTP dilewati.`);
       } else {
         console.warn(`[checkout] Gerbang OTP DILEWATI (${isSandboxMode ? "mode sandbox audit" : "CHECKOUT_OTP_REQUIRED=false"})`);
       }

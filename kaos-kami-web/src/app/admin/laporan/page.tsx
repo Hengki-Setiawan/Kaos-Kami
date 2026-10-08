@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { maskPhone as maskPhoneLib } from "@/lib/mask"; // SSOT PII (S-045)
+import { AlertCircle, Lock } from "lucide-react";
 
 // ---------------------------------------------------------------------------
 // /admin/laporan — Halaman reporting workshop (read-only).
@@ -306,8 +307,9 @@ export default function AdminLaporanPage() {
 
       {error && !loading && (
         <div className="p-5 rounded-2xl bg-red-500/10 border border-red-500/30 space-y-2">
-          <p className="font-bold text-red-700 dark:text-red-300">
-            ⚠️ Gagal memuat laporan: {error}
+          <p className="font-bold text-red-700 dark:text-red-300 flex items-center gap-2">
+            <AlertCircle size={16} />
+            <span>Gagal memuat laporan: {error}</span>
           </p>
           <button
             type="button"
@@ -566,7 +568,10 @@ export default function AdminLaporanPage() {
 
           {/* Catatan privasi */}
           <p className="text-[10px] text-text-muted border-t border-border-subtle pt-4">
-            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-surface border border-border-subtle text-text-muted text-[10px] font-bold normal-case tracking-normal">🔒 PDP Protected</span>{" "}
+            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-surface border border-border-subtle text-text-muted text-[10px] font-bold normal-case tracking-normal">
+              <Lock size={10} />
+              <span>PDP Protected</span>
+            </span>{" "}
             Privasi: laporan ini TIDAK memuat nomor WA mentah — kontak tim
             tampil termask dari server. Tombol EXPORT PESANAN memakai pola CSV existing
             (berisi nomor pemesan penuh, khusus ADMIN) — unduh & gunakan seperlunya.{" "}

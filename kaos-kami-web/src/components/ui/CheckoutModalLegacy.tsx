@@ -548,8 +548,9 @@ export const CheckoutModalLegacy: React.FC<CheckoutModalProps> = ({
       Boolean(normPhone) &&
       cleanPhone(normPhone) === cleanPhone(sessionUser?.phoneNumber);
 
+    const isCatalogCart = isCartCheckout || !decals || decals.length === 0;
     const isSandboxBypass = process.env.NODE_ENV !== "production";
-    if (!isAccountPhoneVerified && !isSandboxBypass && !adminBypassActive && !/^\d{6}$/.test(otpCode.trim())) {
+    if (!isAccountPhoneVerified && !isSandboxBypass && !adminBypassActive && !isCatalogCart && !/^\d{6}$/.test(otpCode.trim())) {
       setErrorMessage("Kode OTP 6 digit wajib diisi. Klik KIRIM OTP untuk menerima kode via WhatsApp.");
       return;
     }
@@ -696,7 +697,7 @@ export const CheckoutModalLegacy: React.FC<CheckoutModalProps> = ({
       // (bayar hanya setelah admin ACC via tombol di sana).
       if ((data as any)?.status === "DESIGN_REVIEW" || (!(data as any)?.paymentUrl && !(data as any)?.qrImage && !(data as any)?.qrString && data.orderId)) {
         if (isCartCheckout) clearCart();
-        window.location.href = "/dashboard/orders";
+        window.location.href = (data as any)?.invoiceUrl || `/orders/${data.orderId}`;
         return;
       }
 

@@ -30,6 +30,7 @@
  */
 
 import type { GangPlacement } from "@/lib/gangPacker";
+import JSZip from "jszip";
 
 // ---------------------------------------------------------------------------
 // Kontrak publik (wajib persis — halaman admin mengimpor tipe & fungsi ini)
@@ -43,6 +44,8 @@ export interface GangExportInput {
   dpi?: number;
   cutLines?: boolean;
   gangId?: string;
+  /** Pangkas margin transparan otomatis (alpha-trim) */
+  alphaTrim?: boolean;
 }
 
 /** Hasil ekspor: blob PNG lokal + rekap Bahasa Indonesia + peringatan jujur. */
@@ -53,6 +56,9 @@ export interface GangExportResult {
   widthPx: number;
   heightPx: number;
   warnings: string[];
+  hasSkippedItem?: boolean;
+  drawnCount?: number;
+  totalCount?: number;
 }
 
 // ---------------------------------------------------------------------------
@@ -182,7 +188,7 @@ function inferBinNumber(placements: GangPlacement[], gangId: string | undefined)
  * - Gagal load (termasuk ditolak CORS) → reject dengan pesan jelas, pemanggil
  *   WAJIB mencatatnya ke `warnings` (jangan diam).
  */
-function loadImageCORS(url: string, timeoutMs = 30_000): Promise<HTMLImageElement> {
+export function loadImageCORS(url: string, timeoutMs = 30_000): Promise<HTMLImageElement> {
   return new Promise((resolve, reject) => {
     const img = new Image();
     // Atribut decoding async: decode tak memblokir render (best-effort).
@@ -249,6 +255,89 @@ function canvasToBlob(canvas: HTMLCanvasElement, type = "image/png"): Promise<Bl
       );
     }
   });
+}
+
+// ---------------------------------------------------------------------------
+// Deteksi Alpha-Trim (Pangkas Margin Transparan PNG)
+// ---------------------------------------------------------------------------
+
+export interface AlphaTrimBounds {
+  cropX: number;
+  cropY: number;
+  cropW: number;
+  cropH: number;
+  ratioW: number;
+  ratioH: number;
+}
+
+export function detectAlphaBounds(img: HTMLImageElement): AlphaTrimBounds {
+  const nw = img.naturalWidth;
+  const nh = img.naturalHeight;
+  if (!nw || !nh) {
+    return { cropX: 0, cropY: 0, cropW: nw, cropH: nh, ratioW: 1, ratioH: 1 };
+  }
+
+  // Sample dengan offscreen canvas beresolusi terkelola (maks 512px, eksekusi <2ms)
+  const maxSample = 512;
+  const scale = Math.min(1, maxSample / Math.max(nw, nh));
+  const sw = Math.max(1, Math.round(nw * scale));
+  const sh = Math.max(1, Math.round(nh * scale));
+
+  const off = document.createElement("canvas");
+  off.width = sw;
+  off.height = sh;
+  const ctx = off.getContext("2d", { willReadFrequently: true });
+  if (!ctx) {
+    return { cropX: 0, cropY: 0, cropW: nw, cropH: nh, ratioW: 1, ratioH: 1 };
+  }
+
+  try {
+    ctx.drawImage(img, 0, 0, sw, sh);
+    const imgData = ctx.getImageData(0, 0, sw, sh);
+    const data = imgData.data;
+
+    let minX = sw, minY = sh, maxX = -1, maxY = -1;
+    let hasInk = false;
+
+    for (let y = 0; y < sh; y++) {
+      for (let x = 0; x < sw; x++) {
+        const alpha = data[(y * sw + x) * 4 + 3] ?? 0;
+        if (alpha > 15) {
+          hasInk = true;
+          if (x < minX) minX = x;
+          if (x > maxX) maxX = x;
+          if (y < minY) minY = y;
+          if (y > maxY) maxY = y;
+        }
+      }
+    }
+
+    if (!hasInk || minX > maxX || minY > maxY) {
+      return { cropX: 0, cropY: 0, cropW: nw, cropH: nh, ratioW: 1, ratioH: 1 };
+    }
+
+    const safeMinX = Math.max(0, minX - 2);
+    const safeMinY = Math.max(0, minY - 2);
+    const safeMaxX = Math.min(sw - 1, maxX + 2);
+    const safeMaxY = Math.min(sh - 1, maxY + 2);
+
+    const cropX = Math.round((safeMinX / sw) * nw);
+    const cropY = Math.round((safeMinY / sh) * nh);
+    const cropW = Math.max(1, Math.min(nw - cropX, Math.round(((safeMaxX - safeMinX + 1) / sw) * nw)));
+    const cropH = Math.max(1, Math.min(nh - cropY, Math.round(((safeMaxY - safeMinY + 1) / sh) * nh)));
+
+    return {
+      cropX,
+      cropY,
+      cropW,
+      cropH,
+      ratioW: cropW / nw,
+      ratioH: cropH / nh,
+    };
+  } catch {
+    // Jika CORS canvas taint saat getImageData, fallback aman tanpa error
+    return { cropX: 0, cropY: 0, cropW: nw, cropH: nh, ratioW: 1, ratioH: 1 };
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -393,13 +482,31 @@ export async function exportGangSheetPNG(input: GangExportInput): Promise<GangEx
 
     // Skala proporsional (contain): jaga aspek rasio gambar; sisa ruang
     // dibiarkan transparan (letterbox) — gambar tak pernah digepengkan.
-    const scale = Math.min(boxWPx / img.naturalWidth, boxHPx / img.naturalHeight);
-    const drawW = Math.max(1, Math.round(img.naturalWidth * scale));
-    const drawH = Math.max(1, Math.round(img.naturalHeight * scale));
-    const drawX = Math.round(xPx + (boxWPx - drawW) / 2);
-    const drawY = Math.round(yPx + (boxHPx - drawH) / 2);
+    const isRot = Boolean(raw.rot);
+    const bounds = input.alphaTrim ? detectAlphaBounds(img) : null;
+    const srcX = bounds ? bounds.cropX : 0;
+    const srcY = bounds ? bounds.cropY : 0;
+    const srcW = bounds ? bounds.cropW : img.naturalWidth;
+    const srcH = bounds ? bounds.cropH : img.naturalHeight;
+
+    const targetW = isRot ? boxHPx : boxWPx;
+    const targetH = isRot ? boxWPx : boxHPx;
+    const scale = Math.min(targetW / srcW, targetH / srcH);
+    const drawW = Math.max(1, Math.round(srcW * scale));
+    const drawH = Math.max(1, Math.round(srcH * scale));
+
     try {
-      ctx.drawImage(img, drawX, drawY, drawW, drawH);
+      if (isRot) {
+        ctx.save();
+        ctx.translate(xPx + boxWPx / 2, yPx + boxHPx / 2);
+        ctx.rotate(Math.PI / 2);
+        ctx.drawImage(img, srcX, srcY, srcW, srcH, -drawW / 2, -drawH / 2, drawW, drawH);
+        ctx.restore();
+      } else {
+        const drawX = Math.round(xPx + (boxWPx - drawW) / 2);
+        const drawY = Math.round(yPx + (boxHPx - drawH) / 2);
+        ctx.drawImage(img, srcX, srcY, srcW, srcH, drawX, drawY, drawW, drawH);
+      }
     } catch (e) {
       // Seharusnya tak terjadi (gambar anonim), tapi jujur bila terjadi.
       warnings.push(
@@ -482,7 +589,17 @@ export async function exportGangSheetPNG(input: GangExportInput): Promise<GangEx
   }
   const recapText = head.join("\n");
 
-  return { blob, filename, recapText, widthPx, heightPx, warnings };
+  return {
+    blob,
+    filename,
+    recapText,
+    widthPx,
+    heightPx,
+    warnings,
+    hasSkippedItem: drawnCount < placements.length,
+    drawnCount,
+    totalCount: placements.length,
+  };
 }
 
 /**
@@ -491,6 +608,129 @@ export async function exportGangSheetPNG(input: GangExportInput): Promise<GangEx
  */
 export function buildGangNote(gangId: string, bin: number, xMm: number, yMm: number): string {
   return ` [GANG:${gangId}:M${bin}:${xMm},${yMm}]`;
+}
+
+// ---------------------------------------------------------------------------
+// Ekspor Semua Meter ke Arsip ZIP (Lossless 100% Client-Side)
+// ---------------------------------------------------------------------------
+
+export interface GangZipExportResult {
+  zipBlob: Blob;
+  filename: string;
+  masterRecapText: string;
+  meterCount: number;
+  totalDesain: number;
+  warnings: string[];
+}
+
+export async function exportAllGangSheetsZip(params: {
+  bins: GangPlacement[][];
+  binWmm: number;
+  binHmm: number;
+  dpi?: number;
+  cutLines?: boolean;
+  gangId?: string;
+  alphaTrim?: boolean;
+  onProgress?: (meterIndex: number, totalMeters: number, statusText: string) => void;
+}): Promise<GangZipExportResult> {
+  const { bins, binWmm, binHmm, dpi = 300, cutLines = false, gangId, alphaTrim = true, onProgress } = params;
+  if (typeof document === "undefined") {
+    throw new Error("exportAllGangSheetsZip hanya bisa berjalan di browser (halaman admin).");
+  }
+
+  const zip = new JSZip();
+  const allWarnings: string[] = [];
+  const recapSections: string[] = [];
+  const datePart = todayLocalYYYYMMDD();
+  const gangTag = gangId && gangId.trim() !== "" ? gangId.trim() : `GANG-${datePart}`;
+  let totalDesain = 0;
+
+  for (let b = 0; b < bins.length; b++) {
+    const placements = bins[b] || [];
+    if (placements.length === 0) continue;
+    totalDesain += placements.length;
+    if (onProgress) {
+      onProgress(b + 1, bins.length, `Merender Meter ${b + 1} dari ${bins.length} (${placements.length} desain)...`);
+    }
+
+    const res = await exportGangSheetPNG({
+      placements,
+      binWmm,
+      binHmm,
+      dpi,
+      cutLines,
+      gangId: `${gangTag}-M${b + 1}`,
+      alphaTrim,
+    });
+
+    allWarnings.push(...res.warnings);
+    recapSections.push(res.recapText);
+
+    // Tambahkan file PNG ke dalam ZIP
+    const pngName = `METER_${b + 1}_${Math.round(binWmm / 10)}x${Math.round(binHmm / 10)}cm_${dpi}DPI.png`;
+    zip.file(pngName, res.blob);
+
+    await yieldToUI();
+  }
+
+  // Buat SPK & Rekapan gabungan
+  const masterRecapText = [
+    `=================================================================`,
+    `📦 PAKET MAKLON DTF ROLL — KAOS KAMI MAKASSAR`,
+    `ID GANG: ${gangTag}`,
+    `Tanggal Ekspor: ${new Date().toLocaleString("id-ID")}`,
+    `Total Lembar: ${bins.length} Meter Roll (${Math.round(binWmm / 10)} × ${Math.round(binHmm / 10)} cm)`,
+    `Total Desain Terpasang: ${totalDesain} item`,
+    `Resolusi File Cetak: ${dpi} DPI (Lossless Quality)`,
+    `=================================================================\n`,
+    ...recapSections.map((sec, idx) => `--- [ METER ${idx + 1} ] ---\n${sec}\n`),
+    `CATATAN TEKNIS WORKSHOP TALLO:`,
+    `- File PNG di dalam ZIP ini siap masuk RIP Software (Cadlink / AcroRIP / Hoson / Mawi).`,
+    `- Standar Press: Suhu 160°C, 15 detik, Tekanan 4-5 Bar, Cold Peel (tunggu dingin), Press Ulang 5s Teflon.`,
+  ].join("\n");
+
+  zip.file(`SPK_REKAP_MAKLON_${gangTag}.txt`, masterRecapText);
+
+  if (onProgress) {
+    onProgress(bins.length, bins.length, "Mengompresi berkas ZIP paket maklon...");
+  }
+
+  const zipBlob = await zip.generateAsync({
+    type: "blob",
+    compression: "DEFLATE",
+    compressionOptions: { level: 6 },
+  });
+
+  const zipFilename = `${gangTag}_LENGKAP_${bins.length}METER_${dpi}DPI.zip`;
+
+  return {
+    zipBlob,
+    filename: zipFilename,
+    masterRecapText,
+    meterCount: bins.length,
+    totalDesain,
+    warnings: allWarnings,
+  };
+}
+
+/**
+ * Unduh blob atau teks sebagai file di browser tanpa membuka tab baru.
+ */
+export function downloadFile(
+  blobOrText: Blob | string,
+  filename: string,
+  mimeType = "application/octet-stream",
+): void {
+  if (typeof document === "undefined") return;
+  const blob = typeof blobOrText === "string" ? new Blob([blobOrText], { type: mimeType }) : blobOrText;
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 2000);
 }
 
 // ---------------------------------------------------------------------------

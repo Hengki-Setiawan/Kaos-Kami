@@ -111,3 +111,39 @@ export const PRODUCTION_TURNAROUND_OPTIONS: ProductionTurnaroundOption[] = [
     description: "Prioritas antrean mesin press pertama, selesai dalam 24 jam.",
   },
 ];
+
+/**
+ * Deteksi otomatis apakah alamat pengiriman berada di wilayah Kota Makassar
+ * atau sekitarnya yang memenuhi syarat pengantaran tim internal Kaos Kami (Rp 0).
+ */
+export function isMakassarAddress(input?: {
+  fullAddress?: string | null;
+  city?: string | null;
+  district?: string | null;
+  province?: string | null;
+} | null): boolean {
+  if (!input) return false;
+  const city = (input.city || "").toLowerCase().trim();
+  const district = (input.district || "").toLowerCase().trim();
+  const fullAddress = (input.fullAddress || "").toLowerCase().trim();
+
+  // 1. Cek kecocokan Kota Makassar secara eksplisit
+  if (city.includes("makassar") || city.includes("ujung pandang")) {
+    return true;
+  }
+
+  // 2. Cek apakah kecamatan termasuk dalam 14 kecamatan resmi Kota Makassar
+  const isDistrictMakassar = MAKASSAR_SUBDISTRICTS.some(
+    (sub) => sub.toLowerCase() === district || (fullAddress.length > 0 && fullAddress.includes(sub.toLowerCase()))
+  );
+  if (isDistrictMakassar && (city === "" || city.includes("makassar") || city.includes("sulawesi selatan"))) {
+    return true;
+  }
+
+  // 3. Cek apakah string alamat lengkap mengandung kata kunci Kota Makassar
+  if (fullAddress.includes("kota makassar") || fullAddress.includes("makassar")) {
+    return true;
+  }
+
+  return false;
+}

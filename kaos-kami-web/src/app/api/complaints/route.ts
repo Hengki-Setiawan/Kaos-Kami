@@ -3,7 +3,7 @@ import { nanoid } from "nanoid";
 import { z } from "zod";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
-import { Order, OrderComplaint, OrderStatusEvent } from "@/lib/drizzle-schema";
+import { Order, OrderComplaint, OrderStatusEvent, ChatMessage } from "@/lib/drizzle-schema";
 import { checkRateLimitAsync, getClientIp, rateLimitHeaders } from "@/lib/security/rateLimiter";
 
 const CATEGORIES = ["SABLON_CACAT", "SALAH_UKURAN", "WARNA_BEDA", "KETERLAMBATAN", "LAINNYA"] as const;
@@ -66,6 +66,19 @@ export async function POST(req: NextRequest) {
       status: order.status,
       note: `[KOMPLAIN:${parsed.data.category}] ${parsed.data.message}${parsed.data.photoUrl ? ` | Foto: ${parsed.data.photoUrl}` : ""}`,
       actorUserId: uid,
+    });
+
+    // 3. Masukkan ke Live Chat agar workshop langsung menerima pesan komplain
+    await db.insert(ChatMessage).values({
+      id: nanoid(),
+      senderId: uid,
+      senderName: (session?.user as any)?.name || "Pelanggan",
+      senderRole: "CUSTOMER",
+      receiverId: "WORKSHOP_ADMIN",
+      orderId: order.id,
+      content: `[KOMPLAIN RESMI: ${parsed.data.category}] Pesanan #${order.orderNumber}: ${parsed.data.message}`,
+      attachments: parsed.data.photoUrl ? JSON.stringify([parsed.data.photoUrl]) : null,
+      isRead: false,
     });
 
     return NextResponse.json({ success: true, id: complaintId, message: "Komplain resmi tercatat di sistem. Tim workshop segera menindaklanjuti." });

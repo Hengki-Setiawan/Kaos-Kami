@@ -199,19 +199,19 @@ export interface ApparelOption {
 export const APPAREL_CATALOG: Record<ApparelType, ApparelOption> = {
   tshirt: {
     id: "tshirt",
-    name: "Kaos Polos & Custom Kaos Kami",
+    name: "T-Shirt Cotton Combed 24s",
     tagline: "Katun Combed 24s Sejuk & Nyaman Dipakai",
     weightGsm: "Combed 24s",
     basePriceIdr: 59000,
     formattedPrice: "IDR 59.000",
     sizes: ["S", "M", "L", "XL", "XXL"],
-    description: "Kaos katun combed 24s premium berkarakter sejuk dan jatuh rapi. Siap pakai polos atau dikustom sablon DTF satuan tanpa minimum order.",
+    description: "Kaos katun combed 24s premium berkarakter sejuk dan jatuh rapi. Siap pakai polos atau dikustom sablon satuan tanpa minimum order.",
     mockupEnabled: true,
     orderable: true,
   },
   longsleeve: {
     id: "longsleeve",
-    name: "Kaos Lengan Panjang Kaos Kami",
+    name: "Kaos Lengan Panjang",
     tagline: "Katun Combed 24s Lembut dengan Manset Rib Lengan",
     weightGsm: "Combed 24s",
     basePriceIdr: 69000,
@@ -223,7 +223,7 @@ export const APPAREL_CATALOG: Record<ApparelType, ApparelOption> = {
   },
   crewneck: {
     id: "crewneck",
-    name: "Sweater Crewneck Kaos Kami",
+    name: "Sweater Crewneck",
     tagline: "Bahan Fleece Lembut & Nyaman Hangat",
     weightGsm: "Fleece 280 GSM",
     basePriceIdr: 119000,
@@ -235,7 +235,7 @@ export const APPAREL_CATALOG: Record<ApparelType, ApparelOption> = {
   },
   hoodie: {
     id: "hoodie",
-    name: "Hoodie Jumper Kaos Kami",
+    name: "Hoodie Jumper",
     tagline: "Cotton Fleece Tebal dengan Tudung Ganda & Saku",
     weightGsm: "Fleece 330 GSM",
     basePriceIdr: 139000,
@@ -247,19 +247,19 @@ export const APPAREL_CATALOG: Record<ApparelType, ApparelOption> = {
   },
   shirt: {
     id: "shirt",
-    name: "Coach Jacket Kaos Kami",
+    name: "Coach Jacket",
     tagline: "Jaket Windbreaker Ringan Berkerah Kancing Jepret",
     weightGsm: "Micro Ripstop",
     basePriceIdr: 149000,
     formattedPrice: "IDR 149.000",
     sizes: ["S", "M", "L", "XL", "XXL"],
-    description: "Jaket coach berkerah modern tahan angin dengan kancing jepret dan sablon DTF tajam tahan cuci.",
+    description: "Jaket coach berkerah modern tahan angin dengan kancing jepret dan sablon tajam tahan cuci.",
     mockupEnabled: true,
     orderable: true,
   },
   cap: {
     id: "cap",
-    name: "Topi Baseball Kaos Kami (Mockup)",
+    name: "Topi Baseball (Mockup)",
     tagline: "Mockup 3D · pemesanan segera hadir",
     weightGsm: "Cotton Twill",
     basePriceIdr: 35000,
@@ -444,7 +444,7 @@ export type ProductSize = (typeof SIZES)[number];
 
 export const PRODUCT_DETAILS = {
   name: "Kaos Kami | Sablon Kaos & Streetwear Makassar",
-  productTitle: "Kaos Polos & Custom Kaos Kami",
+  productTitle: "T-Shirt Cotton Combed 24s",
   sku: "KK-TEE-01",
   priceIdr: 79000,
   formattedPrice: "Rp 79.000",
