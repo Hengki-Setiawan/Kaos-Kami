@@ -176,6 +176,7 @@ export interface SavedMockupDesign {
   savedAt: string;
   calculatedPriceIdr: number;
   previewUrl?: string;
+  previewBackUrl?: string;
   /** ID baris server (/api/designs) bila sinkron sukses — untuk deep-link ?designId=. */
   serverId?: string;
 }

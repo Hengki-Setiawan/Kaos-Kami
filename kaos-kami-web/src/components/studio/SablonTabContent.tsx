@@ -853,11 +853,16 @@ export const SablonTabContent: React.FC<SablonTabContentProps> = ({
             <FlaskConical size={16} />
           </div>
           <div className="min-w-0">
-            <span className="text-xs font-sans font-bold text-text-primary block truncate">
-              Uji Fisika Kain & Simulasi 3D
-            </span>
+            <div className="flex items-center gap-1.5">
+              <span className="text-xs font-sans font-bold text-text-primary block truncate">
+                Uji Fisika Kain &amp; Simulasi 3D
+              </span>
+              <span className="text-[9px] font-mono font-bold px-1.5 py-0.2 rounded bg-amber-500/15 text-amber-500 border border-amber-500/30 shrink-0">
+                BETA
+              </span>
+            </div>
             <span className="text-[11px] font-sans text-text-muted block truncate">
-              Simulasi angin, kelenturan kain & pencahayaan
+              Tahap uji coba: simulasi angin, kelenturan &amp; pencahayaan
             </span>
           </div>
         </div>

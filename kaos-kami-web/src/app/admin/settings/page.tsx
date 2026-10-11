@@ -5,7 +5,8 @@ import { redirect } from "next/navigation";
 import { count, inArray, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { auth } from "@/lib/auth";
-import { Order, ProductionTask, ProductVariant } from "@/lib/drizzle-schema";
+import { Order, ProductionTask, ProductVariant, ShopConfig } from "@/lib/drizzle-schema";
+import { EditShopConfigModal } from "@/components/admin/EditShopConfigModal";
 import {
   SHOP_CONTACT_WHATSAPP,
   SHOP_LAT,
@@ -157,17 +158,33 @@ export default async function AdminSettingsPage({
   const pendingReviewCount = Number(orderStats.pendingReviewCount || 0);
   const pendingProduction = Number(pendingProductionRows[0]?.n || 0);
 
-  const shopAddress = withDefault(process.env.SHOP_WORKSHOP_ADDRESS, SHOP_WORKSHOP_ADDRESS);
-  const shopWa = withDefault(process.env.SHOP_CONTACT_WHATSAPP, SHOP_CONTACT_WHATSAPP);
-  const shopPostal = withDefault(process.env.SHOP_POSTAL_CODE, SHOP_POSTAL_CODE);
+  // Baca konfigurasi profil workshop dari Database Turso
+  const dbConfigs = await db
+    .select()
+    .from(ShopConfig)
+    .catch(() => []);
+  const configMap = new Map(dbConfigs.map((c) => [c.key, c.value]));
+
+  const customAddress = configMap.get("shop_address");
+  const customWa = configMap.get("shop_whatsapp");
+  const customPostal = configMap.get("shop_postal_code");
+
+  const shopAddress = customAddress
+    ? { text: customAddress, isDefault: false }
+    : withDefault(process.env.SHOP_WORKSHOP_ADDRESS, SHOP_WORKSHOP_ADDRESS);
+  const shopWa = customWa
+    ? { text: customWa, isDefault: false }
+    : withDefault(process.env.SHOP_CONTACT_WHATSAPP, SHOP_CONTACT_WHATSAPP);
+  const shopPostal = customPostal
+    ? { text: customPostal, isDefault: false }
+    : withDefault(process.env.SHOP_POSTAL_CODE, SHOP_POSTAL_CODE);
   const siteUrl = withDefault(process.env.NEXT_PUBLIC_SITE_URL, "http://localhost:3000");
   const r2Bucket = withDefault(process.env.R2_BUCKET_NAME, "kaos-kami-assets");
   const r2UrlRaw = (process.env.R2_PUBLIC_URL || "").trim();
 
   const SUB_MODULES = [
-    { href: "/admin", label: "Pusat Pesanan (Studio & E-Commerce)", icon: ShoppingBag },
-    { href: "/admin/gang-sheet", label: "Gang Sheet DTF", icon: LayoutGrid },
-    { href: "/admin/catalog", label: "Katalog & Stok", icon: Package },
+    { href: "/admin/distro-catalog", label: "Katalog Toko (Baju Jadi)", icon: ShoppingBag },
+    { href: "/admin/inventory", label: "Stok Kaos Polos Studio", icon: Package },
     { href: "/admin/coupons", label: "Kupon Promo", icon: TicketPercent },
     { href: "/admin/shipping", label: "Tarif & Zona Ongkir", icon: MapPin },
     { href: "/admin/cms", label: "Konten Website", icon: FileText },
@@ -475,29 +492,54 @@ export default async function AdminSettingsPage({
       {/* Identitas Workshop & Monitoring Integrasi Live */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Identitas Workshop Kaos Kami */}
-        <div className="p-6 rounded-2xl bg-surface border border-border-subtle space-y-4">
-          <div className="flex items-center justify-between border-b border-border-subtle/50 pb-3">
-            <h3 className="font-bold text-sm text-text-primary uppercase tracking-wider flex items-center gap-2">
+        <div className="p-4 sm:p-5 rounded-2xl bg-surface border border-border-subtle space-y-3">
+          <div className="flex items-center justify-between border-b border-border-subtle/50 pb-2.5">
+            <h3 className="font-bold text-xs text-text-primary uppercase tracking-wider flex items-center gap-2">
               <MapPin size={15} className="text-brand-accent" />
               <span>Identitas Workshop Makassar</span>
             </h3>
-            <span className="text-text-muted text-[11px] font-mono">
-              Kota Makassar
-            </span>
+            <div className="flex items-center gap-2">
+              <EditShopConfigModal
+                initialConfig={{
+                  shopAddress: shopAddress.text,
+                  shopWhatsapp: shopWa.text,
+                  shopPostalCode: shopPostal.text,
+                }}
+              />
+            </div>
           </div>
 
-          <div className="space-y-0.5">
-            <SettingRow label="Alamat Workshop" value={shopAddress.text} isDefault={shopAddress.isDefault} />
-            <SettingRow label="Kode Pos Asal" value={shopPostal.text} isDefault={shopPostal.isDefault} />
-            <SettingRow label="WhatsApp Resmi CS" value={shopWa.text} isDefault={shopWa.isDefault} />
-            <SettingRow label="Site URL Publik" value={siteUrl.text} isDefault={siteUrl.isDefault} />
-            <SettingRow label="R2 Assets Bucket" value={r2Bucket.text} isDefault={r2Bucket.isDefault} />
-            <SettingRow label="R2 Public Gateway" value={r2UrlRaw || "Default Terproteksi"} isDefault={!r2UrlRaw} />
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between py-2.5 gap-1">
-              <span className="text-text-muted text-xs font-medium">Titik GPS Workshop (Lat, Lon)</span>
-              <span className="text-xs font-mono text-text-primary font-bold">
-                {SHOP_LAT}, {SHOP_LON}
+          <div className="space-y-2">
+            {/* Alamat Utama */}
+            <div className="p-2.5 rounded-xl bg-canvas border border-border-subtle/70">
+              <span className="text-[10px] text-text-muted font-bold uppercase tracking-wider block mb-0.5">
+                Alamat Workshop & Titik Pickup
               </span>
+              <p className="text-xs text-text-primary leading-snug font-sans">
+                {shopAddress.text}
+              </p>
+            </div>
+
+            {/* Grid 2-Kolom Informasi Kontak & Lokasi */}
+            <div className="grid grid-cols-2 gap-2 text-xs">
+              <div className="p-2.5 rounded-xl bg-canvas border border-border-subtle/70">
+                <span className="text-[10px] text-text-muted block">WhatsApp CS</span>
+                <span className="font-bold text-text-primary font-mono text-xs truncate block mt-0.5">
+                  +{shopWa.text}
+                </span>
+              </div>
+              <div className="p-2.5 rounded-xl bg-canvas border border-border-subtle/70">
+                <span className="text-[10px] text-text-muted block">Kode Pos / Wilayah</span>
+                <span className="font-bold text-text-primary font-mono text-xs block mt-0.5">
+                  {shopPostal.text} (Kec. Tallo)
+                </span>
+              </div>
+            </div>
+
+            {/* Baris Meta Tambahan Minimalis */}
+            <div className="flex items-center justify-between text-[11px] px-1 text-text-muted pt-1">
+              <span>GPS: <strong className="font-mono text-text-primary">{SHOP_LAT}, {SHOP_LON}</strong></span>
+              <span>Bucket: <strong className="font-mono text-text-primary">{r2Bucket.text}</strong></span>
             </div>
           </div>
         </div>

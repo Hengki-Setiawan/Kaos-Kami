@@ -35,7 +35,7 @@ export async function confirmOrderPaid(
     id: nanoid(),
     orderId: order.id,
     status: "PAYMENT_CONFIRMED",
-    note: `Pembayaran Duitku lunas via ${paymentCode || "Duitku"} (Ref: ${reference || "-"}, via ${via}).`,
+    note: `Pembayaran iPaymu lunas via ${paymentCode || "iPaymu"} (Ref: ${reference || "-"}, via ${via}).`,
   });
 
   // Prioritas antrean dari tier TERSTRUKTUR (audit: substring "EXPRESS" di

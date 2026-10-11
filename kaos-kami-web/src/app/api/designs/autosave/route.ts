@@ -28,6 +28,7 @@ const AutosaveDecalSchema = z.object({
 });
 
 const AutosaveSchema = z.object({
+  editingDesignId: z.string().max(64).optional(),
   apparelSlug: ApparelSlugSchema,
   colorHex: z.string().regex(/^#([0-9A-Fa-f]{3}|[0-9A-Fa-f]{6})$/).optional(),
   colorName: z.string().max(40).optional(),
@@ -48,7 +49,7 @@ export async function POST(req: NextRequest) {
     if (!parsed.success) {
       return NextResponse.json({ success: false, autosaved: false, error: "Payload autosave tidak valid" }, { status: 400 });
     }
-    const { apparelSlug, colorHex, colorName, size, decals, studioTheme, materialFinishSlug } = parsed.data;
+    const { editingDesignId, apparelSlug, colorHex, colorName, size, decals, studioTheme, materialFinishSlug } = parsed.data;
     if (!apparelSlug) return NextResponse.json({ success: true, autosaved: true });
 
     // Try to get session — if guest, just ack (offline-first)
@@ -59,6 +60,18 @@ export async function POST(req: NextRequest) {
     } catch {}
 
     if (userId) {
+      // Jika user sedang mengedit desain tersimpan (SAVED), JANGAN buat baris draft baru
+      // agar tidak menduplikasi koleksi user tanpa izin (sesuai instruksi owner).
+      if (editingDesignId) {
+        const targetDesign = await db.query.Design.findFirst({
+          where: (t, { and, eq }) => and(eq(t.id, editingDesignId), eq(t.userId, userId)),
+        });
+        if (targetDesign && targetDesign.status === "SAVED") {
+          // Desain tersimpan hanya disimpan saat user menekan tombol SIMPAN secara eksplisit.
+          return NextResponse.json({ success: true, autosaved: true, savedDesignEditing: true });
+        }
+      }
+
       // Find or create DRAFT design for this user (latest)
       const category = await db.query.ApparelCategory.findFirst({
         where: (t, { eq }) => eq(t.slug, apparelSlug),

@@ -155,9 +155,11 @@ import {
   FileText,
   RefreshCw,
   ChevronRight,
+  ChevronLeft,
   ExternalLink,
   Search,
   ChevronDown,
+  ChevronUp,
   Users,
   Clock,
   Undo2,
@@ -180,6 +182,7 @@ import {
   History,
   Download,
   Check,
+  List,
 } from "lucide-react";
 import { packGangSheet, type GangPlacement } from "@/lib/gangPacker";
 import { exportGangSheetPNG } from "@/lib/gangExport";
@@ -561,17 +564,23 @@ function TaskCardContent({
   onOpenPreview,
   onClaim,
   onAdvance,
+  onRegress,
   isChecking,
   advanceLabel,
+  regressLabel,
   scrollToQc,
+  isCompact,
 }: {
   task: ProductionTaskItem;
   onOpenPreview: (t: ProductionTaskItem) => void;
   onClaim: (t: ProductionTaskItem) => void;
   onAdvance?: (t: ProductionTaskItem) => void;
+  onRegress?: (t: ProductionTaskItem) => void;
   isChecking?: boolean;
   advanceLabel?: string;
+  regressLabel?: string;
   scrollToQc: (taskId: string) => void;
+  isCompact?: boolean;
 }) {
   const express = isExpressTask(task);
   const h3 = isH3Express(task);
@@ -601,6 +610,101 @@ function TaskCardContent({
     setWaSent(true);
     window.setTimeout(() => setWaSent(false), 3000);
   };
+
+  if (isCompact) {
+    return (
+      <div
+        onClick={() => onOpenPreview(task)}
+        className="p-2 sm:p-2.5 rounded-xl bg-surface/90 border border-border-subtle hover:border-brand-accent/60 transition-all font-sans text-xs shadow-xs hover:shadow-md cursor-pointer group flex items-center justify-between gap-2 overflow-hidden"
+      >
+        {/* Kiri: Mini Mockup Thumbnail (32x32px) */}
+        <div className="flex items-center gap-2 min-w-0 flex-1">
+          {task.mockupPreviewUrl || task.order.items?.[0]?.snapshotImageUrl ? (
+            <div className="w-8 h-8 rounded-lg overflow-hidden bg-black/20 border border-border-subtle shrink-0">
+              <img
+                src={task.mockupPreviewUrl || task.order.items?.[0]?.snapshotImageUrl || ""}
+                alt="Mockup"
+                className="w-full h-full object-cover"
+                onError={(e) => {
+                  (e.currentTarget as HTMLElement).style.display = "none";
+                }}
+              />
+            </div>
+          ) : (
+            <div className="w-8 h-8 rounded-lg bg-canvas border border-border-subtle flex items-center justify-center shrink-0 text-text-muted">
+              <Layers size={13} />
+            </div>
+          )}
+
+          {/* Tengah: Order No, Nama & Detail Singkat */}
+          <div className="min-w-0 flex-1">
+            <div className="flex items-center gap-1.5 flex-wrap">
+              <span className="font-mono font-bold text-brand-accent text-xs">
+                {task.order.orderNumber}
+              </span>
+              {express && (
+                <span
+                  className={`px-1 py-0.2 rounded text-[8px] font-bold border flex items-center gap-0.5 ${
+                    h3
+                      ? "bg-red-500/20 text-red-600 border-red-500/40"
+                      : "bg-amber-500/20 text-amber-600 border-amber-500/40"
+                  }`}
+                >
+                  <Zap size={8} />
+                  <span>{h3 ? "H-3J" : "EXP"}</span>
+                </span>
+              )}
+            </div>
+            <div className="text-[10px] text-text-muted truncate">
+              <span className="font-semibold text-text-primary">{task.order.user?.name || "Pelanggan"}</span>
+              <span> · {task.order.items?.[0]?.snapshotSize || "L"} · {task.placementSide || "Dada"}</span>
+            </div>
+          </div>
+        </div>
+
+        {/* Kanan: Quick Icon Actions (Kompak & Nyaman Disentuh) */}
+        <div className="flex items-center gap-1 shrink-0" onClick={(e) => e.stopPropagation()}>
+          <button
+            type="button"
+            onClick={() => onOpenPreview(task)}
+            className="w-7 h-7 rounded-lg bg-surface border border-border-subtle hover:border-brand-accent text-text-muted hover:text-brand-accent flex items-center justify-center transition-all cursor-pointer shadow-2xs"
+            title="Lihat 3D & Detail Tiket"
+            aria-label="Lihat 3D"
+          >
+            <Eye size={12} />
+          </button>
+          {onRegress && (
+            <button
+              type="button"
+              disabled={isChecking}
+              onClick={() => onRegress(task)}
+              className="w-7 h-7 rounded-lg bg-red-500/10 hover:bg-red-500/20 text-red-600 dark:text-red-400 border border-red-500/30 flex items-center justify-center transition-all disabled:opacity-50 cursor-pointer shadow-2xs"
+              title={`Mundurkan 1 tahap (${regressLabel || "Mundur"})`}
+              aria-label="Undo tahap"
+            >
+              <Undo2 size={12} />
+            </button>
+          )}
+          {onAdvance ? (
+            <button
+              type="button"
+              disabled={isChecking}
+              onClick={() => onAdvance(task)}
+              className="w-7 h-7 rounded-lg bg-brand-accent hover:brightness-110 text-canvas font-bold flex items-center justify-center transition-all disabled:opacity-50 shadow-xs cursor-pointer"
+              title={`Lanjutkan (${advanceLabel || "Lanjut"})`}
+              aria-label="Lanjutkan tahap"
+            >
+              <ChevronRight size={13} className="stroke-[2.5]" />
+            </button>
+          ) : (
+            <span className="w-7 h-7 rounded-lg bg-emerald-500/15 border border-emerald-500/30 text-emerald-500 flex items-center justify-center text-[10px] font-bold">
+              ✓
+            </span>
+          )}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div
@@ -689,22 +793,31 @@ function TaskCardContent({
         </span>
       </div>
 
-      {/* Action Buttons */}
-      <div className="pt-2 flex items-center justify-between border-t border-border-subtle gap-1.5">
-        <button
-          type="button"
-          onClick={(e) => {
-            e.stopPropagation();
-            onOpenPreview(task);
-          }}
-          className="px-2.5 py-1.5 rounded-xl bg-surface border border-border-subtle hover:border-brand-accent text-text-primary hover:text-brand-accent font-bold text-[10px] flex items-center gap-1.5 transition-all shadow-2xs cursor-pointer"
-        >
-          <Eye size={12} className="text-brand-accent" />
-          <span>Lihat 3D & Detail</span>
-        </button>
+      {/* Action Buttons: Navigasi Undo & Lanjut + Lihat 3D (Simetris & Anti-Terpotong) */}
+      <div className="pt-2 border-t border-border-subtle space-y-2">
+        {/* Baris 1: Tombol Navigasi Kanban 2-Kolom (Undo Satu-Satu & Lanjut) */}
+        <div className="grid grid-cols-2 gap-2">
+          {onRegress ? (
+            <button
+              type="button"
+              disabled={isChecking}
+              onClick={(e) => {
+                e.stopPropagation();
+                onRegress(task);
+              }}
+              className="py-2 px-2.5 rounded-xl bg-red-500/10 hover:bg-red-500/20 active:scale-95 border border-red-500/40 text-red-600 dark:text-red-400 font-bold text-[10px] uppercase transition-all flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50 shadow-xs"
+              title={`Mundurkan 1 tahap (${regressLabel || "Mundur"})`}
+            >
+              <Undo2 size={12} className="shrink-0" />
+              <span className="truncate">↶ UNDO</span>
+            </button>
+          ) : (
+            <div className="py-2 px-2 rounded-xl bg-canvas/40 border border-border-subtle/40 text-text-muted text-[10px] flex items-center justify-center font-mono">
+              Tahap Awal
+            </div>
+          )}
 
-        <div className="flex items-center gap-1.5">
-          {onAdvance && (
+          {onAdvance ? (
             <button
               type="button"
               disabled={isChecking}
@@ -712,13 +825,30 @@ function TaskCardContent({
                 e.stopPropagation();
                 onAdvance(task);
               }}
-              className="px-3 py-1.5 rounded-xl bg-brand-accent text-canvas font-bold text-[10px] uppercase hover:brightness-110 active:scale-95 transition-all flex items-center gap-1 disabled:opacity-50 shadow-xs cursor-pointer"
+              className="py-2 px-2.5 rounded-xl bg-brand-accent hover:brightness-110 active:scale-95 text-canvas font-bold text-[10px] uppercase transition-all flex items-center justify-center gap-1.5 disabled:opacity-50 shadow-xs cursor-pointer"
+              title={`Lanjutkan 1 tahap (${advanceLabel || "Lanjut"})`}
             >
-              <span>{isChecking ? "CEK QC…" : advanceLabel || "LANJUT"}</span>
-              <ChevronRight size={11} />
+              <span className="truncate">{isChecking ? "CEK QC…" : "LANJUT ➔"}</span>
             </button>
+          ) : (
+            <div className="py-2 px-2 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-600 dark:text-emerald-400 text-[10px] font-bold flex items-center justify-center font-mono">
+              Selesai ✓
+            </div>
           )}
         </div>
+
+        {/* Baris 2: Tombol Lihat 3D & Detail Tiket Workshop (Lebar Penuh) */}
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            onOpenPreview(task);
+          }}
+          className="w-full py-1.5 px-3 rounded-xl bg-canvas border border-border-subtle hover:border-brand-accent text-text-muted hover:text-brand-accent font-medium text-[10px] flex items-center justify-center gap-1.5 transition-all shadow-2xs cursor-pointer"
+        >
+          <Eye size={12} className="text-brand-accent shrink-0" />
+          <span>Lihat 3D & Detail Tiket</span>
+        </button>
       </div>
     </div>
   );
@@ -729,15 +859,19 @@ function GangSheetRollCard({
   tasks,
   onOpenRollModal,
   onPrintRoll,
+  onRegressRoll,
   isPrinting,
 }: {
   rollNumber: number;
   tasks: ProductionTaskItem[];
   onOpenRollModal: () => void;
   onPrintRoll: () => void;
+  onRegressRoll?: () => void;
   isPrinting?: boolean;
 }) {
   const totalPcs = tasks.reduce((sum, t) => sum + orderTotalPcs(t.order), 0);
+  // Roll #1 otomatis terbuka, sedangkan Roll #2 dst terlipat rapi untuk menghemat ruang vertikal
+  const [isExpanded, setIsExpanded] = useState(rollNumber === 1);
 
   // Kalkulasi susunan gang sheet nyata persis engine gangPacker (580 x 1000 mm)
   const gangPack = useMemo(() => {
@@ -763,104 +897,122 @@ function GangSheetRollCard({
   return (
     <div
       onClick={onOpenRollModal}
-      className="p-4 rounded-2xl bg-surface border-2 border-amber-500/40 hover:border-amber-500 transition-all space-y-3 font-sans shadow-lg cursor-pointer group relative overflow-hidden"
+      className={`p-3.5 rounded-2xl bg-surface border-2 transition-all font-sans shadow-md cursor-pointer group relative overflow-hidden ${
+        isExpanded ? "border-amber-500/60 space-y-3" : "border-amber-500/30 hover:border-amber-500/60 space-y-2"
+      }`}
     >
       {/* Background radial glow */}
       <div className="absolute top-0 right-0 w-36 h-36 bg-amber-500/5 rounded-full blur-3xl pointer-events-none" />
 
       {/* Header info */}
       <div className="flex justify-between items-start gap-2">
-        <div>
-          <div className="flex items-center gap-1.5">
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-1.5 flex-wrap">
             <span className="p-1 rounded-lg bg-amber-500/20 text-amber-600 dark:text-amber-400">
-              <Layers size={14} />
+              <Layers size={13} />
             </span>
             <span className="font-mono text-xs font-bold text-amber-600 dark:text-amber-400 uppercase tracking-wider">
               Roll Gang Sheet #{rollNumber}
             </span>
+            <span className="px-1.5 py-0.2 rounded-md bg-amber-500/15 border border-amber-500/30 font-mono text-[10px] font-bold text-amber-700 dark:text-amber-300">
+              {tasks.length} Desain ({totalPcs} pcs)
+            </span>
           </div>
-          <h4 className="font-bold text-sm text-text-primary mt-1">
-            Roll Film DTF 100 × 58 cm
-          </h4>
+          <div className="flex items-center justify-between mt-1 gap-2">
+            <span className="text-[11px] font-semibold text-text-muted">
+              Roll Film DTF 100 × 58 cm
+            </span>
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                setIsExpanded(!isExpanded);
+              }}
+              className="text-[10px] font-bold text-amber-600 dark:text-amber-400 hover:text-amber-500 flex items-center gap-1 px-2 py-0.5 rounded-lg bg-amber-500/10 hover:bg-amber-500/20 transition-all cursor-pointer shrink-0"
+              title={isExpanded ? "Tutup Kanvas" : "Buka Pratinjau Kanvas"}
+            >
+              <span>{isExpanded ? "Tutup Kanvas" : "Lihat Kanvas"}</span>
+              {isExpanded ? <ChevronUp size={11} /> : <ChevronDown size={11} />}
+            </button>
+          </div>
         </div>
-        <span className="px-2 py-0.5 rounded-md bg-amber-500/15 border border-amber-500/30 font-mono text-[10px] font-bold text-amber-700 dark:text-amber-300 shrink-0">
-          {tasks.length} Desain
-        </span>
       </div>
 
-      {/* Visual Kontinu Roll PET Film 58.0 cm Makassar */}
-      <div className="p-2.5 rounded-xl bg-black/90 border border-amber-500/40 space-y-1.5 shadow-inner">
-        <div className="flex items-center justify-between text-[9px] font-mono text-amber-400 px-1">
-          <span className="flex items-center gap-1 font-bold">
-            <Ruler size={10} />
-            <span>LEBAR 58 CM</span>
-          </span>
-          <span className="text-amber-400/80">PANJANG 100 CM</span>
-        </div>
+      {/* Visual Kontinu Roll PET Film 58.0 cm Makassar (Hanya tampil saat isExpanded) */}
+      {isExpanded && (
+        <div className="p-2.5 rounded-xl bg-black/90 border border-amber-500/40 space-y-1.5 shadow-inner">
+          <div className="flex items-center justify-between text-[9px] font-mono text-amber-400 px-1">
+            <span className="flex items-center gap-1 font-bold">
+              <Ruler size={10} />
+              <span>LEBAR 58 CM</span>
+            </span>
+            <span className="text-amber-400/80">PANJANG 100 CM</span>
+          </div>
 
-        {/* Continuous SVG Canvas Mini Preview */}
-        <div className="relative rounded-lg overflow-hidden bg-[#0a0f1d] border border-amber-500/30 aspect-[580/550] max-h-[150px] flex items-center justify-center p-1">
-          <svg viewBox="0 0 580 1000" className="w-full h-full drop-shadow">
-            {/* Background Lembar Film PET Gelap */}
-            <rect x={0} y={0} width={580} height={1000} fill="#0d1424" />
-            {/* Margin Aman Cetak 10mm */}
-            <rect
-              x={10}
-              y={10}
-              width={560}
-              height={980}
-              fill="none"
-              stroke="#f59e0b"
-              strokeWidth={2}
-              strokeDasharray="10 8"
-              opacity={0.6}
-            />
-            {/* Penataan Artwork Nyata Hasil packGangSheet */}
-            {placements.map((p, idx) => (
-              <g key={`${p.id}-${idx}`}>
-                <rect
-                  x={p.xMm}
-                  y={p.yMm}
-                  width={p.wMm}
-                  height={p.hMm}
-                  fill="rgba(56, 189, 248, 0.08)"
-                  stroke="#38bdf8"
-                  strokeWidth={2}
-                />
-                {p.masterUrl && (
-                  <image
-                    href={p.masterUrl}
+          {/* Continuous SVG Canvas Mini Preview */}
+          <div className="relative rounded-lg overflow-hidden bg-[#0a0f1d] border border-amber-500/30 aspect-[580/550] max-h-[150px] flex items-center justify-center p-1">
+            <svg viewBox="0 0 580 1000" className="w-full h-full drop-shadow">
+              {/* Background Lembar Film PET Gelap */}
+              <rect x={0} y={0} width={580} height={1000} fill="#0d1424" />
+              {/* Margin Aman Cetak 10mm */}
+              <rect
+                x={10}
+                y={10}
+                width={560}
+                height={980}
+                fill="none"
+                stroke="#f59e0b"
+                strokeWidth={2}
+                strokeDasharray="10 8"
+                opacity={0.6}
+              />
+              {/* Penataan Artwork Nyata Hasil packGangSheet */}
+              {placements.map((p, idx) => (
+                <g key={`${p.id}-${idx}`}>
+                  <rect
+                    x={p.xMm}
+                    y={p.yMm}
+                    width={p.wMm}
+                    height={p.hMm}
+                    fill="rgba(56, 189, 248, 0.08)"
+                    stroke="#38bdf8"
+                    strokeWidth={2}
+                  />
+                  {p.masterUrl && (
+                    <image
+                      href={p.masterUrl}
+                      x={p.xMm + 4}
+                      y={p.yMm + 4}
+                      width={p.wMm - 8}
+                      height={p.hMm - 8}
+                      preserveAspectRatio="xMidYMid meet"
+                      opacity={0.88}
+                    />
+                  )}
+                  <rect
                     x={p.xMm + 4}
                     y={p.yMm + 4}
-                    width={p.wMm - 8}
-                    height={p.hMm - 8}
-                    preserveAspectRatio="xMidYMid meet"
-                    opacity={0.88}
+                    width={Math.min(p.wMm - 8, 140)}
+                    height={26}
+                    rx={4}
+                    fill="rgba(0,0,0,0.85)"
                   />
-                )}
-                <rect
-                  x={p.xMm + 4}
-                  y={p.yMm + 4}
-                  width={Math.min(p.wMm - 8, 140)}
-                  height={26}
-                  rx={4}
-                  fill="rgba(0,0,0,0.85)"
-                />
-                <text
-                  x={p.xMm + 8}
-                  y={p.yMm + 21}
-                  fill="#38bdf8"
-                  fontSize={16}
-                  fontFamily="monospace"
-                  fontWeight="bold"
-                >
-                  #{idx + 1} {p.orderNumber.slice(-4)}
-                </text>
-              </g>
-            ))}
-          </svg>
+                  <text
+                    x={p.xMm + 8}
+                    y={p.yMm + 21}
+                    fill="#38bdf8"
+                    fontSize={16}
+                    fontFamily="monospace"
+                    fontWeight="bold"
+                  >
+                    #{idx + 1} {p.orderNumber.slice(-4)}
+                  </text>
+                </g>
+              ))}
+            </svg>
+          </div>
         </div>
-      </div>
+      )}
 
       {/* Orders summary */}
       <div className="space-y-1">
@@ -881,17 +1033,36 @@ function GangSheetRollCard({
 
       {/* Action buttons */}
       <div className="pt-1 space-y-1.5">
-        <button
-          type="button"
-          onClick={(e) => {
-            e.stopPropagation();
-            onOpenRollModal();
-          }}
-          className="w-full py-2 rounded-xl bg-surface border border-border-subtle hover:border-amber-500 text-text-primary font-mono text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer"
-        >
-          <Eye size={12} className="text-amber-500" />
-          <span>Buka Roll Film & Master HD</span>
-        </button>
+        {isExpanded && (
+          <div className="grid grid-cols-2 gap-1.5">
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                onOpenRollModal();
+              }}
+              className="py-2 px-2 rounded-xl bg-surface border border-border-subtle hover:border-amber-500 text-text-primary font-mono text-[11px] font-bold transition-all flex items-center justify-center gap-1 cursor-pointer"
+            >
+              <Eye size={12} className="text-amber-500" />
+              <span>Lihat Roll HD</span>
+            </button>
+            {onRegressRoll && (
+              <button
+                type="button"
+                disabled={isPrinting}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onRegressRoll();
+                }}
+                className="py-2 px-2 rounded-xl bg-red-500/10 border border-red-500/30 hover:bg-red-500/20 text-red-600 dark:text-red-400 font-mono text-[11px] font-bold transition-all flex items-center justify-center gap-1 cursor-pointer disabled:opacity-50"
+                title="Mundurkan semua desain di roll ini ke tahap 1 (Desain Masuk)"
+              >
+                <RotateCcw size={12} />
+                <span>Kembalikan Roll</span>
+              </button>
+            )}
+          </div>
+        )}
 
         <button
           type="button"
@@ -900,7 +1071,7 @@ function GangSheetRollCard({
             e.stopPropagation();
             onPrintRoll();
           }}
-          className="w-full py-2.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-black font-sans font-bold text-xs uppercase tracking-wider transition-all flex items-center justify-center gap-1.5 cursor-pointer shadow-md disabled:opacity-50"
+          className="w-full py-2 px-3 rounded-xl bg-amber-500 hover:bg-amber-400 text-black font-sans font-bold text-xs uppercase tracking-wider transition-all flex items-center justify-center gap-1.5 cursor-pointer shadow-md disabled:opacity-50"
         >
           <Printer size={14} />
           <span>
@@ -1518,6 +1689,14 @@ export default function ProductionKanbanPage() {
   } | null>(null);
   const [isBatchPrinting, setIsBatchPrinting] = useState(false);
   const [showHistoryModal, setShowHistoryModal] = useState(false);
+  const [activePillarTab, setActivePillarTab] = useState<string>("design_intake");
+  const [cardDensity, setCardDensity] = useState<"compact" | "normal">("compact");
+
+  useEffect(() => {
+    if (typeof window !== "undefined" && window.innerWidth >= 1280) {
+      setCardDensity("normal");
+    }
+  }, []);
 
   useEffect(() => {
     if (previewTask) {
@@ -1862,6 +2041,54 @@ export default function ProductionKanbanPage() {
     return stageMap[currentStage] || { nextStage: null, label: "SELESAI" };
   };
 
+  const getPrevStageAndLabel = (currentStage: string): { prevStage: string | null; label: string } => {
+    const stageMap: Record<string, { prevStage: string; label: string }> = {
+      SCREEN_PRINT_SETUP: { prevStage: "DESIGN_PREP", label: "DESAIN" },
+      PRINTING: { prevStage: "SCREEN_PRINT_SETUP", label: "GANG SHEET" },
+      PRESSING: { prevStage: "SCREEN_PRINT_SETUP", label: "GANG SHEET" },
+      QUALITY_CHECK: { prevStage: "PRINTING", label: "SABLON" },
+      PACKAGING: { prevStage: "PRESSING", label: "SABLON" },
+    };
+    return stageMap[currentStage] || { prevStage: null, label: "AWAL" };
+  };
+
+  const regressTask = (task: ProductionTaskItem, prevStage: string) => {
+    setActionError(null);
+    moveTaskMutation.mutate({ taskId: task.id, stage: prevStage, fromStage: task.stage, isUndo: true });
+  };
+
+  const [gangViewMode, setGangViewMode] = useState<"cards" | "rolls">("cards");
+  const [resettingGang, setResettingGang] = useState(false);
+
+  const resetAllGangTasksToDesign = async (gangTasks: ProductionTaskItem[]) => {
+    if (!gangTasks || gangTasks.length === 0) return;
+    if (!confirm(`Kembalikan ${gangTasks.length} desain di antrean gang sheet ke kolom 1 (Desain Masuk) agar bisa disusun ulang?`)) return;
+    setResettingGang(true);
+    setActionError(null);
+    try {
+      const taskIds = gangTasks.map((t) => t.id);
+      const res = await fetch("/api/admin/production-tasks", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          taskIds,
+          stage: "DESIGN_PREP",
+          notes: "Dikembalikan ke Desain Masuk untuk disusun ulang",
+          appendNotes: true,
+        }),
+      });
+      const data = await res.json().catch(() => null);
+      if (!res.ok || data?.error) {
+        throw new Error(data?.error || "Gagal mengembalikan task ke Desain Masuk");
+      }
+      queryClient.invalidateQueries({ queryKey: ["production-tasks"] });
+    } catch (e: any) {
+      setActionError(e?.message || "Gagal mereset antrean gang sheet");
+    } finally {
+      setResettingGang(false);
+    }
+  };
+
   const completeOrderPackaging = async (orderId: string, taskIds: string[]) => {
     try {
       setActionError(null);
@@ -1891,9 +2118,9 @@ export default function ProductionKanbanPage() {
   };
 
   return (
-    <div className="p-5 sm:p-8 space-y-6 max-w-full">
+    <div className="p-3 sm:p-5 lg:p-6 space-y-3.5 max-w-full flex flex-col min-h-full pb-12">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-4 pb-4 border-b border-border-subtle">
+      <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-3 shrink-0 pb-3 border-b border-border-subtle">
         <div>
           <h1 className="font-sans text-2xl sm:text-3xl font-bold uppercase tracking-tight text-text-primary flex items-center gap-2.5">
             <Layers size={24} className="text-brand-accent" />
@@ -1958,23 +2185,37 @@ export default function ProductionKanbanPage() {
             <Package size={13} />
             <span>Multi-Item{multiOrderCount > 0 ? ` (${multiOrderCount})` : ""}</span>
           </button>
+
+          <button
+            type="button"
+            onClick={() => setCardDensity(cardDensity === "compact" ? "normal" : "compact")}
+            className={`px-3 py-2 rounded-xl border text-xs font-semibold transition-all flex items-center gap-1.5 min-h-[40px] cursor-pointer ${
+              cardDensity === "compact"
+                ? "bg-amber-400 text-black shadow-xs font-bold"
+                : "bg-surface border-border-subtle text-text-muted hover:text-text-primary"
+            }`}
+            title="Ganti Kepadatan Kartu: Kompak (ringkas muat banyak) vs Detail (normal)"
+          >
+            {cardDensity === "compact" ? <List size={13} /> : <LayoutGrid size={13} />}
+            <span>{cardDensity === "compact" ? "Mode Kompak" : "Mode Detail"}</span>
+          </button>
         </div>
       </div>
       {actionError && (
-        <div className="p-3 rounded-xl bg-red-500/10 border border-red-500/40 text-red-700 dark:text-red-300 text-xs flex items-center gap-2" role="alert">
+        <div className="shrink-0 p-3 rounded-xl bg-red-500/10 border border-red-500/40 text-red-700 dark:text-red-300 text-xs flex items-center gap-2" role="alert">
           <AlertTriangle size={15} className="shrink-0 text-red-500" />
           <span>{actionError}</span>
         </div>
       )}
       {qcGateMsg && (
-        <div className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/40 text-amber-800 dark:text-amber-200 text-xs flex items-center gap-2" role="alert">
+        <div className="shrink-0 p-3 rounded-xl bg-amber-500/10 border border-amber-500/40 text-amber-800 dark:text-amber-200 text-xs flex items-center gap-2" role="alert">
           <ShieldAlert size={15} className="shrink-0 text-amber-500" />
           <span>{qcGateMsg}</span>
         </div>
       )}
       {/* UNDO 10 detik untuk pindah stage terakhir */}
       {lastMove && (
-        <div className="p-3 rounded-xl bg-sky-500/10 border border-sky-500/40 text-sky-800 dark:text-sky-200 text-xs flex items-center justify-between gap-3" role="status">
+        <div className="shrink-0 p-3 rounded-xl bg-sky-500/10 border border-sky-500/40 text-sky-800 dark:text-sky-200 text-xs flex items-center justify-between gap-3" role="status">
           <span className="flex items-center gap-2">
             <RotateCcw size={14} className="shrink-0 text-sky-600" />
             <span>{lastMove.orderNumber || "Task"} pindah {lastMove.fromStage} → {lastMove.toStage}. Batalkan dalam {undoLeft} dtk?</span>
@@ -2011,8 +2252,57 @@ export default function ProductionKanbanPage() {
         </div>
       ) : (
       <DndContext sensors={sensors} collisionDetection={closestCenter} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
+        {/* Mobile Pillar Switcher (Khusus Layar HP < md) */}
+        <div className="flex md:hidden items-center gap-1.5 overflow-x-auto pb-1 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden shrink-0">
+          <button
+            type="button"
+            onClick={() => setActivePillarTab("all")}
+            className={`px-3 py-1.5 rounded-xl font-bold text-xs whitespace-nowrap transition-all cursor-pointer ${
+              activePillarTab === "all"
+                ? "bg-brand-accent text-canvas shadow-xs"
+                : "bg-surface border border-border-subtle text-text-muted hover:text-text-primary"
+            }`}
+          >
+            Semua Pilar ({visibleTasks.length})
+          </button>
+          {WORKSHOP_PILLARS.map((p) => {
+            const count = visibleTasks.filter((t) => p.stages.includes(t.stage)).length;
+            const isActive = activePillarTab === p.id;
+            const PIcon = p.icon;
+            return (
+              <button
+                key={`mob-tab-${p.id}`}
+                type="button"
+                onClick={() => setActivePillarTab(p.id)}
+                className={`px-3 py-1.5 rounded-xl font-bold text-xs whitespace-nowrap transition-all flex items-center gap-1.5 cursor-pointer ${
+                  isActive
+                    ? "bg-brand-accent text-canvas shadow-xs"
+                    : "bg-surface border border-border-subtle text-text-muted hover:text-text-primary"
+                }`}
+              >
+                <PIcon size={12} className={isActive ? "text-canvas" : p.color} />
+                <span>{p.label}</span>
+                <span className="font-mono text-[10px] opacity-80">({count})</span>
+              </button>
+            );
+          })}
+          <button
+            type="button"
+            onClick={() => setCardDensity(cardDensity === "compact" ? "normal" : "compact")}
+            className={`px-2.5 py-1.5 rounded-xl font-bold text-xs whitespace-nowrap transition-all flex items-center gap-1 cursor-pointer shrink-0 ml-auto ${
+              cardDensity === "compact"
+                ? "bg-amber-400 text-black shadow-xs"
+                : "bg-surface border border-border-subtle text-text-muted hover:text-text-primary"
+            }`}
+            title="Toggle kepadatan kartu"
+          >
+            {cardDensity === "compact" ? <List size={12} /> : <LayoutGrid size={12} />}
+            <span>{cardDensity === "compact" ? "Kompak" : "Detail"}</span>
+          </button>
+        </div>
+
         {/* 4-Pillar Operational Grid (Desain Masuk → Gang Sheet → Siap Sablon → Pesanan Disiapkan) */}
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4 pb-4 items-start min-h-[600px]">
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4 pb-2 items-stretch flex-1 min-h-0">
           {WORKSHOP_PILLARS.map((pillar) => {
             const pillarTasks = sortByDeadline(visibleTasks.filter((t) => pillar.stages.includes(t.stage)));
             const Icon = pillar.icon;
@@ -2041,10 +2331,14 @@ export default function ProductionKanbanPage() {
               <DroppableColumn
                 key={pillar.id}
                 id={pillar.id}
-                className="bg-surface border border-border-subtle rounded-2xl p-4 flex flex-col space-y-3 w-full min-h-[500px]"
+                className={`${
+                  activePillarTab === "all" || activePillarTab === pillar.id
+                    ? "flex"
+                    : "hidden md:flex"
+                } bg-surface border border-border-subtle rounded-2xl p-3.5 flex-col w-full min-h-[450px] shadow-xs`}
               >
                 {/* Pillar Header */}
-                <div className="pb-2 border-b border-border-subtle space-y-1">
+                <div className="shrink-0 pb-2 border-b border-border-subtle space-y-1">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center space-x-2">
                       <Icon size={16} className={pillar.color} />
@@ -2059,6 +2353,53 @@ export default function ProductionKanbanPage() {
                     </span>
                   </div>
                   <p className="text-[10px] font-sans text-text-muted">{pillar.sublabel}</p>
+
+                  {/* Kontrol Khusus Pilar 2: Toggle Kartu vs Roll & Reset Antrean */}
+                  {pillar.id === "gang_queue" && (
+                    <div className="flex flex-col gap-1.5 pt-1">
+                      <div className="flex items-center justify-between gap-1">
+                        <div className="flex items-center gap-1 p-0.5 rounded-lg bg-canvas border border-border-subtle text-[10px]">
+                          <button
+                            type="button"
+                            onClick={() => setGangViewMode("cards")}
+                            className={`px-2 py-1 rounded-md font-bold transition-all cursor-pointer ${
+                              gangViewMode === "cards"
+                                ? "bg-amber-400 text-black shadow-2xs"
+                                : "text-text-muted hover:text-text-primary"
+                            }`}
+                            title="Tampilkan per desain baju (Anda bisa klik ↶ UNDO pada masing-masing kartu untuk memundurkannya satu per satu)"
+                          >
+                            Per Desain (Undo 1-1)
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setGangViewMode("rolls")}
+                            className={`px-2 py-1 rounded-md font-bold transition-all cursor-pointer ${
+                              gangViewMode === "rolls"
+                                ? "bg-amber-400 text-black shadow-2xs"
+                                : "text-text-muted hover:text-text-primary"
+                            }`}
+                            title="Kelompokkan dalam paket gulungan roll film DTF (kapasitas 5 desain per roll)"
+                          >
+                            Paket Roll ({gangRolls.length})
+                          </button>
+                        </div>
+
+                        {pillarTasks.length > 0 && (
+                          <button
+                            type="button"
+                            disabled={resettingGang}
+                            onClick={() => void resetAllGangTasksToDesign(pillarTasks)}
+                            className="px-2.5 py-1 rounded-lg bg-red-500/10 border border-red-500/30 text-red-600 dark:text-red-400 hover:bg-red-500/20 text-[10px] font-bold transition-all flex items-center gap-1 cursor-pointer disabled:opacity-50"
+                            title="Kembalikan semua pesanan di antrean ini ke Kolom 1 (Desain Masuk) sekaligus agar bisa ditata ulang dari awal"
+                          >
+                            <RotateCcw size={10} className={resettingGang ? "animate-spin" : ""} />
+                            <span>Reset ke Kolom 1</span>
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  )}
                 </div>
 
                 {isEmptyPillar ? (
@@ -2071,13 +2412,71 @@ export default function ProductionKanbanPage() {
                   </SortableContext>
                 ) : (
                   <SortableContext items={pillarTasks.map((t) => t.id)} strategy={verticalListSortingStrategy}>
-                    <div className="space-y-3 flex-1 min-h-[100px]">
+                    <div className="space-y-3 flex-1 min-h-0 pr-1">
                       {pillar.id === "packing_done" ? (
                         /* Tahap 4: Dikelompokkan per Order Pelanggan */
                         pillarGroups.map((g) => {
                           const first = g.tasksInCol[0]!;
                           const pcs = orderTotalPcs(first.order);
                           const checking = qcCheckingId === first.id;
+
+                          if (cardDensity === "compact") {
+                            return (
+                              <div
+                                key={`packing-${g.orderId}`}
+                                onClick={() => setPreviewTask(first)}
+                                className="p-2 sm:p-2.5 rounded-xl bg-surface border border-emerald-500/30 hover:border-emerald-500 transition-all font-sans text-xs shadow-xs cursor-pointer flex items-center justify-between gap-2 overflow-hidden"
+                              >
+                                <div className="min-w-0 flex-1">
+                                  <div className="flex items-center gap-1.5 flex-wrap">
+                                    <span className="font-mono font-bold text-brand-accent text-xs">
+                                      {first.order.orderNumber}
+                                    </span>
+                                    <span className="text-[9px] font-mono text-emerald-600 dark:text-emerald-400 font-bold bg-emerald-500/10 px-1.5 py-0.2 rounded">
+                                      Siap Packing
+                                    </span>
+                                  </div>
+                                  <div className="text-[10px] text-text-muted truncate">
+                                    <span className="font-semibold text-text-primary">{first.order.user?.name || "Pelanggan"}</span>
+                                    <span> · {pcs} pcs</span>
+                                  </div>
+                                </div>
+                                <div className="flex items-center gap-1 shrink-0" onClick={(e) => e.stopPropagation()}>
+                                  <button
+                                    type="button"
+                                    disabled={checking}
+                                    onClick={() => {
+                                      if (!confirm(`Mundurkan order ${first.order.orderNumber} ke tahap sablon untuk cetak ulang?`)) return;
+                                      void Promise.all(
+                                        g.tasksInCol.map((t) =>
+                                          fetch("/api/admin/production-tasks", {
+                                            method: "PATCH",
+                                            headers: { "Content-Type": "application/json" },
+                                            body: JSON.stringify({ taskId: t.id, stage: "PRINTING" }),
+                                          })
+                                        )
+                                      ).then(() => queryClient.invalidateQueries({ queryKey: ["production-tasks"] }));
+                                    }}
+                                    className="w-7 h-7 rounded-lg bg-surface border border-red-500/30 text-red-600 dark:text-red-400 flex items-center justify-center transition-all cursor-pointer disabled:opacity-50"
+                                    title="Mundurkan ke tahap sablon"
+                                  >
+                                    <ChevronLeft size={13} />
+                                  </button>
+                                  <button
+                                    type="button"
+                                    disabled={checking}
+                                    onClick={() => void completeOrderPackaging(g.orderId, g.tasksInCol.map((t) => t.id))}
+                                    className="px-2.5 h-7 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-[10px] uppercase flex items-center gap-1 transition-all cursor-pointer shadow-xs disabled:opacity-50"
+                                    title="Selesaikan & tandai siap kirim"
+                                  >
+                                    <CheckCircle2 size={12} />
+                                    <span>Kirim</span>
+                                  </button>
+                                </div>
+                              </div>
+                            );
+                          }
+
                           return (
                             <div
                               key={`packing-${g.orderId}`}
@@ -2114,23 +2513,48 @@ export default function ProductionKanbanPage() {
                                 ))}
                               </div>
 
-                              <button
-                                type="button"
-                                disabled={checking}
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  void completeOrderPackaging(g.orderId, g.tasksInCol.map((t) => t.id));
-                                }}
-                                className="w-full py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs uppercase tracking-wider flex items-center justify-center gap-1.5 transition-all cursor-pointer shadow-xs disabled:opacity-50"
-                              >
-                                <CheckCircle2 size={14} />
-                                <span>Pesanan Siap (Maju ke Pengiriman)</span>
-                              </button>
+                              <div className="flex items-center gap-2 pt-1">
+                                <button
+                                  type="button"
+                                  disabled={checking}
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    if (!confirm(`Mundurkan order ${first.order.orderNumber} ke tahap sablon untuk cetak ulang?`)) return;
+                                    void Promise.all(
+                                      g.tasksInCol.map((t) =>
+                                        fetch("/api/admin/production-tasks", {
+                                          method: "PATCH",
+                                          headers: { "Content-Type": "application/json" },
+                                          body: JSON.stringify({ taskId: t.id, stage: "PRINTING" }),
+                                        })
+                                      )
+                                    ).then(() => queryClient.invalidateQueries({ queryKey: ["production-tasks"] }));
+                                  }}
+                                  className="py-2.5 px-3 rounded-xl bg-surface border border-red-500/30 hover:bg-red-500/10 text-red-600 dark:text-red-400 font-bold text-xs uppercase flex items-center justify-center gap-1 transition-all cursor-pointer shadow-xs disabled:opacity-50"
+                                  title="Mundurkan ke tahap sablon jika ditemukan cacat kain/sablon"
+                                >
+                                  <ChevronLeft size={13} />
+                                  <span>Mundur Sablon</span>
+                                </button>
+
+                                <button
+                                  type="button"
+                                  disabled={checking}
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    void completeOrderPackaging(g.orderId, g.tasksInCol.map((t) => t.id));
+                                  }}
+                                  className="flex-1 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs uppercase tracking-wider flex items-center justify-center gap-1.5 transition-all cursor-pointer shadow-xs disabled:opacity-50"
+                                >
+                                  <CheckCircle2 size={14} />
+                                  <span>Pesanan Siap (Kirim)</span>
+                                </button>
+                              </div>
                             </div>
                           );
                         })
-                      ) : pillar.id === "gang_queue" ? (
-                        /* Tahap 2: Dikelompokkan per Roll Gang Sheet (Opsi A) */
+                      ) : pillar.id === "gang_queue" && gangViewMode === "rolls" ? (
+                        /* Tahap 2: Dikelompokkan per Roll Gang Sheet (Mode Roll) */
                         gangRolls.map((roll) => (
                           <GangSheetRollCard
                             key={roll.rollId}
@@ -2138,12 +2562,23 @@ export default function ProductionKanbanPage() {
                             tasks={roll.tasks}
                             onOpenRollModal={() => setSelectedGangRoll(roll)}
                             onPrintRoll={() => void advanceGangRollToPressing(roll.tasks)}
+                            onRegressRoll={async () => {
+                              if (!confirm(`Kembalikan ${roll.tasks.length} desain di Roll #${roll.rollNumber} ke Desain Masuk?`)) return;
+                              const res = await fetch("/api/admin/production-tasks", {
+                                method: "PATCH",
+                                headers: { "Content-Type": "application/json" },
+                                body: JSON.stringify({ taskIds: roll.tasks.map((t) => t.id), stage: "DESIGN_PREP" }),
+                              });
+                              queryClient.invalidateQueries({ queryKey: ["production-tasks"] });
+                            }}
                             isPrinting={isBatchPrinting}
                           />
                         ))
                       ) : (
+                        /* Mode Kartu Satuan untuk Semua Pilar (Termasuk Pilar 2 Antrean Gang Sheet) */
                         pillarTasks.map((task) => {
                           const nextInfo = getNextStageAndLabel(task.stage);
+                          const prevInfo = getPrevStageAndLabel(task.stage);
                           const checking = qcCheckingId === task.id;
                           return (
                             <SortableTaskCard key={task.id} task={task}>
@@ -2152,9 +2587,12 @@ export default function ProductionKanbanPage() {
                                 onOpenPreview={setPreviewTask}
                                 onClaim={(t) => claimTaskMutation.mutate({ taskId: t.id })}
                                 onAdvance={nextInfo.nextStage ? () => void advanceWithQcGate(task, nextInfo.nextStage!) : undefined}
+                                onRegress={prevInfo.prevStage ? () => regressTask(task, prevInfo.prevStage!) : undefined}
                                 advanceLabel={nextInfo.label}
+                                regressLabel={prevInfo.label}
                                 isChecking={checking}
                                 scrollToQc={scrollToQc}
+                                isCompact={cardDensity === "compact"}
                               />
                             </SortableTaskCard>
                           );

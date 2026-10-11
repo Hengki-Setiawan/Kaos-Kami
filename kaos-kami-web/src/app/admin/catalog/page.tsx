@@ -1,20 +1,17 @@
 import React from "react";
 import Link from "next/link";
 import { unstable_cache } from "next/cache";
-import { count } from "drizzle-orm";
+import { count, asc, desc } from "drizzle-orm";
 import { db } from "@/lib/db";
-import { ProductVariant } from "@/lib/drizzle-schema";
-import { VariantRowActions } from "@/components/admin/VariantRowActions";
+import { ProductVariant, CatalogProduct } from "@/lib/drizzle-schema";
 import { AddProductModal } from "@/components/admin/AddProductModal";
-import { MatrixStockGrid } from "@/components/admin/MatrixStockGrid";
+import { CatalogPageTabs } from "@/components/admin/CatalogPageTabs";
+import { ShoppingBag, Package, ArrowUpRight } from "lucide-react";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
-const PER_PAGE = 20;
-
-// Agregasi count per kategori di-cache 60 detik: groupBy memindai seluruh
-// varian tiap request — cukup segar per menit untuk halaman admin.
+// Agregasi count per kategori di-cache 60 detik
 const getVariantCounts = unstable_cache(
   async () =>
     db.select({ categoryId: ProductVariant.categoryId, n: count() }).from(ProductVariant).groupBy(ProductVariant.categoryId),
@@ -22,17 +19,8 @@ const getVariantCounts = unstable_cache(
   { revalidate: 60 }
 );
 
-const idr = (v: number | null | undefined) =>
-  v == null ? "—" : `Rp ${Number(v).toLocaleString("id-ID")}`;
-
-export default async function AdminCatalogPage({
-  searchParams,
-}: {
-  searchParams: Promise<{ vpage?: string }>;
-}) {
-  const sp = await searchParams;
-  const vpage = Math.max(1, Number(sp.vpage) || 1);
-  const [categories, colors, materials, sablonMethods, allVariants] = await Promise.all([
+export default async function AdminCatalogPage() {
+  const [categories, colors, materials, sablonMethods, allVariants, distroProducts] = await Promise.all([
     db.query.ApparelCategory.findMany({ orderBy: (t, { asc }) => asc(t.sortOrder) }),
     db.query.ColorOption.findMany({ orderBy: (t, { asc }) => asc(t.sortOrder) }),
     db.query.MaterialFinish.findMany(),
@@ -40,16 +28,16 @@ export default async function AdminCatalogPage({
     db.query.ProductVariant.findMany({
       orderBy: (t, { asc }) => [asc(t.categoryId), asc(t.colorName), asc(t.size)],
     }),
+    db.query.CatalogProduct.findMany({
+      orderBy: (t, { asc }) => asc(t.sortOrder),
+    }),
   ]);
-  const variantTotal = (await db.select({ n: count() }).from(ProductVariant))[0]?.n ?? 0;
-  const variantPages = Math.max(1, Math.ceil(Number(variantTotal) / PER_PAGE));
-  const safeVPage = Math.min(vpage, variantPages);
-  const variants = await db.query.ProductVariant.findMany({
-    limit: PER_PAGE,
-    offset: (safeVPage - 1) * PER_PAGE,
-    orderBy: (t, { desc }) => desc(t.createdAt),
-    with: { category: true },
-  });
+
+  // Statistik Inventaris Nyata
+  const totalQtyPhysical = allVariants.reduce((sum, v) => sum + (v.stockQty || 0), 0);
+  const lowStockCount = allVariants.filter((v) => (v.stockQty || 0) > 0 && (v.stockQty || 0) <= 5).length;
+  const outOfStockCount = allVariants.filter((v) => (v.stockQty || 0) === 0).length;
+
   const variantCounts = await getVariantCounts();
   const countMap = new Map(variantCounts.map((r) => [r.categoryId, r.n]));
   const categoriesWithCounts = categories.map((c: any) => ({
@@ -60,98 +48,115 @@ export default async function AdminCatalogPage({
   const categoryOptions = categories.map((c: any) => ({ id: c.id, name: c.name, slug: c.slug }));
 
   return (
-    <div className="p-5 sm:p-8 space-y-8 max-w-7xl mx-auto font-mono text-xs">
+    <div className="p-5 sm:p-8 space-y-6 max-w-7xl mx-auto font-sans text-xs">
+      {/* Header */}
       <div className="pb-4 border-b border-border-subtle flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="font-sans text-2xl sm:text-3xl font-bold uppercase text-text-primary">KATALOG & INVENTORY MANAGEMENT</h1>
-          <p className="text-text-muted mt-1">Matriks Stok Multi-Dimensi (8 Produk × Warna × Ukuran) • Sinkron langsung dengan Turso DB Edge</p>
+          <h1 className="text-2xl sm:text-3xl font-bold uppercase tracking-tight text-text-primary">
+            KATALOG & INVENTARIS
+          </h1>
+          <p className="text-text-muted mt-0.5 text-xs">
+            Portal pusat kendali produk toko online Kaos Kami Makassar dan inventaris bahan apparel Studio 3D.
+          </p>
         </div>
         <AddProductModal categories={categoryOptions} />
       </div>
 
-      {/* MATRIX STOCK GRID (MULTI-DIMENSI) */}
-      <section>
-        <MatrixStockGrid categories={categories as any} initialVariants={allVariants as any} />
-      </section>
-
-      <section className="space-y-3">
-        <h2 className="font-bold text-text-primary uppercase">Apparel Categories ({categories.length})</h2>
-        <div className="bg-surface border border-border-subtle rounded-2xl overflow-hidden divide-y divide-border-subtle">
-          {categoriesWithCounts.map((c: any) => (
-            <div key={c.id} className="p-4 flex justify-between items-center">
-              <div>
-                <span className="font-bold text-text-primary block">{c.name || "Tanpa nama"} ({c.slug || "?"})</span>
-                <span className="text-text-muted">{c.weightGsm || "?"} • {idr(c.basePriceIdr)} • {c.sizes || "?"} • 3D: {c.model3dPath || "—"}</span>
-              </div>
-              <span className="px-2 py-1 rounded bg-surface border border-border-subtle text-text-primary">{c._count?.variants ?? 0} varian</span>
-            </div>
-          ))}
-        </div>
-      </section>
-
-      <section className="space-y-3">
-        <h2 className="font-bold text-text-primary uppercase">
-          Product Variants (Ready Stock) — {Number(variantTotal)} total · hal. {safeVPage}/{variantPages}
-        </h2>
-        <div className="bg-surface border border-border-subtle rounded-2xl overflow-hidden divide-y divide-border-subtle">
-          {variants.map((v: any) => (
-            <div key={v.id} className="p-4 flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3">
-              <span className="text-text-primary font-bold">{v.sku || v.id} — {v.name || "Tanpa nama"} ({v.size || "?"} • {v.colorName || "?"})</span>
-              <VariantRowActions
-                id={v.id}
-                stockQty={v.stockQty}
-                priceIdr={v.priceIdr}
-                isActive={!!v.isActive}
-                variant={v}
-                categories={categoryOptions}
-              />
-            </div>
-          ))}
-          {variants.length === 0 && <div className="p-8 text-center text-text-muted">Belum ada varian.</div>}
-        </div>
-        {variantPages > 1 && (
-          <div className="flex items-center justify-between">
-            {safeVPage > 1 ? (
-              <Link href={`/admin/catalog?vpage=${safeVPage - 1}`} className="px-4 py-2 rounded-lg bg-surface border border-border-subtle text-text-primary font-bold">
-                ← SEBELUM
-              </Link>
-            ) : (
-              <span />
-            )}
-            <span className="text-text-muted">
-              {safeVPage} / {variantPages}
-            </span>
-            {safeVPage < variantPages ? (
-              <Link href={`/admin/catalog?vpage=${safeVPage + 1}`} className="px-4 py-2 rounded-lg bg-surface border border-border-subtle text-text-primary font-bold">
-                LANJUT →
-              </Link>
-            ) : (
-              <span />
-            )}
+      {/* 2 KARTU PINTASAN PEMISAHAN HALAMAN KHUSUS */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <Link
+          href="/admin/distro-catalog"
+          className="group p-5 rounded-2xl bg-gradient-to-br from-surface to-surface-elevated border border-border-subtle hover:border-brand-accent transition-all shadow-sm hover:shadow-md flex items-start gap-4"
+        >
+          <div className="p-3 rounded-xl bg-brand-accent/15 text-brand-accent shrink-0 group-hover:scale-105 transition-transform">
+            <ShoppingBag className="w-6 h-6" />
           </div>
-        )}
-      </section>
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2">
+              <h3 className="font-bold text-sm text-text-primary uppercase group-hover:text-brand-accent transition-colors">
+                Katalog Produk Jadi E-Commerce
+              </h3>
+              <ArrowUpRight className="w-4 h-4 text-text-muted group-hover:text-brand-accent group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-all" />
+            </div>
+            <p className="text-text-muted text-xs mt-1 leading-relaxed">
+              Khusus mengelola produk siap jual di etalase toko online. Upload foto 2D etalase depan, harga jual, dan kustomisasi mockup 3D.
+            </p>
+            <div className="mt-3 flex items-center gap-2 text-[11px] font-bold text-brand-accent">
+              <span>Buka Halaman Khusus Produk Jadi &rarr;</span>
+            </div>
+          </div>
+        </Link>
 
-      <section className="grid md:grid-cols-3 gap-4">
-        <div className="bg-surface border border-border-subtle rounded-2xl p-4 space-y-2">
-          <h3 className="font-bold text-text-primary">COLORS ({colors.length})</h3>
-          {colors.map((c: any) => (
-            <div key={c.id} className="flex justify-between text-[11px]"><span className="flex gap-2 items-center"><span className="w-3 h-3 rounded-full border border-border-strong" style={{ background: c.hex }} />{c.name}</span><span className="text-text-muted">{c.surchargeIdr>0?`+${c.surchargeIdr}`:""}</span></div>
-          ))}
+        <Link
+          href="/admin/inventory"
+          className="group p-5 rounded-2xl bg-gradient-to-br from-surface to-surface-elevated border border-border-subtle hover:border-blue-500/50 transition-all shadow-sm hover:shadow-md flex items-start gap-4"
+        >
+          <div className="p-3 rounded-xl bg-blue-500/15 text-blue-400 shrink-0 group-hover:scale-105 transition-transform">
+            <Package className="w-6 h-6" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2">
+              <h3 className="font-bold text-sm text-text-primary uppercase group-hover:text-blue-400 transition-colors">
+                Inventaris Stok Kaos Polos (Studio 3D)
+              </h3>
+              <ArrowUpRight className="w-4 h-4 text-text-muted group-hover:text-blue-400 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-all" />
+            </div>
+            <p className="text-text-muted text-xs mt-1 leading-relaxed">
+              Khusus mengelola persediaan fisik bahan baku apparel polos (kaos, hoodie, sweater) per warna & ukuran untuk Studio 3D + Data Master.
+            </p>
+            <div className="mt-3 flex items-center gap-2 text-[11px] font-bold text-blue-400">
+              <span>Buka Halaman Khusus Stok Polos &rarr;</span>
+            </div>
+          </div>
+        </Link>
+      </div>
+
+      {/* KPI INVENTARIS GLOBAL RINGKAS */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        <div className="p-4 rounded-2xl bg-surface border border-border-subtle/80 flex flex-col justify-between">
+          <span className="text-[10px] font-semibold uppercase tracking-wider text-text-muted block">
+            Total Varian SKU (3D)
+          </span>
+          <span className="text-xl font-bold font-mono text-text-primary mt-1">
+            {allVariants.length} <span className="text-xs font-sans font-normal text-text-muted">kombinasi</span>
+          </span>
         </div>
-        <div className="bg-surface border border-border-subtle rounded-2xl p-4 space-y-2">
-          <h3 className="font-bold text-text-primary">MATERIALS ({materials.length})</h3>
-          {materials.map((m: any) => (
-            <div key={m.id} className="flex justify-between text-[11px]"><span>{m.name || "?"}</span><span className="text-text-muted">+{(m.surchargeIdr ?? 0).toLocaleString("id-ID")}</span></div>
-          ))}
+        <div className="p-4 rounded-2xl bg-surface border border-border-subtle/80 flex flex-col justify-between">
+          <span className="text-[10px] font-semibold uppercase tracking-wider text-text-muted block">
+            Total Stok Fisik Polos
+          </span>
+          <span className="text-xl font-bold font-mono text-brand-accent mt-1">
+            {totalQtyPhysical.toLocaleString("id-ID")} <span className="text-xs font-sans font-normal text-text-muted">pcs</span>
+          </span>
         </div>
-        <div className="bg-surface border border-border-subtle rounded-2xl p-4 space-y-2">
-          <h3 className="font-bold text-text-primary">SABLON ({sablonMethods.length})</h3>
-          {sablonMethods.map((s: any) => (
-            <div key={s.id} className="text-[11px]"><span className="font-bold text-text-primary">{s.name || "?"} ({s.slug || "?"})</span><span className="block text-text-muted">A6 {s.priceA6Idr ?? "—"} • A5 {s.priceA5Idr ?? "—"} • A4 {s.priceA4Idr ?? "—"} • A3 {s.priceA3Idr ?? "—"}</span></div>
-          ))}
+        <div className="p-4 rounded-2xl bg-surface border border-border-subtle/80 flex flex-col justify-between">
+          <span className="text-[10px] font-semibold uppercase tracking-wider text-text-muted block">
+            Produk Distro Jadi
+          </span>
+          <span className="text-xl font-bold font-mono text-emerald-400 mt-1">
+            {distroProducts.length} <span className="text-xs font-sans font-normal text-text-muted">koleksi</span>
+          </span>
         </div>
-      </section>
+        <div className="p-4 rounded-2xl bg-surface border border-border-subtle/80 flex flex-col justify-between">
+          <span className="text-[10px] font-semibold uppercase tracking-wider text-text-muted block">
+            Stok Kritis / Habis
+          </span>
+          <span className={`text-xl font-bold font-mono mt-1 ${lowStockCount + outOfStockCount > 0 ? "text-amber-500" : "text-emerald-400"}`}>
+            {lowStockCount + outOfStockCount} <span className="text-xs font-sans font-normal text-text-muted">varian</span>
+          </span>
+        </div>
+      </div>
+
+      {/* TABS UTAMA: MATRIX KAOS POLOS 3D | PRODUK DISTRO E-COMMERCE | DATA MASTER REFERENSI */}
+      <CatalogPageTabs
+        categories={categories as any}
+        variants={allVariants as any}
+        distroProducts={distroProducts as any}
+        categoriesWithCounts={categoriesWithCounts}
+        colors={colors}
+        materials={materials}
+        sablonMethods={sablonMethods}
+      />
     </div>
   );
 }

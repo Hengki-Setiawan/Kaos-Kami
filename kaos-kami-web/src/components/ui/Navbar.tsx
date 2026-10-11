@@ -13,6 +13,8 @@ import { useSession } from "@/lib/auth-client";
 import { APK_DOWNLOAD_URL } from "@/lib/shop";
 import { Z_CLASS_NAV } from "@/lib/zIndex";
 
+import { AnnouncementTicker } from "@/components/ui/AnnouncementTicker";
+
 export const Navbar: React.FC = () => {
   const [mounted, setMounted] = React.useState(false);
   const [isAuthOpen, setIsAuthOpen] = React.useState(false);
@@ -93,6 +95,7 @@ export const Navbar: React.FC = () => {
 
   return (
     <>
+      <AnnouncementTicker />
       <header
       className={`fixed top-0 left-0 right-0 ${Z_CLASS_NAV} px-4 sm:px-8 md:px-12 py-3.5 flex items-center justify-between pointer-events-auto backdrop-blur-xl border-b ${isScrolled ? "bg-canvas border-border-strong shadow-sm" : "bg-canvas/80 border-border-subtle"} text-text-primary transition-all duration-500 ${
         isHideWebsiteUI ? "opacity-30 hover:opacity-100" : "opacity-100"
@@ -248,22 +251,32 @@ export const Navbar: React.FC = () => {
           )
         )}
 
-        {/* User Account / Login Button (Unified h-10, Label LOGIN) */}
-        <button
-          onClick={() => setIsAuthOpen(true)}
-          className={`h-10 flex items-center gap-2 px-4 rounded-full font-sans text-sm border transition-all ${
-            mounted && session?.user
-              ? "bg-surface border-brand-accent/40 text-brand-accent font-bold"
-              : "bg-surface border-border-subtle text-text-muted hover:text-text-primary"
-          }`}
-          title={mounted && session?.user ? `Akun: ${session.user.name}` : "Masuk / Daftar Akun"}
-          aria-label="Akun Pengguna"
-        >
-          <UserIcon size={15} />
-          <span className="hidden sm:inline font-medium normal-case tracking-normal">
-            {mounted && session?.user ? session.user.name?.split(" ")[0] : "LOGIN"}
-          </span>
-        </button>
+        {/* User Account: Langsung ke Dashboard saat login, atau buka modal saat belum login */}
+        {mounted && session?.user ? (
+          <Link
+            href="/dashboard/orders"
+            className="h-10 flex items-center gap-2 px-4 rounded-full font-sans text-sm border bg-surface border-brand-accent/40 text-brand-accent font-bold hover:bg-brand-accent/10 transition-all shrink-0 cursor-pointer"
+            title={`Dashboard Pesanan: ${session.user.name}`}
+            aria-label="Buka Dashboard Pesanan"
+          >
+            <UserIcon size={15} />
+            <span className="hidden sm:inline font-medium normal-case tracking-normal">
+              {session.user.name?.split(" ")[0]}
+            </span>
+          </Link>
+        ) : (
+          <button
+            onClick={() => setIsAuthOpen(true)}
+            className="h-10 flex items-center gap-2 px-4 rounded-full font-sans text-sm border bg-surface border-border-subtle text-text-muted hover:text-text-primary transition-all shrink-0 cursor-pointer"
+            title="Masuk / Daftar Akun"
+            aria-label="Masuk Akun Pengguna"
+          >
+            <UserIcon size={15} />
+            <span className="hidden sm:inline font-medium normal-case tracking-normal">
+              LOGIN
+            </span>
+          </button>
+        )}
 
         {/* Tablet / Mobile hamburger */}
         <button

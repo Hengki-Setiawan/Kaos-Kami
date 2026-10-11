@@ -32,10 +32,13 @@ const HIGHLIGHT_SPECS = [
   },
 ];
 
+import { useCmsContent } from "@/hooks/useCmsContent";
+
 export const TechSpecsOverlay: React.FC = () => {
   const { activePhase, viewMode } = useConfiguratorStore(
     useShallow((s) => ({ activePhase: s.activePhase, viewMode: s.viewMode }))
   );
+  const cms = useCmsContent();
   const isVisible = activePhase === 2 && viewMode === "story";
 
   return (
@@ -52,7 +55,7 @@ export const TechSpecsOverlay: React.FC = () => {
             SPESIFIKASI // STANDAR DISTRO
           </span>
           <h2 className="text-2xl sm:text-3xl md:text-[34px] font-sans font-extrabold uppercase leading-[1.08] tracking-tight text-text-primary mt-1.5">
-            KATUN COMBED NYAMAN
+            {cms.specsTitle || "KATUN COMBED NYAMAN"}
           </h2>
         </div>
 

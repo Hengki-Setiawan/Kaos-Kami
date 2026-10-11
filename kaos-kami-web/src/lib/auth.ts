@@ -146,6 +146,12 @@ if (process.env.NODE_ENV !== "production") {
       // di luar konteks request / headers
     }
 
+    // 3. Evaluasi devRole
+    // Jika user sengaja Logout atau memilih Mode Tamu (GUEST): kembalikan null (belum login)
+    if (devRole === "GUEST") {
+      return null;
+    }
+
     // Jika mode CUSTOMER (PIN 461461)
     if (devRole === "CUSTOMER") {
       const uid = devUserId || "6XBFRQCO5zsXOmdOFsBk0YJmU0lilEWn";

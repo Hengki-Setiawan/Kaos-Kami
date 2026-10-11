@@ -678,3 +678,12 @@ model ProductReview {
   @@index([userId])
 }
 
+// ------------------------------------------------------------------
+// SHOP & WORKSHOP PROFILE CONFIGURATION (PERSISTED IN TURSO DB)
+// ------------------------------------------------------------------
+
+model ShopConfig {
+  key       String   @id
+  value     String
+  updatedAt DateTime @default(now()) @updatedAt
+}

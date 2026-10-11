@@ -14,6 +14,7 @@ import {
   REAL_WORLD_PRINT_LIMITS,
   surfaceZForApparel,
   getDecal3DPlacement,
+  imageAspectCache,
 } from "@/lib/scaleCalibration";
 import { isSafeImageUrl } from "@/lib/safeUrl";
 import { getFabricNormalMapForArchetype } from "@/lib/proceduralTextures";
@@ -86,6 +87,9 @@ const SingleDecalItem: React.FC<{
   const imgWidth = (uploaded.image as any)?.width || 1;
   const imgHeight = (uploaded.image as any)?.height || 1;
   const aspect = imgWidth > 0 && imgHeight > 0 ? imgWidth / imgHeight : 1;
+  if (decal.url && aspect > 0) {
+    imageAspectCache.set(decal.url, aspect);
+  }
 
   let normalizedScale = decal.scale;
   // Kunci keras pada batas fisik printhead roll DTF workshop Makassar —

@@ -35,6 +35,8 @@ import {
   Check,
   ShieldCheck,
   Zap,
+  Copy,
+  CheckCheck,
 } from "lucide-react";
 
 const OrderInspector3D = dynamic(() => import("@/components/admin/OrderInspector3D"), {
@@ -105,6 +107,17 @@ function isOrderStudio(order: OrderRow): boolean {
   return order.items.some((it) => Boolean(it.designId || it.design));
 }
 
+function formatDelivery(method?: string | null): string {
+  if (!method) return "Ambil di Toko";
+  const m = method.toUpperCase();
+  if (m === "PICKUP" || m.includes("AMBIL")) return "Ambil di Toko";
+  if (m.includes("FREE_MAKASSAR") || m.includes("MAKASSAR")) return "Kurir Toko (Makassar)";
+  if (m.includes("JNE")) return "JNE Express";
+  if (m.includes("JNT") || m.includes("J&T")) return "J&T Express";
+  if (m.includes("SICEPAT")) return "SiCepat";
+  return method;
+}
+
 function getStatusBadge(status: string) {
   switch (status) {
     case "DESIGN_REVIEW":
@@ -114,16 +127,25 @@ function getStatusBadge(status: string) {
         dot: "bg-amber-500 animate-pulse",
       };
     case "PENDING_PAYMENT":
+    case "PENDING":
       return {
         label: "Menunggu Bayar",
-        bg: "bg-stone-500/15 text-stone-600 dark:text-stone-300 border-stone-500/30",
-        dot: "bg-stone-400",
+        bg: "bg-amber-500/15 text-amber-600 dark:text-amber-400 border-amber-500/30",
+        dot: "bg-amber-400",
       };
     case "PAYMENT_CONFIRMED":
+    case "PAID":
+    case "CONFIRMED":
       return {
-        label: "Lunas / Siap Kemas",
+        label: "Lunas / Terkonfirmasi",
         bg: "bg-cyan-500/15 text-cyan-600 dark:text-cyan-400 border-cyan-500/30",
         dot: "bg-cyan-500",
+      };
+    case "PROCESSING":
+      return {
+        label: "Sedang Diproses",
+        bg: "bg-blue-500/15 text-blue-600 dark:text-blue-400 border-blue-500/30",
+        dot: "bg-blue-500 animate-pulse",
       };
     case "IN_PRODUCTION_QUEUE":
       return {
@@ -150,6 +172,7 @@ function getStatusBadge(status: string) {
         dot: "bg-violet-500",
       };
     case "SHIPPED":
+    case "ON_DELIVERY":
       return {
         label: "Dalam Pengiriman",
         bg: "bg-sky-500/15 text-sky-600 dark:text-sky-400 border-sky-500/30",
@@ -175,12 +198,14 @@ function getStatusBadge(status: string) {
         bg: "bg-rose-500/10 text-rose-500 border-rose-500/20",
         dot: "bg-rose-400",
       };
-    default:
+    default: {
+      const formatted = status.replace(/_/g, " ").toLowerCase().replace(/\b\w/g, (c) => c.toUpperCase());
       return {
-        label: status,
+        label: formatted || status,
         bg: "bg-neutral-500/15 text-text-primary border-neutral-500/30",
         dot: "bg-neutral-400",
       };
+    }
   }
 }
 
@@ -211,6 +236,14 @@ export function AdminOrdersManager({
   const [orders, setOrders] = useState<OrderRow[]>(initialOrders);
   const [selectedOrder, setSelectedOrder] = useState<OrderRow | null>(null);
   const [previewMode, setPreviewMode] = useState<"2d" | "3d">("2d");
+  const [copiedOrderNumber, setCopiedOrderNumber] = useState<string | null>(null);
+
+  const handleCopyOrderNumber = (e: React.MouseEvent, num: string) => {
+    e.stopPropagation();
+    navigator.clipboard.writeText(num);
+    setCopiedOrderNumber(num);
+    setTimeout(() => setCopiedOrderNumber(null), 2000);
+  };
 
   // State untuk quick action E-Commerce
   const [quickTracking, setQuickTracking] = useState("");
@@ -435,145 +468,127 @@ export function AdminOrdersManager({
   return (
     <div className="space-y-5">
       {/* 1. TOP SEGMENTED JALUR SWITCHER (STUDIO vs E-COMMERCE) */}
-      <div className="p-1.5 rounded-2xl bg-surface border border-border-subtle shadow-xs">
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-1.5">
-          {/* Opsi 1: Semua Jalur */}
-          <Link
-            href={buildFilterUrl("all")}
-            className={`p-3 rounded-xl transition-all flex items-center justify-between gap-3 ${
-              currentChannel === "all"
-                ? "bg-brand-accent text-canvas shadow-sm"
-                : "bg-canvas hover:bg-black/[0.02] dark:hover:bg-white/[0.02] text-text-primary"
-            }`}
-          >
-            <div className="flex items-center gap-2.5 min-w-0">
-              <div
-                className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${
-                  currentChannel === "all"
-                    ? "bg-white/20 text-canvas"
-                    : "bg-brand-accent/10 text-brand-accent"
-                }`}
-              >
-                <Boxes size={16} />
-              </div>
-              <div className="text-left min-w-0">
-                <span className="font-bold text-xs block leading-tight truncate">
-                  Semua Pesanan
-                </span>
-                <span
-                  className={`text-[10px] block leading-tight mt-0.5 truncate ${
-                    currentChannel === "all" ? "text-canvas/80" : "text-text-muted"
-                  }`}
-                >
-                  Gabungan Studio & E-Commerce
-                </span>
-              </div>
-            </div>
-            <span
-              className={`px-2 py-0.5 rounded-md text-[11px] font-mono font-bold shrink-0 ${
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+        {/* Opsi 1: Semua Jalur */}
+        <Link
+          href={buildFilterUrl("all")}
+          className={`p-3.5 rounded-2xl transition-all border flex items-center justify-between gap-3 ${
+            currentChannel === "all"
+              ? "bg-surface border-brand-accent/60 shadow-sm ring-1 ring-brand-accent/30"
+              : "bg-surface/70 hover:bg-surface border-border-subtle text-text-primary hover:border-border-subtle/80"
+          }`}
+        >
+          <div className="flex items-center gap-3 min-w-0">
+            <div
+              className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 transition-colors ${
                 currentChannel === "all"
-                  ? "bg-white/25 text-canvas"
-                  : "bg-surface border border-border-subtle text-text-muted"
+                  ? "bg-brand-accent text-canvas"
+                  : "bg-black/5 dark:bg-white/5 text-text-muted"
               }`}
             >
-              {totalCount}
-            </span>
-          </Link>
+              <Boxes size={18} />
+            </div>
+            <div className="text-left min-w-0">
+              <span className="font-bold text-xs block leading-tight text-text-primary">
+                Semua Pesanan
+              </span>
+              <span className="text-[11px] block leading-tight mt-0.5 text-text-muted truncate">
+                Gabungan Studio & E-Commerce
+              </span>
+            </div>
+          </div>
+          <span
+            className={`px-2.5 py-1 rounded-lg text-xs font-mono font-bold shrink-0 transition-colors ${
+              currentChannel === "all"
+                ? "bg-brand-accent text-canvas"
+                : "bg-black/5 dark:bg-white/5 text-text-muted border border-border-subtle"
+            }`}
+          >
+            {totalCount}
+          </span>
+        </Link>
 
-          {/* Opsi 2: Jalur 3D Studio (Custom DTF) */}
-          <Link
-            href={buildFilterUrl("studio")}
-            className={`p-3 rounded-xl transition-all flex items-center justify-between gap-3 ${
+        {/* Opsi 2: Jalur 3D Studio (Custom DTF) */}
+        <Link
+          href={buildFilterUrl("studio")}
+          className={`p-3.5 rounded-2xl transition-all border flex items-center justify-between gap-3 ${
+            currentChannel === "studio"
+              ? "bg-surface border-indigo-500/60 shadow-sm ring-1 ring-indigo-500/30"
+              : "bg-surface/70 hover:bg-surface border-border-subtle text-text-primary hover:border-border-subtle/80"
+          }`}
+        >
+          <div className="flex items-center gap-3 min-w-0">
+            <div
+              className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 transition-colors ${
+                currentChannel === "studio"
+                  ? "bg-indigo-600 text-white"
+                  : "bg-indigo-500/10 text-indigo-600 dark:text-indigo-400"
+              }`}
+            >
+              <Layers size={18} />
+            </div>
+            <div className="text-left min-w-0">
+              <span className="font-bold text-xs block leading-tight text-text-primary">
+                Jalur 3D Studio (Custom)
+              </span>
+              <span className="text-[11px] block leading-tight mt-0.5 text-text-muted truncate">
+                Sablon DTF · Butuh Cetak Film
+              </span>
+            </div>
+          </div>
+          <span
+            className={`px-2.5 py-1 rounded-lg text-xs font-mono font-bold shrink-0 transition-colors ${
               currentChannel === "studio"
-                ? "bg-indigo-600 text-white shadow-sm"
-                : "bg-canvas hover:bg-black/[0.02] dark:hover:bg-white/[0.02] text-text-primary"
+                ? "bg-indigo-600 text-white"
+                : "bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border border-indigo-500/20"
             }`}
           >
-            <div className="flex items-center gap-2.5 min-w-0">
-              <div
-                className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${
-                  currentChannel === "studio"
-                    ? "bg-white/20 text-white"
-                    : "bg-indigo-500/15 text-indigo-600 dark:text-indigo-400"
-                }`}
-              >
-                <Layers size={16} />
-              </div>
-              <div className="text-left min-w-0">
-                <span className="font-bold text-xs block leading-tight truncate">
-                  Jalur 3D Studio (Custom)
-                </span>
-                <span
-                  className={`text-[10px] block leading-tight mt-0.5 truncate ${
-                    currentChannel === "studio" ? "text-white/80" : "text-text-muted"
-                  }`}
-                >
-                  Sablon DTF · Butuh Cetak Film
-                </span>
-              </div>
-            </div>
-            {studioCount > 0 && (
-              <span
-                className={`px-2 py-0.5 rounded-md text-[11px] font-mono font-bold shrink-0 ${
-                  currentChannel === "studio"
-                    ? "bg-white/25 text-white"
-                    : "bg-indigo-500/15 text-indigo-600 dark:text-indigo-400"
-                }`}
-              >
-                {studioCount}
-              </span>
-            )}
-          </Link>
+            {studioCount}
+          </span>
+        </Link>
 
-          {/* Opsi 3: Jalur E-Commerce (Produk Jadi) */}
-          <Link
-            href={buildFilterUrl("ecommerce")}
-            className={`p-3 rounded-xl transition-all flex items-center justify-between gap-3 ${
+        {/* Opsi 3: Jalur E-Commerce (Produk Jadi) */}
+        <Link
+          href={buildFilterUrl("ecommerce")}
+          className={`p-3.5 rounded-2xl transition-all border flex items-center justify-between gap-3 ${
+            currentChannel === "ecommerce"
+              ? "bg-surface border-emerald-500/60 shadow-sm ring-1 ring-emerald-500/30"
+              : "bg-surface/70 hover:bg-surface border-border-subtle text-text-primary hover:border-border-subtle/80"
+          }`}
+        >
+          <div className="flex items-center gap-3 min-w-0">
+            <div
+              className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 transition-colors ${
+                currentChannel === "ecommerce"
+                  ? "bg-emerald-600 text-white"
+                  : "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
+              }`}
+            >
+              <ShoppingBag size={18} />
+            </div>
+            <div className="text-left min-w-0">
+              <span className="font-bold text-xs block leading-tight text-text-primary">
+                Jalur E-Commerce (Katalog)
+              </span>
+              <span className="text-[11px] block leading-tight mt-0.5 text-text-muted truncate">
+                Ready Stock · Siap Kemas & Kirim
+              </span>
+            </div>
+          </div>
+          <span
+            className={`px-2.5 py-1 rounded-lg text-xs font-mono font-bold shrink-0 transition-colors ${
               currentChannel === "ecommerce"
-                ? "bg-emerald-600 text-white shadow-sm"
-                : "bg-canvas hover:bg-black/[0.02] dark:hover:bg-white/[0.02] text-text-primary"
+                ? "bg-emerald-600 text-white"
+                : "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20"
             }`}
           >
-            <div className="flex items-center gap-2.5 min-w-0">
-              <div
-                className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${
-                  currentChannel === "ecommerce"
-                    ? "bg-white/20 text-white"
-                    : "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400"
-                }`}
-              >
-                <ShoppingBag size={16} />
-              </div>
-              <div className="text-left min-w-0">
-                <span className="font-bold text-xs block leading-tight truncate">
-                  Jalur E-Commerce (Katalog)
-                </span>
-                <span
-                  className={`text-[10px] block leading-tight mt-0.5 truncate ${
-                    currentChannel === "ecommerce" ? "text-white/80" : "text-text-muted"
-                  }`}
-                >
-                  Ready Stock · Siap Kemas & Kirim
-                </span>
-              </div>
-            </div>
-            {ecommerceCount > 0 && (
-              <span
-                className={`px-2 py-0.5 rounded-md text-[11px] font-mono font-bold shrink-0 ${
-                  currentChannel === "ecommerce"
-                    ? "bg-white/25 text-white"
-                    : "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400"
-                }`}
-              >
-                {ecommerceCount}
-              </span>
-            )}
-          </Link>
-        </div>
+            {ecommerceCount}
+          </span>
+        </Link>
       </div>
 
-      {/* 2. SUB-TAB STATUS SESUAI JALUR */}
-      <div className="flex items-center gap-1.5 overflow-x-auto pb-1.5 scrollbar-thin border-b border-border-subtle text-xs font-sans">
+      {/* 2. SUB-TAB STATUS SESUAI JALUR (BEBAS SCROLLBAR ABU-ABU TEBAL) */}
+      <div className="flex items-center gap-1.5 overflow-x-auto pb-1 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden border-b border-border-subtle text-xs font-sans">
         {getSubTabs().map((tab) => {
           const isActive = tab.id === "ALL" ? !currentStatus : currentStatus === tab.statusVal;
           const href = buildFilterUrl(currentChannel, tab.statusVal);
@@ -581,10 +596,10 @@ export function AdminOrdersManager({
             <Link
               key={tab.id}
               href={href}
-              className={`px-3.5 py-2 rounded-xl font-bold whitespace-nowrap transition-all cursor-pointer ${
+              className={`px-3.5 py-1.5 rounded-xl font-bold whitespace-nowrap transition-all cursor-pointer text-xs ${
                 isActive
                   ? "bg-brand-accent text-canvas shadow-xs"
-                  : "bg-surface border border-border-subtle text-text-muted hover:text-text-primary hover:border-brand-accent"
+                  : "bg-surface border border-border-subtle text-text-muted hover:text-text-primary hover:border-brand-accent/50"
               }`}
             >
               {tab.label}
@@ -593,18 +608,168 @@ export function AdminOrdersManager({
         })}
       </div>
 
-      {/* 3. TABEL PESANAN TERPADU */}
-      <div className="bg-surface border border-border-subtle rounded-2xl overflow-hidden shadow-lg font-sans">
-        <div className="overflow-x-auto">
-          <table className="w-full text-left border-collapse text-xs">
+      {/* 3. TABEL PESANAN TERPADU (RESPONSIF: KARTU DI MOBILE < md, TABEL DI DESKTOP >= md) */}
+      <div className="bg-surface border border-border-subtle rounded-2xl overflow-hidden shadow-xs font-sans">
+        {/* Mobile View: Kartu Pesanan Touch-Friendly (< md) */}
+        <div className="block md:hidden divide-y divide-border-subtle">
+          {orders.map((order) => {
+            const badge = getStatusBadge(order.status);
+            const rawWa = order.user?.phoneNumber || order.shippingAddress?.phoneNumber || "";
+            const waLink = rawWa ? `https://wa.me/${cleanPhoneForWa(rawWa)}` : null;
+            const isStudio = isOrderStudio(order);
+            const totalPcs = order.items.reduce((s, it) => s + (it.quantity || 1), 0);
+
+            return (
+              <div
+                key={`mob-${order.id}`}
+                onClick={() => setSelectedOrder(order)}
+                className="p-3.5 space-y-3 hover:bg-black/[0.02] dark:hover:bg-white/[0.02] transition-colors cursor-pointer"
+              >
+                {/* Baris 1: No Order, Channel & Status */}
+                <div className="flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-1.5 min-w-0">
+                    <span className="font-mono font-bold text-xs text-text-primary select-all">
+                      #{order.orderNumber}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={(e) => handleCopyOrderNumber(e, order.orderNumber)}
+                      className="p-1 rounded hover:bg-black/5 dark:hover:bg-white/5 text-text-muted hover:text-text-primary transition-colors cursor-pointer"
+                      title="Salin No Order"
+                    >
+                      {copiedOrderNumber === order.orderNumber ? (
+                        <CheckCheck size={12} className="text-emerald-500" />
+                      ) : (
+                        <Copy size={12} />
+                      )}
+                    </button>
+                    {isStudio ? (
+                      <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border border-indigo-500/20 flex items-center gap-1">
+                        <Layers size={10} />
+                        <span>Studio</span>
+                      </span>
+                    ) : (
+                      <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 flex items-center gap-1">
+                        <ShoppingBag size={10} />
+                        <span>Katalog</span>
+                      </span>
+                    )}
+                  </div>
+
+                  <span
+                    className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold border shrink-0 ${badge.bg}`}
+                  >
+                    <span className={`w-1.5 h-1.5 rounded-full ${badge.dot}`} />
+                    <span>{badge.label}</span>
+                  </span>
+                </div>
+
+                {/* Baris 2: Pemesan, Kontak WA & Tanggal */}
+                <div className="flex items-center justify-between text-xs text-text-muted gap-2">
+                  <div className="flex items-center gap-1.5 min-w-0">
+                    <span className="font-semibold text-text-primary truncate">
+                      {order.user?.name || order.shippingAddress?.recipientName || "Pelanggan Tamu"}
+                    </span>
+                    {waLink && (
+                      <a
+                        href={waLink}
+                        target="_blank"
+                        rel="noreferrer"
+                        onClick={(e) => e.stopPropagation()}
+                        className="px-1.5 py-0.5 rounded bg-[#25D366]/15 text-[#128C7E] dark:text-[#25D366] hover:bg-[#25D366] hover:text-white border border-[#25D366]/30 font-bold flex items-center gap-1 text-[10px] transition-all shrink-0"
+                        title="Kirim pesan WhatsApp langsung"
+                      >
+                        <MessageCircle size={10} />
+                        <span>WA</span>
+                      </a>
+                    )}
+                  </div>
+                  <span className="font-mono text-[11px] shrink-0">
+                    {new Date(order.createdAt).toLocaleDateString("id-ID", {
+                      day: "2-digit",
+                      month: "short",
+                    })}
+                  </span>
+                </div>
+
+                {/* Baris 3: Item Thumbnail & Spesifikasi */}
+                <div className="flex items-center gap-2.5 p-2 rounded-xl bg-black/[0.02] dark:bg-white/[0.02] border border-border-subtle/50">
+                  <div className="w-9 h-9 rounded-lg bg-black/5 dark:bg-white/5 border border-border-subtle shrink-0 overflow-hidden flex items-center justify-center">
+                    {order.items[0]?.snapshotImageUrl ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        src={order.items[0].snapshotImageUrl}
+                        alt=""
+                        className="w-full h-full object-contain p-0.5"
+                      />
+                    ) : (
+                      <div
+                        className="w-4 h-4 rounded-full border border-black/20"
+                        style={{ backgroundColor: order.items[0]?.snapshotColorHex || "#1a1a1a" }}
+                      />
+                    )}
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <div className="font-semibold text-xs text-text-primary truncate">
+                      {order.items[0]?.snapshotName || (isStudio ? "Kaos Sablon DTF Kustom" : "Produk Jadi Katalog")}
+                    </div>
+                    <div className="text-[10px] text-text-muted mt-0.5 flex items-center gap-1.5">
+                      <span>{order.items[0]?.snapshotColorName || "Warna"}</span>
+                      <span>·</span>
+                      <span className="font-mono font-bold text-text-primary">{order.items[0]?.snapshotSize || "Size"}</span>
+                      <span>·</span>
+                      <span>{totalPcs} pcs total</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Baris 4: Total Harga, Pengiriman & Tombol Rincian */}
+                <div className="flex items-center justify-between pt-1 gap-2">
+                  <div>
+                    <span className="font-bold text-xs font-mono text-text-primary block">
+                      Rp {order.totalIdr.toLocaleString("id-ID")}
+                    </span>
+                    <span className="text-[10px] text-text-muted">
+                      {formatDelivery(order.deliveryMethod)}
+                    </span>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setSelectedOrder(order);
+                    }}
+                    className="px-3 py-1.5 rounded-xl bg-brand-accent text-canvas font-bold text-xs flex items-center gap-1.5 shadow-xs cursor-pointer hover:opacity-90 transition-opacity"
+                  >
+                    <Eye size={12} />
+                    <span>Rincian</span>
+                  </button>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+
+        {/* Desktop View: Tabel Komprehensif (>= md) */}
+        <div className="hidden md:block overflow-x-auto [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
+          <table className="w-full text-left border-collapse text-xs min-w-[940px]">
+            <colgroup>
+              <col className="w-[180px]" />
+              <col className="w-[185px]" />
+              <col className="w-auto" />
+              <col className="w-[175px]" />
+              <col className="w-[145px]" />
+              <col className="w-[95px]" />
+            </colgroup>
             <thead>
               <tr className="border-b border-border-subtle text-[11px] text-text-muted font-bold uppercase tracking-wider bg-black/[0.02] dark:bg-white/[0.02]">
-                <th className="px-4 py-3.5">Pesanan & Jalur</th>
-                <th className="px-4 py-3.5">Pemesan (WA Asli)</th>
-                <th className="px-4 py-3.5">Apparel / Item</th>
-                <th className="px-4 py-3.5">Total & Bayar</th>
-                <th className="px-4 py-3.5">Status</th>
-                <th className="px-4 py-3.5 text-right">Tindakan</th>
+                <th className="py-2.5 px-3.5 whitespace-nowrap">Pesanan & Jalur</th>
+                <th className="py-2.5 px-3.5 whitespace-nowrap">Pemesan & WA</th>
+                <th className="py-2.5 px-3.5">Apparel / Item</th>
+                <th className="py-2.5 px-3.5 whitespace-nowrap">Total & Bayar</th>
+                <th className="py-2.5 px-3.5 whitespace-nowrap text-center">Status</th>
+                <th className="py-2.5 px-3.5 text-right whitespace-nowrap pr-4">Tindakan</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-border-subtle">
@@ -618,37 +783,48 @@ export function AdminOrdersManager({
                   <tr
                     key={order.id}
                     onClick={() => setSelectedOrder(order)}
-                    className="hover:bg-black/[0.03] dark:hover:bg-white/[0.03] transition-colors cursor-pointer group"
+                    className="hover:bg-black/[0.02] dark:hover:bg-white/[0.02] transition-colors cursor-pointer group"
                   >
-                    {/* No Order, Tanggal & Badge Jalur */}
-                    <td className="px-4 py-3.5">
-                      <div className="flex items-center gap-1.5">
-                        <span className="font-bold text-brand-accent group-hover:underline">
-                          {order.orderNumber}
+                    {/* 1. No Order & Jalur (Single Row per Line, Anti Patah) */}
+                    <td className="py-2.5 px-3.5 whitespace-nowrap align-middle">
+                      <div className="flex items-center gap-1 whitespace-nowrap">
+                        <span className="font-mono font-bold text-xs text-text-primary group-hover:text-brand-accent transition-colors select-all">
+                          #{order.orderNumber}
                         </span>
+                        <button
+                          type="button"
+                          onClick={(e) => handleCopyOrderNumber(e, order.orderNumber)}
+                          className="p-0.5 rounded hover:bg-black/5 dark:hover:bg-white/5 text-text-muted hover:text-text-primary transition-colors cursor-pointer shrink-0"
+                          title="Salin No Order"
+                        >
+                          {copiedOrderNumber === order.orderNumber ? (
+                            <CheckCheck size={11} className="text-emerald-500" />
+                          ) : (
+                            <Copy size={11} />
+                          )}
+                        </button>
                         {order.courierNotes?.includes("EXPRESS") && (
-                          <span className="px-1.5 py-0.2 rounded text-[9px] font-bold bg-amber-500/20 text-amber-600 dark:text-amber-300 border border-amber-500/30">
-                            Express
+                          <span className="px-1.5 py-0.2 rounded text-[9px] font-bold bg-amber-500/20 text-amber-600 dark:text-amber-300 border border-amber-500/30 shrink-0">
+                            ⚡ Express
                           </span>
                         )}
                       </div>
 
-                      {/* Tag Jalur */}
-                      <div className="flex items-center gap-1.5 mt-1">
+                      <div className="flex items-center gap-1.5 mt-0.5 text-[10px] text-text-muted whitespace-nowrap">
                         {isStudio ? (
-                          <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-indigo-500/15 text-indigo-600 dark:text-indigo-400 border border-indigo-500/30 flex items-center gap-1">
-                            <Layers size={10} />
-                            <span>3D STUDIO</span>
+                          <span className="px-1.5 py-0.2 rounded font-bold bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border border-indigo-500/20 flex items-center gap-1 shrink-0">
+                            <Layers size={9} />
+                            <span>3D Studio</span>
                           </span>
                         ) : (
-                          <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30 flex items-center gap-1">
-                            <ShoppingBag size={10} />
-                            <span>E-COMMERCE</span>
+                          <span className="px-1.5 py-0.2 rounded font-bold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 flex items-center gap-1 shrink-0">
+                            <ShoppingBag size={9} />
+                            <span>Katalog</span>
                           </span>
                         )}
 
-                        <span className="text-[10px] text-text-muted flex items-center gap-0.5">
-                          <Clock size={10} />
+                        <span className="flex items-center gap-0.5 font-mono">
+                          <Clock size={9} />
                           <span>
                             {new Date(order.createdAt).toLocaleDateString("id-ID", {
                               day: "2-digit",
@@ -659,88 +835,122 @@ export function AdminOrdersManager({
                       </div>
                     </td>
 
-                    {/* Pemesan (Unmasked Phone + WhatsApp Link Langsung) */}
-                    <td className="px-4 py-3.5">
-                      <div className="font-bold text-text-primary">
-                        {order.user?.name || order.shippingAddress?.recipientName || "Pelanggan Tamu"}
+                    {/* 2. Pemesan & Kontak WA */}
+                    <td className="py-2.5 px-3.5 whitespace-nowrap align-middle">
+                      <div className="flex items-center gap-1.5 whitespace-nowrap">
+                        <span className="font-bold text-text-primary truncate max-w-[130px] leading-tight block">
+                          {order.user?.name || order.shippingAddress?.recipientName || "Pelanggan Tamu"}
+                        </span>
+                        {!order.userId && (
+                          <span className="px-1.5 py-0.2 rounded text-[9px] font-bold bg-stone-500/15 text-stone-600 dark:text-stone-300 border border-stone-500/25 shrink-0">
+                            Tamu
+                          </span>
+                        )}
                       </div>
-                      {rawWa ? (
-                        <div className="flex items-center gap-2 mt-0.5 text-[11px]">
-                          <span className="font-mono text-text-muted">{rawWa}</span>
-                          {waLink && (
-                            <a
-                              href={waLink}
-                              target="_blank"
-                              rel="noreferrer"
-                              onClick={(e) => e.stopPropagation()}
-                              className="px-1.5 py-0.5 rounded-md bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500 hover:text-white font-bold flex items-center gap-0.5 text-[10px] transition-all"
-                              title="Kirim pesan WhatsApp langsung"
-                            >
-                              <MessageCircle size={10} />
-                              <span>WA</span>
-                            </a>
+
+                      <div className="flex items-center gap-1.5 mt-0.5 text-[11px] whitespace-nowrap">
+                        <span className="font-mono text-text-muted">{rawWa || "—"}</span>
+                        {waLink && (
+                          <a
+                            href={waLink}
+                            target="_blank"
+                            rel="noreferrer"
+                            onClick={(e) => e.stopPropagation()}
+                            className="px-1.5 py-0.2 rounded bg-[#25D366]/15 text-[#128C7E] dark:text-[#25D366] hover:bg-[#25D366] hover:text-white border border-[#25D366]/30 font-bold flex items-center gap-0.5 text-[10px] transition-all shrink-0"
+                            title="Kirim pesan WhatsApp langsung"
+                          >
+                            <MessageCircle size={9} />
+                            <span>WA</span>
+                          </a>
+                        )}
+                      </div>
+                    </td>
+
+                    {/* 3. Apparel / Item */}
+                    <td className="py-2.5 px-3.5 align-middle">
+                      <div className="flex items-center gap-2.5">
+                        <div className="w-8 h-8 rounded-lg bg-black/5 dark:bg-white/5 border border-border-subtle shrink-0 overflow-hidden flex items-center justify-center relative">
+                          {order.items[0]?.snapshotImageUrl ? (
+                            <img
+                              src={order.items[0].snapshotImageUrl}
+                              alt={order.items[0].snapshotName || "Item"}
+                              className="w-full h-full object-contain p-0.5"
+                            />
+                          ) : (
+                            <div
+                              className="w-3.5 h-3.5 rounded-full border border-black/20 shadow-xs"
+                              style={{ backgroundColor: order.items[0]?.snapshotColorHex || "#1a1a1a" }}
+                              title={order.items[0]?.snapshotColorName || "Warna"}
+                            />
                           )}
                         </div>
-                      ) : (
-                        <span className="text-text-muted text-[11px]">—</span>
-                      )}
+
+                        <div className="min-w-0">
+                          <div className="font-semibold text-text-primary truncate max-w-[200px] text-xs leading-snug">
+                            {order.items[0]?.snapshotName || (isStudio ? "Kaos Sablon DTF Kustom" : "Produk Jadi Katalog")}
+                          </div>
+                          <div className="text-[10px] text-text-muted mt-0.5 flex items-center gap-1 flex-wrap">
+                            <span className="font-bold text-text-primary bg-black/5 dark:bg-white/5 px-1 py-0.2 rounded text-[9px]">
+                              {order.items.length} item
+                            </span>
+                            <span>·</span>
+                            <span>Size {order.items[0]?.snapshotSize || "L"}</span>
+                            <span>·</span>
+                            <span className="truncate max-w-[90px]">{order.items[0]?.snapshotColorName || "Hitam Solid"}</span>
+                          </div>
+                        </div>
+                      </div>
                     </td>
 
-                    {/* Apparel / Item Details */}
-                    <td className="px-4 py-3.5">
-                      <div className="text-text-primary font-medium truncate max-w-[220px]">
-                        {order.items[0]?.snapshotName || "Kustom DTF Apparel"}
-                      </div>
-                      <div className="text-[11px] text-text-muted mt-0.5 flex items-center gap-1.5">
-                        <span>{order.items.length} item</span>
-                        <span>·</span>
-                        <span>Size {order.items[0]?.snapshotSize || "L"}</span>
-                        <span>·</span>
-                        <span>{order.items[0]?.snapshotColorName || "Warna Standar"}</span>
-                      </div>
-                    </td>
-
-                    {/* Total & Status Bayar Gateway iPaymu */}
-                    <td className="px-4 py-3.5">
-                      <div className="font-bold text-text-primary">
+                    {/* 4. Total & Pembayaran */}
+                    <td className="py-2.5 px-3.5 whitespace-nowrap align-middle">
+                      <div className="font-mono font-bold text-xs text-text-primary tracking-tight">
                         Rp {order.totalIdr.toLocaleString("id-ID")}
                       </div>
-                      <div className="text-[10px] text-text-muted mt-0.5 flex items-center gap-1">
+                      <div className="flex items-center gap-1.5 mt-0.5 whitespace-nowrap">
                         <span
-                          className={`w-1.5 h-1.5 rounded-full ${
+                          className={`inline-flex items-center gap-1 px-1.5 py-0.2 rounded text-[9px] font-bold border whitespace-nowrap ${
                             order.payment?.status === "SETTLEMENT"
-                              ? "bg-emerald-500"
-                              : "bg-stone-400"
+                              ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20"
+                              : "bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20"
                           }`}
-                        />
-                        <span className="font-medium">
-                          {order.payment?.status === "SETTLEMENT" ? "Lunas" : "Belum Bayar"}
+                        >
+                          <span
+                            className={`w-1 h-1 rounded-full ${
+                              order.payment?.status === "SETTLEMENT" ? "bg-emerald-500" : "bg-amber-500"
+                            }`}
+                          />
+                          <span>{order.payment?.status === "SETTLEMENT" ? "Lunas" : "Belum Bayar"}</span>
                         </span>
-                        <span>· {order.deliveryMethod}</span>
+
+                        <span className="text-[10px] text-text-muted flex items-center gap-0.5 whitespace-nowrap font-medium">
+                          <Truck size={9} className="shrink-0" />
+                          <span>{formatDelivery(order.deliveryMethod)}</span>
+                        </span>
                       </div>
                     </td>
 
-                    {/* Status Badge */}
-                    <td className="px-4 py-3.5">
+                    {/* 5. Status Badge */}
+                    <td className="py-2.5 px-3.5 whitespace-nowrap align-middle text-center">
                       <span
-                        className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold border ${badge.bg}`}
+                        className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-bold border whitespace-nowrap shadow-2xs ${badge.bg}`}
                       >
                         <span className={`w-1.5 h-1.5 rounded-full ${badge.dot}`} />
                         <span>{badge.label}</span>
                       </span>
                     </td>
 
-                    {/* Tindakan */}
-                    <td className="px-4 py-3.5 text-right">
+                    {/* 6. Tindakan (Pasti Muat, Tidak Terpotong) */}
+                    <td className="py-2.5 px-3.5 text-right whitespace-nowrap align-middle pr-4">
                       <button
                         type="button"
                         onClick={(e) => {
                           e.stopPropagation();
                           setSelectedOrder(order);
                         }}
-                        className="px-3 py-1.5 rounded-xl bg-surface border border-border-subtle hover:border-brand-accent text-text-primary font-bold hover:text-brand-accent transition-all inline-flex items-center gap-1 text-xs cursor-pointer shadow-xs"
+                        className="px-2.5 py-1 rounded-lg bg-surface border border-border-subtle hover:border-brand-accent text-text-primary font-bold hover:text-brand-accent transition-all inline-flex items-center gap-1 text-[11px] cursor-pointer shadow-2xs"
                       >
-                        <Eye size={12} />
+                        <Eye size={11} />
                         <span>Rincian</span>
                       </button>
                     </td>

@@ -4,7 +4,7 @@ import { AdminChatManager } from "@/components/admin/AdminChatManager";
 export const dynamic = "force-dynamic";
 
 export const metadata = {
-  title: "Live Chat Kamito & Pelanggan | Admin Kaos Kami",
+  title: "Pusat Chat & Pesan Pelanggan | Admin Kaos Kami",
   robots: { index: false, follow: false },
 };
 
@@ -16,11 +16,11 @@ export default function AdminChatPage() {
         <div>
           <div className="flex items-center gap-2">
             <h1 className="font-sans font-bold text-xl sm:text-2xl uppercase tracking-tight text-text-primary">
-              Pusat Live Chat Kamito
+              Pusat Chat & Pesan Pelanggan
             </h1>
           </div>
           <p className="text-xs text-text-muted mt-1">
-            Komunikasi langsung dengan pelanggan studio sablon DTF dan pemesan produk Kaos Kami Makassar.
+            Komunikasi langsung, tanggapan konsultasi sablon DTF, serta penerimaan laporan kendala & bug dari pengguna Kaos Kami Makassar.
           </p>
         </div>
       </div>

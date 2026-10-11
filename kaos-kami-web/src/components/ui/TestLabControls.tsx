@@ -136,7 +136,10 @@ export const TestLabControls: React.FC = () => {
       <div className="flex justify-between items-center pb-2 border-b border-border-subtle/60">
         <span className="text-xs font-sans font-bold tracking-wider text-text-primary flex items-center gap-1.5">
           <Activity size={15} className="text-brand-accent animate-pulse" />
-          <span>Simulasi Fisika &amp; Lingkungan 3D</span>
+          <span>Simulasi Fisika 3D</span>
+          <span className="text-[9px] font-mono font-bold px-1.5 py-0.2 rounded bg-amber-500/15 text-amber-500 border border-amber-500/30">
+            BETA • UJI COBA
+          </span>
         </span>
         <span className="text-[10px] font-sans font-bold uppercase px-2.5 py-0.5 rounded-full border border-brand-accent/30 bg-brand-accent/10 text-brand-accent">
           {testLabMode === "none" ? "Standar" : testLabMode.toUpperCase()}

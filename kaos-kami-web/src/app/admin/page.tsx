@@ -6,7 +6,7 @@ import { and, count, desc, or, eq, inArray, gte, lt, like, sql, type SQLWrapper 
 import { db } from "@/lib/db";
 import { auth } from "@/lib/auth";
 import { Order, OrderItem, User, Address } from "@/lib/drizzle-schema";
-import { Package, Search, Download, ShoppingBag, Layers, RefreshCw } from "lucide-react";
+import { Package, Search, Download, ShoppingBag, Layers, RefreshCw, X } from "lucide-react";
 import { AdminOrdersManager, type OrderChannel } from "@/components/admin/AdminOrdersManager";
 
 export const revalidate = 0;
@@ -81,11 +81,11 @@ export default async function AdminDashboardPage({
   // Filter Jalur (Studio vs E-Commerce)
   if (channel === "studio") {
     conds.push(
-      sql`${Order.id} IN (SELECT ${OrderItem.orderId} FROM ${OrderItem} WHERE ${OrderItem.designId} IS NOT NULL)`
+      sql`"Order"."id" IN (SELECT oi."orderId" FROM "OrderItem" oi WHERE oi."designId" IS NOT NULL)`
     );
   } else if (channel === "ecommerce") {
     conds.push(
-      sql`${Order.id} NOT IN (SELECT ${OrderItem.orderId} FROM ${OrderItem} WHERE ${OrderItem.designId} IS NOT NULL)`
+      sql`"Order"."id" NOT IN (SELECT oi."orderId" FROM "OrderItem" oi WHERE oi."designId" IS NOT NULL)`
     );
   }
 
@@ -155,13 +155,13 @@ export default async function AdminDashboardPage({
       .select({ n: count() })
       .from(Order)
       .where(
-        sql`${Order.id} IN (SELECT ${OrderItem.orderId} FROM ${OrderItem} WHERE ${OrderItem.designId} IS NOT NULL)`
+        sql`"Order"."id" IN (SELECT oi."orderId" FROM "OrderItem" oi WHERE oi."designId" IS NOT NULL)`
       ),
     db
       .select({ n: count() })
       .from(Order)
       .where(
-        sql`${Order.id} NOT IN (SELECT ${OrderItem.orderId} FROM ${OrderItem} WHERE ${OrderItem.designId} IS NOT NULL)`
+        sql`"Order"."id" NOT IN (SELECT oi."orderId" FROM "OrderItem" oi WHERE oi."designId" IS NOT NULL)`
       ),
   ]);
 
@@ -201,7 +201,7 @@ export default async function AdminDashboardPage({
   };
 
   return (
-    <div className="p-4 sm:p-6 lg:p-8 space-y-6 max-w-7xl mx-auto font-sans text-xs">
+    <div className="p-3 sm:p-5 lg:p-6 space-y-5 max-w-7xl mx-auto font-sans text-xs">
       {/* Header Halaman */}
       <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-4 pb-4 border-b border-border-subtle">
         <div>
@@ -248,12 +248,28 @@ export default async function AdminDashboardPage({
         </div>
         {status && <input type="hidden" name="status" value={status} />}
         {channel !== "all" && <input type="hidden" name="channel" value={channel} />}
-        <button
-          type="submit"
-          className="px-6 py-2.5 rounded-xl bg-brand-accent text-canvas font-bold text-xs hover:opacity-90 transition-opacity cursor-pointer shadow-xs"
-        >
-          CARI
-        </button>
+        <div className="flex items-center gap-2 shrink-0">
+          <button
+            type="submit"
+            className="flex-1 sm:flex-none px-6 py-2.5 rounded-xl bg-brand-accent text-canvas font-bold text-xs hover:opacity-90 transition-opacity cursor-pointer shadow-xs"
+          >
+            CARI
+          </button>
+          {q && (
+            <Link
+              href={(() => {
+                const s = new URLSearchParams();
+                if (channel && channel !== "all") s.set("channel", channel);
+                if (status) s.set("status", status);
+                return `/admin?${s.toString()}`;
+              })()}
+              className="flex-1 sm:flex-none px-4 py-2.5 rounded-xl bg-surface border border-border-subtle hover:border-brand-accent text-text-muted hover:text-text-primary font-bold text-xs transition-colors flex items-center justify-center gap-1.5"
+            >
+              <X size={13} />
+              <span>RESET</span>
+            </Link>
+          )}
+        </div>
       </form>
 
       {/* Interactive Orders Manager (Top Channel Switcher + Dynamic Status Sub-Tabs + Table + Modal) */}

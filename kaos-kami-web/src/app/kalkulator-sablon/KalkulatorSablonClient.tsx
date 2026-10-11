@@ -117,7 +117,40 @@ export const KalkulatorSablonClient: React.FC = () => {
 
       {/* 1 — Kalkulator ukuran print */}
       <section aria-label="Kalkulator ukuran print" className="p-5 rounded-2xl bg-surface/60 border border-border-subtle space-y-4">
-        <h2 className="font-sans font-bold text-base uppercase">1 · Berapa tier desainmu?</h2>
+        {/* Quick Size Preset Pills (1-tap cepat di HP atau desktop) */}
+        <div>
+          <span className="text-[10px] font-sans text-text-muted font-bold uppercase tracking-wider block mb-1.5">
+            PILIH CEPAT PRESET UKURAN SABLON:
+          </span>
+          <div className="flex items-center gap-1.5 overflow-x-auto pb-1">
+            {[
+              { label: "A6 (10×10 cm)", w: "10", h: "10" },
+              { label: "A5 (15×20 cm)", w: "15", h: "20" },
+              { label: "A4 (21×29 cm)", w: "21", h: "29" },
+              { label: "A3 (30×30 cm)", w: "30", h: "30" },
+            ].map((p) => {
+              const active = lebar === p.w && tinggi === p.h;
+              return (
+                <button
+                  key={p.label}
+                  type="button"
+                  onClick={() => {
+                    setLebar(p.w);
+                    setTinggi(p.h);
+                  }}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-mono font-medium whitespace-nowrap transition-all border shrink-0 ${
+                    active
+                      ? "bg-brand-accent text-canvas border-brand-accent shadow-xs font-bold"
+                      : "bg-surface border-border-subtle text-text-muted hover:text-text-primary hover:border-brand-accent/40"
+                  }`}
+                >
+                  {p.label}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
         <div className="grid grid-cols-2 gap-3">
           <label className="space-y-1 block">
             <span className="text-[11px] font-sans text-text-muted font-bold uppercase">Lebar (cm)</span>

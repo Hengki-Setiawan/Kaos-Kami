@@ -43,6 +43,8 @@ interface ShowcaseProduct {
   apparelSlug: ApparelType;
   description?: string;
   sizes: ShowcaseSizeOption[];
+  frontDecalUrl?: string | null;
+  mockupSnapshotUrl?: string | null;
 }
 
 const PRODUCT_IMAGE_MAP: Record<string, string> = {
@@ -56,9 +58,18 @@ const PRODUCT_IMAGE_MAP: Record<string, string> = {
 };
 
 function getProductPhoto(id: string, apparelSlug: ApparelType, colorHex: string, rawImg?: string): string {
-  if (PRODUCT_IMAGE_MAP[id]) return PRODUCT_IMAGE_MAP[id];
-  if (rawImg && rawImg.startsWith("/products/")) return rawImg;
+  // 1. Selalu utamakan foto asli produk jika ada (Cloudflare R2, URL publik, atau path lokal)
+  if (rawImg && typeof rawImg === "string" && rawImg.trim().length > 0) {
+    const trimmed = rawImg.trim();
+    if (trimmed.startsWith("/") || isSafeImageUrl(trimmed)) {
+      return trimmed;
+    }
+  }
 
+  // 2. Fallback ID map produk bawaan seed
+  if (PRODUCT_IMAGE_MAP[id]) return PRODUCT_IMAGE_MAP[id];
+
+  // 3. Fallback warna / model jika produk belum memiliki foto unggahan
   const hex = (colorHex || "").toLowerCase();
   if (apparelSlug === "shirt") return "/products/coach-jacket-olive.jpg";
   if (apparelSlug === "hoodie") return "/products/hoodie-black.jpg";
@@ -68,9 +79,6 @@ function getProductPhoto(id: string, apparelSlug: ApparelType, colorHex: string,
   if (hex === "#3b4435") return "/products/coach-jacket-olive.jpg";
   if (hex === "#9e9e9e" || hex === "#2a2b2e") return "/products/crewneck-grey.jpg";
 
-  if (rawImg && (rawImg.startsWith("/") || isSafeImageUrl(rawImg)) && !rawImg.includes("look-01")) {
-    return rawImg;
-  }
   return "/products/tshirt-black.jpg";
 }
 
@@ -129,6 +137,7 @@ const DEFAULT_SHOWCASE: ShowcaseProduct[] = [
     apparelSlug: "tshirt",
     description: "Rilisan grafis spesial edisi terbatas dengan warna oranye menyala khas Makassar. Sablon digital DTF premium presisi tinggi dengan tinta lentur yang tahan cuci berkali-kali.",
     sizes: buildDefaultSizes(195000, 20, "cmtgx5t5b000oush0pgpjop1g"),
+    frontDecalUrl: "/brand/logo-white-clean.png",
   },
   {
     id: "cmtgx5t0q000mush0jv2muo0e",
@@ -171,7 +180,10 @@ const DEFAULT_SHOWCASE: ShowcaseProduct[] = [
   },
 ];
 
+import { useCmsContent } from "@/hooks/useCmsContent";
+
 export const StoreShowcaseSection: React.FC = () => {
+  const cms = useCmsContent();
   const [products, setProducts] = useState<ShowcaseProduct[]>(DEFAULT_SHOWCASE);
   const [totalCount, setTotalCount] = useState<number>(DEFAULT_SHOWCASE.length);
   const [addedId, setAddedId] = useState<string | null>(null);
@@ -179,7 +191,7 @@ export const StoreShowcaseSection: React.FC = () => {
 
   // Product Detail Modal State
   const [activeModalProduct, setActiveModalProduct] = useState<ShowcaseProduct | null>(null);
-  const [viewMode, setViewMode] = useState<"3d" | "photo">("3d");
+  const [viewMode, setViewMode] = useState<"3d" | "photo">("photo");
   const [selectedSize, setSelectedSize] = useState<string>("L");
   const [quantity, setQuantity] = useState<number>(1);
   const [modalAdded, setModalAdded] = useState(false);
@@ -285,7 +297,10 @@ export const StoreShowcaseSection: React.FC = () => {
     const t = setTimeout(() => ctrl.abort(), 12000);
     (async () => {
       try {
-        const res = await fetch("/api/catalog/variants", { signal: ctrl.signal });
+        const res = await fetch(`/api/catalog/variants?t=${Date.now()}`, {
+          cache: "no-store",
+          signal: ctrl.signal,
+        });
         const data = await res.json().catch(() => null);
         clearTimeout(t);
         if (res.ok && data?.success && Array.isArray(data.variants) && data.variants.length > 0) {
@@ -338,6 +353,8 @@ export const StoreShowcaseSection: React.FC = () => {
               apparelSlug,
               description: v.category?.description || "Koleksi pakaian jadi Kaos Kami dengan katun combed sejuk berkualitas, potongan tegap, dan sablon digital presisi.",
               sizes,
+              frontDecalUrl: v.mockup3D?.frontDecalUrl || null,
+              mockupSnapshotUrl: v.mockup3D?.mockupSnapshotUrl || null,
             });
           }
 
@@ -355,7 +372,7 @@ export const StoreShowcaseSection: React.FC = () => {
     };
   }, []);
 
-  const openDetailModal = (product: ShowcaseProduct, defaultMode: "3d" | "photo" = "3d") => {
+  const openDetailModal = (product: ShowcaseProduct, defaultMode: "3d" | "photo" = "photo") => {
     setActiveModalProduct(product);
     // Pilih ukuran yang ready stock terlebih dahulu jika ada
     const inStockSize = product.sizes?.find((s) => s.stockQty > 0)?.size;
@@ -409,13 +426,13 @@ export const StoreShowcaseSection: React.FC = () => {
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-end gap-6 pb-4 border-b border-border-subtle">
           <div>
             <span className="block text-[10px] font-sans text-brand-accent uppercase tracking-widest mb-1 font-bold">
-              READY STOCK // MAKASSAR HYPERLOCAL
+              {cms.showcaseBadge || "READY STOCK // MAKASSAR HYPERLOCAL"}
             </span>
             <h2 className="text-3xl sm:text-5xl font-sans font-extrabold uppercase text-text-primary">
-              ETALASE PRODUK
+              {cms.showcaseTitle || "ETALASE PRODUK"}
             </h2>
             <p className="font-sans text-xs text-text-muted mt-1.5 max-w-xl leading-relaxed">
-              Streetwear kurasi Kaos Kami dengan bahan katun combed adem & sablon DTF presisi.
+              {cms.showcaseSubtitle || "Streetwear kurasi Kaos Kami dengan bahan katun combed adem & sablon DTF presisi."}
             </p>
           </div>
 
@@ -486,9 +503,9 @@ export const StoreShowcaseSection: React.FC = () => {
 
                 {/* Hover Quick-View Hint */}
                 <div className="absolute inset-0 bg-canvas/30 backdrop-blur-[2px] opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                  <span className="py-1.5 px-3 rounded-full bg-canvas/90 text-text-primary font-bold text-[10px] border border-border-subtle flex items-center gap-1.5 shadow-lg">
-                    <RotateCw size={12} className="text-brand-accent" />
-                    <span>PREVIEW 3D</span>
+                  <span className="py-1.5 px-3.5 rounded-full bg-canvas/90 text-text-primary font-bold text-[10px] border border-border-subtle flex items-center gap-1.5 shadow-lg">
+                    <Eye size={12} className="text-brand-accent" />
+                    <span>FOTO & DETAIL</span>
                   </span>
                 </div>
               </div>
@@ -551,12 +568,12 @@ export const StoreShowcaseSection: React.FC = () => {
                 {/* Direct Action Buttons */}
                 <div className="grid grid-cols-2 gap-2 pt-2 border-t border-border-subtle text-xs" onClick={(e) => e.stopPropagation()}>
                   <button
-                    onClick={() => openDetailModal(p, "3d")}
+                    onClick={() => openDetailModal(p, "photo")}
                     className="min-h-[40px] py-2 px-2.5 rounded-xl bg-surface border border-border-subtle text-text-primary font-bold hover:border-brand-accent hover:text-brand-accent transition-all flex items-center justify-center space-x-1.5 min-w-0"
-                    title="Buka 3D Orbit 360° & spesifikasi produk"
+                    title="Lihat foto produk & spesifikasi"
                   >
-                    <RotateCw size={12} className="shrink-0 text-brand-accent" />
-                    <span className="truncate text-[11px]">3D ORBIT</span>
+                    <Eye size={12} className="shrink-0 text-brand-accent" />
+                    <span className="truncate text-[11px]">DETAIL FOTO</span>
                   </button>
 
                   <button
@@ -657,17 +674,6 @@ export const StoreShowcaseSection: React.FC = () => {
                   <div className="flex items-center justify-between pb-2 border-b border-border-subtle">
                     <div className="flex items-center gap-1.5 p-1 bg-canvas rounded-xl border border-border-subtle">
                       <button
-                        onClick={() => setViewMode("3d")}
-                        className={`py-1.5 px-3.5 rounded-lg font-bold text-xs flex items-center gap-1.5 transition-all ${
-                          viewMode === "3d"
-                            ? "bg-brand-accent text-canvas shadow-sm"
-                            : "text-text-muted hover:text-text-primary"
-                        }`}
-                      >
-                        <RotateCw size={12} />
-                        <span>MODEL 3D (360°)</span>
-                      </button>
-                      <button
                         onClick={() => setViewMode("photo")}
                         className={`py-1.5 px-3.5 rounded-lg font-bold text-xs flex items-center gap-1.5 transition-all ${
                           viewMode === "photo"
@@ -678,10 +684,21 @@ export const StoreShowcaseSection: React.FC = () => {
                         <Eye size={12} />
                         <span>FOTO KATALOG</span>
                       </button>
+                      <button
+                        onClick={() => setViewMode("3d")}
+                        className={`py-1.5 px-3.5 rounded-lg font-bold text-xs flex items-center gap-1.5 transition-all ${
+                          viewMode === "3d"
+                            ? "bg-brand-accent text-canvas shadow-sm"
+                            : "text-text-muted hover:text-text-primary"
+                        }`}
+                      >
+                        <RotateCw size={12} />
+                        <span>MODEL 3D (360°)</span>
+                      </button>
                     </div>
 
                     <span className="text-[10px] text-text-muted hidden sm:inline">
-                      {viewMode === "3d" ? "Geser mouse untuk rotasi" : "Foto katalog asli"}
+                      {viewMode === "3d" ? "Geser kursor untuk memutar baju" : "Foto katalog produk asli"}
                     </span>
                   </div>
 
@@ -689,9 +706,10 @@ export const StoreShowcaseSection: React.FC = () => {
                     <Showcase3DOrbitViewer
                       apparelSlug={activeModalProduct.apparelSlug}
                       colorHex={activeModalProduct.colorHex}
+                      frontDecalUrl={activeModalProduct.frontDecalUrl}
                     />
                   ) : (
-                    <div className="relative aspect-[4/5] min-h-[420px] md:min-h-[500px] rounded-2xl overflow-hidden bg-canvas border border-border-subtle">
+                    <div className="relative aspect-[4/5] min-h-[420px] md:min-h-[500px] rounded-2xl overflow-hidden bg-canvas border border-border-subtle group">
                       <Image
                         src={activeModalProduct.image}
                         alt={activeModalProduct.name}
@@ -707,6 +725,17 @@ export const StoreShowcaseSection: React.FC = () => {
                         />
                         <span>{activeModalProduct.colorName}</span>
                       </div>
+
+                      {/* Tombol Interaktif Putar 3D di Atas Foto 2D */}
+                      <button
+                        type="button"
+                        onClick={() => setViewMode("3d")}
+                        className="absolute bottom-3 right-3 px-3.5 py-2 rounded-xl bg-surface/90 hover:bg-brand-accent text-text-primary hover:text-canvas backdrop-blur-md border border-border-subtle hover:border-brand-accent font-bold text-xs shadow-lg transition-all flex items-center gap-2 group-hover:scale-105 active:scale-95 cursor-pointer"
+                        title="Buka tampilan 3D interaktif 360°"
+                      >
+                        <RotateCw size={13} className="text-brand-accent hover:text-inherit transition-colors" />
+                        <span>Putar Model 3D (360°)</span>
+                      </button>
                     </div>
                   )}
                 </div>

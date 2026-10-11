@@ -32,6 +32,8 @@ export interface SavedDesign {
   savedAt: string;
   /** Contoh bawaan (bukan karya user) — disaring dari sync + berlabel. */
   isSample?: boolean;
+  /** Status sinkronisasi cloud DB Turso (cross-platform web). */
+  syncedCloud?: boolean;
 }
 
 export interface SavedDesignsState {
@@ -39,6 +41,7 @@ export interface SavedDesignsState {
   saveDesign: (design: Omit<SavedDesign, 'id' | 'savedAt'>) => void;
   deleteDesign: (id: string) => void;
   getDesign: (id: string) => SavedDesign | undefined;
+  mergeCloudDesigns: (cloudDesigns: SavedDesign[]) => void;
 }
 
 export const useSavedDesignsStore = create<SavedDesignsState>()(
@@ -92,6 +95,24 @@ export const useSavedDesignsStore = create<SavedDesignsState>()(
 
       getDesign: (id) => {
         return get().designs.find((d) => d.id === id);
+      },
+
+      mergeCloudDesigns: (cloudDesigns) => {
+        set((state) => {
+          const map = new Map<string, SavedDesign>();
+          // local first
+          for (const d of state.designs) {
+            map.set(d.id, d);
+          }
+          // merge cloud designs from server
+          for (const cd of cloudDesigns) {
+            map.set(cd.id, {
+              ...cd,
+              syncedCloud: true,
+            });
+          }
+          return { designs: Array.from(map.values()) };
+        });
       },
     }),
     {

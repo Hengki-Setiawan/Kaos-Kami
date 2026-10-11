@@ -24,10 +24,10 @@ export function SecretPinModal() {
     return () => window.removeEventListener("open-secret-pin-modal", handleOpen);
   }, []);
 
-  const handleSubmit = async (e?: React.FormEvent) => {
-    if (e) e.preventDefault();
-    if (pin.length < 6 || isLoading) return;
+  const executePin = async (inputPin: string) => {
+    if (inputPin.length < 6 || isLoading) return;
 
+    setPin(inputPin);
     setIsLoading(true);
     setErrorMsg(null);
     setSuccessMsg(null);
@@ -36,7 +36,7 @@ export function SecretPinModal() {
       const res = await fetch("/api/auth/pin-bypass", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ pin }),
+        body: JSON.stringify({ pin: inputPin }),
       });
 
       const data = await res.json();
@@ -47,21 +47,23 @@ export function SecretPinModal() {
 
       setSuccessMsg(data.message || "Akses Berhasil Dibuka!");
 
-      // Simpan session cache ke localStorage agar authClient segera mengenali sesi
-      if (data.sessionUser) {
-        try {
-          const { setCachedSession } = await import("@/lib/auth-client");
+      // Update cache di localStorage
+      try {
+        const { setCachedSession, clearCachedSession } = await import("@/lib/auth-client");
+        if (data.role === "GUEST" || !data.sessionUser) {
+          clearCachedSession();
+        } else {
           setCachedSession({
             user: data.sessionUser,
             session: { id: "dev-session", userId: data.sessionUser.id },
           });
-        } catch {}
-      }
+        }
+      } catch {}
 
-      // Redirect otomatis ke target
+      // Navigasi langsung menggunakan replace agar tidak tertahan di cache page
       setTimeout(() => {
-        window.location.href = data.redirectUrl || "/admin";
-      }, 700);
+        window.location.replace(data.redirectUrl || "/");
+      }, 300);
     } catch (err: any) {
       setErrorMsg(err.message || "PIN Salah. Coba lagi.");
       setPin("");
@@ -71,9 +73,9 @@ export function SecretPinModal() {
     }
   };
 
-  const handleQuickFill = (code: string) => {
-    setPin(code);
-    setErrorMsg(null);
+  const handleSubmit = (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    void executePin(pin);
   };
 
   if (!isOpen) return null;
@@ -86,7 +88,7 @@ export function SecretPinModal() {
       aria-modal="true"
     >
       <div
-        className="relative w-full max-w-md rounded-3xl bg-surface border border-border-strong shadow-2xl p-6 sm:p-8 space-y-6 text-text-primary"
+        className="relative w-full max-w-lg rounded-3xl bg-surface border border-border-strong shadow-2xl p-6 sm:p-8 space-y-6 text-text-primary"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Tombol Tutup */}
@@ -108,11 +110,11 @@ export function SecretPinModal() {
             Akses Otorisasi Rahasia
           </h2>
           <p className="text-xs text-text-muted">
-            Klik 5x Terdeteksi. Masukkan PIN untuk membuka portal:
+            Pilih portal otorisasi langsung di bawah atau ketik PIN 6 digit:
           </p>
         </div>
 
-        {/* Form Input PIN */}
+        {/* Form Input PIN Manual */}
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-2">
             <div className="relative">
@@ -171,39 +173,7 @@ export function SecretPinModal() {
           </button>
         </form>
 
-        {/* Petunjuk PIN Cepat */}
-        <div className="pt-4 border-t border-border-subtle space-y-2 text-xs">
-          <span className="text-[11px] font-bold text-text-muted uppercase tracking-wider block">
-            Pilihan Otorisasi:
-          </span>
-          <div className="grid grid-cols-2 gap-2">
-            <button
-              type="button"
-              onClick={() => handleQuickFill("164164")}
-              className="p-2.5 rounded-xl bg-black/5 dark:bg-white/5 border border-border-subtle hover:border-brand-accent/50 text-left transition-all group"
-            >
-              <span className="font-bold text-text-primary block text-[11px] group-hover:text-brand-accent">
-                Super Admin Utama
-              </span>
-              <span className="font-mono text-[10px] text-text-muted">
-                PIN: <strong className="text-brand-accent">164164</strong>
-              </span>
-            </button>
 
-            <button
-              type="button"
-              onClick={() => handleQuickFill("461461")}
-              className="p-2.5 rounded-xl bg-black/5 dark:bg-white/5 border border-border-subtle hover:border-cyan-500/50 text-left transition-all group"
-            >
-              <span className="font-bold text-text-primary block text-[11px] group-hover:text-cyan-600 dark:group-hover:text-cyan-400">
-                Akun Pelanggan
-              </span>
-              <span className="font-mono text-[10px] text-text-muted">
-                PIN: <strong className="text-cyan-600 dark:text-cyan-400">461461</strong>
-              </span>
-            </button>
-          </div>
-        </div>
       </div>
     </div>
   );

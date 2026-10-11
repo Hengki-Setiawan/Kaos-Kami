@@ -23,6 +23,7 @@ import {
 } from "lucide-react";
 import { ThermalShippingLabelModal } from "@/components/admin/ThermalShippingLabelModal";
 import { ActivityHistoryModal } from "@/components/admin/ActivityHistoryModal";
+import { OrderMiniLeafletMap } from "@/components/maps/OrderMiniLeafletMap";
 
 export const dynamic = "force-dynamic";
 
@@ -330,13 +331,21 @@ export default function AdminDeliveriesPage() {
                 order.user?.phoneNumber ||
                 "";
 
+              const addrObj = typeof order.shippingAddress === "object" ? order.shippingAddress : null;
+              const fullAddrStr = addrObj?.fullAddress || "";
               const fullAddress =
-                typeof order.shippingAddress === "object" && order.shippingAddress
+                addrObj
                   ? [
-                      order.shippingAddress.fullAddress,
-                      order.shippingAddress.district ? `Kec. ${order.shippingAddress.district}` : null,
-                      order.shippingAddress.city || "Makassar",
-                      order.shippingAddress.postalCode,
+                      fullAddrStr,
+                      addrObj.district && !fullAddrStr.toLowerCase().includes(addrObj.district.toLowerCase())
+                        ? `Kec. ${addrObj.district}`
+                        : null,
+                      addrObj.city && !fullAddrStr.toLowerCase().includes(addrObj.city.toLowerCase())
+                        ? addrObj.city
+                        : null,
+                      addrObj.postalCode && !fullAddrStr.includes(addrObj.postalCode)
+                        ? addrObj.postalCode
+                        : null,
                     ]
                       .filter(Boolean)
                       .join(", ")
@@ -344,10 +353,19 @@ export default function AdminDeliveriesPage() {
                   ? order.shippingAddress
                   : "Alamat tidak dicantumkan";
 
+              const combinedNotes = `${order.courierNotes || ""} ${(typeof order.shippingAddress === "object" ? order.shippingAddress?.notes : "") || ""}`;
+              const gpsMatch =
+                combinedNotes.match(/\[?GPS:\s*(-?\d+\.\d+),\s*(-?\d+\.\d+)\]?/i) ||
+                combinedNotes.match(/google\.com\/maps\?q=(-?\d+(?:\.\d+)?),(-?\d+(?:\.\d+)?)/) ||
+                combinedNotes.match(/(-?\d+\.\d{4,}),\s*(-?\d+\.\d{4,})/);
+
               const googleMapsQuery = encodeURIComponent(
                 fullAddress !== "Alamat tidak dicantumkan" ? fullAddress : "Kota Makassar"
               );
-              const googleMapsUrl = `https://www.google.com/maps/search/?api=1&query=${googleMapsQuery}`;
+              const googleMapsUrl = gpsMatch
+                ? `https://www.google.com/maps/dir/?api=1&destination=${gpsMatch[1]},${gpsMatch[2]}`
+                : `https://www.google.com/maps/search/?api=1&query=${googleMapsQuery}`;
+              const hasGpsLock = Boolean(gpsMatch);
 
               const cleanPhone = rawPhone.replace(/\D/g, "");
               const formattedWa = cleanPhone.startsWith("0") ? `62${cleanPhone.slice(1)}` : cleanPhone;
@@ -444,6 +462,19 @@ export default function AdminDeliveriesPage() {
                           </a>
                         </div>
                       )}
+
+                      {/* Pin Point Peta Leaflet Interaktif Pengantaran */}
+                      <div className="pt-1">
+                        <OrderMiniLeafletMap
+                          orderId={order.id}
+                          orderNumber={order.orderNumber}
+                          recipientName={recipientName}
+                          addressText={fullAddress}
+                          notes={order.courierNotes}
+                          deliveryMethod={order.deliveryMethod}
+                          heightClass="h-36"
+                        />
+                      </div>
                     </div>
 
                     {/* Rincian Ringkas Barang */}
@@ -473,10 +504,14 @@ export default function AdminDeliveriesPage() {
                         href={googleMapsUrl}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="px-3 py-2 rounded-xl bg-blue-500/15 border border-blue-500/30 text-blue-600 dark:text-blue-300 font-bold text-xs flex items-center justify-center gap-1.5 hover:bg-blue-500/25 transition-all"
+                        className={`px-3 py-2 rounded-xl border font-bold text-xs flex items-center justify-center gap-1.5 transition-all ${
+                          hasGpsLock
+                            ? "bg-brand-accent/20 border-brand-accent/40 text-brand-accent hover:bg-brand-accent hover:text-canvas"
+                            : "bg-blue-500/15 border-blue-500/30 text-blue-600 dark:text-blue-300 hover:bg-blue-500/25"
+                        }`}
                       >
-                        <Navigation size={13} />
-                        <span>Buka Google Maps</span>
+                        <Navigation size={13} className={hasGpsLock ? "text-brand-accent group-hover:text-canvas" : ""} />
+                        <span>{hasGpsLock ? "Rute GPS Terkunci" : "Buka Google Maps"}</span>
                       </a>
 
                       {waUrl ? (
@@ -648,7 +683,7 @@ export default function AdminDeliveriesPage() {
                       className="w-full py-2 rounded-xl bg-surface border border-border-subtle hover:border-brand-accent/50 text-text-primary text-xs font-bold flex items-center justify-center gap-1.5 transition-all cursor-pointer shadow-xs"
                     >
                       <Printer size={13} className="text-brand-accent" />
-                      <span>Cetak Label Resi (Thermal 100×150)</span>
+                      <span>Cetak Resi (80mm Thermal / Bluetooth / 100×150)</span>
                     </button>
 
                     <div className="text-center pt-1">

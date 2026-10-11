@@ -22,6 +22,7 @@ import {
   Compass,
 } from "lucide-react";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
+import { LocationPickerModal, type PickedLocation } from "@/components/maps/LocationPickerModal";
 
 export interface AddressRow {
   id: string;
@@ -59,53 +60,62 @@ const MAKASSAR_DISTRICTS = [
   "Kepulauan Sangkarrang",
 ];
 
-/** Ambil pin GPS dari catatan (format yg ditulis handleGpsDetect:
- *  `https://www.google.com/maps?q=lat,lng`). Murni parse tampilan. */
+/** Ambil pin GPS dari catatan (format: `google.com/maps?q=lat,lng` atau `[GPS:lat,lon]`). */
 function extractMapsPin(notes: string): { lat: string; lng: string; url: string } | null {
-  const m = notes.match(/google\.com\/maps\?q=(-?\d+(?:\.\d+)?),(-?\d+(?:\.\d+)?)/);
+  const m =
+    notes.match(/google\.com\/maps\?q=(-?\d+(?:\.\d+)?),(-?\d+(?:\.\d+)?)/) ||
+    notes.match(/\[GPS:(-?\d+(?:\.\d+)?),(-?\d+(?:\.\d+)?)\]/) ||
+    notes.match(/(-?\d+\.\d{4,}),\s*(-?\d+\.\d{4,})/);
   if (!m) return null;
   return { lat: m[1]!, lng: m[2]!, url: `https://www.google.com/maps?q=${m[1]},${m[2]}` };
 }
 
-/** Mini static-map pin visual (div + pin, tanpa fetch eksternal) + link Maps
- *  existing dari catatan GPS. Tampilan saja — API/DB TAK diubah. */
+/** Mini map pin visual with real OSM tile and Maps link */
 function MiniMapPin({ notes }: { notes: string }) {
   const pin = extractMapsPin(notes);
+  if (!pin) return null;
+
+  const lat = parseFloat(pin.lat);
+  const lng = parseFloat(pin.lng);
+  const zoom = 15;
+  const tileUrl =
+    !isNaN(lat) && !isNaN(lng)
+      ? `https://tile.openstreetmap.org/${zoom}/${Math.floor(((lng + 180) / 360) * Math.pow(2, zoom))}/${Math.floor(
+          ((1 - Math.log(Math.tan((lat * Math.PI) / 180) + 1 / Math.cos((lat * Math.PI) / 180)) / Math.PI) / 2) *
+            Math.pow(2, zoom)
+        )}.png`
+      : null;
+
   return (
     <div
       aria-label="Pratinjau pin lokasi"
       className="relative h-28 rounded-xl overflow-hidden border border-border-subtle bg-surface-elevated"
-      style={{
-        backgroundImage:
-          "repeating-linear-gradient(0deg, rgba(127,127,127,0.18) 0 1px, transparent 1px 14px), repeating-linear-gradient(90deg, rgba(127,127,127,0.18) 0 1px, transparent 1px 14px)",
-      }}
     >
-      <div className="absolute inset-0 flex flex-col items-center justify-center gap-1">
-        <span aria-hidden="true" className="text-2xl leading-none drop-shadow">📍</span>
-        {pin ? (
-          <span className="font-mono text-[10px] text-text-primary bg-surface/85 px-2 py-0.5 rounded-full border border-border-subtle">
-            {pin.lat}, {pin.lng}
-          </span>
-        ) : (
-          <span className="font-sans text-[10px] text-text-muted bg-surface/85 px-2 py-0.5 rounded-full border border-border-subtle">
-            Pin GPS belum ada — gunakan Deteksi GPS
-          </span>
-        )}
-        {pin && (
-          <a
-            href={pin.url}
-            target="_blank"
-            rel="noreferrer"
-            onClick={(e) => e.stopPropagation()}
-            className="font-sans text-[10px] font-bold text-brand-accent hover:underline flex items-center gap-1 bg-surface/85 px-2 py-0.5 rounded-full border border-brand-accent/30"
-          >
-            <ExternalLink size={10} />
-            <span>Buka di Google Maps</span>
-          </a>
-        )}
+      {tileUrl && (
+        <div
+          className="absolute inset-0 bg-cover bg-center opacity-85 filter contrast-105 brightness-95"
+          style={{ backgroundImage: `url(${tileUrl})` }}
+        />
+      )}
+      <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-transparent to-black/20" />
+      <div className="absolute inset-0 flex flex-col items-center justify-center gap-1 z-10">
+        <span aria-hidden="true" className="text-2xl leading-none drop-shadow-md">📍</span>
+        <span className="font-mono text-[10px] text-text-primary bg-surface/90 backdrop-blur-xs px-2 py-0.5 rounded-full border border-border-subtle shadow-xs">
+          {pin.lat}, {pin.lng}
+        </span>
+        <a
+          href={pin.url}
+          target="_blank"
+          rel="noreferrer"
+          onClick={(e) => e.stopPropagation()}
+          className="font-sans text-[10px] font-bold text-amber-500 hover:text-amber-400 flex items-center gap-1 bg-surface/90 backdrop-blur-xs px-2.5 py-0.5 rounded-full border border-amber-500/30 shadow-xs"
+        >
+          <ExternalLink size={10} />
+          <span>Buka di Google Maps</span>
+        </a>
       </div>
-      <span className="absolute top-1.5 left-2 font-mono text-[9px] text-text-muted bg-surface/85 px-1.5 py-0.5 rounded border border-border-subtle">
-        PRATINJAU PIN
+      <span className="absolute top-1.5 left-2 font-mono text-[9px] text-text-primary bg-surface/90 backdrop-blur-xs px-1.5 py-0.5 rounded border border-border-subtle z-10 shadow-xs">
+        PETA AKTIF
       </span>
     </div>
   );
@@ -141,6 +151,10 @@ export function AddressBook({
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [actionMsg, setActionMsg] = useState<{ text: string; type: "success" | "error" } | null>(null);
 
+  // Map picker modal states
+  const [isMapModalOpen, setIsMapModalOpen] = useState(false);
+  const [mapCoords, setMapCoords] = useState<{ lat: number; lng: number } | null>(null);
+
   const resetForm = () => {
     setEditingAddr(null);
     setLabel("Rumah");
@@ -155,6 +169,7 @@ export function AddressBook({
     setIsDefault(addresses.length === 0);
     setFormError(null);
     setGpsSuccessNotice(null);
+    setMapCoords(null);
   };
 
   const openAddModal = () => {
@@ -176,7 +191,47 @@ export function AddressBook({
     setIsDefault(!!addr.isDefault);
     setFormError(null);
     setGpsSuccessNotice(null);
+
+    const pin = extractMapsPin(addr.notes || "");
+    if (pin) {
+      setMapCoords({ lat: parseFloat(pin.lat), lng: parseFloat(pin.lng) });
+    } else {
+      setMapCoords(null);
+    }
     setIsModalOpen(true);
+  };
+
+  /**
+   * Callback saat titik dipilih dari modal peta Leaflet OSM
+   */
+  const handleLocationPicked = (loc: PickedLocation) => {
+    setIsMapModalOpen(false);
+    setMapCoords({ lat: loc.lat, lng: loc.lng });
+    if (loc.displayName) {
+      setFullAddress(loc.displayName);
+    }
+    if (loc.city) {
+      setCity(loc.city.replace(/^Kota\s+/i, "").trim());
+    }
+    if (loc.district) {
+      const cleanDist = loc.district.replace(/^Kecamatan\s+/i, "").trim();
+      const matched = MAKASSAR_DISTRICTS.find((d) => d.toLowerCase() === cleanDist.toLowerCase());
+      setDistrict(matched || cleanDist);
+    }
+    if (loc.province) {
+      setProvince(loc.province);
+    }
+    const mapsPin = `https://www.google.com/maps?q=${loc.lat.toFixed(6)},${loc.lng.toFixed(6)}`;
+    const gpsTag = `[GPS:${loc.lat.toFixed(6)},${loc.lng.toFixed(6)}]`;
+    setNotes((prev) => {
+      const cleanPrev = (prev || "")
+        .replace(/📍\s*Pin GPS:.*?(?=\s*\||$)/gi, "")
+        .replace(/\[GPS:[^\]]*\]/g, "")
+        .replace(/\(📍\s*https:\/\/www\.google\.com\/maps\?q=[^)]+\)/gi, "")
+        .trim();
+      return cleanPrev ? `${cleanPrev} | 📍 Pin GPS: ${mapsPin} ${gpsTag}` : `📍 Pin GPS: ${mapsPin} ${gpsTag}`;
+    });
+    setGpsSuccessNotice(`Titik pin point terkunci di peta (${loc.lat.toFixed(5)}, ${loc.lng.toFixed(5)})`);
   };
 
   /**
@@ -196,26 +251,23 @@ export function AddressBook({
       async (pos) => {
         const { latitude, longitude, accuracy } = pos.coords;
         try {
-          const res = await fetch(
-            `https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}&zoom=18&addressdetails=1`,
-            { headers: { "Accept-Language": "id,en" } }
-          );
+          const res = await fetch(`/api/geocode/reverse?lat=${latitude}&lon=${longitude}`);
 
           if (!res.ok) throw new Error("Gagal mengambil detail alamat dari satelit");
           const data = await res.json();
+          const r = data.result || {};
 
-          const addr = data.address || {};
-          const detectedRoad = addr.road || addr.suburb || addr.neighbourhood || addr.amenity || "";
-          const detectedDistrict = addr.city_district || addr.subdistrict || addr.district || addr.suburb || "";
-          const detectedCity = addr.city || addr.town || addr.county || "Makassar";
-          const detectedState = addr.state || "Sulawesi Selatan";
-          const detectedPostcode = addr.postcode || "";
+          const detectedRoad = r.displayName ? r.displayName.split(",").slice(0, 3).join(",").trim() : "";
+          const detectedDistrict = r.district || "";
+          const detectedCity = r.city || "Makassar";
+          const detectedState = r.province || "Sulawesi Selatan";
+          const detectedPostcode = r.postcode || "";
 
           // Isi form dengan data yang didapat
           if (detectedRoad) {
-            setFullAddress((prev) => (prev ? `${prev}, ${detectedRoad}` : detectedRoad));
-          } else if (data.display_name) {
-            setFullAddress(data.display_name.split(",").slice(0, 3).join(",").trim());
+            setFullAddress(detectedRoad);
+          } else if (r.displayName) {
+            setFullAddress(r.displayName);
           }
 
           if (detectedCity) {
@@ -569,11 +621,35 @@ export function AddressBook({
 
                 {/* Catatan Kurir / Pin GPS */}
                 {a.notes && (
-                  <div className="p-2.5 rounded-xl bg-surface-elevated/50 border border-border-subtle/70 text-[11px] text-text-muted font-sans flex items-start gap-2">
-                    <Navigation size={13} className="text-brand-accent shrink-0 mt-0.5" />
-                    <div className="flex-1 break-words">
-                      <span>{a.notes}</span>
+                  <div className="p-2.5 rounded-xl bg-surface-elevated/50 border border-border-subtle/70 text-[11px] text-text-muted font-sans space-y-1.5">
+                    <div className="flex items-start gap-2">
+                      <Navigation size={13} className="text-brand-accent shrink-0 mt-0.5" />
+                      <div className="flex-1 break-words">
+                        <span>{a.notes}</span>
+                      </div>
                     </div>
+                    {(() => {
+                      const pin = extractMapsPin(a.notes);
+                      if (!pin) return null;
+                      return (
+                        <div className="pt-1.5 border-t border-border-subtle/40 flex items-center justify-between gap-2">
+                          <span className="font-mono text-[10px] text-brand-accent flex items-center gap-1 font-semibold">
+                            <MapPin size={11} />
+                            <span>GPS: {pin.lat}, {pin.lng}</span>
+                          </span>
+                          <a
+                            href={pin.url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            onClick={(e) => e.stopPropagation()}
+                            className="font-sans text-[10px] font-bold text-brand-accent hover:underline flex items-center gap-1 bg-surface-elevated px-2 py-0.5 rounded-md border border-brand-accent/30"
+                          >
+                            <ExternalLink size={10} />
+                            <span>Buka di Google Maps</span>
+                          </a>
+                        </div>
+                      );
+                    })()}
                   </div>
                 )}
               </div>
@@ -638,38 +714,48 @@ export function AddressBook({
 
             {/* Scrollable Form Body */}
             <form onSubmit={handleSaveAddress} className="flex-1 overflow-y-auto p-5 sm:p-6 space-y-4 text-xs">
-              {/* GPS Geolocation Auto-Detect Button */}
-              <div className="p-3.5 rounded-xl bg-gradient-to-r from-brand-accent/15 via-surface-elevated to-transparent border border-brand-accent/30 space-y-2">
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
-                  <div>
-                    <span className="font-bold text-text-primary flex items-center gap-1.5">
-                      <Navigation size={14} className="text-brand-accent" />
-                      <span>Deteksi Lokasi Otomatis (GPS)</span>
-                    </span>
-                    <p className="text-[11px] text-text-muted font-sans mt-0.5">
-                      Mengisi nama jalan, kelurahan, kecamatan, dan kota sesuai titik lokasi Anda saat ini.
-                    </p>
-                  </div>
+              {/* GPS Geolocation Auto-Detect & Map Pinpoint Buttons */}
+              <div className="p-3 rounded-xl bg-surface-elevated/70 border border-border-subtle flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
+                <div>
+                  <span className="font-bold text-text-primary text-xs flex items-center gap-1.5">
+                    <Navigation size={13} className="text-brand-accent" />
+                    <span>Titik Lokasi Pengantaran (Opsional)</span>
+                  </span>
+                  <p className="text-[11px] text-text-muted mt-0.5">
+                    Tandai pin peta atau deteksi GPS untuk memudahkan kurir mengantar pesanan.
+                  </p>
+                </div>
+
+                <div className="flex flex-wrap items-center gap-2 shrink-0">
+                  <button
+                    type="button"
+                    onClick={() => setIsMapModalOpen(true)}
+                    className="py-1.5 px-3 rounded-lg bg-surface border border-border-subtle hover:border-brand-accent text-text-primary font-bold text-xs transition-all flex items-center gap-1.5 cursor-pointer shadow-xs"
+                  >
+                    <MapPin size={12} className="text-brand-accent" />
+                    <span>Pilih di Peta</span>
+                  </button>
 
                   <button
                     type="button"
                     disabled={isGpsLoading}
                     onClick={handleGpsDetect}
-                    className="py-2 px-3.5 rounded-xl bg-brand-accent text-canvas font-bold text-xs uppercase tracking-wider hover:brightness-110 active:scale-95 transition-all flex items-center justify-center gap-1.5 shrink-0 cursor-pointer disabled:opacity-50 shadow-sm"
+                    className="py-1.5 px-3 rounded-lg bg-surface border border-border-subtle hover:border-brand-accent text-text-primary font-bold text-xs transition-all flex items-center gap-1.5 cursor-pointer disabled:opacity-50 shadow-xs"
                   >
                     {isGpsLoading ? (
                       <>
-                        <Loader2 size={13} className="animate-spin" />
-                        <span>Mencari Satelit...</span>
+                        <Loader2 size={12} className="animate-spin text-brand-accent" />
+                        <span>Mencari GPS...</span>
                       </>
                     ) : (
                       <>
-                        <Compass size={13} />
-                        <span>Pasang GPS</span>
+                        <Compass size={12} className="text-brand-accent" />
+                        <span>Deteksi GPS</span>
                       </>
                     )}
                   </button>
                 </div>
+              </div>
 
                 {gpsSuccessNotice && (
                   <div className="p-2.5 rounded-lg bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-[11px] font-sans flex items-start gap-1.5">
@@ -677,7 +763,6 @@ export function AddressBook({
                     <span>{gpsSuccessNotice}</span>
                   </div>
                 )}
-              </div>
 
               {formError && (
                 <div className="p-3 rounded-xl bg-red-500/10 border border-red-500/30 text-red-400 text-xs">
@@ -893,6 +978,15 @@ export function AddressBook({
         busy={busyId !== null}
         onConfirm={() => deletingId && void handleDelete(deletingId)}
         onCancel={() => setDeletingId(null)}
+      />
+
+      {/* Modal Interaktif Pemilihan Titik Lokasi Leaflet OSM */}
+      <LocationPickerModal
+        isOpen={isMapModalOpen}
+        onClose={() => setIsMapModalOpen(false)}
+        initialCoords={mapCoords}
+        onSelectLocation={handleLocationPicked}
+        title="Pilih Titik Lokasi Alamat Pengiriman di Peta"
       />
     </div>
   );

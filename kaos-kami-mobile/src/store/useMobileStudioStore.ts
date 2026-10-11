@@ -135,11 +135,11 @@ export const MOBILE_UNITS_TO_CM: Record<ApparelType, number> = {
 
 /** Lebar cetak maks depan (cm) per apparel — SSOT box depan di lib (kompat). */
 export const MOBILE_MAX_WIDTH_CM: Record<ApparelType, number> = {
-  tshirt: MOBILE_SIDE_BOX_CM['tshirt']?.front.w ?? 30,
+  tshirt: MOBILE_SIDE_BOX_CM['tshirt']?.front.w ?? 35,
   hoodie: MOBILE_SIDE_BOX_CM['hoodie']?.front.w ?? 28,
   // SWAP 20 Sep 2026: pullover tanpa resleting → depan full 28 (cermin web).
   shirt: MOBILE_SIDE_BOX_CM['shirt']?.front.w ?? 28,
-  longsleeve: MOBILE_SIDE_BOX_CM['longsleeve']?.front.w ?? 30,
+  longsleeve: MOBILE_SIDE_BOX_CM['longsleeve']?.front.w ?? 35,
   crewneck: MOBILE_SIDE_BOX_CM['crewneck']?.front.w ?? 30,
   sweater: MOBILE_SIDE_BOX_CM['sweater']?.front.w ?? 30,
   cap: MOBILE_SIDE_BOX_CM['cap']?.front.w ?? 12,

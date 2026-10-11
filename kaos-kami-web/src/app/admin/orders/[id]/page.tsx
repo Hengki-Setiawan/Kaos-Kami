@@ -15,6 +15,8 @@ import {
   Eye,
   Layers,
   AlertTriangle,
+  MapPin,
+  ExternalLink,
 } from "lucide-react";
 import OrderInspector3D from "@/components/admin/OrderInspector3D";
 import { OrderAdminActions } from "@/components/admin/OrderAdminActions";
@@ -561,6 +563,28 @@ export default async function AdminOrderDetailPage({ params }: AdminOrderDetailP
                   <strong>Catatan:</strong> {order.courierNotes}
                 </div>
               )}
+
+              {(() => {
+                const combined = `${order.courierNotes || ""} ${order.shippingAddress?.fullAddress || ""} ${order.notes || ""}`;
+                const gpsMatch = combined.match(/\[?GPS:\s*(-?\d+\.\d+),\s*(-?\d+\.\d+)\]?/i) || combined.match(/(-?\d+\.\d{4,}),\s*(-?\d+\.\d{4,})/);
+                if (!gpsMatch) return null;
+                const lat = gpsMatch[1];
+                const lon = gpsMatch[2];
+                return (
+                  <div className="pt-1.5">
+                    <a
+                      href={`https://www.google.com/maps/dir/?api=1&destination=${lat},${lon}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="w-full py-2 px-3 rounded-xl bg-brand-accent/20 hover:bg-brand-accent border border-brand-accent/40 text-brand-accent hover:text-canvas transition-all font-bold text-[11px] flex items-center justify-center gap-1.5 shadow-xs cursor-pointer group"
+                    >
+                      <MapPin size={13} className="shrink-0 group-hover:scale-110 transition-transform" />
+                      <span>RUTE GOOGLE MAPS KURIR ({lat}, {lon})</span>
+                      <ExternalLink size={11} className="opacity-70" />
+                    </a>
+                  </div>
+                );
+              })()}
             </div>
           </div>
 

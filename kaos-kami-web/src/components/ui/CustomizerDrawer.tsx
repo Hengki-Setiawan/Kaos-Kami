@@ -1634,34 +1634,77 @@ export const CustomizerDrawer: React.FC = () => {
     window.open(shopWaLink(decodeURIComponent(text)), "_blank");
   };
 
-  const handleSaveDesign = () => {
+  const handleSaveDesign = async () => {
     if (!session) {
       setIsAuthOpen(true);
       return;
     }
-    let previewUrl: string | undefined;
+
+    setEnhancementMessage("Menyiapkan tangkapan pratinjau 3D otomatis...");
+
+    // 1. Deteksi sisi sablon aktif (depan, belakang, atau keduanya)
+    const currentDecals = useConfiguratorStore.getState().decals;
+    const hasBackDecal = currentDecals.some((d) => d.targetSide === "back");
+    const hasFrontDecal = currentDecals.some(
+      (d) =>
+        d.targetSide === "front" ||
+        d.targetSide === "hood" ||
+        d.targetSide.includes("sleeve") ||
+        d.targetSide.includes("side")
+    );
+
+    const captureCanvas = async (side: "front" | "back"): Promise<string | undefined> => {
+      try {
+        const canvas = document.querySelector(
+          ".webgl-canvas-container canvas"
+        ) as HTMLCanvasElement | null;
+        if (!canvas) return undefined;
+        if (typeof (canvas as any).exportMockup === "function") {
+          return await (canvas as any).exportMockup({
+            resolution: "standard",
+            transparent: true,
+            side,
+            aspectRatio: 1,
+            format: "webp",
+            quality: 0.92,
+          });
+        }
+        return canvas.toDataURL("image/webp", 0.85);
+      } catch {}
+      return undefined;
+    };
+
+    let frontPreview: string | undefined;
+    let backPreview: string | undefined;
+
+    // 2. Tangkap pratinjau 3D transparan presisi tegak lurus (0% tilt, aspek 1:1, tanpa lantai terpotong)
     try {
-      const canvas = document.querySelector(".webgl-canvas-container canvas") as HTMLCanvasElement | null;
-      if (canvas) {
-        previewUrl = canvas.toDataURL("image/webp", 0.7);
-      }
-    } catch {}
-    const localId = saveCurrentDesign(designTitleInput.trim() ? designTitleInput.trim() : undefined, previewUrl);
+      frontPreview = await captureCanvas("front");
+      backPreview = await captureCanvas("back");
+    } catch {
+      frontPreview = await captureCanvas("front");
+    }
+
+    const titleToSave = designTitleInput.trim() || undefined;
+    const localId = saveCurrentDesign(titleToSave, frontPreview, undefined, backPreview);
     setDesignTitleInput("");
     setActiveTab("options");
     setOptionSubMode("saved");
-    // Sinkron server: tampilkan status KUOTA jujur (server maks 5/akun).
+
     setEnhancementMessage("Menyimpan ke server…");
-    void syncDesignToServer(localId).then((r) => {
+    try {
+      const r = await syncDesignToServer(localId);
       if (r.quotaExceeded) {
         setEnhancementMessage("Koleksi cloud Anda sudah penuh (5/5): tersimpan lokal saja. Hapus desain lama di dashboard untuk memberi ruang, ya.");
       } else if (r.error) {
         setEnhancementMessage("Tersimpan lokal; sinkron server gagal. Coba lagi nanti.");
       } else {
-        setEnhancementMessage("Desain berhasil disimpan ke koleksi Anda.");
+        setEnhancementMessage("Desain berhasil disimpan dengan pratinjau 3D otomatis!");
       }
-      setTimeout(() => setEnhancementMessage(null), 4000);
-    });
+    } catch {
+      setEnhancementMessage("Tersimpan lokal.");
+    }
+    setTimeout(() => setEnhancementMessage(null), 4000);
   };
 
   // Hapus decal + master + original produksinya (anti yatim di registry).

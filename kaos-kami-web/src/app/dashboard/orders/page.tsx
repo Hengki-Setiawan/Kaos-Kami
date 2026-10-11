@@ -1,5 +1,7 @@
 import React from "react";
 import { redirect } from "next/navigation";
+import { headers, cookies } from "next/headers";
+import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { Navbar } from "@/components/ui/Navbar";
 import { Footer } from "@/components/ui/Footer";
@@ -52,8 +54,6 @@ export default async function CustomerDashboardPage({
   let sessionUserId: string | null = null;
   let sessionRole: string | null = null;
   try {
-    const { auth } = await import("@/lib/auth");
-    const { headers } = await import("next/headers");
     const session = await auth.api.getSession({ headers: await headers() });
     sessionUserId = (session?.user as any)?.id || null;
     sessionRole = (session?.user as any)?.role || null;
@@ -61,15 +61,29 @@ export default async function CustomerDashboardPage({
 
   // DEV BYPASS: Khusus di localhost dev mode agar pengujian tidak redirect
   if (!sessionUserId && process.env.NODE_ENV !== "production") {
-    const cookieStore = await (await import("next/headers")).cookies();
+    const cookieStore = await cookies();
     const devCookie = cookieStore.get("kaos_dev_role")?.value;
-    if (devCookie) {
-      const sampleUser = await db.query.User.findFirst({
-        columns: { id: true, role: true },
-      });
-      if (sampleUser) {
-        sessionUserId = sampleUser.id;
-        sessionRole = sampleUser.role || "CUSTOMER";
+    const devUserId = cookieStore.get("kaos_dev_user_id")?.value;
+    if (devCookie && devCookie !== "GUEST") {
+      if (devUserId) {
+        const found = await db.query.User.findFirst({
+          where: (t, { eq }) => eq(t.id, devUserId),
+          columns: { id: true, role: true },
+        });
+        if (found) {
+          sessionUserId = found.id;
+          sessionRole = devCookie === "CUSTOMER" ? "CUSTOMER" : (found.role || devCookie);
+        }
+      }
+      if (!sessionUserId) {
+        const sampleUser = await db.query.User.findFirst({
+          where: devCookie === "CUSTOMER" ? (t, { eq }) => eq(t.role, "CUSTOMER") : undefined,
+          columns: { id: true, role: true },
+        });
+        if (sampleUser) {
+          sessionUserId = sampleUser.id;
+          sessionRole = devCookie === "CUSTOMER" ? "CUSTOMER" : (sampleUser.role || "CUSTOMER");
+        }
       }
     }
   }
@@ -113,16 +127,14 @@ export default async function CustomerDashboardPage({
       },
     }),
     db.query.Design.findMany({
-      where: (t, { eq, lt, and, or }: any) => {
-        const conds: any[] = [];
+      where: (t, { eq, lt, and, or, ne }: any) => {
+        const conds: any[] = [ne(t.status, "DRAFT")];
         if (designWhere) conds.push(eq(t.userId, designWhere.userId));
         if (dCursor)
           conds.push(
             or(lt(t.createdAt, dCursor.createdAt), and(eq(t.createdAt, dCursor.createdAt), lt(t.id, dCursor.id)))
           );
-        if (conds.length === 0) return undefined;
-        if (conds.length === 1) return conds[0];
-        return and(conds[0], conds[1]);
+        return conds.length === 1 ? conds[0] : and(...conds);
       },
       limit: DES_LIMIT + 1,
       orderBy: (t, { desc }) => [desc(t.createdAt), desc(t.id)],

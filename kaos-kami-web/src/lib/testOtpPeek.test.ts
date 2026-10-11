@@ -6,7 +6,7 @@ import { isOtpPeekAllowed, parsePeekAllowlist, type PeekEnv } from "@/lib/testOt
 const BASE: PeekEnv = {
   E2E_ALLOW_OTP_PEEK: "YA",
   NODE_ENV: "development",
-  DUITKU_ENV: "sandbox",
+  IPAYMU_ENV: "sandbox",
   E2E_OTP_PEEK_NUMBERS: "0895803463032, 0882020685076",
 };
 
@@ -34,12 +34,12 @@ describe("testOtpPeek: isOtpPeekAllowed fail-closed", () => {
       expect(r).toEqual({ ok: false, reason: "flag-mati" });
     }
   });
-  it("produksi DITOLAK dua lapis (NODE_ENV + DUITKU_ENV)", () => {
+  it("produksi DITOLAK dua lapis (NODE_ENV + IPAYMU_ENV)", () => {
     expect(isOtpPeekAllowed({ ...BASE, NODE_ENV: "production" }, "0895803463032")).toEqual({
       ok: false,
       reason: "tolak-prod",
     });
-    expect(isOtpPeekAllowed({ ...BASE, DUITKU_ENV: "production" }, "0895803463032")).toEqual({
+    expect(isOtpPeekAllowed({ ...BASE, IPAYMU_ENV: "production" }, "0895803463032")).toEqual({
       ok: false,
       reason: "tolak-prod",
     });

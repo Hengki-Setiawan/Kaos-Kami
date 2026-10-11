@@ -128,7 +128,15 @@ interface ConfiguratorState {
   setBackGraphicUrl: (url: string | null) => void;
 
   // Saved Designs Actions
-  saveCurrentDesign: (title?: string, previewUrl?: string) => string;
+  editingDesignId: string | null;
+  editingDesignTitle: string | null;
+  setEditingDesign: (id: string | null, title?: string | null) => void;
+  saveCurrentDesign: (
+    title?: string,
+    previewUrl?: string,
+    overrideId?: string,
+    previewBackUrl?: string
+  ) => string;
   /** Sinkron 1 entri lokal ke server; kembalikan serverId / status kuota jujur. */
   syncDesignToServer: (localId: string) => Promise<{
     serverId?: string;
@@ -386,6 +394,7 @@ export const useConfiguratorStore = create<ConfiguratorState>((set, get) => ({
     set({
       selectedColor: hex,
       activeColorName: name ?? matched?.name ?? "Custom Tint",
+      activeColorMode: "single",
     });
   },
 
@@ -506,9 +515,23 @@ export const useConfiguratorStore = create<ConfiguratorState>((set, get) => ({
     set({ backGraphicUrl: url });
   },
 
-  saveCurrentDesign: (title, previewUrl) => {
+  editingDesignId: null,
+  editingDesignTitle: null,
+  setEditingDesign: (id, title) => set({ editingDesignId: id, editingDesignTitle: title ?? null }),
+
+  saveCurrentDesign: (title, previewUrl, overrideId, previewBackUrl) => {
     const state = get();
-    const id = `saved-${Date.now()}`;
+    const targetId = overrideId || state.editingDesignId;
+    const existingIndex = targetId
+      ? state.savedDesigns.findIndex((d) => d.id === targetId || d.serverId === targetId)
+      : -1;
+    const existingItem = existingIndex >= 0 ? state.savedDesigns[existingIndex] : undefined;
+    const id = existingItem ? existingItem.id : (targetId || `saved-${Date.now()}`);
+    const existingServerId =
+      existingItem
+        ? existingItem.serverId
+        : (targetId && !targetId.startsWith("saved-") ? targetId : undefined);
+
     // K-E: harga tersimpan = SSOT 6-variabel (pigmen + kain + aspek + volume),
     // selaras drawer & struk — bukan legacy yang buta kain/aspek/diskon.
     const matchedColor = PRODUCT_COLORS.find(
@@ -524,9 +547,15 @@ export const useConfiguratorStore = create<ConfiguratorState>((set, get) => ({
       decals: state.decals,
       quantity: 1,
     });
-    const newDesign: SavedMockupDesign = {
+
+    const finalTitle =
+      title?.trim() ||
+      (existingItem ? existingItem.title : `${APPAREL_CATALOG[state.activeApparel].name} - ${state.activeColorName}`);
+
+    const savedEntry: SavedMockupDesign = {
       id,
-      title: title ?? `${APPAREL_CATALOG[state.activeApparel].name} - ${state.activeColorName}`,
+      serverId: existingServerId,
+      title: finalTitle,
       apparel: state.activeApparel,
       colorHex: state.selectedColor,
       colorName: state.activeColorName,
@@ -541,14 +570,31 @@ export const useConfiguratorStore = create<ConfiguratorState>((set, get) => ({
         minute: "2-digit",
       }),
       calculatedPriceIdr: pricing.totalPriceIdr,
-      previewUrl,
+      previewUrl: previewUrl || (existingItem ? existingItem.previewUrl : undefined),
+      previewBackUrl: previewBackUrl || (existingItem ? existingItem.previewBackUrl : undefined),
     };
-    // Kuota penyimpanan klien: batasi maksimal MAX_LOCAL_DESIGNS (20) desain tersimpan
-    const updated = [newDesign, ...state.savedDesigns].slice(0, MAX_LOCAL_DESIGNS);
-    set({ savedDesigns: updated });
-    writeStoredDesigns(updated.map((d) => ({ ...d, decals: d.decals.map((l) => (l.url.startsWith("blob:") ? { ...l, url: "" } : l)) })) as SavedMockupDesign[]);
-    // Backend sync: POST /api/designs (fire-and-forget, non-blocking).
-    // Hasil sinkron (serverId/kuota) tersedia via syncDesignToServer().
+
+    let updated: SavedMockupDesign[];
+    if (existingIndex >= 0) {
+      updated = [...state.savedDesigns];
+      updated[existingIndex] = savedEntry;
+    } else {
+      updated = [savedEntry, ...state.savedDesigns].slice(0, MAX_LOCAL_DESIGNS);
+    }
+
+    set({
+      savedDesigns: updated,
+      editingDesignId: existingServerId || id,
+      editingDesignTitle: finalTitle,
+    });
+    writeStoredDesigns(
+      updated.map((d) => ({
+        ...d,
+        decals: d.decals.map((l) => (l.url.startsWith("blob:") ? { ...l, url: "" } : l)),
+      })) as SavedMockupDesign[]
+    );
+
+    // Backend sync: POST /api/designs untuk baru atau PATCH /api/designs untuk yang diedit
     try {
       void get().syncDesignToServer(id).catch(() => {});
     } catch {}
@@ -559,7 +605,9 @@ export const useConfiguratorStore = create<ConfiguratorState>((set, get) => ({
     const st = get();
     const entry = st.savedDesigns.find((d) => d.id === localId);
     if (!entry) return { error: "Desain tidak ditemukan di koleksi lokal." };
-    if (entry.serverId) return { serverId: entry.serverId };
+
+    const serverId = entry.serverId || (!entry.id.startsWith("saved-") ? entry.id : undefined);
+
     // Harga dihitung ulang SSOT 6-variabel (cermin saveCurrentDesign).
     const matched = PRODUCT_COLORS.find(
       (c) => c.hex.toLowerCase() === entry.colorHex.toLowerCase()
@@ -574,6 +622,7 @@ export const useConfiguratorStore = create<ConfiguratorState>((set, get) => ({
       decals: entry.decals,
       quantity: 1,
     });
+
     // KONTRAK masterAssetUrl B-03 (cermin saveCurrentDesign): https-only.
     let masterAssetUrl: string | undefined;
     try {
@@ -594,56 +643,90 @@ export const useConfiguratorStore = create<ConfiguratorState>((set, get) => ({
       } catch {}
       if (Object.keys(mine).length > 0) masterAssetUrl = JSON.stringify(mine);
     } catch {}
+
     try {
-      const res = await fetch("/api/designs", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          title: entry.title,
-          apparelSlug: entry.apparel,
-          colorHex: entry.colorHex,
-          colorName: entry.colorName,
-          size: entry.size,
-          materialFinishSlug: entry.materialFinish,
-          decals: entry.decals,
-          studioTheme: entry.theme,
-          calculatedPriceIdr: entry.calculatedPriceIdr,
-          priceBreakdown: pricing,
-          masterAssetUrl,
-        }),
-      });
-      const body = await res.json().catch(() => ({}));
-      if (!res.ok) {
-        return {
-          quotaExceeded: (body as any)?.quotaExceeded === true,
-          error: String((body as any)?.error || `Server menolak (${res.status}).`),
-        };
-      }
-      const serverId = String((body as any)?.design?.id || "");
       if (serverId) {
-        const updated = get().savedDesigns.map((d) =>
-          d.id === localId ? { ...d, serverId } : d
-        );
-        set({ savedDesigns: updated });
-        try {
-          writeStoredDesigns(updated);
-        } catch {}
+        // PERBARUI DESAIN TERSIMPAN VIA PATCH /api/designs
+        const res = await fetch("/api/designs", {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            id: serverId,
+            title: entry.title,
+            colorHex: entry.colorHex,
+            colorName: entry.colorName,
+            size: entry.size,
+            materialFinishSlug: entry.materialFinish,
+            decals: entry.decals,
+            studioTheme: entry.theme,
+            previewImageFrontUrl: entry.previewUrl,
+            previewImageBackUrl: entry.previewBackUrl,
+            masterAssetUrl,
+          }),
+        });
+        const body = await res.json().catch(() => ({}));
+        if (!res.ok) {
+          return {
+            error: String((body as any)?.error || `Server menolak pembaruan (${res.status}).`),
+          };
+        }
         return { serverId };
+      } else {
+        // BUAT DESAIN BARU VIA POST /api/designs
+        const res = await fetch("/api/designs", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            title: entry.title,
+            apparelSlug: entry.apparel,
+            colorHex: entry.colorHex,
+            colorName: entry.colorName,
+            size: entry.size,
+            materialFinishSlug: entry.materialFinish,
+            decals: entry.decals,
+            studioTheme: entry.theme,
+            calculatedPriceIdr: entry.calculatedPriceIdr,
+            priceBreakdown: pricing,
+            previewImageFrontUrl: entry.previewUrl,
+            previewImageBackUrl: entry.previewBackUrl,
+            masterAssetUrl,
+          }),
+        });
+        const body = await res.json().catch(() => ({}));
+        if (!res.ok) {
+          return {
+            quotaExceeded: (body as any)?.quotaExceeded === true,
+            error: String((body as any)?.error || `Server menolak (${res.status}).`),
+          };
+        }
+        const createdServerId = String((body as any)?.design?.id || "");
+        if (createdServerId) {
+          const updated = get().savedDesigns.map((d) =>
+            d.id === localId ? { ...d, serverId: createdServerId } : d
+          );
+          set({ savedDesigns: updated, editingDesignId: createdServerId });
+          try {
+            writeStoredDesigns(updated);
+          } catch {}
+          return { serverId: createdServerId };
+        }
+        return { error: "Respons server tak dikenal." };
       }
-      return { error: "Respons server tak dikenal." };
-    } catch (e) {
-      return { error: e instanceof Error ? e.message : "Jaringan gagal." };
+    } catch (e: any) {
+      return { error: e?.message || "Gagal menghubungi server." };
     }
   },
 
   loadSavedDesign: (id) => {
     const state = get();
-    const found = state.savedDesigns.find((d) => d.id === id);
+    const found = state.savedDesigns.find((d) => d.id === id || d.serverId === id);
     if (!found) return;
 
     // Revoke blob lama sebelum diganti (anti bocor memori, audit #41).
     revokeBlobDecals(state.decals);
     set({
+      editingDesignId: found.serverId || found.id,
+      editingDesignTitle: found.title,
       activeApparel: found.apparel,
       selectedColor: found.colorHex,
       activeColorName: found.colorName,

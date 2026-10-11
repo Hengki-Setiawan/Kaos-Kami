@@ -22,7 +22,7 @@ export const ADMIN_MENU_ACTIONS: PaletteAction[] = [
   { id: "menu-admin", label: "Pesanan & Analitik", hint: "/admin", href: "/admin", keywords: "dashboard pesanan analitik ikhtisar omzet", pillar: "admin" },
   { id: "menu-production", label: "Workshop Sablon DTF", hint: "/admin/production", href: "/admin/production", keywords: "produksi workshop sablon dtf kanban heat press", pillar: "production" },
   { id: "menu-deliveries", label: "Hub Pengiriman & Kurir", hint: "/admin/deliveries", href: "/admin/deliveries", keywords: "kurir kirim antar resi ekspedisi makassar", pillar: "delivery" },
-  { id: "menu-chat", label: "Live Chat CS (Kamito)", hint: "/admin/chat", href: "/admin/chat", keywords: "chat cs kamito pelanggan pesan", pillar: "admin" },
+  { id: "menu-chat", label: "Chat & Pesan (Kamito)", hint: "/admin/chat", href: "/admin/chat", keywords: "chat cs kamito pelanggan pesan komplain bug laporan", pillar: "admin" },
   { id: "menu-settings", label: "Pengaturan Toko & CMS", hint: "/admin/settings", href: "/admin/settings", keywords: "pengaturan setting toko cms konfigurasi", pillar: "admin" },
 ];
 

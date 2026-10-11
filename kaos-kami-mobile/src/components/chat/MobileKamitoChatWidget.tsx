@@ -5,6 +5,7 @@ import { MessageSquare, Send, X, ShieldCheck, Clock, ExternalLink, Sparkles } fr
 import { API_BASE_URL } from "@/lib/api/mobileApiClient";
 import { haptic } from "@/lib/bridge/haptics";
 import { Z_CLASS_CHAT } from "@/lib/zIndex";
+import { shopWaLink } from "@/lib/shop";
 
 interface ChatMessage {
   id: string;
@@ -171,6 +172,7 @@ export function MobileKamitoChatWidget() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           senderId: uid,
+          guestId: uid,
           senderName: "Pelanggan Mobile",
           content: clean,
           receiverId: "kamito_mascot",
@@ -200,7 +202,7 @@ export function MobileKamitoChatWidget() {
         const fallbackMsg: ChatMessage = {
           id: `reply_${Date.now()}`,
           senderId: "kamito_mascot",
-          senderName: "Kamito (Offline Bot)",
+          senderName: "Kamito CS",
           content: "Pesanmu sudah tercatat. Bila butuh respon cepat, kamu juga bisa langsung menghubungi WhatsApp workshop kami.",
           createdAt: new Date().toISOString(),
           isAdmin: true,
@@ -221,7 +223,7 @@ export function MobileKamitoChatWidget() {
             haptic.tap();
             setIsOpen(true);
           }}
-          className={`fixed bottom-20 right-4 ${Z_CLASS_CHAT} flex items-center gap-2 px-3.5 py-2.5 rounded-full bg-zinc-900/95 backdrop-blur-xl border border-zinc-700/80 shadow-2xl text-white hover:border-[#FF6B35] transition-transform active:scale-95`}
+          className={`fixed bottom-20 right-4 ${Z_CLASS_CHAT} flex items-center gap-2 px-3.5 py-2.5 rounded-full bg-[#0F1013] border border-white/[0.12] shadow-2xl text-white hover:border-[#FF6D00] transition-transform active:scale-95`}
           aria-label="Tanya Kamito"
         >
           <div className="relative w-7 h-7 rounded-full overflow-hidden bg-orange-500/20 border border-orange-500/40 shrink-0">
@@ -238,10 +240,10 @@ export function MobileKamitoChatWidget() {
             />
           </div>
           <div className="text-left">
-            <span className="text-[11px] font-bold block leading-tight font-sans text-[#FF6B35]">
+            <span className="text-[11px] font-bold block leading-tight font-sans text-[#FF6D00]">
               Tanya Kamito
             </span>
-            <span className="text-[9px] text-zinc-400 block leading-none font-mono">
+            <span className="text-[9px] text-neutral-400 block leading-none font-mono">
               {presence.statusText}
             </span>
           </div>
@@ -250,13 +252,13 @@ export function MobileKamitoChatWidget() {
 
       {/* Slide-Up Chat Bottom Sheet */}
       {isOpen && (
-        <div className={`fixed inset-0 ${Z_CLASS_CHAT} flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/75 backdrop-blur-sm animate-in fade-in duration-200`}>
+        <div className={`fixed inset-0 ${Z_CLASS_CHAT} flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200`}>
           <div
-            className="w-full max-w-md h-[85dvh] max-h-[640px] flex flex-col rounded-t-3xl sm:rounded-3xl bg-zinc-900 border border-zinc-800 shadow-2xl overflow-hidden text-white"
+            className="w-full max-w-md h-[85dvh] max-h-[640px] flex flex-col rounded-t-3xl sm:rounded-3xl bg-[#0F1013] border border-white/[0.08] shadow-2xl overflow-hidden text-white"
             onClick={(e) => e.stopPropagation()}
           >
             {/* Header */}
-            <div className="px-4 py-3 border-b border-zinc-800 flex items-center justify-between bg-zinc-950/80 shrink-0">
+            <div className="px-4 py-3 border-b border-white/[0.08] flex items-center justify-between bg-black/40 shrink-0">
               <div className="flex items-center gap-2.5">
                 <div className="relative w-9 h-9 rounded-full overflow-hidden bg-orange-500/20 border border-orange-500/40 shrink-0">
                   {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -266,7 +268,7 @@ export function MobileKamitoChatWidget() {
                     className="w-full h-full object-cover"
                   />
                   <span
-                    className={`absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full border border-zinc-900 ${
+                    className={`absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full border border-[#0F1013] ${
                       presence.isAdminOnline ? "bg-emerald-500" : "bg-zinc-500"
                     }`}
                   />
@@ -274,12 +276,12 @@ export function MobileKamitoChatWidget() {
                 <div>
                   <div className="flex items-center gap-1.5">
                     <h3 className="text-xs font-bold font-sans">KAMITO</h3>
-                    <span className="px-1.5 py-0.5 rounded text-[8px] font-bold bg-orange-500/15 text-[#FF6B35] border border-orange-500/30">
-                      AI & Workshop
+                    <span className="px-1.5 py-0.5 rounded text-[8px] font-bold bg-orange-500/15 text-[#FF6D00] border border-orange-500/30">
+                      CS Workshop
                     </span>
                   </div>
-                  <p className="text-[10px] text-zinc-400 font-mono flex items-center gap-1">
-                    <Clock className="w-2.5 h-2.5 text-zinc-500" />
+                  <p className="text-[10px] text-neutral-400 font-mono flex items-center gap-1">
+                    <Clock className="w-2.5 h-2.5 text-neutral-500" />
                     <span>{presence.operatingHours} • {presence.statusText}</span>
                   </p>
                 </div>
@@ -287,7 +289,7 @@ export function MobileKamitoChatWidget() {
 
               <div className="flex items-center gap-1">
                 <a
-                  href="https://wa.me/62895803463032?text=Halo%20Admin%20Kaos%20Kami%20Makassar,%20saya%20ingin%20konsultasi%20sablon"
+                  href={shopWaLink("Halo Admin Kaos Kami Makassar, saya ingin konsultasi sablon DTF")}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="p-1.5 rounded-lg bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 hover:bg-emerald-500/20 transition-colors"

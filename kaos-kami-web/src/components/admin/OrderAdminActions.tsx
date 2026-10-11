@@ -72,7 +72,7 @@ export function OrderAdminActions({
     }
   };
 
-  const syncDuitku = async () => {
+  const syncIpaymu = async () => {
     setBusyAction("sync");
     setMsg(null);
     try {
@@ -80,7 +80,7 @@ export function OrderAdminActions({
       if (res?.message) setMsg(res.message);
       if (res?.synced) router.refresh();
     } catch (e: any) {
-      setMsg(e?.message || "Gagal sinkronisasi Duitku");
+      setMsg(e?.message || "Gagal sinkronisasi iPaymu");
     } finally {
       setBusyAction(null);
     }
@@ -249,13 +249,13 @@ export function OrderAdminActions({
       {canSyncPayment && (
         <div className="flex flex-wrap gap-2">
           <button
-            onClick={() => void syncDuitku()}
+            onClick={() => void syncIpaymu()}
             disabled={busyAction !== null}
-            title="Sinkronisasi status transaksi dengan gateway Duitku"
+            title="Sinkronisasi status transaksi langsung dari gateway iPaymu"
             className="px-3.5 py-1.5 rounded-xl bg-blue-500/15 border border-blue-500/40 text-blue-300 font-bold uppercase tracking-wider text-[11px] hover:bg-blue-500/25 disabled:opacity-50 transition-all flex items-center gap-1.5 cursor-pointer"
           >
             <RefreshCw size={12} className={busyAction === "sync" ? "animate-spin" : ""} />
-            <span>{busyAction === "sync" ? "Memeriksa…" : "Cek Duitku"}</span>
+            <span>{busyAction === "sync" ? "Memeriksa…" : "Cek iPaymu"}</span>
           </button>
         </div>
       )}

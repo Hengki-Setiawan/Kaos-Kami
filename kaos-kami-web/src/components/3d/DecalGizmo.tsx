@@ -9,12 +9,15 @@ import { useShallow } from "zustand/shallow";
 import {
   APPAREL_PHYSICAL_SPECS,
   maxDecalScaleUnits,
+  fitScaleToSideBox,
   REAL_WORLD_PRINT_LIMITS,
   surfaceZForApparel,
   DECAL_MOVE_LIMITS,
   clampDecalXY,
   getDecal3DPlacement,
   computePhysicalPrintDimensions,
+  getDecalAspect,
+  getDecalSeamAdvisory,
 } from "@/lib/scaleCalibration";
 import { RotateCw, X } from "lucide-react";
 
@@ -181,18 +184,31 @@ export const DecalGizmo: React.FC<DecalGizmoProps> = ({ surfaceZ }) => {
   const DISTANCE_FACTOR = 1.0;
   const PIXELS_PER_UNIT = 400; // 400 / 1.0 = 400 pixels per 3D unit
 
-  // Aspect ratio calculation
-  const printPw = Number((activeDecal as any)?.printPx?.w);
-  const printPh = Number((activeDecal as any)?.printPx?.h);
-  const realAspect = printPw > 0 && printPh > 0 ? printPw / printPh : 1.0;
+  // Aspect ratio calculation from natural image texture / printPx
+  const realAspect = getDecalAspect(activeDecal);
 
-  // Normalized 3D dimensions as rendered on decal mesh
-  let scaleX = activeDecal.scale;
-  let scaleY = activeDecal.scale;
+  // Normalized 3D dimensions as rendered on decal mesh (matches DecalLayerRenderer 1:1)
+  let normalizedScale = activeDecal.scale;
+  const maxScale = maxDecalScaleUnits(activeApparel, activeDecal.targetSide);
+  normalizedScale = Math.max(
+    REAL_WORLD_PRINT_LIMITS.minDecalScaleUnits,
+    Math.min(maxScale, normalizedScale)
+  );
+  normalizedScale =
+    normalizedScale *
+    fitScaleToSideBox(
+      activeApparel,
+      activeDecal.targetSide,
+      normalizedScale,
+      realAspect
+    );
+
+  let scaleX = normalizedScale;
+  let scaleY = normalizedScale;
   if (realAspect >= 1) {
-    scaleY = activeDecal.scale / realAspect;
+    scaleY = normalizedScale / realAspect;
   } else {
-    scaleX = activeDecal.scale * realAspect;
+    scaleX = normalizedScale * realAspect;
   }
 
   // Exact 3D-bound pixel dimensions (conforms to mesh surface 1:1)
@@ -206,6 +222,16 @@ export const DecalGizmo: React.FC<DecalGizmoProps> = ({ surfaceZ }) => {
     activeDecal.y,
     realAspect,
     activeDecal.targetSide
+  );
+
+  // Deteksi cerdas batas jahitan (Seam Advisory) tanpa larangan kaku
+  const seamAdvisory = getDecalSeamAdvisory(
+    activeApparel,
+    activeDecal.targetSide,
+    activeDecal.x,
+    activeDecal.y,
+    normalizedScale,
+    realAspect
   );
 
   // ==========================================
@@ -554,10 +580,12 @@ export const DecalGizmo: React.FC<DecalGizmoProps> = ({ surfaceZ }) => {
             transform: `rotate(${isBack ? -activeDecal.rotation : activeDecal.rotation}deg)`,
           }}
         >
-          {/* Thin, crisp dashed bounding box */}
+          {/* Thin, crisp dashed bounding box with dynamic seam advisory feedback */}
           <div
-            className={`absolute inset-0 border border-dashed rounded-sm transition-colors ${
-              activeGizmoTool
+            className={`absolute inset-0 border border-dashed rounded-sm transition-colors duration-200 ${
+              seamAdvisory.isOverSeam
+                ? "border-amber-400/90 shadow-[0_0_10px_rgba(251,191,36,0.3)]"
+                : activeGizmoTool
                 ? "border-brand-accent shadow-[0_0_8px_rgba(230,81,0,0.35)]"
                 : "border-brand-accent/70 hover:border-brand-accent"
             }`}
@@ -658,21 +686,28 @@ export const DecalGizmo: React.FC<DecalGizmoProps> = ({ surfaceZ }) => {
             <X size={8} className="stroke-[3]" />
           </button>
 
-          {/* Real-world physical dimensions pill (Ukuran sablon nyata cm terkalibrasi per sisi) */}
+          {/* Real-world physical dimensions pill (Ukuran sablon nyata cm terkalibrasi per sisi + Seam Advisory) */}
           {physicalDims && (
-            <div className="absolute -bottom-6 left-1/2 -translate-x-1/2 flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-neutral-950/90 backdrop-blur-md border border-brand-accent/50 text-[9px] font-mono font-bold text-white shadow-lg pointer-events-none whitespace-nowrap select-none">
+            <div
+              className={`absolute -bottom-6 left-1/2 -translate-x-1/2 flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-neutral-950/92 backdrop-blur-md border text-[9px] font-mono font-bold text-white shadow-lg pointer-events-none whitespace-nowrap select-none transition-all ${
+                seamAdvisory.isOverSeam
+                  ? "border-amber-400/70 shadow-[0_0_10px_rgba(251,191,36,0.25)]"
+                  : "border-brand-accent/50"
+              }`}
+            >
               <span className="text-amber-300">
                 {physicalDims.widthCm.toFixed(1)} × {physicalDims.heightCm.toFixed(1)} cm
               </span>
               <span className="text-white/40">·</span>
               <span
                 className={
-                  physicalDims.isWithinProductionLimits
-                    ? "text-emerald-400 font-semibold"
-                    : "text-rose-400 font-extrabold uppercase animate-pulse"
+                  seamAdvisory.isOverSeam
+                    ? "text-amber-300 font-medium"
+                    : "text-emerald-400 font-medium"
                 }
+                title={seamAdvisory.detailTip}
               >
-                Maks {physicalDims.maxWidthCm}cm
+                {seamAdvisory.pillBadge}
               </span>
             </div>
           )}

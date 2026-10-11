@@ -34,6 +34,8 @@ import {
   Shirt,
   Clock,
   Zap,
+  Crosshair,
+  Navigation,
 } from "lucide-react";
 
 import { useSession } from "@/lib/auth-client";
@@ -46,6 +48,7 @@ import { getMasterDataUrl, isHttpsMasterUrl } from "@/lib/imageEditPipeline";
 import { normalizePhoneId } from "@/lib/phone";
 import { getClosedQueueNotice } from "@/lib/shopHours";
 import { DirectQrisModal } from "@/components/ui/DirectQrisModal";
+import { LocationPickerModal, type PickedLocation } from "@/components/maps/LocationPickerModal";
 
 /** Notice antrean saat workshop tutup (09.00–21.00 WITA) — tak blokir checkout. */
 const ShopClosedNotice: React.FC = () => {
@@ -187,7 +190,7 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
     service: string;
     cost: number;
     etd: string;
-    source: "live" | "zone";
+    source: "live" | "zone" | "master";
     zoneId?: string;
     courierCode?: string;
     serviceCode?: string;
@@ -197,13 +200,14 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
   const [locLoading, setLocLoading] = useState(false);
   const [selectedPostal, setSelectedPostal] = useState("");
   const [quotes, setQuotes] = useState<QuoteOption[]>([]);
-  const [quoteSource, setQuoteSource] = useState<"live" | "zone" | "">("");
+  const [quoteSource, setQuoteSource] = useState<"live" | "zone" | "master" | "">("");
   const [selectedQuoteKey, setSelectedQuoteKey] = useState("");
   const [quoteLoading, setQuoteLoading] = useState(false);
   const [quoteMsg, setQuoteMsg] = useState<string | null>(null);
   const [gpsLoading, setGpsLoading] = useState(false);
   const [gpsMsg, setGpsMsg] = useState<string | null>(null);
   const [gpsCoords, setGpsCoords] = useState<{ lat: number; lon: number } | null>(null);
+  const [isMapModalOpen, setIsMapModalOpen] = useState(false);
 
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -269,6 +273,22 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
                 setDistrict(savedAddr.district);
               }
 
+              // Sinkronisasi otomatis titik koordinat GPS jika ada di catatan alamat
+              if (savedAddr.notes) {
+                const gpsMatch =
+                  savedAddr.notes.match(/\[GPS:(-?\d+(?:\.\d+)?),(-?\d+(?:\.\d+)?)\]/) ||
+                  savedAddr.notes.match(/google\.com\/maps\?q=(-?\d+(?:\.\d+)?),(-?\d+(?:\.\d+)?)/) ||
+                  savedAddr.notes.match(/(-?\d+\.\d{4,}),\s*(-?\d+\.\d{4,})/);
+                if (gpsMatch) {
+                  const lat = parseFloat(gpsMatch[1]);
+                  const lon = parseFloat(gpsMatch[2]);
+                  if (!isNaN(lat) && !isNaN(lon)) {
+                    setGpsCoords({ lat, lon });
+                    setGpsMsg(`Titik GPS tersinkronisasi dari buku alamat (${lat.toFixed(5)}, ${lon.toFixed(5)})`);
+                  }
+                }
+              }
+
               const isMks = isMakassarAddress({
                 fullAddress: savedAddr.fullAddress,
                 city: savedAddr.city,
@@ -282,7 +302,8 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
               } else if (savedAddr.city) {
                 setDeliveryMethod("EXPEDITION_MANUAL");
                 setDestQuery(savedAddr.city);
-                setAddressDetectionNotice(`Alamat akun luar Makassar (${savedAddr.city}) terdeteksi: Ekspedisi reguler otomatis aktif.`);
+                setAddressDetectionNotice(`Alamat akun luar Makassar (${savedAddr.city}) terdeteksi: Tarif 5 ekspedisi nasional langsung dihitung.`);
+                void handleCheckOngkir(savedAddr.city, savedAddr.postalCode || "");
               }
             }
           }
@@ -449,36 +470,39 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
     }
   };
 
-  // Cek ongkir kurir
-  const handleCheckOngkir = async () => {
+  // Cek ongkir kurir (dapat dipanggil otomatis dari Pin Point Peta atau tombol)
+  const handleCheckOngkir = async (targetCity?: string, targetPostal?: string) => {
     setQuoteMsg(null);
-    if (!selectedPostal && destQuery.trim().length < 2) {
+    const activeCity = (targetCity ?? destQuery).trim();
+    const activePostal = targetPostal ?? selectedPostal;
+    if (!activePostal && activeCity.length < 2) {
       setQuoteMsg("Pilih kota dari saran atau ketik manual min. 2 huruf.");
       return;
     }
     setQuoteLoading(true);
     try {
       const params = new URLSearchParams({
-        city: destQuery.trim(),
+        city: activeCity,
         weightGrams: String(Math.max(250, totalQty * 250)),
       });
-      if (selectedPostal) params.set("postalCode", selectedPostal);
+      if (activePostal) params.set("postalCode", activePostal);
       const j = await fetchJson<any>(`/api/shipping/quote?${params.toString()}`, undefined, 20000);
-      if (j.source === "live" && Array.isArray(j.rates)) {
-        setQuoteSource("live");
+      if ((j.source === "live" || j.source === "master-tariff") && Array.isArray(j.rates)) {
+        const isMaster = j.source === "master-tariff";
+        setQuoteSource(isMaster ? "master" : "live");
         const opts: QuoteOption[] = j.rates.map((x: any) => ({
-          key: `live:${x.courierCode}:${x.serviceCode}`,
+          key: `${j.source}:${x.courierCode}:${x.serviceCode}`,
           courier: x.courierName,
           service: x.serviceName,
           cost: x.costIdr,
           etd: x.etdText,
-          source: "live" as const,
+          source: isMaster ? "master" : "live",
           courierCode: x.courierCode,
           serviceCode: x.serviceCode,
         }));
         setQuotes(opts);
         setSelectedQuoteKey(opts[0]?.key || "");
-        if (!opts.length) setQuoteMsg("Tarif tidak ditemukan untuk kode pos ini.");
+        if (!opts.length) setQuoteMsg("Tarif tidak ditemukan untuk tujuan ini.");
       } else if (Array.isArray(j.zones)) {
         setQuoteSource("zone");
         const opts: QuoteOption[] = j.zones.map((z: any) => ({
@@ -537,6 +561,30 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
       },
       { timeout: 15000, maximumAge: 60000 }
     );
+  };
+
+  const handleLocationPicked = (loc: PickedLocation) => {
+    setGpsCoords({ lat: loc.lat, lon: loc.lng });
+    setFullAddress(loc.displayName);
+    if (loc.district && MAKASSAR_SUBDISTRICTS.includes(loc.district)) {
+      setDistrict(loc.district);
+    }
+    const isMks = isMakassarAddress({
+      fullAddress: loc.displayName,
+      district: loc.district,
+      city: loc.city,
+      province: loc.province,
+    });
+    if (isMks) {
+      setDeliveryMethod("FREE_MAKASSAR");
+      setAddressDetectionNotice("Titik peta di Kota Makassar terdeteksi: Gratis Antar Tim Kaos Kami aktif (Rp 0).");
+    } else if (loc.city) {
+      setDeliveryMethod("EXPEDITION_MANUAL");
+      setDestQuery(loc.city);
+      void handleCheckOngkir(loc.city);
+      setAddressDetectionNotice(`Titik peta di luar Makassar (${loc.city}) terdeteksi: Tarif Lion Parcel, SiCepat, Pos Indonesia, JNE, & J&T langsung dihitung.`);
+    }
+    setGpsMsg(`Titik terpilih: ${[loc.district, loc.city].filter(Boolean).join(", ") || "Koordinat terkunci"}`);
   };
 
   const effectiveSubtotal = isCartCheckout ? getCartTotalPrice() : pricing.totalPriceIdr;
@@ -738,10 +786,12 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
         destinationCity: deliveryMethod === "EXPEDITION_MANUAL" ? destQuery.trim() || undefined : undefined,
         destinationPostalCode: deliveryMethod === "EXPEDITION_MANUAL" && selectedPostal ? selectedPostal : undefined,
         expeditionZoneId: selectedQuote?.source === "zone" ? selectedQuote.zoneId : undefined,
-        expeditionCourier: selectedQuote?.source === "live" ? selectedQuote.courierCode : undefined,
-        expeditionService: selectedQuote?.source === "live" ? selectedQuote.serviceCode : undefined,
+        expeditionCourier: (selectedQuote?.source === "live" || selectedQuote?.source === "master") ? selectedQuote.courierCode : undefined,
+        expeditionService: (selectedQuote?.source === "live" || selectedQuote?.source === "master") ? selectedQuote.serviceCode : undefined,
         fullAddress: deliveryMethod === "PICKUP" ? "Workshop Kaos Kami Makassar (Self Pick-up)" : fullAddress,
-        courierNotes,
+        courierNotes: gpsCoords
+          ? [courierNotes || "", `[GPS:${gpsCoords.lat.toFixed(6)},${gpsCoords.lon.toFixed(6)}]`].filter(Boolean).join(" | ")
+          : courierNotes,
         items: itemsPayload,
         turnstileToken: turnstileToken || undefined,
         couponCode: couponCode.trim() || undefined,
@@ -843,7 +893,7 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
                 CHECKOUT PESANAN SABLON
               </h2>
               <p className="font-sans text-[10px] sm:text-[11px] text-text-muted truncate">
-                Workshop Makassar · Jaminan Kualitas Sablon Presisi & Cotton Combed
+                Workshop Makassar · Sablon DTF Presisi & Cotton Combed
               </p>
             </div>
           </div>
@@ -978,7 +1028,7 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
                       required
                       value={recipientName}
                       onChange={(e) => setRecipientName(e.target.value)}
-                      placeholder="e.g. Sultan Hasanuddin"
+                      placeholder="Contoh: Muhammad Fadil"
                       className="w-full px-3.5 py-2.5 rounded-xl bg-surface border border-border-subtle focus:border-brand-accent text-sm text-text-primary focus:outline-none transition-colors"
                     />
                   </div>
@@ -1191,47 +1241,101 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
                 )}
 
                 {deliveryMethod === "FREE_MAKASSAR" && (
-                  <div className="space-y-3 pt-1 animate-fadeIn">
-                    <div>
-                      <label className="block font-sans text-[11px] text-text-muted uppercase mb-1">
-                        Kecamatan di Kota Makassar *
-                      </label>
-                      <div className="flex gap-2">
-                        <select
-                          value={district}
-                          onChange={(e) => setDistrict(e.target.value)}
-                          className="flex-1 px-3 py-2.5 rounded-xl bg-surface border border-border-subtle focus:border-brand-accent text-xs font-sans text-text-primary focus:outline-none"
-                        >
-                          {MAKASSAR_SUBDISTRICTS.map((sub) => (
-                            <option key={sub} value={sub}>
-                              {sub}
-                            </option>
-                          ))}
-                        </select>
+                  <div className="space-y-3.5 pt-1 animate-fadeIn">
+                    {/* Panel Interaktif Deteksi Titik Presisi GPS & Peta OSM */}
+                    <div className="p-3.5 rounded-2xl bg-brand-accent/5 border border-brand-accent/20 space-y-2.5">
+                      <div className="flex items-start gap-2.5">
+                        <div className="w-7 h-7 rounded-lg bg-brand-accent/15 border border-brand-accent/30 flex items-center justify-center text-brand-accent shrink-0 mt-0.5">
+                          <Navigation size={15} />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <h4 className="font-sans text-xs font-bold text-text-primary">
+                            Titik Presisi Kurir Toko (Kota Makassar)
+                          </h4>
+                          <p className="font-sans text-[11px] text-text-muted leading-relaxed mt-0.5">
+                            Kurir motor Kaos Kami membutuhkan koordinat GPS akurat agar pesanan diantar tepat ke depan gerbang / rumah Anda tanpa tersesat di lorong.
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-0.5">
                         <button
                           type="button"
                           onClick={handleUseGps}
                           disabled={gpsLoading}
-                          className="px-3 py-2 rounded-xl bg-surface border border-border-subtle text-[11px] font-sans text-brand-accent hover:bg-brand-accent/10 disabled:opacity-50 shrink-0 cursor-pointer flex items-center gap-1"
+                          className="px-3 py-2 rounded-xl bg-brand-accent text-canvas hover:opacity-95 font-sans text-xs font-bold flex items-center justify-center gap-1.5 transition-all shadow-sm active:scale-95 disabled:opacity-50 cursor-pointer"
                         >
-                          <MapPin size={13} />
-                          <span>{gpsLoading ? "BACA GPS..." : "GPS"}</span>
+                          {gpsLoading ? (
+                            <Loader2 size={13} className="animate-spin" />
+                          ) : (
+                            <Crosshair size={13} />
+                          )}
+                          <span>{gpsLoading ? "Mencari GPS..." : "Nyalakan GPS Otomatis"}</span>
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => setIsMapModalOpen(true)}
+                          className="px-3 py-2 rounded-xl bg-surface border border-border-strong hover:border-brand-accent/50 text-text-primary font-sans text-xs font-semibold flex items-center justify-center gap-1.5 transition-all shadow-xs active:scale-95 cursor-pointer"
+                        >
+                          <MapPin size={13} className="text-brand-accent" />
+                          <span>Pilih di Peta (OSM)</span>
                         </button>
                       </div>
-                      {gpsMsg && <p className="font-sans text-[10px] text-text-muted mt-1">{gpsMsg}</p>}
-                      {gpsCoords && (
-                        <div className="mt-1">
-                          <a
-                            href={`https://www.google.com/maps?q=${gpsCoords.lat},${gpsCoords.lon}`}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="inline-flex items-center gap-1 font-sans text-[10px] text-brand-accent hover:underline"
+
+                      {/* Notifikasi Status GPS / Error */}
+                      {gpsCoords ? (
+                        <div className="p-2.5 rounded-xl bg-emerald-500/10 border border-emerald-500/25 text-xs flex items-center justify-between gap-2 animate-fadeIn">
+                          <div className="flex items-center gap-2 min-w-0">
+                            <CheckCircle2 size={14} className="text-emerald-400 shrink-0" />
+                            <div className="truncate">
+                              <span className="font-mono text-[11px] text-emerald-400 font-bold block truncate">
+                                GPS Terkunci: {gpsCoords.lat.toFixed(5)}, {gpsCoords.lon.toFixed(5)}
+                              </span>
+                              <span className="text-[10px] text-text-muted">
+                                {gpsMsg || "Kurir langsung diarahkan ke titik koordinat ini."}
+                              </span>
+                            </div>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => setIsMapModalOpen(true)}
+                            className="text-[11px] font-sans font-bold text-brand-accent hover:underline shrink-0 cursor-pointer"
                           >
-                            <span>Buka titik di Google Maps</span>
-                            <ExternalLink size={10} />
-                          </a>
+                            Ubah di Peta
+                          </button>
                         </div>
-                      )}
+                      ) : gpsMsg ? (
+                        <div className="p-2.5 rounded-xl bg-amber-500/10 border border-amber-500/25 text-[11px] text-amber-300 flex items-start gap-2 animate-fadeIn">
+                          <AlertCircle size={14} className="text-amber-400 shrink-0 mt-0.5" />
+                          <div className="flex-1">
+                            <p className="font-medium leading-relaxed">{gpsMsg}</p>
+                            <p className="text-[10px] text-text-muted mt-0.5">
+                              Jika izin lokasi diblokir browser, klik ikon gembok pada address bar untuk mengizinkan, atau gunakan tombol &ldquo;Pilih di Peta (OSM)&rdquo;.
+                            </p>
+                          </div>
+                        </div>
+                      ) : null}
+                    </div>
+
+                    <div>
+                      <div className="flex items-center justify-between mb-1">
+                        <label className="block font-sans text-[11px] text-text-muted uppercase">
+                          Kecamatan di Kota Makassar *
+                        </label>
+                        <span className="text-[10px] text-text-muted font-mono">15 Kecamatan Resmi</span>
+                      </div>
+                      <select
+                        value={district}
+                        onChange={(e) => setDistrict(e.target.value)}
+                        className="w-full px-3 py-2.5 rounded-xl bg-surface border border-border-subtle focus:border-brand-accent text-xs font-sans text-text-primary focus:outline-none"
+                      >
+                        {MAKASSAR_SUBDISTRICTS.map((sub) => (
+                          <option key={sub} value={sub}>
+                            {sub}
+                          </option>
+                        ))}
+                      </select>
                     </div>
 
                     <div>
@@ -1243,7 +1347,7 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
                         required
                         value={fullAddress}
                         onChange={(e) => setFullAddress(e.target.value)}
-                        placeholder="Nama jalan, nomor rumah, RT/RW, patokan lokasi"
+                        placeholder="Nama jalan, nomor rumah, RT/RW, patokan lokasi / lorong"
                         className="w-full px-3.5 py-2.5 rounded-xl bg-surface border border-border-subtle focus:border-brand-accent text-xs font-sans text-text-primary focus:outline-none leading-relaxed"
                       />
                     </div>
@@ -1256,7 +1360,7 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
                         type="text"
                         value={courierNotes}
                         onChange={(e) => setCourierNotes(e.target.value)}
-                        placeholder="e.g. Rumah pagar hitam, depan warkop"
+                        placeholder="Contoh: Rumah pagar hitam, depan warkop"
                         className="w-full px-3.5 py-2 rounded-xl bg-surface border border-border-subtle focus:border-brand-accent text-xs font-sans text-text-primary focus:outline-none"
                       />
                     </div>
@@ -1279,7 +1383,7 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
                         />
                         <button
                           type="button"
-                          onClick={handleCheckOngkir}
+                          onClick={() => void handleCheckOngkir()}
                           disabled={quoteLoading}
                           className="px-3.5 py-2 rounded-xl bg-brand-accent text-canvas font-sans text-[11px] font-bold disabled:opacity-50 shrink-0 cursor-pointer"
                         >
@@ -1294,9 +1398,11 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
                               key={`${l.postalCode}-${l.label}`}
                               type="button"
                               onClick={() => {
-                                setDestQuery(l.label.split(",")[0] || l.label);
+                                const pickedCity = l.label.split(",")[0] || l.label;
+                                setDestQuery(pickedCity);
                                 setSelectedPostal(l.postalCode);
                                 setLocSuggest([]);
+                                void handleCheckOngkir(pickedCity, l.postalCode);
                               }}
                               className="w-full text-left px-2.5 py-1.5 rounded-lg bg-surface border border-border-subtle hover:border-brand-accent font-sans text-[11px] text-text-primary flex justify-between cursor-pointer"
                             >
@@ -1312,6 +1418,11 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
                     {quoteSource === "zone" && (
                       <p className="font-sans text-[10px] text-amber-400">
                         Tarif estimasi tabel zona. Nilai final divalidasi server saat bayar.
+                      </p>
+                    )}
+                    {quoteSource === "master" && (
+                      <p className="font-sans text-[10px] text-emerald-400">
+                        ✓ Tarif kurir resmi origin Makassar (Lion Parcel / JNE / J&T) aktif.
                       </p>
                     )}
 
@@ -1351,9 +1462,31 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
                     )}
 
                     <div>
-                      <label className="block font-sans text-[11px] text-text-muted uppercase mb-1">
-                        Alamat Lengkap Pengiriman *
-                      </label>
+                      <div className="flex items-center justify-between mb-1">
+                        <label className="block font-sans text-[11px] text-text-muted uppercase">
+                          Alamat Lengkap Pengiriman *
+                        </label>
+                        <div className="flex items-center gap-2">
+                          <button
+                            type="button"
+                            onClick={handleUseGps}
+                            disabled={gpsLoading}
+                            className="inline-flex items-center gap-1 text-[11px] font-sans font-semibold text-brand-accent hover:underline cursor-pointer disabled:opacity-50"
+                          >
+                            <Crosshair size={12} />
+                            <span>{gpsLoading ? "GPS..." : "Deteksi GPS"}</span>
+                          </button>
+                          <span className="text-text-muted text-[10px]">|</span>
+                          <button
+                            type="button"
+                            onClick={() => setIsMapModalOpen(true)}
+                            className="inline-flex items-center gap-1 text-[11px] font-sans font-bold text-brand-accent hover:underline cursor-pointer"
+                          >
+                            <MapPin size={12} />
+                            <span>Pin Point Peta</span>
+                          </button>
+                        </div>
+                      </div>
                       <textarea
                         rows={2}
                         required
@@ -1372,6 +1505,12 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
                         placeholder="Nama jalan, nomor rumah, RT/RW, kelurahan, kecamatan"
                         className="w-full px-3 py-2 rounded-xl bg-surface border border-border-subtle focus:border-brand-accent text-xs font-sans text-text-primary focus:outline-none leading-relaxed"
                       />
+                      {gpsCoords && (
+                        <div className="mt-1.5 text-[10px] font-mono text-emerald-400 flex items-center gap-1">
+                          <CheckCircle2 size={11} />
+                          <span>Koordinat: {gpsCoords.lat.toFixed(5)}, {gpsCoords.lon.toFixed(5)}</span>
+                        </div>
+                      )}
                     </div>
                   </div>
                 )}
@@ -1624,14 +1763,14 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
                   </div>
                 </div>
 
-                {/* Trust badges info area (presentasi saja — tanpa ubah logika/API/DB) */}
+                {/* Info belanja area */}
                 <div
                   className="grid grid-cols-2 gap-2 font-sans text-[10px]"
-                  aria-label="Jaminan belanja Kaos Kami"
+                  aria-label="Informasi belanja Kaos Kami"
                 >
                   <div className="flex items-center gap-1.5 px-2.5 py-2 rounded-lg bg-surface border border-border-subtle text-text-primary">
                     <ShieldCheck size={13} className="text-emerald-400 shrink-0" />
-                    <span className="font-bold leading-tight">Anti-Cacat Ganti Baru</span>
+                    <span className="font-bold leading-tight">Cacat Sablon Ganti Baru</span>
                   </div>
                   <div className="flex items-center gap-1.5 px-2.5 py-2 rounded-lg bg-surface border border-border-subtle text-text-primary">
                     <Package size={13} className="text-brand-accent shrink-0" />
@@ -1831,6 +1970,15 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
 
           {/* Blueprint Bab 37.2 + 41: AuthModal eks-lusif di atas (early-return
               tutup-dulu-baru-buka) — JANGAN render AuthModal bertumpuk di sini. */}
+
+          {/* Modal Pemilihan Titik Lokasi Peta (Leaflet + OpenStreetMap) */}
+          <LocationPickerModal
+            isOpen={isMapModalOpen}
+            onClose={() => setIsMapModalOpen(false)}
+            initialCoords={gpsCoords ? { lat: gpsCoords.lat, lng: gpsCoords.lon } : null}
+            onSelectLocation={handleLocationPicked}
+            title={deliveryMethod === "FREE_MAKASSAR" ? "Tentukan Titik Antar di Kota Makassar" : "Tentukan Titik Pengantaran di Peta"}
+          />
 
           {/* Modal Direct QRIS 100% In-App (iPaymu) */}
           {directQrisData && (

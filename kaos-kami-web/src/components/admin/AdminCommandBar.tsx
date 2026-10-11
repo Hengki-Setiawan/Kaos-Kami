@@ -40,7 +40,7 @@ const MIN_QUERY_FOR_API = 3;
 const DEBOUNCE_MS = 300;
 const FETCH_TIMEOUT_MS = 15000;
 
-export function AdminCommandBar({ role }: { role?: string | null }) {
+export function AdminCommandBar({ role, compact }: { role?: string | null; compact?: boolean }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
@@ -232,20 +232,33 @@ export function AdminCommandBar({ role }: { role?: string | null }) {
 
   return (
     <>
-      <button
-        ref={triggerRef}
-        type="button"
-        onClick={() => setOpen(true)}
-        aria-label="Buka palet perintah (Ctrl+K)"
-        aria-haspopup="dialog"
-        className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg border border-border-subtle bg-black/[0.03] dark:bg-white/[0.03] text-text-muted hover:text-text-primary hover:border-brand-accent/50 transition-all text-xs"
-      >
-        <Search size={14} className="shrink-0" />
-        <span className="flex-1 text-left truncate">Cari menu / no. order…</span>
-        <kbd className="hidden sm:inline-block px-1.5 py-0.5 rounded border border-border-subtle bg-surface font-mono text-[10px] font-bold">
-          Ctrl K
-        </kbd>
-      </button>
+      {compact ? (
+        <button
+          ref={triggerRef}
+          type="button"
+          onClick={() => setOpen(true)}
+          aria-label="Cari menu / no. order (Ctrl+K)"
+          aria-haspopup="dialog"
+          className="p-2 rounded-xl border border-border-subtle bg-surface text-text-muted hover:text-text-primary hover:border-brand-accent/50 transition-all flex items-center justify-center cursor-pointer shadow-xs shrink-0"
+        >
+          <Search size={15} />
+        </button>
+      ) : (
+        <button
+          ref={triggerRef}
+          type="button"
+          onClick={() => setOpen(true)}
+          aria-label="Buka palet perintah (Ctrl+K)"
+          aria-haspopup="dialog"
+          className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg border border-border-subtle bg-black/[0.03] dark:bg-white/[0.03] text-text-muted hover:text-text-primary hover:border-brand-accent/50 transition-all text-xs"
+        >
+          <Search size={14} className="shrink-0" />
+          <span className="flex-1 text-left truncate">Cari menu / no. order…</span>
+          <kbd className="hidden sm:inline-block px-1.5 py-0.5 rounded border border-border-subtle bg-surface font-mono text-[10px] font-bold">
+            Ctrl K
+          </kbd>
+        </button>
+      )}
 
       {mounted &&
         open &&

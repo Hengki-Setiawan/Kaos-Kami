@@ -109,7 +109,10 @@ export function MobileTestLabControls() {
       <div className="flex justify-between items-center pb-2 border-b border-white/10">
         <span className="text-xs font-mono font-bold tracking-wider text-white flex items-center gap-1.5">
           <Activity size={15} className="text-[#FF6B35] animate-pulse" />
-          <span>3D TEST LAB & SIMULASI FISIKA</span>
+          <span>3D TEST LAB</span>
+          <span className="text-[9px] font-mono font-bold uppercase px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-400 border border-amber-500/30">
+            BETA
+          </span>
         </span>
         <span className="text-[10px] font-mono font-bold uppercase px-2 py-0.5 rounded-full border border-[#FF6B35]/30 bg-[#FF6B35]/10 text-[#FF6B35]">
           {testLabMode === 'none' ? 'STANDAR' : testLabMode.toUpperCase()}

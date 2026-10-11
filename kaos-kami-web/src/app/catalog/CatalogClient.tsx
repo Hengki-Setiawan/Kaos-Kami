@@ -60,7 +60,7 @@ export function CatalogClient() {
   useEffect(() => {
     async function fetchProducts() {
       try {
-        const res = await fetch("/api/catalog/variants");
+        const res = await fetch(`/api/catalog/variants?t=${Date.now()}`, { cache: "no-store" });
         const data = await res.json().catch(() => null);
         if (res.ok && data?.success && Array.isArray(data.variants)) {
           setProducts(data.variants);
@@ -175,11 +175,11 @@ export function CatalogClient() {
         </div>
 
         {/* Filter Bar */}
-        <div className="flex flex-wrap items-center justify-between gap-4 font-sans text-xs">
+        <div className="flex flex-wrap items-center justify-between gap-3 sm:gap-4 font-sans text-xs">
           {/* Filter pill kategori model (client-side, cermin StoreShowcase) */}
-          <div className="flex items-center gap-2 overflow-x-auto max-w-full pb-1 -mx-1 px-1">
-            <Filter size={13} className="text-text-muted" />
-            <span className="text-text-muted font-bold mr-1">KOLEKSI:</span>
+          <div className="flex items-center gap-1.5 sm:gap-2 overflow-x-auto max-w-full pb-1 -mx-1 px-1 scrollbar-none">
+            <Filter size={13} className="text-text-muted shrink-0" />
+            <span className="text-text-muted font-bold mr-0.5 sm:mr-1 shrink-0 text-[11px] sm:text-xs">KOLEKSI:</span>
             {[
               { id: "ALL", label: "SEMUA PRODUK" },
               { id: "KAOS", label: "KAOS" },
@@ -192,9 +192,9 @@ export function CatalogClient() {
                 onClick={() => setSelectedCategory(f.id)}
                 aria-pressed={selectedCategory === f.id}
                 aria-label={f.id === "ALL" ? "Semua koleksi" : `Kategori ${f.label}`}
-                className={`shrink-0 whitespace-nowrap min-h-[44px] px-3 py-1.5 rounded-full border transition-all ${
+                className={`shrink-0 whitespace-nowrap min-h-[36px] sm:min-h-[44px] px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-full border text-[11px] sm:text-xs transition-all ${
                   selectedCategory === f.id
-                    ? "bg-brand-accent text-canvas border-brand-accent font-bold"
+                    ? "bg-brand-accent text-canvas border-brand-accent font-bold shadow-xs"
                     : "bg-surface border-border-subtle text-text-muted hover:text-text-primary"
                 }`}
               >
@@ -204,23 +204,17 @@ export function CatalogClient() {
           </div>
 
           {/* Size Filter */}
-          {/* KEPUTUSAN XXXL (HIGH-6, fail-closed ke XXL): opsi XXXL SENGAJA
-              dihapus dari filter. Bukti tak ada varian DB: seed
-              (prisma/seed.ts) hanya L/M/XL, APPAREL_CATALOG.sizes +
-              SIZES (lib/constants.ts) maks XXL, tak ada varian XXXL di DB.
-              JANGAN tambah opsi ini tanpa varian DB + pola size chart.
-              Surcharge XXXL di pricingEngine tetap (SSOT harga, jangan ubah). */}
-          <div className="flex items-center gap-1.5 overflow-x-auto max-w-full pb-1 -mx-1 px-1">
-            <span className="text-text-muted font-bold mr-1 shrink-0">UKURAN:</span>
+          <div className="flex items-center gap-1 sm:gap-1.5 overflow-x-auto max-w-full pb-1 -mx-1 px-1 scrollbar-none">
+            <span className="text-text-muted font-bold mr-0.5 sm:mr-1 shrink-0 text-[11px] sm:text-xs">UKURAN:</span>
             {["ALL", "S", "M", "L", "XL", "XXL"].map((sz) => (
               <button
                 key={sz}
                 onClick={() => setSelectedSizeFilter(sz)}
                 aria-pressed={selectedSizeFilter === sz}
                 aria-label={sz === "ALL" ? "Semua ukuran" : `Ukuran ${sz}`}
-                className={`w-11 h-11 min-w-[44px] min-h-[44px] shrink-0 rounded-lg border flex items-center justify-center font-bold text-[11px] transition-all ${
+                className={`w-9 h-9 sm:w-11 sm:h-11 min-w-[36px] min-h-[36px] sm:min-w-[44px] sm:min-h-[44px] shrink-0 rounded-lg border flex items-center justify-center font-bold text-[10px] sm:text-[11px] transition-all ${
                   selectedSizeFilter === sz
-                    ? "bg-brand-accent text-canvas border-brand-accent"
+                    ? "bg-brand-accent text-canvas border-brand-accent shadow-xs"
                     : "bg-surface border-border-subtle text-text-muted hover:text-text-primary"
                 }`}
               >
@@ -240,16 +234,16 @@ export function CatalogClient() {
           </div>
         )}
         {isLoading ? (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6" role="status" aria-busy="true" aria-label="Memuat koleksi produk">
+          <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-6" role="status" aria-busy="true" aria-label="Memuat koleksi produk">
             {[0, 1, 2, 3, 4, 5].map((i) => (
-              <div key={i} className="rounded-2xl bg-surface/60 border border-border-subtle overflow-hidden animate-pulse">
+              <div key={i} className="rounded-xl sm:rounded-2xl bg-surface/60 border border-border-subtle overflow-hidden animate-pulse">
                 <div className="aspect-[4/5] bg-black/10 dark:bg-white/10" />
-                <div className="p-5 space-y-2">
-                  <div className="h-3 rounded bg-black/10 dark:bg-white/10 w-2/3" />
-                  <div className="h-5 rounded bg-black/10 dark:bg-white/10 w-1/3" />
-                  <div className="grid grid-cols-2 gap-2 pt-2">
-                    <div className="h-11 rounded-xl bg-black/10 dark:bg-white/10" />
-                    <div className="h-11 rounded-xl bg-black/10 dark:bg-white/10" />
+                <div className="p-3 sm:p-5 space-y-2">
+                  <div className="h-2.5 sm:h-3 rounded bg-black/10 dark:bg-white/10 w-2/3" />
+                  <div className="h-4 sm:h-5 rounded bg-black/10 dark:bg-white/10 w-1/3" />
+                  <div className="grid grid-cols-2 gap-1.5 sm:gap-2 pt-1 sm:pt-2">
+                    <div className="h-9 sm:h-11 rounded-lg sm:rounded-xl bg-black/10 dark:bg-white/10" />
+                    <div className="h-9 sm:h-11 rounded-lg sm:rounded-xl bg-black/10 dark:bg-white/10" />
                   </div>
                 </div>
               </div>
@@ -271,11 +265,11 @@ export function CatalogClient() {
             <p>Belum ada produk yang sesuai dengan filter pilihan Anda.</p>
           </div>
         ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+          <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-6">
             {filteredProducts.map((p, idx) => (
               <div
                 key={p.id}
-                className="group min-w-0 rounded-2xl bg-surface/60 border border-border-subtle hover:border-brand-accent/50 transition-all duration-300 overflow-hidden flex flex-col justify-between shadow-lg hover:shadow-2xl"
+                className="group min-w-0 rounded-xl sm:rounded-2xl bg-surface/60 border border-border-subtle hover:border-brand-accent/50 transition-all duration-300 overflow-hidden flex flex-col justify-between shadow-md sm:shadow-lg hover:shadow-xl sm:hover:shadow-2xl"
               >
                 {/* Product Image & Badges */}
                 <div className="relative aspect-[4/5] bg-surface overflow-hidden">
@@ -285,7 +279,7 @@ export function CatalogClient() {
                     width={800}
                     height={1000}
                     className="w-full h-full object-cover transition-transform duration-700 ease-out group-hover:scale-105"
-                    sizes="(max-width: 768px) 100vw, 33vw"
+                    sizes="(max-width: 640px) 50vw, (max-width: 1024px) 50vw, 33vw"
                     priority={idx === 0}
                     loading={idx === 0 ? undefined : "lazy"}
                     unoptimized={true}
@@ -298,57 +292,69 @@ export function CatalogClient() {
                   <div className="absolute inset-0 bg-gradient-to-t from-black/40 dark:from-black/80 via-transparent to-transparent opacity-60 group-hover:opacity-40 transition-opacity" />
 
                   {/* Top Badges (Clean, No Emoji Slop) */}
-                  <div className="absolute top-3 left-3 right-3 flex justify-between items-center">
-                    <span className="px-2.5 py-1 rounded-full bg-canvas/60 backdrop-blur-md border border-border-subtle font-sans text-[10px] text-text-primary font-bold uppercase tracking-wide">
+                  <div className="absolute top-2 left-2 right-2 sm:top-3 sm:left-3 sm:right-3 flex justify-between items-center gap-1">
+                    <span className="px-1.5 py-0.5 sm:px-2.5 sm:py-1 rounded-full bg-canvas/60 backdrop-blur-md border border-border-subtle font-sans text-[8.5px] sm:text-[10px] text-text-primary font-bold uppercase tracking-wide truncate">
                       PRODUK JADI
                     </span>
-                    <span className="w-5 h-5 rounded-full border border-border-strong dark:shadow-md" style={{ backgroundColor: p.colorHex }} title={p.colorName} />
+                    <span className="w-3.5 h-3.5 sm:w-5 sm:h-5 rounded-full border border-border-strong dark:shadow-md shrink-0" style={{ backgroundColor: p.colorHex }} title={p.colorName} />
                   </div>
 
                   {/* Bottom Stock & Size Overlay */}
-                  <div className="absolute bottom-3 left-3 right-3 flex justify-between items-end font-sans text-[11px]">
-                    <span className="px-2 py-0.5 rounded bg-canvas/60 backdrop-blur-md text-brand-accent font-bold border border-border-subtle text-[10px]">
+                  <div className="absolute bottom-2 left-2 right-2 sm:bottom-3 sm:left-3 sm:right-3 flex justify-between items-end font-sans text-[9px] sm:text-[11px] gap-1">
+                    <span className="px-1.5 py-0.5 rounded bg-canvas/60 backdrop-blur-md text-brand-accent font-bold border border-border-subtle text-[8.5px] sm:text-[10px] truncate max-w-[65%]">
                       {Array.isArray((p as any).sizes) && (p as any).sizes.length > 0
                         ? (p as any).sizes.map((s: any) => s.size).join(" · ")
                         : `SIZE: ${p.size}`}
                     </span>
-                    <span className="text-text-muted text-[10px] bg-canvas/60 backdrop-blur-md px-1.5 py-0.5 rounded border border-border-subtle">
-                      Total: {p.stockQty} pcs
+                    <span className="text-text-muted text-[8.5px] sm:text-[10px] bg-canvas/60 backdrop-blur-md px-1 py-0.5 sm:px-1.5 rounded border border-border-subtle shrink-0">
+                      {p.stockQty} pcs
                     </span>
                   </div>
                 </div>
 
                 {/* Card Body & Purchase Actions */}
-                <div className="p-5 space-y-4 flex-1 flex flex-col justify-between">
+                <div className="p-3 sm:p-5 space-y-2.5 sm:space-y-4 flex-1 flex flex-col justify-between">
                   <div>
-                    <span className="block text-[10px] font-sans text-text-muted uppercase">
-                      {p.colorName} · Ready Makassar
+                    <span className="block text-[9px] sm:text-[10px] font-sans text-text-muted uppercase truncate">
+                      {p.colorName} · Ready Mks
                     </span>
-                    <h3 className="font-sans font-bold text-lg uppercase text-text-primary mt-1 group-hover:text-brand-accent transition-colors line-clamp-2">
+                    <h3 className="font-sans font-bold text-xs sm:text-lg uppercase text-text-primary mt-0.5 sm:mt-1 group-hover:text-brand-accent transition-colors line-clamp-2 leading-tight">
                       {p.name}
                     </h3>
-                    <div className="mt-2 text-xl font-mono tabular-nums font-bold text-brand-accent">
+                    <div className="mt-1 sm:mt-2 text-sm sm:text-xl font-mono tabular-nums font-bold text-brand-accent">
                       Rp {p.priceIdr.toLocaleString("id-ID")}
                     </div>
                   </div>
 
                   {/* Dual Action Buttons (E-Commerce Journey A & B) */}
-                  <div className="grid grid-cols-2 gap-2 pt-3 border-t border-border-subtle">
+                  <div className="grid grid-cols-2 gap-1.5 sm:gap-2 pt-2 sm:pt-3 border-t border-border-subtle">
                     <button
                       onClick={() => handleQuickBuy(p)}
                       disabled={(p.stockQty ?? 0) <= 0}
-                      className="min-h-[44px] py-2.5 px-3 rounded-xl bg-surface border border-border-subtle hover:border-brand-accent hover:text-brand-accent text-text-primary font-sans text-[11px] font-bold uppercase transition-all flex items-center justify-center space-x-1.5 active:scale-95 disabled:opacity-40 disabled:pointer-events-none"
+                      className="min-h-[36px] sm:min-h-[44px] py-1.5 sm:py-2.5 px-1.5 sm:px-3 rounded-lg sm:rounded-xl bg-surface border border-border-subtle hover:border-brand-accent hover:text-brand-accent text-text-primary font-sans text-[9.5px] sm:text-[11px] font-bold uppercase transition-all flex items-center justify-center space-x-1 active:scale-95 disabled:opacity-40 disabled:pointer-events-none"
                     >
-                      <ShoppingBag size={13} />
-                      <span>{(p.stockQty ?? 0) <= 0 ? "HABIS" : "+ KERANJANG"}</span>
+                      <ShoppingBag size={12} className="shrink-0" />
+                      <span className="truncate">
+                        {(p.stockQty ?? 0) <= 0 ? "HABIS" : (
+                          <>
+                            <span className="sm:hidden">+ BELI</span>
+                            <span className="hidden sm:inline">+ KERANJANG</span>
+                          </>
+                        )}
+                      </span>
                     </button>
 
                     <Link
-                      href="/studio"
+                      href={
+                        (p as any).mockup3D?.frontDecalUrl
+                          ? `/studio?apparel=${encodeURIComponent(p.category?.slug || "tshirt")}&color=${encodeURIComponent(p.colorHex)}&decalFront=${encodeURIComponent((p as any).mockup3D.frontDecalUrl)}${(p as any).mockup3D.backDecalUrl ? `&decalBack=${encodeURIComponent((p as any).mockup3D.backDecalUrl)}` : ""}&title=${encodeURIComponent(p.name)}`
+                          : "/studio"
+                      }
                       onClick={() => handleOpenInStudio(p)}
-                      className="min-h-[44px] py-2.5 px-3 rounded-xl bg-brand-accent/15 border border-brand-accent/30 text-brand-accent hover:bg-brand-accent hover:text-canvas font-sans text-[11px] font-bold uppercase transition-all flex items-center justify-center space-x-1.5 active:scale-95"
+                      className="min-h-[36px] sm:min-h-[44px] py-1.5 sm:py-2.5 px-1.5 sm:px-3 rounded-lg sm:rounded-xl bg-brand-accent/15 border border-brand-accent/30 text-brand-accent hover:bg-brand-accent hover:text-canvas font-sans text-[9.5px] sm:text-[11px] font-bold uppercase transition-all flex items-center justify-center space-x-1 active:scale-95 text-center"
                     >
-                      <span>KUSTOM SABLON</span>
+                      <span className="sm:hidden truncate">KUSTOM</span>
+                      <span className="hidden sm:inline truncate">KUSTOM SABLON</span>
                     </Link>
                   </div>
                 </div>

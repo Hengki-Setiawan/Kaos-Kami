@@ -9,7 +9,7 @@
  * - notifyWa: default FALSE; WA HANYA bila true eksplisit + try/catch caller.
  */
 
-export const MASTER_NOTIFY_MAX_WIDTH_CM = 30.0;
+export const MASTER_NOTIFY_MAX_WIDTH_CM = 35.0;
 export const MASTER_NOTIFY_MAX_URL_LEN = 2048;
 export const MASTER_NOTIFY_MAX_RESI_LEN = 40;
 

@@ -1,13 +1,12 @@
-import { db } from "@/lib/db";
 import Link from "next/link";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
-import { CmsHeroForm } from "@/components/admin/CmsHeroForm";
-import { LookbookManager } from "@/components/admin/LookbookManager";
+import { CmsPageTabs } from "@/components/admin/CmsPageTabs";
+import { FileText } from "lucide-react";
+
 export const dynamic = "force-dynamic";
 
-// CMS kelola seluruh website — hero, lookbook, banner, SEO via R2 + DB (tanpa deploy)
 export default async function AdminCMSPage() {
   let myRole: string | null = null;
   try {
@@ -31,30 +30,35 @@ export default async function AdminCMSPage() {
     redirect("/?denied=admin");
   }
 
-  const [cats, colors] = await Promise.all([
-    db.query.ApparelCategory.findMany({ orderBy: (t, { asc }) => asc(t.sortOrder) }),
-    db.query.ColorOption.findMany({ orderBy: (t, { asc }) => asc(t.sortOrder) }),
-  ]);
   return (
-    <div className="p-5 sm:p-8 space-y-6 max-w-6xl mx-auto font-sans text-xs">
-        <div className="pb-4 border-b border-border-subtle">
-        <h1 className="font-sans text-2xl font-bold uppercase text-text-primary">CMS — KELOLA SELURUH WEBSITE</h1>
-        <p className="text-text-muted">Hero, Lookbook, Banner, SEO, Katalog — edit tanpa deploy via R2 + Turso</p>
-      </div>
+    <div className="p-4 sm:p-6 lg:p-8 space-y-6 max-w-6xl mx-auto font-sans text-xs">
+      {/* HEADER SECTION */}
+      <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-4 pb-4 border-b border-border-subtle">
+        <div>
+          <div className="flex items-center gap-2 text-brand-accent text-xs font-bold uppercase tracking-wider mb-1">
+            <FileText size={15} />
+            <span>Pusat Manajemen Konten</span>
+          </div>
+          <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-text-primary uppercase">
+            CMS & Konten Website
+          </h1>
+          <p className="text-text-muted text-xs mt-0.5">
+            Hero banner, pengumuman promo, lookbook portofolio, dan SEO — tersinkron otomatis ke Turso DB & Cloudflare R2
+          </p>
+        </div>
 
-      <div className="grid md:grid-cols-2 gap-4">
-        <CmsHeroForm />
-
-        <LookbookManager />
-      </div>
-
-      <div className="bg-surface border border-border-subtle rounded-2xl p-5 space-y-3">
-        <h3 className="font-bold text-text-primary">KATALOG CEPAT — {cats.length} kategori, {colors.length} warna</h3>
-        <p className="text-text-muted">Kelola di <Link href="/admin/catalog" className="text-brand-accent underline">/admin/catalog</Link> — tambah varian, stok, harga, gambar R2</p>
-        <div className="flex gap-2 flex-wrap">
-          {cats.map((c:any)=>(<span key={c.id} className="px-2 py-1 rounded-full bg-surface border border-border-subtle text-text-primary text-[11px]">{c.slug} {(c.basePriceIdr ?? 0).toLocaleString("id-ID")}</span>))}
+        <div className="flex items-center gap-2">
+          <Link
+            href="/admin"
+            className="px-3.5 py-2 rounded-xl bg-surface border border-border-subtle hover:bg-surface-elevated text-text-primary font-semibold text-xs transition"
+          >
+            Kembali ke Pusat Pesanan
+          </Link>
         </div>
       </div>
+
+      {/* TABULATED CMS SUITE */}
+      <CmsPageTabs />
     </div>
   );
 }

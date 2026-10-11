@@ -1,34 +1,14 @@
-import { count, inArray, like, or } from "drizzle-orm";
+import { and, count, inArray, like, notInArray, or, sum } from "drizzle-orm";
 import Link from "next/link";
 import { headers } from "next/headers";
 import { db } from "@/lib/db";
 import { Design, Order, User } from "@/lib/drizzle-schema";
-import { CustomerRoleSelect } from "@/components/admin/CustomerRoleSelect";
-import { CustomerListFilter } from "@/components/admin/CustomerListFilter";
-import { maskPhone as maskPhoneLib, maskEmail as maskEmailLib } from "@/lib/mask"; // SSOT PII (S-045)
-import { Lock } from "lucide-react";
+import { CustomerTableClient } from "@/components/admin/CustomerTableClient";
+import { Users, Lock } from "lucide-react";
 
 export const dynamic = "force-dynamic";
 
 const PER_PAGE = 25;
-
-function maskPhone(p?: string | null) {
-  if (!p) return "-";
-  return maskPhoneLib(p) || "-";
-}
-
-function maskEmail(e?: string | null) {
-  if (!e) return "-";
-  return maskEmailLib(e) || "-";
-}
-
-function formatDate(v: unknown) {
-  if (!v) return "—";
-  const d = new Date(v as string);
-  return Number.isNaN(d.getTime())
-    ? "—"
-    : d.toLocaleDateString("id-ID", { day: "2-digit", month: "short", year: "numeric" });
-}
 
 export default async function AdminCustomersPage({
   searchParams,
@@ -37,11 +17,8 @@ export default async function AdminCustomersPage({
 }) {
   const sp = await searchParams;
   const page = Math.max(1, Number(sp.page) || 1);
-  // Sanitasi cermin API: buang wildcard LIKE (%_) + backslash, batasi 64 char.
   const q = (sp.q || "").trim().replace(/[%_\\]/g, "").slice(0, 64);
 
-  // Role pemanggil untuk filter opsi SUPER_ADMIN (server tetap guard final).
-  // Fallback jujur: null bila sesi tak terbaca (bukan klaim "ADMIN").
   let myRole: string | null = null;
   try {
     const { auth } = await import("@/lib/auth");
@@ -68,12 +45,13 @@ export default async function AdminCustomersPage({
     redirect("/?denied=admin");
   }
 
-  // Selaras API: `like` (libSQL/SQLite — `ilike` hanya Postgres, rawan gagal).
   const where = q
     ? or(like(User.name, `%${q}%`), like(User.phoneNumber, `%${q}%`), like(User.email, `%${q}%`))
     : undefined;
 
-  const [{ n = 0 } = { n: 0 }] = await db.select({ n: count() }).from(User).where(where as any);
+  const [{ n = 0 } = { n: 0 }] = where
+    ? await db.select({ n: count() }).from(User).where(where)
+    : await db.select({ n: count() }).from(User);
   const totalPages = Math.max(1, Math.ceil(Number(n) / PER_PAGE));
   const safePage = Math.min(page, totalPages);
 
@@ -82,116 +60,92 @@ export default async function AdminCustomersPage({
     orderBy: (t, { desc: d }) => d(t.createdAt),
     limit: PER_PAGE,
     offset: (safePage - 1) * PER_PAGE,
-    // Eksplisit tanpa passwordHash — jangan pernah tarik hash ke halaman daftar.
     columns: { id: true, name: true, email: true, phoneNumber: true, role: true, emailVerified: true, createdAt: true },
   });
-  // Agregasi dibatasi ke userId satu halaman (bukan seluruh tabel).
+
   const pageIds = users.map((u) => u.id);
-  const [orderCounts, designCounts] =
+  const [orderData, designCounts] =
     pageIds.length > 0
       ? await Promise.all([
-          db.select({ userId: Order.userId, n: count() }).from(Order).where(inArray(Order.userId, pageIds)).groupBy(Order.userId),
-          db.select({ userId: Design.userId, n: count() }).from(Design).where(inArray(Design.userId, pageIds)).groupBy(Design.userId),
+          db
+            .select({
+              userId: Order.userId,
+              n: count(),
+              totalSpent: sum(Order.totalIdr),
+            })
+            .from(Order)
+            .where(
+              and(
+                inArray(Order.userId, pageIds),
+                notInArray(Order.status, ["CANCELLED", "REFUNDED"])
+              )
+            )
+            .groupBy(Order.userId),
+          db
+            .select({ userId: Design.userId, n: count() })
+            .from(Design)
+            .where(inArray(Design.userId, pageIds))
+            .groupBy(Design.userId),
         ])
       : [[], []];
-  const orderMap = new Map(orderCounts.map((r) => [r.userId, r.n]));
-  const designMap = new Map(designCounts.map((r) => [r.userId, r.n]));
-  const usersWithCounts = users.map((u: any) => ({
-    ...u,
-    _count: { orders: orderMap.get(u.id) || 0, designs: designMap.get(u.id) || 0 },
-  }));
 
-  const pageLink = (p: number) => {
-    const s = new URLSearchParams();
-    if (q) s.set("q", q);
-    s.set("page", String(p));
-    return `/admin/customers?${s.toString()}`;
-  };
+  const orderMap = new Map(
+    orderData.map((r) => [r.userId, { n: r.n, totalSpent: Number(r.totalSpent ?? 0) }])
+  );
+  const designMap = new Map(designCounts.map((r) => [r.userId, r.n]));
+  const usersWithCounts = users.map((u: any) => {
+    const ord = orderMap.get(u.id);
+    return {
+      ...u,
+      _count: { orders: ord?.n || 0, designs: designMap.get(u.id) || 0 },
+      totalSpentIdr: ord?.totalSpent || 0,
+    };
+  });
 
   return (
-    <div className="p-5 sm:p-8 space-y-6 max-w-7xl mx-auto font-sans text-xs">
-      <div>
-        <h1 className="font-sans text-2xl sm:text-3xl font-bold uppercase text-text-primary">
-          Customer Database
-        </h1>
-        <p className="text-text-muted">
-          {Number(n)} akun (hal. {safePage}/{totalPages}) • kontak dimask — klik baris untuk detail
-          {myRole ? "" : " • sesi tak terbaca (mode baca, opsi role dibatasi)"}
-        </p>
-      </div>
-
-      <form method="get" className="flex gap-2">
-        <input
-          name="q"
-          defaultValue={q}
-          placeholder="Cari nama / WA / email…"
-          maxLength={64}
-          className="flex-1 px-3 py-2.5 rounded-xl bg-surface border border-border-subtle text-text-primary placeholder:text-text-muted focus:outline-none focus:border-brand-accent"
-        />
-        <button type="submit" className="px-5 py-2.5 rounded-xl bg-brand-accent text-canvas font-bold">
-          CARI
-        </button>
-      </form>
-
-      {/* Filter client-side di atas data existing (tanpa ubah query DB/API). */}
-      <CustomerListFilter />
-
-      <div className="bg-surface border border-border-subtle rounded-2xl overflow-hidden divide-y divide-border-subtle">
-        {usersWithCounts.map((u: any) => {
-          const haystack = `${u.name || ""} ${u.email || ""}`.toLowerCase();
-          const isE2E = haystack.includes("e2e") || haystack.includes("bot") || haystack.includes("test");
-          return (
-          <div
-            key={u.id}
-            data-customer-row
-            data-is-e2e={isE2E ? "true" : "false"}
-            data-role={String(u.role || "").toUpperCase()}
-            className="p-4 flex justify-between items-center gap-3"
-          >
-            <div className="min-w-0">
-              <span className="font-bold text-text-primary block truncate">
-                {u.name || "-"} <CustomerRoleSelect userId={u.id} role={u.role} myRole={myRole ?? ""} />
-              </span>
-              {/* Mask PII di daftar (audit H16); full hanya di invoice/detail order. */}
-              <span className="text-text-muted">
-                {maskPhone(u.phoneNumber)} • {maskEmail(u.email)}
-              </span>
-            </div>
-            <div className="text-right shrink-0">
-              <span className="text-text-primary block">{u._count.orders} orders • {u._count.designs} designs</span>
-              <span className="text-text-muted text-[11px]">{formatDate(u.createdAt)}</span>
-            </div>
+    <div className="p-4 sm:p-6 lg:p-8 space-y-6 max-w-7xl mx-auto font-sans text-xs">
+      {/* HEADER SECTION */}
+      <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-4 pb-4 border-b border-border-subtle">
+        <div>
+          <div className="flex items-center gap-2 text-brand-accent text-xs font-bold uppercase tracking-wider mb-1">
+            <Users size={15} />
+            <span>Manajemen Pengguna & Pelanggan</span>
           </div>
-          );
-        })}
-        {usersWithCounts.length === 0 && (
-          <div className="p-12 text-center text-text-muted">
-            {q ? "Tidak cocok dengan pencarian." : "Belum ada customer"}
-          </div>
-        )}
-      </div>
-
-      {totalPages > 1 && (
-        <div className="flex items-center justify-between">
-          {safePage > 1 ? (
-            <Link href={pageLink(safePage - 1)} className="px-4 py-2 rounded-lg bg-surface border border-border-subtle text-text-primary font-bold">
-              ← SEBELUM
-            </Link>
-          ) : (
-            <span />
-          )}
-          <span className="text-text-muted">
-            {safePage} / {totalPages}
-          </span>
-          {safePage < totalPages ? (
-            <Link href={pageLink(safePage + 1)} className="px-4 py-2 rounded-lg bg-surface border border-border-subtle text-text-primary font-bold">
-              LANJUT →
-            </Link>
-          ) : (
-            <span />
-          )}
+          <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-text-primary uppercase">
+            Database Pelanggan
+          </h1>
+          <p className="text-text-muted text-xs mt-0.5">
+            {Number(n)} akun terdaftar • Sinkronisasi Turso DB Edge • Lacak Lifetime Value (LTV) dan Riwayat Belanja
+          </p>
         </div>
-      )}
+
+        <div className="flex items-center gap-2">
+          <Link
+            href="/admin"
+            className="px-3.5 py-2 rounded-xl bg-surface border border-border-subtle hover:bg-surface-elevated text-text-primary font-semibold text-xs transition"
+          >
+            Kembali ke Pusat Pesanan
+          </Link>
+        </div>
+      </div>
+
+      {/* INTERACTIVE TABLE & FILTER CLIENT */}
+      <CustomerTableClient
+        initialUsers={usersWithCounts}
+        myRole={myRole || "ADMIN"}
+        totalCount={Number(n)}
+        currentPage={safePage}
+        totalPages={totalPages}
+        searchQuery={q}
+      />
+
+      {/* PRIVACY FOOTER */}
+      <div className="pt-4 border-t border-border-subtle flex items-center justify-between text-text-muted text-[11px]">
+        <div className="flex items-center gap-1.5">
+          <Lock size={12} />
+          <span>Privasi identitas dan kontak pelanggan dilindungi sesuai standar PDP.</span>
+        </div>
+      </div>
     </div>
   );
 }

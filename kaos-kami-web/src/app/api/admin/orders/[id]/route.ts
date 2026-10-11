@@ -134,8 +134,8 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
         columns: { provider: true, providerRef: true },
       });
       const ref = payRow?.providerRef || "";
-      // Hanya baris IPAYMU dengan transactionId angka yang bisa dicek; legacy
-      // DUITKU / ref semu dilewati ke sweep 24 jam.
+      // Hanya baris IPAYMU dengan transactionId angka yang bisa dicek;
+      // ref semu dilewati ke sweep 24 jam.
       if (payRow?.provider !== "IPAYMU" || !/^\d+$/.test(ref)) {
         return NextResponse.json({
           success: true,

@@ -99,12 +99,12 @@ export const ClothLabModal: React.FC = () => {
             <div>
               <h3 id="cloth-lab-title" className="text-sm sm:text-base font-bold text-text-primary font-sans tracking-tight flex items-center gap-2">
                 <span>Laboratorium Kain &amp; Simulasi 3D</span>
-                <span className="px-2 py-0.5 rounded-full text-[10px] font-sans font-bold bg-brand-accent text-canvas">
-                  Studio Lab
+                <span className="px-2 py-0.5 rounded-full text-[10px] font-sans font-bold bg-amber-500/20 text-amber-500 border border-amber-500/30">
+                  BETA • UJI COBA
                 </span>
               </h3>
               <p className="text-xs text-text-muted font-sans mt-0.5">
-                {APPAREL_CATALOG[activeApparel]?.name ?? "Pakaian 3D"} · {activeColorName} · {decals.length} Sablon Terpasang
+                Tahap uji coba: {APPAREL_CATALOG[activeApparel]?.name ?? "Pakaian 3D"} · {activeColorName} · simulasi visual terus dioptimasi
               </p>
             </div>
           </div>

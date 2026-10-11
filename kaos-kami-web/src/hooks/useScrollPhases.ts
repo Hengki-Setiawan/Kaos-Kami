@@ -7,6 +7,19 @@ import * as THREE from "three";
 import { useConfiguratorStore } from "@/store/useConfiguratorStore";
 import { useShallow } from "zustand/shallow";
 
+/**
+ * Resilient dynamic import with retry to survive transient dev server chunk compilation delays.
+ */
+async function retryImport<T>(loader: () => Promise<T>, retries = 2, delayMs = 1000): Promise<T> {
+  try {
+    return await loader();
+  } catch (err) {
+    if (retries <= 0) throw err;
+    await new Promise((res) => setTimeout(res, delayMs));
+    return retryImport(loader, retries - 1, delayMs * 1.5);
+  }
+}
+
 export const useScrollPhases = () => {
   const { setActivePhase, viewMode, isHideWebsiteUI } = useConfiguratorStore(
     useShallow((s) => ({
@@ -27,80 +40,86 @@ export const useScrollPhases = () => {
     let cancelled = false;
     let ctx: { revert: () => void } | null = null;
     let onResize: (() => void) | null = null;
+
     (async () => {
-      const [{ gsap }, { ScrollTrigger }] = await Promise.all([
-        import("gsap"),
-        import("gsap/ScrollTrigger"),
-      ]);
-      if (cancelled) return;
-      gsap.registerPlugin(ScrollTrigger);
+      try {
+        const [{ gsap }, { ScrollTrigger }] = await retryImport(() =>
+          Promise.all([import("gsap"), import("gsap/ScrollTrigger")])
+        );
+        if (cancelled) return;
+        gsap.registerPlugin(ScrollTrigger);
 
-      const prefersReducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-      const scrub = prefersReducedMotion ? true : 1.2;
+        const prefersReducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+        const scrub = prefersReducedMotion ? true : 1.2;
 
-      ctx = gsap.context(() => {
-      const masterTimeline = gsap.timeline({
-        scrollTrigger: {
-          trigger: "#scroll-container",
-          start: "top top",
-          end: "bottom bottom",
-          scrub,
-          onUpdate: (self) => {
-            const progress = self.progress;
-            if (progress < 0.32) {
-              setActivePhase(1);
-            } else if (progress < 0.68) {
-              setActivePhase(2);
-            } else if (progress < 0.96) {
-              setActivePhase(3);
-            } else {
-              setActivePhase(4);
-            }
-          },
-        },
-      });
+        ctx = gsap.context(() => {
+          const masterTimeline = gsap.timeline({
+            scrollTrigger: {
+              trigger: "#scroll-container",
+              start: "top top",
+              end: "bottom bottom",
+              scrub,
+              onUpdate: (self) => {
+                const progress = self.progress;
+                if (progress < 0.32) {
+                  setActivePhase(1);
+                } else if (progress < 0.68) {
+                  setActivePhase(2);
+                } else if (progress < 0.96) {
+                  setActivePhase(3);
+                } else {
+                  setActivePhase(4);
+                }
+              },
+            },
+          });
 
-      const ease = prefersReducedMotion ? "none" : "power2.inOut";
+          const ease = prefersReducedMotion ? "none" : "power2.inOut";
 
-      // Phase 1 -> Phase 2: Kaos berada di kanan (+0.78), kamera tetap seimbang luas agar kaos tidak tertarik ke tengah
-      masterTimeline.to(
-        camPosRef.current,
-        { x: 0.05, y: 0.04, z: 2.2, ease },
-        0.32
-      );
-      masterTimeline.to(
-        lookAtRef.current,
-        { x: 0.15, y: 0.02, z: 0, ease },
-        0.32
-      );
+          // Phase 1 -> Phase 2: Kaos berada di kanan (+0.78), kamera tetap seimbang luas agar kaos tidak tertarik ke tengah
+          masterTimeline.to(
+            camPosRef.current,
+            { x: 0.05, y: 0.04, z: 2.2, ease },
+            0.32
+          );
+          masterTimeline.to(
+            lookAtRef.current,
+            { x: 0.15, y: 0.02, z: 0, ease },
+            0.32
+          );
 
-      // Phase 2 -> Phase 3: Kaos berada di kiri (-0.82), kamera tetap proporsional memberi ruang luas teks A3+ di kanan
-      masterTimeline.to(
-        camPosRef.current,
-        { x: -0.06, y: 0.02, z: 2.25, ease },
-        0.68
-      );
-      masterTimeline.to(
-        lookAtRef.current,
-        { x: -0.10, y: 0.02, z: 0, ease },
-        0.68
-      );
+          // Phase 2 -> Phase 3: Kaos berada di kiri (-0.82), kamera tetap proporsional memberi ruang luas teks A3+ di kanan
+          masterTimeline.to(
+            camPosRef.current,
+            { x: -0.06, y: 0.02, z: 2.25, ease },
+            0.68
+          );
+          masterTimeline.to(
+            lookAtRef.current,
+            { x: -0.10, y: 0.02, z: 0, ease },
+            0.68
+          );
 
-      // Phase 3 -> Phase 4: Kamera kembali ke tengah untuk transisi Katalog & Studio
-      masterTimeline.to(
-        camPosRef.current,
-        { x: 0, y: 0, z: 2.8, ease },
-        0.95
-      );
-      masterTimeline.to(
-        lookAtRef.current,
-        { x: 0, y: 0, z: 0, ease },
-        0.95
-      );
-    });
+          // Phase 3 -> Phase 4: Kamera kembali ke tengah untuk transisi Katalog & Studio
+          masterTimeline.to(
+            camPosRef.current,
+            { x: 0, y: 0, z: 2.8, ease },
+            0.95
+          );
+          masterTimeline.to(
+            lookAtRef.current,
+            { x: 0, y: 0, z: 0, ease },
+            0.95
+          );
+        });
 
-      onResize = () => ScrollTrigger.refresh();
-      window.addEventListener("resize", onResize);
+        onResize = () => ScrollTrigger.refresh();
+        window.addEventListener("resize", onResize);
+      } catch (err) {
+        // Fallback: Bila modul GSAP timeout di dev atau gagal unduh chunk,
+        // pertahankan posisi kamera default tanpa melempar fatal ChunkLoadError.
+        console.warn("[useScrollPhases] GSAP dynamic chunk import bypassed:", err);
+      }
     })();
 
     return () => {

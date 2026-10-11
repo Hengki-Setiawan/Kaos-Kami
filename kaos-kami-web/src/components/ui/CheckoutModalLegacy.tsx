@@ -762,7 +762,7 @@ export const CheckoutModalLegacy: React.FC<CheckoutModalProps> = ({
                 CHECKOUT PESANAN SABLON DTF
               </h2>
               <p className="font-sans text-[10px] sm:text-[11px] text-text-muted truncate">
-                Workshop Makassar · Jaminan Kualitas Sablon DTF & Cotton Combed
+                Workshop Makassar · Sablon DTF Presisi & Cotton Combed
               </p>
             </div>
           </div>
@@ -853,7 +853,7 @@ export const CheckoutModalLegacy: React.FC<CheckoutModalProps> = ({
                       required
                       value={recipientName}
                       onChange={(e) => setRecipientName(e.target.value)}
-                      placeholder="e.g. Sultan Hasanuddin"
+                      placeholder="Contoh: Muhammad Fadil"
                       className="w-full px-3.5 py-2.5 rounded-xl bg-surface border border-border-subtle focus:border-brand-accent text-sm text-text-primary focus:outline-none transition-colors"
                     />
                   </div>
@@ -1114,7 +1114,7 @@ export const CheckoutModalLegacy: React.FC<CheckoutModalProps> = ({
                         type="text"
                         value={courierNotes}
                         onChange={(e) => setCourierNotes(e.target.value)}
-                        placeholder="e.g. Rumah pagar hitam, depan warkop"
+                        placeholder="Contoh: Rumah pagar hitam, depan warkop"
                         className="w-full px-3.5 py-2 rounded-xl bg-surface border border-border-subtle focus:border-brand-accent text-xs font-sans text-text-primary focus:outline-none"
                       />
                     </div>
@@ -1406,14 +1406,14 @@ export const CheckoutModalLegacy: React.FC<CheckoutModalProps> = ({
                   </div>
                 </div>
 
-                {/* Trust badges info area (presentasi saja — tanpa ubah logika/API/DB) */}
+                {/* Info belanja area */}
                 <div
                   className="grid grid-cols-2 gap-2 font-sans text-[10px]"
-                  aria-label="Jaminan belanja Kaos Kami"
+                  aria-label="Informasi belanja Kaos Kami"
                 >
                   <div className="flex items-center gap-1.5 px-2.5 py-2 rounded-lg bg-surface border border-border-subtle text-text-primary">
                     <ShieldCheck size={13} className="text-emerald-400 shrink-0" />
-                    <span className="font-bold leading-tight">Anti-Cacat Ganti Baru</span>
+                    <span className="font-bold leading-tight">Cacat Sablon Ganti Baru</span>
                   </div>
                   <div className="flex items-center gap-1.5 px-2.5 py-2 rounded-lg bg-surface border border-border-subtle text-text-primary">
                     <Package size={13} className="text-brand-accent shrink-0" />

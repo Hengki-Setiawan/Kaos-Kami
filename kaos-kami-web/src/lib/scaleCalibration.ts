@@ -88,9 +88,9 @@ export const APPAREL_PHYSICAL_SPECS: Record<string, ApparelSpec> = {
     name: "T-Shirt Cotton Combed 24s",
     chestWidthCm: 56.0,
     bodyLengthCm: 74.0,
-    maxFrontWidthCm: 30.0,
+    maxFrontWidthCm: 35.0,
     maxFrontHeightCm: 42.0,
-    maxBackWidthCm: 30.0,
+    maxBackWidthCm: 35.0,
     maxBackHeightCm: 42.0,
     maxSleeveWidthCm: 8.5,
     maxSleeveHeightCm: 14.0,
@@ -113,9 +113,9 @@ export const APPAREL_PHYSICAL_SPECS: Record<string, ApparelSpec> = {
     name: "Kaos Lengan Panjang Kaos Kami",
     chestWidthCm: 56.0,
     bodyLengthCm: 74.0,
-    maxFrontWidthCm: 30.0,
+    maxFrontWidthCm: 35.0,
     maxFrontHeightCm: 42.0,
-    maxBackWidthCm: 30.0,
+    maxBackWidthCm: 35.0,
     maxBackHeightCm: 42.0,
     maxSleeveWidthCm: 9.0,
     maxSleeveHeightCm: 42.0, // Longsleeve typography down the entire arm
@@ -281,7 +281,7 @@ export const APPAREL_PHYSICAL_SPECS: Record<string, ApparelSpec> = {
 };
 
 export const REAL_WORLD_PRINT_LIMITS = {
-  maxPrintWidthCm: 30.0,
+  maxPrintWidthCm: 35.0,
   maxPrintHeightCm: 42.0,
   /** Batas visual minimal decal (unit 3D) — ≈3.5–4cm di semua apparel. */
   minDecalScaleUnits: 0.04,
@@ -847,4 +847,169 @@ export function getDecalAspect(
   }
   return 1.0;
 }
+
+export interface SeamAdvisoryInfo {
+  isOverSeam: boolean;
+  seamName: string;
+  pillBadge: string;
+  detailTip: string;
+}
+
+/**
+ * Deteksi cerdas batas jahitan (Seam Advisory) untuk 8 aset studio:
+ * Mendidik & memberi tahu user secara visual tanpa membatasi kebebasan kreasi pengguna (anti hard-block).
+ */
+export function getDecalSeamAdvisory(
+  apparelType: string = "tshirt",
+  targetSide: DecalTargetSide = "front",
+  decalX: number = 0,
+  decalY: number = 0,
+  scale: number = 0.12,
+  aspectRatio: number = 1.0
+): SeamAdvisoryInfo {
+  const aspect = aspectRatio > 0 ? aspectRatio : 1.0;
+  const wUnit = scale * (aspect < 1 ? aspect : 1);
+  const hUnit = scale / (aspect >= 1 ? aspect : 1);
+  const halfH = hUnit / 2;
+  const topY = decalY + halfH;
+  const bottomY = decalY - halfH;
+
+  // 1. HOODIE (Depan: Saku Kanguru & Tudung)
+  if (apparelType === "hoodie") {
+    if (targetSide === "front") {
+      if (bottomY < -0.14) {
+        return {
+          isOverSeam: true,
+          seamName: "Saku Kanguru",
+          pillBadge: "⚠️ Melewati Jahitan Saku Kanguru",
+          detailTip: "Sablon melintasi jahitan saku. Workshop akan menyisipkan bantalan heat-press khusus agar tekanan merata.",
+        };
+      }
+      if (topY > 0.055) {
+        return {
+          isOverSeam: true,
+          seamName: "Kerah Tudung",
+          pillBadge: "⚠️ Mendekati Kerah Tudung",
+          detailTip: "Sablon mendekati jahitan kerah tudung & tali drawstrings.",
+        };
+      }
+    }
+  }
+
+  // 2. CREWNECK SWEATER (Ban Pinggang & Rib Leher)
+  if (apparelType === "crewneck" || apparelType === "sweater") {
+    if (targetSide === "front" || targetSide === "back") {
+      if (bottomY < -0.23) {
+        return {
+          isOverSeam: true,
+          seamName: "Ban Karet Pinggang",
+          pillBadge: "⚠️ Menempel Ban Pinggang",
+          detailTip: "Sablon menyentuh sambungan ban karet pinggang bawah.",
+        };
+      }
+      if (topY > 0.065) {
+        return {
+          isOverSeam: true,
+          seamName: "Rib Leher",
+          pillBadge: "⚠️ Mendekati Rib Leher",
+          detailTip: "Sablon mendekati ribbing kerah leher.",
+        };
+      }
+    }
+  }
+
+  // 3. T-SHIRT (KAOS) & 4. LONGSLEEVE
+  if (apparelType === "tshirt" || apparelType === "longsleeve") {
+    if (targetSide === "front" || targetSide === "back") {
+      if (topY > 0.075) {
+        return {
+          isOverSeam: true,
+          seamName: "Rib Kerah Leher",
+          pillBadge: "⚠️ Mendekati Rib Kerah",
+          detailTip: "Sablon mendekati ribbing jahitan kerah leher.",
+        };
+      }
+      if (bottomY < -0.28) {
+        return {
+          isOverSeam: true,
+          seamName: "Kelim Bawah",
+          pillBadge: "⚠️ Mendekati Kelim Bawah",
+          detailTip: "Sablon mendekati jahitan lipatan bawah kaos.",
+        };
+      }
+    }
+    if (targetSide === "left_sleeve" || targetSide === "right_sleeve") {
+      if (bottomY < -0.24) {
+        return {
+          isOverSeam: true,
+          seamName: "Manset Ujung Lengan",
+          pillBadge: "⚠️ Mendekati Ujung Lengan",
+          detailTip: "Sablon mendekati kelim/manset pergelangan tangan.",
+        };
+      }
+    }
+  }
+
+  // 5. SHIRT (COACH JACKET)
+  if (apparelType === "shirt" || apparelType === "jacket") {
+    if (targetSide === "front" || targetSide === "back") {
+      if (bottomY < -0.25) {
+        return {
+          isOverSeam: true,
+          seamName: "Kelim Bawah Jaket",
+          pillBadge: "⚠️ Mendekati Kelim Bawah",
+          detailTip: "Sablon mendekati lipatan bawah jaket.",
+        };
+      }
+      if (topY > 0.065) {
+        return {
+          isOverSeam: true,
+          seamName: "Kerah Jaket",
+          pillBadge: "⚠️ Mendekati Kerah",
+          detailTip: "Sablon mendekati kerah jaket.",
+        };
+      }
+    }
+  }
+
+  // 6. TOPI (CAP)
+  if (apparelType === "cap") {
+    if (bottomY < -0.05) {
+      return {
+        isOverSeam: true,
+        seamName: "Sambungan Visor",
+        pillBadge: "⚠️ Mendekati Lidah Topi",
+        detailTip: "Sablon mendekati sambungan lidah visor topi.",
+      };
+    }
+  }
+
+  // 7. CELANA PANJANG (PANTS) & 8. CELANA PENDEK (SHORTS)
+  if (apparelType === "pants" || apparelType === "shorts") {
+    if (topY > 0.20) {
+      return {
+        isOverSeam: true,
+        seamName: "Ban Karet Pinggang",
+        pillBadge: "⚠️ Menyentuh Karet Pinggang",
+        detailTip: "Sablon menyentuh jahitan karet ban pinggang.",
+      };
+    }
+    if (apparelType === "shorts" && bottomY < -0.22) {
+      return {
+        isOverSeam: true,
+        seamName: "Kelim Bawah Celana",
+        pillBadge: "⚠️ Mendekati Kelim Celana",
+        detailTip: "Sablon mendekati lipatan bawah paha celana.",
+      };
+    }
+  }
+
+  return {
+    isOverSeam: false,
+    seamName: "Area Bersih",
+    pillBadge: "🟢 Area Aman Jahitan",
+    detailTip: "Posisi sablon berada di kanvas kain datar bebas jahitan.",
+  };
+}
+
 

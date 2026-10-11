@@ -6,6 +6,8 @@ import { useConfiguratorStore } from "@/store/useConfiguratorStore";
 import { useShallow } from "zustand/shallow";
 import { APPAREL_PHYSICAL_SPECS } from "@/lib/scaleCalibration";
 
+import { useCmsContent } from "@/hooks/useCmsContent";
+
 export const BackGraphicOverlay: React.FC = () => {
   const { activePhase, viewMode, activeApparel } = useConfiguratorStore(
     useShallow((s) => ({
@@ -14,10 +16,13 @@ export const BackGraphicOverlay: React.FC = () => {
       activeApparel: s.activeApparel,
     }))
   );
+  const cms = useCmsContent();
   const isVisible = (activePhase === 3 || activePhase === 4) && viewMode === "story";
   const spec = APPAREL_PHYSICAL_SPECS[activeApparel];
   const maxW = spec?.maxBackWidthCm ?? 30;
   const maxH = spec?.maxBackHeightCm ?? 42;
+
+  const titleLines = (cms.backGraphicTitle || "LIHAT HASILNYA\nSEBELUM DICETAK").split("\n");
 
   return (
     <section
@@ -33,8 +38,8 @@ export const BackGraphicOverlay: React.FC = () => {
           <span className="font-sans text-[10px] sm:text-xs text-brand-accent tracking-widest uppercase font-bold">
             INSPEKSI 360° // TANPA SALAH CETAK
           </span>
-          <h2 className="text-2xl sm:text-3xl md:text-[34px] font-sans font-extrabold uppercase leading-[1.08] tracking-tight text-text-primary mt-1.5">
-            LIHAT HASILNYA<br />SEBELUM DICETAK
+          <h2 className="text-2xl sm:text-3xl md:text-[34px] font-sans font-extrabold uppercase leading-[1.08] tracking-tight text-text-primary mt-1.5 whitespace-pre-line">
+            {titleLines.join("\n")}
           </h2>
         </div>
 
@@ -59,9 +64,9 @@ export const BackGraphicOverlay: React.FC = () => {
           <div className="flex items-center justify-between py-1">
             <div className="flex items-center gap-2 text-text-muted">
               <Layers size={13} className="text-brand-accent" />
-              <span>JAMINAN PRODUKSI:</span>
+              <span>STANDAR PRODUKSI:</span>
             </div>
-            <strong className="text-text-primary">Cetak Tepat Sesuai Mockup</strong>
+            <strong className="text-text-primary">Sesuai Mockup Terkalibrasi</strong>
           </div>
         </div>
       </div>

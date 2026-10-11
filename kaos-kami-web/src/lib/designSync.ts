@@ -91,6 +91,7 @@ export function scheduleAutosave() {
         : l
     );
     const payload = {
+      editingDesignId: state.editingDesignId || undefined,
       apparelSlug: state.activeApparel,
       colorHex: state.selectedColor,
       colorName: state.activeColorName,

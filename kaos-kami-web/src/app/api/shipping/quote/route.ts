@@ -62,7 +62,21 @@ export async function GET(req: NextRequest) {
       });
     }
   }
-  // Fallback: tabel zona (atau satu-satunya sumber bila key belum ada).
+
+  // Sekunder / Offline SSOT: Master Database 514 Kota & Kabupaten (JNE, J&T, Lion Parcel origin Makassar)
+  const { calculateMasterCourierRates } = await import("@/lib/shipping/masterShippingRates");
+  const masterQuote = calculateMasterCourierRates(city || postalCode || "", weightGrams);
+  if (masterQuote && masterQuote.rates.length > 0) {
+    return NextResponse.json({
+      source: "master-tariff",
+      rates: masterQuote.rates,
+      city: masterQuote.city.city,
+      province: masterQuote.city.province,
+      note: "Tarif master logistik 514 kota (origin Makassar). Final dihitung server saat checkout.",
+    });
+  }
+
+  // Fallback tersier: tabel zona (atau satu-satunya sumber bila key belum ada).
   const zones = await quoteZones(city);
   return NextResponse.json({
     source: isAgenWebsiteConfigured() ? "zone-fallback" : "zone",

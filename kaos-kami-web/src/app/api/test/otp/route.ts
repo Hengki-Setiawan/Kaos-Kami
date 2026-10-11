@@ -22,7 +22,7 @@ const PeekRequestSchema = z.object({
 //
 // KEAMANAN (fail-closed, PANDUAN-RUNNER §14):
 // - Tanpa E2E_ALLOW_OTP_PEEK="YA" → 404 (sembunyikan keberadaan endpoint).
-// - NODE_ENV/DUITKU_ENV production → 404 (tak ada bypass di prod, titik).
+// - NODE_ENV/IPAYMU_ENV production → 404 (tak ada bypass di prod, titik).
 // - Nomor di luar E2E_OTP_PEEK_NUMBERS → 404.
 // - Rate: 10/300 per IP + 5/300 per nomor (lebih longgar dari Fonnte 3/300
 //   karena nol biaya, tetap anti-brute).

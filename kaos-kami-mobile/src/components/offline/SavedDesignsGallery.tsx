@@ -1,13 +1,14 @@
 "use client";
 
-import React from 'react';
-import { Layers, Share2, Trash2, ArrowUpRight, Plus } from 'lucide-react';
+import React, { useState } from 'react';
+import { Layers, Share2, Trash2, ArrowUpRight, Plus, Cloud, RefreshCw } from 'lucide-react';
 import { GlassCard, HapticButton, Badge } from '@/components/ui';
 import { useSavedDesignsStore, SavedDesign } from '@/lib/offline/savedDesignsStore';
-import { useMobileStudioStore, sanitizeMobileDecal } from '@/store/useMobileStudioStore';
+import { useMobileStudioStore, sanitizeMobileDecal, ApparelType } from '@/store/useMobileStudioStore';
 import { useShallow } from 'zustand/shallow';
 import { shareCustomDesign } from '@/lib/bridge/share';
-import { removeDecalPxForDesign } from '@/lib/offline/persistentKeys';
+import { removeDecalPxForDesign, getStoredUserId } from '@/lib/offline/persistentKeys';
+import { mobileApiClient } from '@/lib/api/mobileApiClient';
 import { haptic } from '@/lib/bridge/haptics';
 
 export function SavedDesignsGallery({
@@ -17,20 +18,58 @@ export function SavedDesignsGallery({
   onSelectDesign: () => void;
   onNewDesign: () => void;
 }) {
-  const { designs, deleteDesign } = useSavedDesignsStore(
-    useShallow((s) => ({ designs: s.designs, deleteDesign: s.deleteDesign }))
-  );
-  const { setApparelType, setColor } = useMobileStudioStore(
+  const { designs, deleteDesign, mergeCloudDesigns } = useSavedDesignsStore(
     useShallow((s) => ({
-      setApparelType: s.setApparelType,
-      setColor: s.setColor,
+      designs: s.designs,
+      deleteDesign: s.deleteDesign,
+      mergeCloudDesigns: s.mergeCloudDesigns,
     }))
   );
+  const [isSyncing, setIsSyncing] = useState(false);
+  const [syncMessage, setSyncMessage] = useState<string | null>(null);
+
+  const handleCloudSync = async () => {
+    const userId = await getStoredUserId();
+    if (!userId) {
+      haptic.warning();
+      setSyncMessage('Login akun Google terlebih dahulu untuk sinkronisasi draf cloud.');
+      setTimeout(() => setSyncMessage(null), 3500);
+      return;
+    }
+    setIsSyncing(true);
+    haptic.tap();
+    try {
+      const res = await mobileApiClient.fetchCloudDesigns(userId);
+      if (res.success && Array.isArray(res.designs)) {
+        const mapped: SavedDesign[] = res.designs.map((cd: any) => ({
+          id: cd.id,
+          title: cd.title || 'Desain Kaos Kami',
+          apparelType: (cd.apparelSlug === 'longsleeve' ? 'longsleeve' : cd.apparelSlug === 'hoodie' ? 'hoodie' : cd.apparelSlug === 'crewneck' ? 'crewneck' : cd.apparelSlug === 'jacket' ? 'jacket' : 'tshirt') as ApparelType,
+          colorHex: cd.colorHex || '#0E0E10',
+          colorName: cd.colorName || 'Obsidian Black',
+          decalDataUrl: cd.decals?.[0]?.url || null,
+          decals: cd.decals || [],
+          printWidthCm: cd.decals?.[0]?.scale ? Math.round(cd.decals[0].scale * 100) : 28.0,
+          printHeightCm: cd.decals?.[0]?.scale ? Math.round(cd.decals[0].scale * 100) : 22.0,
+          savedAt: cd.updatedAt || new Date().toISOString(),
+          syncedCloud: true,
+        }));
+        mergeCloudDesigns(mapped);
+        haptic.success();
+        setSyncMessage(`Tersinkron ${mapped.length} desain dari akun web.`);
+      } else {
+        setSyncMessage(res.error || 'Draf lokal sudah terupdate.');
+      }
+    } catch {
+      setSyncMessage('Gagal menghubungi server.');
+    } finally {
+      setIsSyncing(false);
+      setTimeout(() => setSyncMessage(null), 3500);
+    }
+  };
 
   const handleDelete = (id: string) => {
     deleteDesign(id);
-    // Bersihkan entri decal_px PER-DESAIN agar map tak bengkak / DPI basi
-    // tertinggal untuk ID yang sudah dihapus (fire-and-forget).
     try {
       void removeDecalPxForDesign(id);
     } catch {}
@@ -38,8 +77,6 @@ export function SavedDesignsGallery({
 
   const handleLoadDesign = (design: SavedDesign) => {
     haptic.tapHeavy();
-    // P1: pulihkan SEMUA lapis (decals[]; fallback bungkus tunggal lawas) —
-    // sanitasi ke batas SSOT apparel tsb. Urutan dipertahankan.
     const st = useMobileStudioStore.getState();
     st.setApparelType(design.apparelType);
     st.setColor(design.colorHex);
@@ -75,16 +112,31 @@ export function SavedDesignsGallery({
     <div className="space-y-3">
       <div className="flex items-center justify-between">
         <div>
-          <h3 className="text-sm font-bold text-white font-sans">Galeri Desain Offline</h3>
-          <p className="text-[11px] text-zinc-400">Tersimpan di memori HP, dapat dibuka tanpa internet</p>
+          <h3 className="text-sm font-bold text-white font-sans">Draf Desain Tersimpan</h3>
+          <p className="text-[11px] text-zinc-400">Tersinkron dengan Web & dapat dibuka offline</p>
         </div>
-        <button
-          onClick={onNewDesign}
-          className="w-8 h-8 rounded-xl bg-[#FF6B35] text-white flex items-center justify-center active:scale-95 transition-transform"
-        >
-          <Plus className="w-4 h-4" />
-        </button>
+        <div className="flex items-center gap-1.5">
+          <button
+            onClick={handleCloudSync}
+            disabled={isSyncing}
+            title="Sinkronkan Desain dengan Web"
+            className="px-2.5 py-1.5 rounded-xl bg-zinc-800 border border-zinc-700/80 text-zinc-300 hover:text-white flex items-center gap-1 text-[11px] font-bold active:scale-95 transition-transform disabled:opacity-50"
+          >
+            <RefreshCw className={`w-3 h-3 ${isSyncing ? 'animate-spin text-[#FF6B35]' : 'text-zinc-400'}`} />
+            <span>{isSyncing ? 'Sinkron…' : 'Sinkron Cloud'}</span>
+          </button>
+          <button
+            onClick={onNewDesign}
+            className="w-8 h-8 rounded-xl bg-[#FF6B35] text-white flex items-center justify-center active:scale-95 transition-transform"
+          >
+            <Plus className="w-4 h-4" />
+          </button>
+        </div>
       </div>
+
+      {syncMessage && (
+        <p className="text-[10px] text-[#FF6B35] font-mono">{syncMessage}</p>
+      )}
 
       {designs.length === 0 ? (
         <div className="p-8 rounded-2xl bg-zinc-900 border border-zinc-800 text-center text-zinc-500 text-xs">
@@ -108,16 +160,22 @@ export function SavedDesignsGallery({
                   <p className="text-[10px] text-zinc-400 mt-0.5">
                     {design.apparelType.toUpperCase()} • Sablon {design.printWidthCm}x{design.printHeightCm} cm
                   </p>
-                  <Badge variant="neutral" className="mt-1 text-[9px] py-0 px-1.5">
-                    Offline Ready
-                  </Badge>
-                  {design.isSample && (
-                    <span title="Desain contoh — lebar 28cm = batas depan hoodie (saku kangaroo)">
-                      <Badge variant="neutral" className="mt-1 ml-1 text-[9px] py-0 px-1.5">
-                        Contoh • maks 28cm
+                  <div className="flex items-center gap-1 mt-1">
+                    {design.syncedCloud ? (
+                      <Badge variant="success" className="text-[9px] py-0 px-1.5 flex items-center gap-0.5">
+                        <Cloud className="w-2.5 h-2.5 inline" /> Cloud
                       </Badge>
-                    </span>
-                  )}
+                    ) : (
+                      <Badge variant="neutral" className="text-[9px] py-0 px-1.5">
+                        Offline HP
+                      </Badge>
+                    )}
+                    {design.isSample && (
+                      <Badge variant="neutral" className="text-[9px] py-0 px-1.5">
+                        Contoh
+                      </Badge>
+                    )}
+                  </div>
                 </div>
               </div>
 

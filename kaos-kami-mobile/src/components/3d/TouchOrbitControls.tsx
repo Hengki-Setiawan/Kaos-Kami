@@ -17,7 +17,7 @@ const CAMERA_POSITIONS: Record<CameraAngle, [number, number, number]> = {
 
 export function TouchOrbitControls() {
   const controlsRef = useRef<OrbitControlsImpl>(null);
-  const { camera } = useThree();
+  const { camera, invalidate } = useThree();
   const cameraAngle = useMobileStudioStore((s) => s.cameraAngle);
   const isGizmoDragging = useMobileStudioStore((s) => s.isGizmoDragging);
   // F3 Test Lab arbitrasi sentuh: mode stretch = orbit MATI (drag = tarik
@@ -34,8 +34,9 @@ export function TouchOrbitControls() {
     if (cameraAngle && CAMERA_POSITIONS[cameraAngle]) {
       const pos = CAMERA_POSITIONS[cameraAngle];
       targetPosRef.current = new THREE.Vector3(...pos);
+      invalidate();
     }
-  }, [cameraAngle]);
+  }, [cameraAngle, invalidate]);
 
   // Sensor DeviceOrientation: Parallax kemiringan HP halus saat memegang perangkat
   useEffect(() => {
@@ -51,6 +52,7 @@ export function TouchOrbitControls() {
         x: clampX * 0.08,
         y: clampY * 0.06,
       };
+      invalidate();
     };
 
     if (typeof window !== 'undefined' && 'DeviceOrientationEvent' in window) {
@@ -61,7 +63,7 @@ export function TouchOrbitControls() {
         window.removeEventListener('deviceorientation', handleOrientation);
       }
     };
-  }, [isGizmoDragging, isStretchDragging, isStretchMode, isFlashlightMode]);
+  }, [isGizmoDragging, isStretchDragging, isStretchMode, isFlashlightMode, invalidate]);
 
   useFrame((_, delta) => {
     if (targetPosRef.current && controlsRef.current) {
@@ -72,12 +74,16 @@ export function TouchOrbitControls() {
       if (camera.position.distanceTo(targetPosRef.current) < 0.01) {
         targetPosRef.current = null;
       }
+      invalidate();
     } else if (controlsRef.current && !isGizmoDragging && !isStretchDragging && !isStretchMode) {
       // Subtle gyro parallax response
       const targetX = gyroOffsetRef.current.x;
       const targetY = gyroOffsetRef.current.y;
-      controlsRef.current.target.x = THREE.MathUtils.lerp(controlsRef.current.target.x, targetX, Math.min(1, delta * 3));
-      controlsRef.current.target.y = THREE.MathUtils.lerp(controlsRef.current.target.y, targetY, Math.min(1, delta * 3));
+      if (Math.abs(controlsRef.current.target.x - targetX) > 0.001 || Math.abs(controlsRef.current.target.y - targetY) > 0.001) {
+        controlsRef.current.target.x = THREE.MathUtils.lerp(controlsRef.current.target.x, targetX, Math.min(1, delta * 3));
+        controlsRef.current.target.y = THREE.MathUtils.lerp(controlsRef.current.target.y, targetY, Math.min(1, delta * 3));
+        invalidate();
+      }
     }
   });
 

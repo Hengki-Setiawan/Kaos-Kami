@@ -64,113 +64,104 @@ export function SystemHealthMonitor() {
     }
   };
 
-  const getStatusBadge = (status: ServiceHealth["status"], latencyMs?: number) => {
+  const getStatusBadge = (status: ServiceHealth["status"]) => {
     switch (status) {
       case "CONNECTED":
         return (
-          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-emerald-500/15 border border-emerald-500/30 text-emerald-600 dark:text-emerald-400 text-[10px] font-bold">
-            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-            <span>TERHUBUNG</span>
-            {latencyMs !== undefined && (
-              <span className="font-mono opacity-80">({latencyMs}ms)</span>
-            )}
+          <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-600 dark:text-emerald-400 text-[9px] font-medium shrink-0">
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+            <span>Aktif</span>
           </span>
         );
       case "DEGRADED":
         return (
-          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-amber-500/15 border border-amber-500/30 text-amber-600 dark:text-amber-300 text-[10px] font-bold">
-            <AlertTriangle size={11} />
-            <span>PERLU PERHATIAN</span>
+          <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-amber-500/10 border border-amber-500/20 text-amber-600 dark:text-amber-400 text-[9px] font-medium shrink-0">
+            <span className="w-1.5 h-1.5 rounded-full bg-amber-500" />
+            <span>Perhatian</span>
           </span>
         );
       case "STANDBY":
         return (
-          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-surface border border-border-subtle text-text-muted text-[10px] font-bold">
-            <span>STANDBY / DEFAULT</span>
+          <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-surface border border-border-subtle text-text-muted text-[9px] font-medium shrink-0">
+            <span className="w-1.5 h-1.5 rounded-full bg-neutral-400" />
+            <span>Standby</span>
           </span>
         );
       case "ERROR":
         return (
-          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-rose-500/15 border border-rose-500/30 text-rose-500 text-[10px] font-bold">
-            <XCircle size={11} />
-            <span>GANGGUAN</span>
+          <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-rose-500/10 border border-rose-500/20 text-rose-500 text-[9px] font-medium shrink-0">
+            <span className="w-1.5 h-1.5 rounded-full bg-rose-500" />
+            <span>Gangguan</span>
           </span>
         );
     }
   };
 
   return (
-    <div className="p-6 rounded-2xl bg-surface border border-border-subtle space-y-4">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-border-subtle/50 pb-3">
-        <div>
-          <h3 className="font-bold text-sm text-text-primary uppercase tracking-wider flex items-center gap-2">
-            <ShieldCheck size={16} className="text-emerald-500" />
-            <span>Status Integrasi Layanan (Live Realtime)</span>
+    <div className="p-4 sm:p-5 rounded-2xl bg-surface border border-border-subtle space-y-3">
+      <div className="flex items-center justify-between border-b border-border-subtle/50 pb-2.5">
+        <div className="flex items-center gap-2">
+          <ShieldCheck size={16} className="text-emerald-500" />
+          <h3 className="font-bold text-xs text-text-primary uppercase tracking-wider">
+            Status Integrasi Layanan (Live Realtime)
           </h3>
-          <p className="text-[11px] text-text-muted mt-0.5">
-            Pemeriksaan otomatis koneksi database, media cloud, gateway pesan & sistem pembayaran.
-          </p>
         </div>
 
-        <div className="flex items-center gap-2 self-start sm:self-auto">
+        <div className="flex items-center gap-2">
           {lastCheck && (
-            <span className="text-[10px] text-text-muted font-mono">
-              Dicek: {lastCheck} WITA
+            <span className="text-[10px] text-text-muted font-mono hidden sm:inline">
+              {lastCheck} WITA
             </span>
           )}
           <button
             type="button"
             onClick={() => void checkHealth()}
             disabled={loading}
-            className="px-3 py-1.5 rounded-lg bg-canvas border border-border-subtle hover:border-brand-accent/50 text-text-primary text-[11px] font-bold flex items-center gap-1.5 transition-all cursor-pointer disabled:opacity-50"
+            className="px-2.5 py-1 rounded-lg bg-canvas border border-border-subtle hover:border-brand-accent/50 text-text-primary text-[10px] font-bold flex items-center gap-1 transition-all cursor-pointer disabled:opacity-50"
           >
-            <RefreshCw size={12} className={loading ? "animate-spin" : ""} />
-            <span>{loading ? "Memeriksa..." : "Uji Ulang"}</span>
+            <RefreshCw size={11} className={loading ? "animate-spin" : ""} />
+            <span>{loading ? "Cek…" : "Uji Ulang"}</span>
           </button>
         </div>
       </div>
 
       {error && (
-        <div className="p-3 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-400 text-xs font-bold flex items-center gap-2">
-          <XCircle size={14} />
+        <div className="p-2.5 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-400 text-xs font-semibold flex items-center gap-2">
+          <XCircle size={13} />
           <span>{error}</span>
         </div>
       )}
 
       {loading && services.length === 0 ? (
-        <div className="py-8 text-center text-text-muted text-xs flex items-center justify-center gap-2">
-          <RefreshCw size={14} className="animate-spin text-brand-accent" />
-          <span>Memeriksa status integrasi real-time...</span>
+        <div className="py-6 text-center text-text-muted text-xs flex items-center justify-center gap-2">
+          <RefreshCw size={13} className="animate-spin text-brand-accent" />
+          <span>Memeriksa status integrasi…</span>
         </div>
       ) : (
-        <div className="space-y-2.5">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
           {services.map((svc) => (
             <div
               key={svc.id}
-              className="p-3.5 rounded-xl bg-canvas border border-border-subtle flex flex-col sm:flex-row sm:items-center justify-between gap-2 hover:border-border-strong transition-colors"
+              className="p-2.5 rounded-xl bg-canvas border border-border-subtle/70 flex items-center justify-between gap-2.5 hover:border-border-strong transition-colors min-w-0"
             >
-              <div className="flex items-start sm:items-center gap-3">
+              <div className="flex items-center gap-2 min-w-0 flex-1">
                 {getCategoryIcon(svc.category)}
-                <div>
-                  <span className="font-bold text-xs text-text-primary block">
-                    {svc.name}
+                <div className="min-w-0 flex-1">
+                  <span className="font-semibold text-xs text-text-primary block truncate">
+                    {svc.name.replace("libSQL Edge Database", "Turso DB").replace("Object Storage", "R2 Storage").replace("Transaksional", "").replace("Gateway", "WA").replace("Rate API", "API")}
                   </span>
-                  <span className="text-[11px] text-text-muted leading-tight">
-                    {svc.detail}
+                  <span className="text-[10px] text-text-muted truncate block">
+                    {svc.latencyMs !== undefined ? `${svc.latencyMs}ms latency • ` : ""}{svc.detail.replace(/Koneksi libSQL HTTP aktif \(\d+ms latency\)\./, "HTTP Edge aktif")}
                   </span>
                 </div>
               </div>
-              <div className="self-end sm:self-auto">
-                {getStatusBadge(svc.status, svc.latencyMs)}
+              <div className="shrink-0">
+                {getStatusBadge(svc.status)}
               </div>
             </div>
           ))}
         </div>
       )}
-
-      <p className="text-[10px] text-text-muted leading-relaxed border-t border-border-subtle/50 pt-2.5">
-        Keamanan Server: Kunci rahasia API (secret token) diisolasi di lingkungan server dan tidak pernah diekspos ke antarmuka web.
-      </p>
     </div>
   );
 }

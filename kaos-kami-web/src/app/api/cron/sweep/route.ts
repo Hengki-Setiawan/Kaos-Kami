@@ -116,13 +116,12 @@ export async function GET(req: NextRequest) {
           for (const o of pending) {
             reconciled++;
             try {
-              // Hanya baris IPAYMU yang bisa dicek ke iPaymu (legacy DUITKU
-              // dilewati — gateway non-aktif).
+              // Hanya baris IPAYMU yang bisa dicek ke iPaymu
               if ((o.provider || "").toUpperCase() !== "IPAYMU") continue;
               const ref = (o.providerRef || "").trim();
               // Ref semu (belum ada transactionId asli) tak bisa dicek ke
               // iPaymu (butuh angka) → lewati, biarkan sweep 24 jam.
-              if (!ref || /^(pending-|IPAYMU-DEV-|reconciled-|DUITKU-)/i.test(ref)) continue;
+              if (!ref || /^(pending-|IPAYMU-DEV-|reconciled-)/i.test(ref)) continue;
               const st = await ipaymuProvider.checkTransactionStatus(ref);
               const s = (st.status || "").toLowerCase();
               const d = (st.statusDesc || "").toLowerCase();

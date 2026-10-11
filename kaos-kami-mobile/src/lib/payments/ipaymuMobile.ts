@@ -125,7 +125,3 @@ export function parsePaymentReturnUrl(url: string): { orderId: string | null; st
   }
 }
 
-// Deprecated shims agar kode lama tidak error
-export const isDuitkuReturnUrl = isPaymentReturnUrl;
-export const parseDuitkuReturnUrl = parsePaymentReturnUrl;
-export const openDuitkuPaymentModal = openPaymentBrowser;

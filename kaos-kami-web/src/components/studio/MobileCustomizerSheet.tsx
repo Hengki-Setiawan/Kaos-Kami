@@ -349,11 +349,16 @@ export const MobileCustomizerSheet: React.FC<MobileCustomizerSheetProps> = ({
                       <FlaskConical size={16} className="text-brand-accent" />
                     </div>
                     <div className="min-w-0">
-                      <p className="text-[11px] font-bold text-text-primary uppercase tracking-wider font-sans">
-                        Lab Fisika & Uji Kain
-                      </p>
+                      <div className="flex items-center gap-1.5">
+                        <p className="text-[11px] font-bold text-text-primary uppercase tracking-wider font-sans">
+                          Lab Fisika &amp; Uji Kain
+                        </p>
+                        <span className="text-[8px] font-mono font-bold px-1 py-0.2 rounded bg-amber-500/20 text-amber-500 border border-amber-500/30">
+                          BETA
+                        </span>
+                      </div>
                       <p className="text-[9px] text-text-muted truncate">
-                        Simulasi angin, regang, senter & manekin
+                        Tahap uji coba: simulasi angin, regang, senter &amp; manekin
                       </p>
                     </div>
                   </div>

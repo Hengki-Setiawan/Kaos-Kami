@@ -160,6 +160,7 @@ body {
 /* Custom Scrollbar */
 ::-webkit-scrollbar {
   width: 6px;
+  height: 6px;
 }
 ::-webkit-scrollbar-track {
   background: var(--color-canvas);
@@ -170,6 +171,15 @@ body {
 }
 ::-webkit-scrollbar-thumb:hover {
   background: var(--color-brand-accent);
+}
+
+/* Cross-browser Hide Scrollbar Utility */
+.no-scrollbar {
+  -ms-overflow-style: none; /* IE and Edge */
+  scrollbar-width: none; /* Firefox */
+}
+.no-scrollbar::-webkit-scrollbar {
+  display: none; /* Chrome, Safari, Opera */
 }
 /* Print scoping (audit #17): halaman cetak workshop (gang-sheet/job-ticket)
    hanya mencetak area kertas � nav/aside/tombol disembunyikan. Elemen yang

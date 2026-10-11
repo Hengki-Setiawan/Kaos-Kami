@@ -10,8 +10,10 @@ import {
   LogOut,
   ExternalLink,
   Layers,
+  Printer,
   MessageSquare,
   Sparkles,
+  Package,
 } from "lucide-react";
 import { signOut } from "@/lib/auth-client";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
@@ -40,6 +42,12 @@ const LINKS: NavLink[] = [
     roleLimit: ["ADMIN", "SUPER_ADMIN", "PRODUCTION_STAFF"],
   },
   {
+    href: "/admin/gang-sheet",
+    label: "Gang Sheet Roll DTF",
+    Icon: Printer,
+    roleLimit: ["ADMIN", "SUPER_ADMIN", "PRODUCTION_STAFF"],
+  },
+  {
     href: "/admin/deliveries",
     label: "Hub Pengiriman & Kurir",
     Icon: Truck,
@@ -47,7 +55,7 @@ const LINKS: NavLink[] = [
   },
   {
     href: "/admin/chat",
-    label: "Live Chat CS (Kamito)",
+    label: "Chat & Pesan",
     Icon: MessageSquare,
     roleLimit: ["ADMIN", "SUPER_ADMIN"],
   },
@@ -85,14 +93,20 @@ export function AdminNav({ role }: { role?: string | null }) {
     setAskingLogout(false);
     setBusy(true);
     try {
+      await fetch("/api/auth/pin-bypass", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "logout" }),
+      });
+      const { clearCachedSession } = await import("@/lib/auth-client");
+      clearCachedSession();
       await signOut();
     } catch {
       // Fallback
     } finally {
       setBusy(false);
     }
-    router.push("/");
-    router.refresh();
+    window.location.replace("/");
   };
 
   return (

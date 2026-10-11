@@ -175,6 +175,21 @@ export const mobileApiClient = {
     }
   },
 
+  fetchCloudDesigns: async (userId: string): Promise<{ success: boolean; designs?: any[]; error?: string }> => {
+    try {
+      const response: HttpResponse = await CapacitorHttp.get({
+        url: `${BASE_API_URL}/api/mobile/designs/sync?userId=${encodeURIComponent(userId)}`,
+        ...HTTP_TIMEOUT,
+      });
+      if (response.status === 200 && response.data?.success) {
+        return { success: true, designs: response.data?.designs || [] };
+      }
+      return { success: false, error: response.data?.error || `Gagal mengambil desain (${response.status})` };
+    } catch (err: any) {
+      return { success: false, error: err?.message || 'Jaringan bermasalah' };
+    }
+  },
+
   registerPushToken: async (token: string, userId?: string): Promise<boolean> => {
     try {
       const response: HttpResponse = await CapacitorHttp.post({

@@ -22,6 +22,10 @@ import {
   FileText,
   Lock,
   Ruler,
+  Calculator,
+  HelpCircle,
+  ChevronRight,
+  ExternalLink,
 } from 'lucide-react';
 import {
   NativeHeader,
@@ -70,11 +74,10 @@ import {
   UserOrderTrackerLive,
   TechPackModal,
   UserOrderHistory,
+  MobileKalkulatorSheet,
 } from '@/components/commerce';
 import { parsePaymentReturnUrl, openPaymentBrowser } from '@/lib/payments/ipaymuMobile';
-import { AdminMobileDashboard } from '@/components/admin';
 import { SavedDesignsGallery } from '@/components/offline';
-import { BiometricLockPrompt } from '@/components/security';
 import { DynamicIslandPreview } from '@/components/native';
 import { optimizeDecalImageForMobile } from '@/lib/enhancers/imageOptimizerMobile';
 import { useMobileDeviceTier } from '@/hooks/useMobileDeviceTier';
@@ -133,10 +136,9 @@ function BiometricBadge() {
 export default function MobileApp() {
   const [activeTab, setActiveTab] = useState<TabKey>('home');
   const [sheetOpen, setSheetOpen] = useState(false);
+  const [kalkulatorOpen, setKalkulatorOpen] = useState(false);
   const [cartOpen, setCartOpen] = useState(false);
   const [checkoutOpen, setCheckoutOpen] = useState(false);
-  const [adminModeOpen, setAdminModeOpen] = useState(false);
-  const [biometricPromptOpen, setBiometricPromptOpen] = useState(false);
   const [arOpen, setArOpen] = useState(false);
   const [techPackOpen, setTechPackOpen] = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
@@ -492,20 +494,16 @@ export default function MobileApp() {
             setCartOpen(false);
             return;
           }
+          if (kalkulatorOpen) {
+            setKalkulatorOpen(false);
+            return;
+          }
           if (sheetOpen) {
             setSheetOpen(false);
             return;
           }
-          if (adminModeOpen) {
-            setAdminModeOpen(false);
-            return;
-          }
           if (techPackOpen) {
             setTechPackOpen(false);
-            return;
-          }
-          if (biometricPromptOpen) {
-            setBiometricPromptOpen(false);
             return;
           }
           if (activeTab !== 'home') {
@@ -521,7 +519,7 @@ export default function MobileApp() {
     return () => {
       try { h?.remove(); } catch {}
     };
-  }, [activeTab, sheetOpen, cartOpen, checkoutOpen, adminModeOpen, techPackOpen, arOpen, biometricPromptOpen]);
+  }, [activeTab, sheetOpen, kalkulatorOpen, cartOpen, checkoutOpen, techPackOpen, arOpen]);
 
   const triggerToast = (msg: string) => {
     setToastMessage(msg);
@@ -809,10 +807,14 @@ export default function MobileApp() {
       <NativeHeader
         title="KAOS KAMI"
         subtitle={
-          adminModeOpen
-            ? 'Workshop Admin Portal'
-            : activeTab === 'studio'
+          activeTab === 'studio'
             ? '3D Configurator Studio'
+            : activeTab === 'orders'
+            ? 'Lacak Pesanan Realtime'
+            : activeTab === 'catalog'
+            ? 'Katalog Apparel DTF'
+            : activeTab === 'profile'
+            ? 'Akun & Desain Cloud'
             : 'Makassar Streetwear & DTF'
         }
         actions={
@@ -855,7 +857,7 @@ export default function MobileApp() {
                   <Flame className="w-3.5 h-3.5" />
                   3D CONFIGURATOR 2026
                 </span>
-                <Badge variant="production">DTF 30.0 cm Max</Badge>
+                <Badge variant="production">DTF 35.0 cm Max</Badge>
               </div>
 
               <h2 className="text-xl font-extrabold text-white font-sans leading-tight mb-1">
@@ -901,20 +903,35 @@ export default function MobileApp() {
             </GlassCard>
 
             {/* Quick Action Grid */}
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+            <div className="grid grid-cols-3 gap-2.5">
               <GlassCard
                 interactive
                 onClick={() => {
                   haptic.tap();
                   setActiveTab('catalog');
                 }}
-                className="p-4"
+                className="p-3 text-center"
               >
-                <div className="w-10 h-10 rounded-2xl bg-orange-500/10 flex items-center justify-center text-[#FF6B35] mb-2.5">
-                  <ShoppingBag className="w-5 h-5" />
+                <div className="w-9 h-9 mx-auto rounded-2xl bg-orange-500/10 flex items-center justify-center text-[#FF6B35] mb-2">
+                  <ShoppingBag className="w-4 h-4" />
                 </div>
-                <h3 className="text-sm font-bold text-white font-sans">Katalog Baju</h3>
-                <p className="text-[10px] text-zinc-400 mt-0.5 font-mono">Apparel Ready Stock</p>
+                <h3 className="text-xs font-bold text-white font-sans">Katalog</h3>
+                <p className="text-[9px] text-zinc-400 mt-0.5 font-mono">Ready Stock</p>
+              </GlassCard>
+
+              <GlassCard
+                interactive
+                onClick={() => {
+                  haptic.tap();
+                  setKalkulatorOpen(true);
+                }}
+                className="p-3 text-center border-[#FF6B35]/30 bg-orange-500/5"
+              >
+                <div className="w-9 h-9 mx-auto rounded-2xl bg-[#FF6B35]/15 flex items-center justify-center text-[#FF6B35] mb-2">
+                  <Calculator className="w-4 h-4" />
+                </div>
+                <h3 className="text-xs font-bold text-[#FF6B35] font-sans">Kalkulator</h3>
+                <p className="text-[9px] text-zinc-400 mt-0.5 font-mono">Hitung DTF</p>
               </GlassCard>
 
               <GlassCard
@@ -923,34 +940,37 @@ export default function MobileApp() {
                   haptic.tap();
                   setActiveTab('orders');
                 }}
-                className="p-4"
+                className="p-3 text-center"
               >
-                <div className="w-10 h-10 rounded-2xl bg-blue-500/10 flex items-center justify-center text-blue-400 mb-2.5">
-                  <ClipboardList className="w-5 h-5" />
+                <div className="w-9 h-9 mx-auto rounded-2xl bg-blue-500/10 flex items-center justify-center text-blue-400 mb-2">
+                  <ClipboardList className="w-4 h-4" />
                 </div>
-                <h3 className="text-sm font-bold text-white font-sans">Lacak Pesanan</h3>
-                <p className="text-[10px] text-zinc-400 mt-0.5 font-mono">Status & Bayar QRIS</p>
+                <h3 className="text-xs font-bold text-white font-sans">Pesanan</h3>
+                <p className="text-[9px] text-zinc-400 mt-0.5 font-mono">Lacak & QRIS</p>
               </GlassCard>
             </div>
 
-            {/* Admin Workshop Access Card */}
+            {/* Garansi Kualitas & Layanan Pelanggan */}
             <GlassCard className="p-4 bg-gradient-to-r from-zinc-900 to-zinc-800/90 border-zinc-700/60 flex items-center justify-between">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-2xl bg-emerald-500/15 flex items-center justify-center text-emerald-400">
                   <ShieldCheck className="w-5 h-5" />
                 </div>
                 <div>
-                  <h4 className="text-xs font-bold text-white font-sans">Admin Workshop</h4>
-                  <p className="text-[10px] text-zinc-400 font-mono">ACC Desain & Antrean Cetak</p>
+                  <h4 className="text-xs font-bold text-white font-sans">Garansi Kualitas DTF</h4>
+                  <p className="text-[10px] text-zinc-400 font-mono">Presisi A3 • Combed 24s • QC Fisik</p>
                 </div>
               </div>
               <HapticButton
-                variant="secondary"
+                variant="glass"
                 hapticStyle="tap"
-                onClick={() => setBiometricPromptOpen(true)}
-                className="px-3.5 py-2 text-xs"
+                onClick={() => {
+                  haptic.tap();
+                  setActiveTab('orders');
+                }}
+                className="px-3 py-1.5 text-[11px] font-bold text-emerald-400 border-emerald-500/30"
               >
-                Buka Portal
+                Cek Order
               </HapticButton>
             </GlassCard>
           </div>
@@ -1303,12 +1323,69 @@ export default function MobileApp() {
               </HapticButton>
             </GlassCard>
 
+            {/* Kalkulator Sablon DTF Card */}
+            <GlassCard
+              interactive
+              onClick={() => {
+                haptic.tap();
+                setKalkulatorOpen(true);
+              }}
+              className="p-4 border-[#FF6B35]/30 bg-orange-500/5 flex items-center justify-between"
+            >
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-2xl bg-[#FF6B35]/15 flex items-center justify-center text-[#FF6B35]">
+                  <Calculator className="w-5 h-5" />
+                </div>
+                <div>
+                  <h4 className="text-xs font-bold text-white font-sans">Kalkulator Sablon DTF</h4>
+                  <p className="text-[10px] text-zinc-400 font-mono">Simulasi Biaya & Diskon Grosir</p>
+                </div>
+              </div>
+              <ChevronRight className="w-4 h-4 text-zinc-500" />
+            </GlassCard>
+
+            {/* Pusat Bantuan & Dokumen Legalitas Resmi */}
+            <GlassCard className="p-4 space-y-2.5 border-zinc-800 bg-zinc-900/60">
+              <div className="flex items-center gap-2 mb-1">
+                <HelpCircle className="w-4 h-4 text-zinc-400" />
+                <h4 className="text-xs font-bold text-white font-sans">Bantuan & Legalitas Resmi</h4>
+              </div>
+
+              {[
+                { title: 'Tanya Jawab (FAQ)', url: `${API_BASE_URL}/faq`, desc: 'Panduan sablon, order & format file' },
+                { title: 'Kebijakan Pengembalian & Refund', url: `${API_BASE_URL}/refund`, desc: 'Garansi sablon & komplain unboxing' },
+                { title: 'Syarat & Ketentuan Layanan', url: `${API_BASE_URL}/terms`, desc: 'Ketentuan order maklon & hak cipta' },
+                { title: 'Kebijakan Privasi', url: `${API_BASE_URL}/privacy`, desc: 'Keamanan data & privasi akun' },
+                { title: 'Kredit & Lisensi Aset 3D', url: `${API_BASE_URL}/kredit`, desc: 'Atribusi lisensi 3D model & font' },
+              ].map((item, idx) => (
+                <button
+                  key={idx}
+                  type="button"
+                  onClick={() => {
+                    haptic.tap();
+                    openInAppBrowser(item.url);
+                  }}
+                  className="w-full flex items-center justify-between p-2.5 rounded-xl bg-zinc-800/40 hover:bg-zinc-800/80 border border-zinc-700/40 transition-colors text-left"
+                >
+                  <div>
+                    <p className="text-xs font-semibold text-zinc-200">{item.title}</p>
+                    <p className="text-[10px] text-zinc-400 font-mono">{item.desc}</p>
+                  </div>
+                  <ExternalLink className="w-3.5 h-3.5 text-zinc-500 flex-shrink-0 ml-2" />
+                </button>
+              ))}
+            </GlassCard>
+
+            {/* Bantuan Langsung via WhatsApp CS */}
             <HapticButton
               variant="secondary"
-              onClick={() => setBiometricPromptOpen(true)}
-              className="w-full"
+              onClick={() => {
+                haptic.tap();
+                window.open(`https://wa.me/${SHOP_WHATSAPP}?text=${encodeURIComponent('Halo CS Kaos Kami, saya ingin konsultasi pesanan sablon DTF.')}`, '_blank');
+              }}
+              className="w-full flex items-center justify-center gap-2 py-3 bg-emerald-600/15 border border-emerald-500/40 text-emerald-400 hover:bg-emerald-600/25 font-bold"
             >
-              Masuk ke Admin Workshop
+              <span>Konsultasi CS WhatsApp ({SHOP_WHATSAPP})</span>
             </HapticButton>
           </div>
         )}
@@ -1615,33 +1692,6 @@ export default function MobileApp() {
         }}
         onNotify={(msg) => triggerToast(msg)}
       />
-
-      {/* ADMIN WORKSHOP DRAWER */}
-      <BottomSheet
-        open={adminModeOpen}
-        onOpenChange={setAdminModeOpen}
-        title="Admin Mobile Workshop"
-        description="ACC Desain & Kontrol Antrean Sablon DTF"
-      >
-        <AdminMobileDashboard
-          onClose={() => setAdminModeOpen(false)}
-          onNotify={(msg) => triggerToast(msg)}
-        />
-      </BottomSheet>
-
-      {/* BIOMETRIC PROMPT */}
-      {biometricPromptOpen && (
-        <BiometricLockPrompt
-          title="Verifikasi Workshop Admin"
-          description="Gunakan Sidik Jari atau Face ID untuk mengonfirmasi identitas Admin Workshop Kaos Kami."
-          onSuccess={() => {
-            setBiometricPromptOpen(false);
-            setAdminModeOpen(true);
-          }}
-          onCancel={() => setBiometricPromptOpen(false)}
-        />
-      )}
-
       {/* B2B TECH PACK VIEWER SHEET — tetap HTML (tanpa lib PDF).
           Nilai dari gizmo/store + cart nyata; fallback jujur bila kosong. */}
       <TechPackModal
@@ -1707,6 +1757,13 @@ export default function MobileApp() {
           setSize(sz);
           setSizeGuideOpen(false);
         }}
+      />
+
+      {/* Kalkulator Sablon DTF Sheet */}
+      <MobileKalkulatorSheet
+        open={kalkulatorOpen}
+        onOpenChange={setKalkulatorOpen}
+        onOpenStudio={() => setActiveTab('studio')}
       />
     </div>
   );

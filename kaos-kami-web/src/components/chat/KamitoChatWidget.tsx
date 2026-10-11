@@ -14,6 +14,14 @@ import {
   Sparkles,
   ChevronDown,
   ShieldCheck,
+  AlertCircle,
+  Bug,
+  Image as ImageIcon,
+  UploadCloud,
+  Trash2,
+  ZoomIn,
+  CheckCircle2,
+  ArrowLeft,
 } from "lucide-react";
 import { useSession } from "@/lib/auth-client";
 import { useConfiguratorStore } from "@/store/useConfiguratorStore";
@@ -63,8 +71,36 @@ export function KamitoChatWidget() {
   const [presence, setPresence] = useState<PresenceData | null>(null);
   const [unreadCount, setUnreadCount] = useState(0);
   const [isDragging, setIsDragging] = useState(false);
+  const [mounted, setMounted] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
+
+  // Tab Mode: Chat CS vs Lapor Kendala / Bug
+  const [activeTab, setActiveTab] = useState<"chat" | "report">("chat");
+
+  // State Form Laporan Kendala & Bug
+  const [reportCategory, setReportCategory] = useState<string>("BUG_APP");
+  const [reportMessage, setReportMessage] = useState<string>("");
+  const [reportImages, setReportImages] = useState<string[]>([]);
+  const [isUploadingImage, setIsUploadingImage] = useState<boolean>(false);
+  const [reportHoneypot, setReportHoneypot] = useState<string>("");
+  const [reportCooldownSeconds, setReportCooldownSeconds] = useState<number>(0);
+  const [previewModalUrl, setPreviewModalUrl] = useState<string | null>(null);
+  const [reportSuccessBanner, setReportSuccessBanner] = useState<boolean>(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Countdown throttle cooldown (10 detik pasca kirim laporan)
+  useEffect(() => {
+    if (reportCooldownSeconds <= 0) return;
+    const timer = setInterval(() => {
+      setReportCooldownSeconds((prev) => (prev > 0 ? prev - 1 : 0));
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [reportCooldownSeconds]);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   // Guest ID persistent di browser untuk pengunjung tanpa login
   const [guestId, setGuestId] = useState<string>("");
@@ -108,7 +144,7 @@ export function KamitoChatWidget() {
     } catch {}
   }, []);
 
-  const isOnlineNow = isAdmin || Boolean(presence?.isAdminOnline);
+  const isOnlineNow = mounted && (isAdmin || Boolean(presence?.isAdminOnline));
   const statusText = isOnlineNow ? "Online Sekarang" : "Workshop Siap Melayani";
 
   // Muat riwayat pesan (mendukung akun login & tamu via guestId)
@@ -217,6 +253,100 @@ export function KamitoChatWidget() {
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
       void handleSendMessage();
+    }
+  };
+
+  const handleReportImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.size > 3 * 1024 * 1024) {
+      alert("Ukuran berkas screenshot maksimal 3MB.");
+      return;
+    }
+    if (!["image/png", "image/jpeg", "image/webp"].includes(file.type)) {
+      alert("Format gambar harus JPG, PNG, atau WebP.");
+      return;
+    }
+    setIsUploadingImage(true);
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+      if (guestId) formData.append("guestId", guestId);
+      if (reportHoneypot) formData.append("website_hp", reportHoneypot);
+
+      const res = await fetch("/api/chat/upload", {
+        method: "POST",
+        body: formData,
+      });
+      const data = await res.json().catch(() => null);
+      if (res.ok && data?.url) {
+        setReportImages((prev) => [...prev, data.url].slice(0, 3));
+      } else {
+        alert(data?.error || "Gagal mengunggah gambar bukti screenshot.");
+      }
+    } catch {
+      alert("Terjadi kendala jaringan saat mengunggah gambar bukti.");
+    } finally {
+      setIsUploadingImage(false);
+      e.target.value = "";
+    }
+  };
+
+  const handleRemoveReportImage = (idxToRemove: number) => {
+    setReportImages((prev) => prev.filter((_, i) => i !== idxToRemove));
+  };
+
+  const handleSubmitReport = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (reportCooldownSeconds > 0) {
+      alert(`Mohon tunggu ${reportCooldownSeconds} detik sebelum mengirim laporan berikutnya.`);
+      return;
+    }
+    if (!reportMessage.trim()) {
+      alert("Harap jelaskan kendala atau error yang dialami.");
+      return;
+    }
+
+    setIsSending(true);
+    try {
+      const categoryLabels: Record<string, string> = {
+        BUG_APP: "Bug / Error Tampilan",
+        CHECKOUT: "Masalah Checkout & Pembayaran",
+        DESIGN_3D: "Kendala Desain 3D / Sablon",
+        SHIPPING: "Pengiriman / Ekspedisi",
+        OTHER: "Kendala Teknis Lainnya",
+      };
+      const catLabel = categoryLabels[reportCategory] || reportCategory;
+      const formattedContent = `[LAPORAN KENDALA / BUG: ${catLabel}]\n${reportMessage.trim()}`;
+
+      const res = await fetch("/api/chat/messages", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          content: formattedContent,
+          isReport: true,
+          attachments: reportImages,
+          guestId: !userId ? guestId : undefined,
+          website_hp: reportHoneypot,
+        }),
+      });
+
+      const data = await res.json().catch(() => null);
+      if (res.ok && data?.success) {
+        setReportMessage("");
+        setReportImages([]);
+        setReportCooldownSeconds(10);
+        setReportSuccessBanner(true);
+        setActiveTab("chat");
+        await fetchMessages();
+        setTimeout(() => setReportSuccessBanner(false), 6000);
+      } else {
+        alert(data?.error || "Gagal mengirim laporan kendala.");
+      }
+    } catch {
+      alert("Terjadi kendala jaringan saat mengirim laporan.");
+    } finally {
+      setIsSending(false);
     }
   };
 
@@ -375,37 +505,38 @@ export function KamitoChatWidget() {
               <MessageCircle size={20} className="text-brand-accent absolute pointer-events-none opacity-40" />
             </div>
             <span
+              suppressHydrationWarning
               className={`absolute bottom-0.5 right-0.5 w-3.5 h-3.5 rounded-full border-2 border-surface ${
                 isOnlineNow ? "bg-emerald-500 animate-pulse" : "bg-neutral-500"
               }`}
             />
-            {unreadCount > 0 && (
+            {mounted && unreadCount > 0 && (
               <span className="absolute -top-1 -right-1 min-w-5 h-5 px-1 rounded-full bg-rose-500 text-white text-[10px] font-mono font-bold flex items-center justify-center animate-bounce shadow-md">
                 {unreadCount}
               </span>
             )}
             {/* Tooltip on hover */}
             <span className="absolute right-full mr-3 px-3 py-1.5 rounded-xl bg-surface/95 backdrop-blur-md border border-border-subtle text-[11px] font-sans font-bold text-text-primary shadow-xl whitespace-nowrap opacity-0 pointer-events-none group-hover:opacity-100 transition-opacity duration-200">
-              Tanya Kamito CS · <span className="text-brand-accent">{isOnlineNow ? "Online" : "Workshop"}</span>
+              Tanya Kamito CS · <span suppressHydrationWarning className="text-brand-accent">{isOnlineNow ? "Online" : "Workshop"}</span>
             </span>
           </button>
         </div>
       )}
 
-      {/* Floating Chat Modal / Popup (Ukuran Luas & Bersih Tanpa Elemen Mubazir) */}
+      {/* Floating Chat Modal / Popup (OLED Matte Precision & Frameless Minimalist) */}
       {isOpen && (
         <div
-          className={`w-[calc(100vw-2rem)] sm:w-[420px] rounded-2xl bg-surface/95 backdrop-blur-2xl border border-border-strong shadow-2xl overflow-hidden flex flex-col ${
-            isMinimized ? "h-14" : "h-[580px] max-h-[86vh]"
+          className={`w-[calc(100vw-2rem)] sm:w-[400px] rounded-2xl bg-[#0F1013] border border-white/[0.08] shadow-[0_24px_60px_-15px_rgba(0,0,0,0.85)] overflow-hidden flex flex-col transition-all duration-200 ${
+            isMinimized ? "h-14" : "h-[560px] max-h-[85vh]"
           }`}
         >
-          {/* Header Bar - Draggable & Minimalist */}
+          {/* Header Bar - Draggable, Minimalist & Clean */}
           <div
             onPointerDown={handlePointerDown}
-            className="p-3.5 bg-canvas/90 border-b border-border-subtle flex items-center justify-between shrink-0 select-none cursor-grab active:cursor-grabbing touch-none"
+            className="px-4 py-3 bg-[#141519] border-b border-white/[0.06] flex items-center justify-between shrink-0 select-none cursor-grab active:cursor-grabbing touch-none"
           >
-            <div className="flex items-center gap-3 pointer-events-none">
-              <div className="relative w-9 h-9 rounded-full overflow-hidden bg-brand-accent/20 border border-brand-accent/40 shrink-0">
+            <div className="flex items-center gap-2.5 pointer-events-none">
+              <div className="relative w-8 h-8 rounded-full overflow-hidden bg-brand-accent/20 border border-brand-accent/30 shrink-0">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
                   src="/mascot/kamito-avatar.png"
@@ -413,7 +544,8 @@ export function KamitoChatWidget() {
                   className="w-full h-full object-cover"
                 />
                 <span
-                  className={`absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full border border-canvas ${
+                  suppressHydrationWarning
+                  className={`absolute bottom-0 right-0 w-2 h-2 rounded-full border border-[#141519] ${
                     isOnlineNow ? "bg-emerald-500 animate-pulse" : "bg-neutral-500"
                   }`}
                 />
@@ -421,43 +553,37 @@ export function KamitoChatWidget() {
 
               <div>
                 <div className="flex items-center gap-1.5">
-                  <span className="font-sans font-bold text-xs uppercase tracking-tight text-text-primary">
-                    KAMITO CS
+                  <span className="font-sans font-bold text-xs text-white">
+                    Kamito CS
                   </span>
-                  <span className="text-[9px] font-mono px-1.5 py-0.2 rounded-full bg-emerald-500/15 text-emerald-400 font-bold border border-emerald-500/30">
-                    {statusText}
+                  <span
+                    suppressHydrationWarning
+                    className="text-[9px] font-mono text-emerald-400 font-medium"
+                  >
+                    · {isOnlineNow ? "Online" : "Workshop"}
                   </span>
                 </div>
-                <div className="flex items-center gap-1 text-[10px] text-text-muted mt-0.5 font-sans">
-                  <span>Kaos Kami Workshop Makassar</span>
-                </div>
+                <p className="text-[10px] text-neutral-400 font-sans">
+                  Makassar DTF Sablon
+                </p>
               </div>
             </div>
 
             {/* Action Icons */}
-            <div className="flex items-center gap-1" onPointerDown={(e) => e.stopPropagation()}>
+            <div className="flex items-center gap-0.5" onPointerDown={(e) => e.stopPropagation()}>
               <a
                 href={shopWaLink("Halo CS Kaos Kami, saya ingin tanya pesanan / sablon.")}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="p-1.5 rounded-lg text-emerald-400 hover:bg-canvas transition-colors"
+                className="p-1.5 rounded-lg text-emerald-400 hover:bg-white/[0.06] transition-colors"
                 title="Buka Chat via WhatsApp"
               >
                 <PhoneCall size={14} />
               </a>
               <button
                 type="button"
-                onClick={() => void fetchMessages()}
-                className="p-1.5 rounded-lg text-text-muted hover:text-text-primary hover:bg-canvas transition-colors cursor-pointer"
-                title="Segarkan pesan"
-                aria-label="Segarkan pesan"
-              >
-                <RefreshCw size={13} />
-              </button>
-              <button
-                type="button"
                 onClick={() => setIsMinimized((prev) => !prev)}
-                className="p-1.5 rounded-lg text-text-muted hover:text-text-primary hover:bg-canvas transition-colors cursor-pointer"
+                className="p-1.5 rounded-lg text-neutral-400 hover:text-white hover:bg-white/[0.06] transition-colors cursor-pointer"
                 title={isMinimized ? "Perbesar" : "Kecilkan"}
                 aria-label="Minimize Chat"
               >
@@ -466,7 +592,7 @@ export function KamitoChatWidget() {
               <button
                 type="button"
                 onClick={() => setIsOpen(false)}
-                className="p-1.5 rounded-lg text-text-muted hover:text-text-primary hover:bg-canvas transition-colors cursor-pointer"
+                className="p-1.5 rounded-lg text-neutral-400 hover:text-white hover:bg-white/[0.06] transition-colors cursor-pointer"
                 title="Tutup Chat"
                 aria-label="Tutup Chat"
               >
@@ -477,160 +603,397 @@ export function KamitoChatWidget() {
 
           {!isMinimized && (
             <>
-              {/* Chat Message List - Luas & Mengalir */}
-              <div className="flex-1 overflow-y-auto p-4 space-y-3.5 bg-canvas/30 text-xs">
-                {/* Welcoming Message from Kamito */}
-                <div className="flex items-start gap-2.5 max-w-[88%]">
-                  <div className="w-8 h-8 rounded-full overflow-hidden bg-brand-accent/20 border border-brand-accent/40 shrink-0 mt-0.5 shadow-sm">
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img
-                      src="/mascot/kamito-avatar.png"
-                      alt="Kamito"
-                      className="w-full h-full object-cover"
-                    />
-                  </div>
-                  <div className="p-3.5 rounded-2xl rounded-tl-sm bg-surface border border-border-subtle shadow-sm space-y-1">
-                    <div className="flex items-center justify-between gap-2">
-                      <span className="text-[10px] font-bold text-brand-accent font-mono flex items-center gap-1.5">
-                        <span>Kamito</span>
-                        <span className="text-[9px] px-1.5 py-0.2 rounded-full bg-emerald-500/15 text-emerald-400 font-normal border border-emerald-500/30">
-                          CS Kaos Kami
-                        </span>
-                      </span>
-                    </div>
-                    <p className="text-[11px] leading-relaxed text-text-primary">
-                      Halo! Saya Kamito dari Customer Service Kaos Kami Makassar. Ada yang bisa kami bantu seputar sablon DTF, bahan katun combed, atau pesananmu?
-                    </p>
-                  </div>
-                </div>
-
-                {/* Riwayat Pesan */}
-                {messages.map((m) => {
-                  const isMine = m.senderId === effectiveId;
-                  return (
-                    <div
-                      key={m.id}
-                      className={`flex items-start gap-2.5 ${
-                        isMine ? "justify-end" : "justify-start"
-                      }`}
-                    >
-                      {!isMine && (
-                        <div className="w-8 h-8 rounded-full overflow-hidden bg-brand-accent/20 border border-brand-accent/40 shrink-0 mt-0.5 shadow-sm">
-                          {/* eslint-disable-next-line @next/next/no-img-element */}
-                          <img
-                            src="/mascot/kamito-avatar.png"
-                            alt="Kamito"
-                            className="w-full h-full object-cover"
-                          />
-                        </div>
-                      )}
-
-                      <div
-                        className={`p-3 rounded-2xl max-w-[82%] shadow-sm space-y-1 ${
-                          isMine
-                            ? "bg-brand-accent text-canvas rounded-tr-sm font-medium"
-                            : "bg-surface border border-border-subtle text-text-primary rounded-tl-sm"
-                        }`}
-                      >
-                        {!isMine && (
-                          <div className="flex items-center gap-1.5 text-[10px] font-mono text-brand-accent font-bold">
-                            <span>Kamito (CS Kaos Kami)</span>
-                          </div>
-                        )}
-
-                        <p className="text-[11px] leading-relaxed break-words whitespace-pre-wrap">
-                          {m.content}
-                        </p>
-
-                        <div
-                          className={`flex items-center justify-end gap-1 text-[9px] font-mono mt-1 ${
-                            isMine ? "text-canvas/80" : "text-text-muted"
-                          }`}
-                        >
-                          <span>
-                            {new Date(m.createdAt).toLocaleTimeString("id-ID", {
-                              hour: "2-digit",
-                              minute: "2-digit",
-                            })}
-                          </span>
-                          {isMine && (
-                            <span>
-                              {m.isRead ? <CheckCheck size={11} /> : <Check size={11} />}
-                            </span>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })}
-
-                <div ref={messagesEndRef} />
-              </div>
-
-              {/* Quick Prompt Pills (Bila baru mulai) */}
-              {messages.length <= 1 && (
-                <div className="px-3.5 py-2 bg-canvas/50 border-t border-border-subtle/60 flex items-center gap-1.5 overflow-x-auto no-scrollbar shrink-0">
-                  {QUICK_PROMPTS.map((prompt, idx) => (
-                    <button
-                      key={idx}
-                      type="button"
-                      onClick={() => void handleSendMessage(prompt)}
-                      className="px-2.5 py-1 rounded-full bg-surface border border-border-subtle hover:border-brand-accent text-[10px] text-text-muted hover:text-text-primary whitespace-nowrap transition-colors cursor-pointer"
-                    >
-                      {prompt}
-                    </button>
-                  ))}
+              {reportSuccessBanner && (
+                <div className="px-3.5 py-2 bg-emerald-500/15 border-b border-emerald-500/30 text-emerald-400 text-[11px] flex items-center gap-2 font-medium shrink-0 animate-fadeIn">
+                  <CheckCircle2 size={14} className="shrink-0" />
+                  <span>Laporan kendala berhasil dikirim dan diteruskan ke tim teknis!</span>
                 </div>
               )}
 
-              {/* Input Bar - Terbuka Untuk Semua Pengunjung (Tamu & Member) */}
-              <div className="p-3 bg-surface border-t border-border-subtle shrink-0">
-                <form
-                  onSubmit={(e) => {
-                    e.preventDefault();
-                    void handleSendMessage();
-                  }}
-                  className="flex items-end gap-2"
-                >
-                  <textarea
-                    ref={inputRef}
-                    value={inputVal}
-                    onChange={(e) => setInputVal(e.target.value)}
-                    onKeyDown={handleKeyDown}
-                    rows={1}
-                    maxLength={2000}
-                    placeholder="Tulis pesan untuk CS Kamito..."
-                    className="flex-1 px-3.5 py-2.5 rounded-xl bg-canvas border border-border-subtle text-xs text-text-primary focus:outline-none focus:border-brand-accent resize-none max-h-24 leading-relaxed font-sans placeholder:text-neutral-500"
-                  />
-
-                  <button
-                    type="submit"
-                    disabled={isSending || !inputVal.trim()}
-                    className="p-2.5 rounded-xl bg-brand-accent text-canvas hover:brightness-110 active:scale-95 transition-all disabled:opacity-40 disabled:pointer-events-none shrink-0 shadow-sm cursor-pointer"
-                    title="Kirim pesan"
-                    aria-label="Kirim pesan"
-                  >
-                    <Send size={15} />
-                  </button>
-                </form>
-
-                {!userId && (
-                  <div className="flex items-center justify-between mt-1.5 px-1 text-[10px] text-text-muted">
-                    <span className="flex items-center gap-1">
-                      <ShieldCheck size={11} className="text-emerald-500" />
-                      <span>Mode Tamu · Chat langsung terhubung</span>
-                    </span>
+              {/* TAB 1: FORM LAPORAN KENDALA / BUG */}
+              {activeTab === "report" ? (
+                <div className="flex-1 overflow-y-auto p-4 space-y-3.5 bg-canvas/30 text-xs">
+                  <div className="flex items-center justify-between pb-2 border-b border-border-subtle">
                     <button
                       type="button"
-                      onClick={() => window.dispatchEvent(new CustomEvent("open-auth-modal"))}
-                      className="text-brand-accent hover:underline cursor-pointer font-medium"
+                      onClick={() => setActiveTab("chat")}
+                      className="flex items-center gap-1.5 text-xs text-text-muted hover:text-text-primary font-bold transition-colors cursor-pointer"
                     >
-                      Masuk akun
+                      <ArrowLeft size={13} />
+                      <span>Kembali ke Chat CS</span>
                     </button>
+                    <span className="text-[10px] text-amber-400 font-mono font-bold">Lapor Kendala</span>
                   </div>
-                )}
-              </div>
+                  <div className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/30 text-text-primary space-y-1">
+                    <div className="flex items-center gap-1.5 text-amber-500 font-bold text-[11px]">
+                      <AlertCircle size={14} />
+                      <span>Form Laporan Bug, Error & Kendala</span>
+                    </div>
+                    <p className="text-[11px] text-text-muted leading-relaxed">
+                      Mengalami tombol macet, bug checkout, atau kendala preview 3D? Laporkan di sini beserta tangkapan layar untuk segera diinvestigasi.
+                    </p>
+                  </div>
+
+                  <form onSubmit={handleSubmitReport} className="space-y-3">
+                    {/* Honeypot field (tersembunyi anti-bot spam) */}
+                    <input
+                      type="text"
+                      name="website_hp"
+                      value={reportHoneypot}
+                      onChange={(e) => setReportHoneypot(e.target.value)}
+                      tabIndex={-1}
+                      autoComplete="off"
+                      style={{ display: "none", opacity: 0, position: "absolute", zIndex: -1 }}
+                    />
+
+                    {/* Kategori Kendala */}
+                    <div>
+                      <label className="block text-[11px] font-bold text-text-primary mb-1.5">
+                        Kategori Masalah
+                      </label>
+                      <div className="grid grid-cols-2 gap-1.5">
+                        {[
+                          { id: "BUG_APP", label: "Bug / Error Tampilan" },
+                          { id: "CHECKOUT", label: "Kendala Bayar / Checkout" },
+                          { id: "DESIGN_3D", label: "Studio 3D / Sablon" },
+                          { id: "SHIPPING", label: "Pengiriman / Ongkir" },
+                          { id: "OTHER", label: "Kendala Lainnya" },
+                        ].map((cat) => (
+                          <button
+                            key={cat.id}
+                            type="button"
+                            onClick={() => setReportCategory(cat.id)}
+                            className={`px-2.5 py-1.5 rounded-lg text-[10px] font-medium border text-left transition-colors cursor-pointer ${
+                              reportCategory === cat.id
+                                ? "bg-amber-500/20 border-amber-500 text-amber-400 font-bold shadow-xs"
+                                : "bg-surface border-border-subtle text-text-muted hover:text-text-primary"
+                            }`}
+                          >
+                            {cat.label}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Textarea Detail Masalah */}
+                    <div>
+                      <label className="block text-[11px] font-bold text-text-primary mb-1 flex items-center justify-between">
+                        <span>Deskripsi Masalah / Error</span>
+                        <span className="text-[10px] text-text-muted font-mono">{reportMessage.length}/1000</span>
+                      </label>
+                      <textarea
+                        value={reportMessage}
+                        onChange={(e) => setReportMessage(e.target.value)}
+                        rows={3}
+                        maxLength={1000}
+                        placeholder="Jelaskan apa yang terjadi (misal: saat klik tombol konfirmasi, halaman stuck dan tidak muncul opsi bayar)..."
+                        className="w-full px-3 py-2 rounded-xl bg-surface border border-border-subtle text-xs text-text-primary focus:outline-none focus:border-amber-500 resize-none leading-relaxed placeholder:text-neutral-500 font-sans"
+                      />
+                    </div>
+
+                    {/* Lampirkan Foto / Screenshot */}
+                    <div>
+                      <label className="block text-[11px] font-bold text-text-primary mb-1.5 flex items-center justify-between">
+                        <span>Lampiran Foto / Screenshot Bukti</span>
+                        <span className="text-[10px] text-text-muted">Maks. 3 foto</span>
+                      </label>
+
+                      <input
+                        type="file"
+                        ref={fileInputRef}
+                        onChange={handleReportImageUpload}
+                        accept="image/png,image/jpeg,image/webp"
+                        className="hidden"
+                      />
+
+                      <div className="flex flex-wrap gap-2 items-center">
+                        {reportImages.map((imgUrl, idx) => (
+                          <div key={idx} className="relative w-16 h-16 rounded-xl border border-border-subtle overflow-hidden bg-surface group shadow-xs">
+                            {/* eslint-disable-next-line @next/next/no-img-element */}
+                            <img src={imgUrl} alt="Bukti" className="w-full h-full object-cover" />
+                            <button
+                              type="button"
+                              onClick={() => handleRemoveReportImage(idx)}
+                              className="absolute top-1 right-1 p-1 rounded-full bg-rose-600 text-white opacity-90 hover:opacity-100 transition-opacity cursor-pointer shadow-sm"
+                              title="Hapus foto"
+                            >
+                              <Trash2 size={10} />
+                            </button>
+                          </div>
+                        ))}
+
+                        {reportImages.length < 3 && (
+                          <button
+                            type="button"
+                            disabled={isUploadingImage}
+                            onClick={() => fileInputRef.current?.click()}
+                            className="w-16 h-16 rounded-xl border border-dashed border-border-subtle hover:border-amber-500 flex flex-col items-center justify-center gap-1 text-text-muted hover:text-amber-400 bg-surface/50 transition-colors cursor-pointer disabled:opacity-50"
+                            title="Unggah screenshot kendala"
+                          >
+                            {isUploadingImage ? (
+                              <RefreshCw size={14} className="animate-spin text-amber-500" />
+                            ) : (
+                              <>
+                                <UploadCloud size={16} />
+                                <span className="text-[9px]">Pilih Foto</span>
+                              </>
+                            )}
+                          </button>
+                        )}
+                      </div>
+                      <p className="text-[10px] text-text-muted mt-1.5 font-mono">
+                        Format PNG/JPG/WebP (maks. 3MB per berkas).
+                      </p>
+                    </div>
+
+                    {/* Anti Spam & Rate Limit notice */}
+                    <div className="flex items-center justify-between text-[10px] text-text-muted pt-1">
+                      <span className="flex items-center gap-1">
+                        <ShieldCheck size={11} className="text-emerald-500" />
+                        <span>Batas 5 laporan/menit (Anti-Spam)</span>
+                      </span>
+                      {reportCooldownSeconds > 0 && (
+                        <span className="text-amber-400 font-mono font-bold">
+                          Jeda {reportCooldownSeconds}s
+                        </span>
+                      )}
+                    </div>
+
+                    {/* Tombol Kirim Laporan */}
+                    <button
+                      type="submit"
+                      disabled={isSending || isUploadingImage || !reportMessage.trim() || reportCooldownSeconds > 0}
+                      className="w-full py-2.5 px-4 rounded-xl bg-amber-500 hover:bg-amber-600 text-canvas font-bold text-xs active:scale-98 transition-all disabled:opacity-40 disabled:pointer-events-none flex items-center justify-center gap-2 cursor-pointer shadow-md"
+                    >
+                      {isSending ? (
+                        <>
+                          <RefreshCw size={13} className="animate-spin" />
+                          <span>Mengirim Laporan...</span>
+                        </>
+                      ) : reportCooldownSeconds > 0 ? (
+                        <span>Tunggu {reportCooldownSeconds} detik...</span>
+                      ) : (
+                        <>
+                          <Send size={13} />
+                          <span>Kirim Laporan Kendala</span>
+                        </>
+                      )}
+                    </button>
+                  </form>
+                </div>
+              ) : (
+                /* TAB 2: CHAT LANGSUNG KAMITO CS */
+                <>
+                  {/* Chat Message List - Luas, Mengalir & OLED Matte */}
+                  <div className="flex-1 overflow-y-auto p-4 space-y-3 bg-[#0B0C0E] text-xs">
+                    {/* Welcoming Message from Kamito */}
+                    <div className="flex items-start gap-2.5 max-w-[88%]">
+                      <div className="w-7 h-7 rounded-full overflow-hidden bg-brand-accent/20 border border-brand-accent/30 shrink-0 mt-0.5 shadow-sm">
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img
+                          src="/mascot/kamito-avatar.png"
+                          alt="Kamito"
+                          className="w-full h-full object-cover"
+                        />
+                      </div>
+                      <div className="p-3 rounded-2xl rounded-tl-sm bg-[#16171B] border border-white/[0.08] shadow-sm space-y-1">
+                        <p className="text-[11px] leading-relaxed text-neutral-200">
+                          Halo! Ada yang bisa kami bantu seputar sablon DTF, bahan katun combed, atau pesananmu di workshop Makassar?
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* Riwayat Pesan */}
+                    {messages.map((m) => {
+                      const isMine = m.senderId === effectiveId;
+                      const isBugReport = m.content.startsWith("[LAPORAN KENDALA");
+
+                      return (
+                        <div
+                          key={m.id}
+                          className={`flex items-start gap-2.5 ${
+                            isMine ? "justify-end" : "justify-start"
+                          }`}
+                        >
+                          {!isMine && (
+                            <div className="w-7 h-7 rounded-full overflow-hidden bg-brand-accent/20 border border-brand-accent/30 shrink-0 mt-0.5 shadow-sm">
+                              {/* eslint-disable-next-line @next/next/no-img-element */}
+                              <img
+                                src="/mascot/kamito-avatar.png"
+                                alt="Kamito"
+                                className="w-full h-full object-cover"
+                              />
+                            </div>
+                          )}
+
+                          <div
+                            className={`p-3 rounded-2xl max-w-[82%] shadow-sm space-y-1 ${
+                              isMine
+                                ? "bg-brand-accent text-canvas rounded-tr-sm font-medium"
+                                : "bg-[#16171B] border border-white/[0.08] text-neutral-200 rounded-tl-sm"
+                            }`}
+                          >
+                            {isBugReport && (
+                              <div className="flex items-center gap-1 text-[9px] font-mono px-2 py-0.5 rounded bg-amber-500/25 text-amber-300 font-bold border border-amber-500/40 w-fit mb-1">
+                                <Bug size={10} />
+                                <span>Laporan Kendala / Bug</span>
+                              </div>
+                            )}
+
+                            <p className="text-[11px] leading-relaxed break-words whitespace-pre-wrap">
+                              {m.content}
+                            </p>
+
+                            {/* Lampiran Foto / Screenshot Bukti */}
+                            {Array.isArray(m.attachments) && m.attachments.length > 0 && (
+                              <div className="flex flex-wrap gap-1.5 pt-1.5">
+                                {m.attachments.map((attUrl, aIdx) => (
+                                  <button
+                                    key={aIdx}
+                                    type="button"
+                                    onClick={() => setPreviewModalUrl(attUrl)}
+                                    className="group relative rounded-xl overflow-hidden border border-white/10 bg-black/20 w-16 h-16 block cursor-pointer transition-transform hover:scale-105"
+                                    title="Klik untuk memperbesar gambar"
+                                  >
+                                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                                    <img src={attUrl} alt="Bukti" className="w-full h-full object-cover" />
+                                    <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity text-white">
+                                      <ZoomIn size={12} />
+                                    </div>
+                                  </button>
+                                ))}
+                              </div>
+                            )}
+
+                            <div
+                              className={`flex items-center justify-end gap-1 text-[9px] font-mono mt-1 ${
+                                isMine ? "text-canvas/80" : "text-neutral-400"
+                              }`}
+                            >
+                              <span>
+                                {new Date(m.createdAt).toLocaleTimeString("id-ID", {
+                                  hour: "2-digit",
+                                  minute: "2-digit",
+                                })}
+                              </span>
+                              {isMine && (
+                                <span>
+                                  {m.isRead ? <CheckCheck size={11} /> : <Check size={11} />}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+
+                    <div ref={messagesEndRef} />
+                  </div>
+
+                  {/* Quick Prompt Pills (Bila baru mulai) */}
+                  {messages.length <= 1 && (
+                    <div className="px-3 py-2 bg-[#101114] border-t border-white/[0.05] flex items-center gap-1.5 overflow-x-auto no-scrollbar shrink-0">
+                      {QUICK_PROMPTS.map((prompt, idx) => (
+                        <button
+                          key={idx}
+                          type="button"
+                          onClick={() => void handleSendMessage(prompt)}
+                          className="px-2.5 py-1 rounded-full bg-[#18191E] border border-white/[0.08] hover:border-brand-accent text-[10px] text-neutral-300 hover:text-white whitespace-nowrap transition-colors cursor-pointer shrink-0"
+                        >
+                          {prompt}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Input Bar - Terbuka Untuk Semua Pengunjung (Tamu & Member) */}
+                  <div className="p-2.5 bg-[#141519] border-t border-white/[0.06] shrink-0">
+                    <form
+                      onSubmit={(e) => {
+                        e.preventDefault();
+                        void handleSendMessage();
+                      }}
+                      className="flex items-end gap-1.5"
+                    >
+                      <button
+                        type="button"
+                        onClick={() => setActiveTab("report")}
+                        className="p-2 rounded-xl text-neutral-400 hover:text-amber-400 hover:bg-white/[0.05] transition-colors shrink-0 cursor-pointer"
+                        title="Lapor kendala atau bug aplikasi"
+                        aria-label="Lapor bug"
+                      >
+                        <Bug size={16} />
+                      </button>
+
+                      <textarea
+                        ref={inputRef}
+                        value={inputVal}
+                        onChange={(e) => setInputVal(e.target.value)}
+                        onKeyDown={handleKeyDown}
+                        rows={1}
+                        maxLength={2000}
+                        placeholder="Tulis pesan untuk CS Kamito..."
+                        className="flex-1 px-3 py-2 rounded-xl bg-[#0B0C0E] border border-white/[0.08] text-xs text-neutral-100 focus:outline-none focus:border-brand-accent resize-none max-h-24 leading-relaxed font-sans placeholder:text-neutral-500"
+                      />
+
+                      <button
+                        type="submit"
+                        disabled={isSending || !inputVal.trim()}
+                        className="p-2 rounded-xl bg-brand-accent text-canvas hover:brightness-110 active:scale-95 transition-all disabled:opacity-40 disabled:pointer-events-none shrink-0 shadow-sm cursor-pointer"
+                        title="Kirim pesan"
+                        aria-label="Kirim pesan"
+                      >
+                        <Send size={15} />
+                      </button>
+                    </form>
+
+                    {!userId && (
+                      <div className="flex items-center justify-between mt-1 px-1 text-[10px] text-neutral-400">
+                        <span className="flex items-center gap-1">
+                          <ShieldCheck size={11} className="text-emerald-500" />
+                          <span>Mode Tamu · Chat terhubung</span>
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => window.dispatchEvent(new CustomEvent("open-auth-modal"))}
+                          className="text-brand-accent hover:underline cursor-pointer font-medium"
+                        >
+                          Masuk akun
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                </>
+              )}
             </>
+          )}
+
+          {/* Modal Lightbox Perbesar Gambar / Screenshot */}
+          {previewModalUrl && (
+            <div
+              className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 cursor-pointer"
+              onClick={() => setPreviewModalUrl(null)}
+            >
+              <div
+                className="relative max-w-lg max-h-[85vh] rounded-2xl overflow-hidden border border-border-subtle bg-surface shadow-2xl p-2 cursor-default"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <button
+                  type="button"
+                  onClick={() => setPreviewModalUrl(null)}
+                  className="absolute top-3 right-3 p-1.5 rounded-full bg-black/70 text-white hover:bg-black/90 transition-colors z-10 cursor-pointer"
+                  title="Tutup gambar"
+                >
+                  <X size={16} />
+                </button>
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={previewModalUrl}
+                  alt="Bukti Screenshot"
+                  className="max-w-full max-h-[75vh] rounded-xl object-contain mx-auto"
+                />
+              </div>
+            </div>
           )}
         </div>
       )}

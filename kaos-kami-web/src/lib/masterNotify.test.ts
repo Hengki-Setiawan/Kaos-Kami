@@ -12,11 +12,11 @@ import {
 
 /** Master-notify (endpoint master-attach) — unit murni + kontrak statis route. */
 
-describe("masterNotify: clamp lebar ≤30", () => {
-  it("29.9 lolos; 30 tepat; 45 dijepit 30; 0/NaN → undefined", () => {
-    expect(clampMasterPrintWidthCm(29.9)).toBeCloseTo(29.9, 6);
-    expect(clampMasterPrintWidthCm(30)).toBe(30);
-    expect(clampMasterPrintWidthCm(45)).toBe(30);
+describe("masterNotify: clamp lebar ≤35", () => {
+  it("34.9 lolos; 35 tepat; 45 dijepit 35; 0/NaN → undefined", () => {
+    expect(clampMasterPrintWidthCm(34.9)).toBeCloseTo(34.9, 6);
+    expect(clampMasterPrintWidthCm(35)).toBe(35);
+    expect(clampMasterPrintWidthCm(45)).toBe(35);
     expect(clampMasterPrintWidthCm(0)).toBeUndefined();
     expect(clampMasterPrintWidthCm(NaN)).toBeUndefined();
     expect(clampMasterPrintWidthCm(undefined)).toBeUndefined();

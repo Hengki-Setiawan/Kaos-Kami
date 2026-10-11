@@ -115,7 +115,7 @@ const FAQS: FaqItem[] = [
 const CATEGORIES = [
   { id: "all", label: "Semua Pertanyaan", icon: HelpCircle },
   { id: "custom", label: "Kustom & Desain 3D", icon: Shirt },
-  { id: "payment", label: "Pembayaran & Garansi", icon: CreditCard },
+  { id: "payment", label: "Pembayaran & Komplain", icon: CreditCard },
   { id: "production", label: "Produksi & Ongkir", icon: Truck },
   { id: "care", label: "Bahan & Perawatan", icon: Sparkles },
 ];

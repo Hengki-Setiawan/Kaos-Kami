@@ -133,6 +133,7 @@ export function CheckoutSheet({ open, onOpenChange, onOrderSuccess, onNotify }: 
   const [selectedZoneId, setSelectedZoneId] = useState<string | null>(null);
   const [gpsLoading, setGpsLoading] = useState(false);
   const [gpsMsg, setGpsMsg] = useState<string | null>(null);
+  const [gpsCoords, setGpsCoords] = useState<{ lat: number; lon: number } | null>(null);
   const [locSuggest, setLocSuggest] = useState<ShipLocation[]>([]);
   const [locLoading, setLocLoading] = useState(false);
 
@@ -229,12 +230,16 @@ export function CheckoutSheet({ open, onOpenChange, onOrderSuccess, onNotify }: 
   const handleUseGps = async () => {
     setGpsLoading(true);
     setGpsMsg(null);
+    haptic.tapMedium();
     const coords = await getCurrentCoords();
     if (!coords) {
       setGpsLoading(false);
-      setGpsMsg('Izin lokasi ditolak / GPS mati. Isi manual.');
+      setGpsMsg('Izin lokasi ditolak / GPS mati. Aktifkan lokasi HP atau isi manual.');
+      haptic.warning();
       return;
     }
+    setGpsCoords(coords);
+    haptic.success();
     const r = await reverseGeocode(coords.lat, coords.lon);
     setGpsLoading(false);
     if (r) {
@@ -247,7 +252,9 @@ export function CheckoutSheet({ open, onOpenChange, onOrderSuccess, onNotify }: 
         setSelectedZoneId(null);
       }
       setGpsMsg(r.city || r.district ? `Lokasi: ${[r.district, r.city].filter(Boolean).join(', ')}` : 'Alamat terisi dari GPS.');
-    } else setGpsMsg('Gagal baca lokasi. Isi manual.');
+    } else {
+      setGpsMsg(`GPS Terkunci: ${coords.lat.toFixed(5)}, ${coords.lon.toFixed(5)}`);
+    }
   };
 
   // P0-3: kirim OTP ke WA (hemat Fonnte: 1x per checkout, bukan per render).
@@ -470,7 +477,9 @@ export function CheckoutSheet({ open, onOpenChange, onOrderSuccess, onNotify }: 
         recipientName: customerName.trim(),
         phoneNumber: normalizedPhone,
         email: email.trim().slice(0, 254) || undefined,
-        courierNotes: courierNotes.trim().slice(0, 500) || undefined,
+        courierNotes: gpsCoords
+          ? [courierNotes.trim() || '', `[GPS:${gpsCoords.lat.toFixed(6)},${gpsCoords.lon.toFixed(6)}]`].filter(Boolean).join(' | ').slice(0, 500)
+          : (courierNotes.trim().slice(0, 500) || undefined),
         // P0-3: bukti kepemilikan WA — server 401 tanpa ini (6 digit).
         otpCode: otpCode.trim(),
         deliveryMethod: DELIVERY_TO_SERVER[selectedDelivery.id],
@@ -765,16 +774,31 @@ export function CheckoutSheet({ open, onOpenChange, onOrderSuccess, onNotify }: 
                 onChange={(e) => setCustomerAddress(e.target.value)}
                 className="w-full px-3.5 py-2.5 rounded-xl bg-zinc-900 border border-zinc-700/80 text-white text-base outline-none focus:border-[#FF6B35]"
               />
-              <button
-                type="button"
-                onClick={handleUseGps}
-                disabled={gpsLoading}
-                className="mt-1.5 flex items-center gap-1.5 text-[11px] text-[#FF6B35] font-semibold disabled:opacity-50"
-              >
-                <MapPin className="w-3.5 h-3.5" />
-                {gpsLoading ? 'Membaca GPS...' : 'Isi otomatis dari GPS HP'}
-              </button>
-              {gpsMsg && <p className="text-[11px] text-zinc-400 mt-1">{gpsMsg}</p>}
+              <div className="mt-2 p-3 rounded-xl bg-zinc-900/90 border border-zinc-700/60 space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-[11px] font-medium text-zinc-300">Titik Presisi Kurir:</span>
+                  <button
+                    type="button"
+                    onClick={handleUseGps}
+                    disabled={gpsLoading}
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#FF6B35] text-white text-xs font-bold disabled:opacity-50 active:scale-95 transition-transform cursor-pointer"
+                  >
+                    <MapPin className="w-3.5 h-3.5" />
+                    {gpsLoading ? 'Mencari GPS...' : 'Deteksi GPS HP'}
+                  </button>
+                </div>
+                {gpsCoords ? (
+                  <div className="p-2 rounded-lg bg-emerald-500/10 border border-emerald-500/30 text-[11px] text-emerald-400 font-mono font-semibold flex items-center gap-1.5">
+                    <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+                    <span>GPS Terkunci: {gpsCoords.lat.toFixed(5)}, {gpsCoords.lon.toFixed(5)}</span>
+                  </div>
+                ) : (
+                  <p className="text-[10px] text-zinc-400">
+                    Nyalakan GPS agar kurir motor Kaos Kami dapat langsung navigasi ke koordinat rumah Anda di Makassar.
+                  </p>
+                )}
+                {gpsMsg && <p className="text-[11px] text-[#FF6B35] font-medium">{gpsMsg}</p>}
+              </div>
             </div>
 
             <HapticButton
@@ -889,14 +913,17 @@ export function CheckoutSheet({ open, onOpenChange, onOrderSuccess, onNotify }: 
                   type="button"
                   onClick={handleUseGps}
                   disabled={gpsLoading}
-                  className="w-full py-2 rounded-xl bg-zinc-800 border border-zinc-700 text-[11px] text-[#FF6B35] font-semibold disabled:opacity-50"
+                  className="w-full py-2.5 rounded-xl bg-[#FF6B35]/15 border border-[#FF6B35]/40 text-xs text-[#FF6B35] font-bold disabled:opacity-50 active:scale-95 transition-transform flex items-center justify-center gap-2 cursor-pointer"
                 >
-                  {gpsLoading ? 'Membaca GPS...' : (
-                    <span className="inline-flex items-center justify-center gap-1.5">
-                      <MapPin className="w-3.5 h-3.5" /> Pilih kecamatan dari GPS HP
-                    </span>
-                  )}
+                  <MapPin className="w-3.5 h-3.5" />
+                  {gpsLoading ? 'Membaca GPS...' : 'Kunci Kecamatan dari GPS HP'}
                 </button>
+                {gpsCoords && (
+                  <div className="p-2 rounded-lg bg-emerald-500/10 border border-emerald-500/30 text-[11px] text-emerald-400 font-mono font-semibold flex items-center justify-center gap-1.5">
+                    <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+                    <span>Koordinat: {gpsCoords.lat.toFixed(5)}, {gpsCoords.lon.toFixed(5)}</span>
+                  </div>
+                )}
                 {gpsMsg && <p className="text-[11px] text-zinc-400">{gpsMsg}</p>}
               </div>
             )}

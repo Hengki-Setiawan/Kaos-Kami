@@ -890,7 +890,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                           required
                           value={loginIdentifier}
                           onChange={(e) => setLoginIdentifier(e.target.value)}
-                          placeholder="e.g. nama@email.com / 0812... / username"
+                          placeholder="Contoh: nama@email.com / 0812... / username"
                           className="w-full pl-10 pr-4 py-2 rounded-xl bg-surface border border-border-subtle focus:border-brand-accent text-sm text-text-primary placeholder:text-neutral-600 focus:outline-none transition-all font-sans"
                         />
                       </div>
@@ -987,7 +987,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                           required
                           value={registerName}
                           onChange={(e) => setRegisterName(e.target.value)}
-                          placeholder="e.g. Andi Muhammad"
+                          placeholder="Contoh: Andi Muhammad"
                           className="w-full pl-10 pr-4 py-2 rounded-xl bg-surface border border-border-subtle focus:border-brand-accent text-sm text-text-primary placeholder:text-neutral-600 focus:outline-none transition-all font-sans"
                         />
                       </div>

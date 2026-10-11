@@ -19,6 +19,8 @@ import {
   Smartphone,
   Download,
   AlertCircle,
+  MapPin,
+  ExternalLink,
 } from "lucide-react";
 
 interface OrderReceiptPageProps {
@@ -256,6 +258,30 @@ export default async function OrderReceiptPage({ params, searchParams }: OrderRe
               if (shown.length === 0) return null;
               return <p className="text-amber-400 text-[10px] print:text-black">Catatan: {shown.join(" | ")}</p>;
             })()}
+            {canSeePII && (() => {
+              const combined = `${order.courierNotes || ""} ${(order.shippingAddress?.notes || "")} ${(order.shippingAddress?.fullAddress || "")} ${(order.notes || "")}`;
+              const gpsMatch =
+                combined.match(/\[?GPS:\s*(-?\d+\.\d+),\s*(-?\d+\.\d+)\]?/i) ||
+                combined.match(/google\.com\/maps\?q=(-?\d+(?:\.\d+)?),(-?\d+(?:\.\d+)?)/) ||
+                combined.match(/(-?\d+\.\d{4,}),\s*(-?\d+\.\d{4,})/);
+              if (!gpsMatch) return null;
+              const lat = gpsMatch[1];
+              const lon = gpsMatch[2];
+              return (
+                <div className="pt-1.5 print:hidden">
+                  <a
+                    href={`https://www.google.com/maps?q=${lat},${lon}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-brand-accent/15 border border-brand-accent/30 text-brand-accent hover:bg-brand-accent hover:text-canvas transition-all text-[11px] font-bold group"
+                  >
+                    <MapPin size={12} className="shrink-0 group-hover:scale-110 transition-transform" />
+                    <span>Titik GPS Pengiriman ({lat}, {lon})</span>
+                    <ExternalLink size={10} className="opacity-70" />
+                  </a>
+                </div>
+              );
+            })()}
             {order.trackingNumber && order.status !== "PENDING_PAYMENT" && (
               <p className="text-emerald-400 text-[11px] print:text-black flex items-center gap-2 flex-wrap">
                 <span>
@@ -458,6 +484,21 @@ export default async function OrderReceiptPage({ params, searchParams }: OrderRe
           </div>
         )}
       </div>
+
+      {/* Mobile Floating Sticky Bar untuk Status Menunggu Pembayaran (Hanya tampil di HP, tersembunyi di Desktop) */}
+      {order.status === "PENDING_PAYMENT" && (
+        <div className="fixed bottom-0 left-0 right-0 z-40 p-3 bg-surface/95 backdrop-blur-xl border-t border-border-subtle shadow-2xl sm:hidden flex items-center justify-between gap-3 animate-slideUp print:hidden">
+          <div className="min-w-0">
+            <span className="text-[10px] text-text-muted uppercase block font-mono">Total Tagihan:</span>
+            <span className="text-sm font-bold font-mono text-brand-accent tabular-nums">
+              Rp {order.totalIdr.toLocaleString("id-ID")}
+            </span>
+          </div>
+          <div className="shrink-0 flex items-center gap-2">
+            <RepayButton orderId={order.id} orderNumber={order.orderNumber} />
+          </div>
+        </div>
+      )}
     </div>
   );
 }

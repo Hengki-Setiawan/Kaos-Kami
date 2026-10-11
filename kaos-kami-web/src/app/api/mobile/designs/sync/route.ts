@@ -186,3 +186,71 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: e?.message || "Internal error" }, { status: 500 });
   }
 }
+
+/**
+ * GET /api/mobile/designs/sync?userId=...
+ * Mengambil daftar desain tersimpan milik user dari cloud (DB Turso).
+ * Menghubungkan 3D studio web & mobile secara cross-platform (2-way sync).
+ */
+export async function GET(req: NextRequest) {
+  try {
+    const rl = await checkRateLimitAsync(`sync-get:ip:${getClientIp(req)}`, 20, 60);
+    if (rl.isLimited) {
+      return NextResponse.json({ error: "Terlalu banyak permintaan." }, { status: 429, headers: rateLimitHeaders(rl, 20) });
+    }
+
+    const { searchParams } = new URL(req.url);
+    const userId = searchParams.get("userId");
+
+    if (!userId) {
+      return NextResponse.json({ error: "userId diperlukan." }, { status: 400 });
+    }
+
+    // Anti-IDOR: hanya pemilik akun (atau admin) boleh membaca desain
+    try {
+      await assertResourceOwnerOrAdmin(userId);
+    } catch (e: any) {
+      const msg = e?.message || "Forbidden";
+      const status = msg.startsWith("Unauthorized") ? 401 : 403;
+      return NextResponse.json({ error: msg }, { status });
+    }
+
+    // Ambil desain milik user (kecuali status DELETED)
+    const userDesigns = await db.query.Design.findMany({
+      where: (t, { eq, and, ne }) => and(eq(t.userId, userId), ne(t.status, "DELETED")),
+      with: {
+        category: true,
+      },
+      orderBy: (t, { desc }) => desc(t.updatedAt),
+      limit: 20,
+    });
+
+    const formatted = userDesigns.map((d: any) => {
+      let parsedDecals: any[] = [];
+      try {
+        parsedDecals = typeof d.decals === "string" ? JSON.parse(d.decals) : (d.decals || []);
+      } catch {}
+
+      return {
+        id: d.id,
+        title: d.title,
+        apparelSlug: d.category?.slug || "tshirt",
+        apparelTitle: d.category?.name || "Kaos Custom",
+        colorHex: d.colorHex,
+        colorName: d.colorName,
+        size: d.size,
+        decals: parsedDecals,
+        previewImageFrontUrl: d.previewImageFrontUrl || null,
+        previewImageBackUrl: d.previewImageBackUrl || null,
+        calculatedPriceIdr: d.calculatedPriceIdr,
+        updatedAt: d.updatedAt ? new Date(d.updatedAt).toISOString() : new Date().toISOString(),
+        syncedCloud: true,
+      };
+    });
+
+    return NextResponse.json({ success: true, count: formatted.length, designs: formatted });
+  } catch (e: any) {
+    return NextResponse.json({ error: e?.message || "Internal error" }, { status: 500 });
+  }
+}
+

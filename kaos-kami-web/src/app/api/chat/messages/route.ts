@@ -110,13 +110,55 @@ export async function POST(req: NextRequest) {
     const session = await auth.api.getSession({ headers: req.headers }).catch(() => null);
     const user = session?.user;
     const body = await req.json().catch(() => null);
-    const guestId = typeof body?.guestId === "string" ? body.guestId.trim() : null;
+    const guestId =
+      typeof body?.guestId === "string" && body.guestId.trim().length > 0
+        ? body.guestId.trim()
+        : typeof body?.senderId === "string" && body.senderId.trim().length > 0
+        ? body.senderId.trim()
+        : null;
 
     if (!user?.id && !guestId) {
       return NextResponse.json({ error: "Identitas pengirim (user atau guestId) wajib disertakan." }, { status: 401 });
     }
 
     const effectiveUserId = user?.id || guestId!;
+
+    // 1. Honeypot check: anti-bot spam senyap tanpa popup captcha mengganggu
+    if (typeof body?.website_hp === "string" && body.website_hp.trim().length > 0) {
+      return NextResponse.json({
+        success: true,
+        message: {
+          id: `chat_hp_${Date.now()}`,
+          senderId: effectiveUserId,
+          senderName: "Pelanggan",
+          senderRole: "CUSTOMER",
+          receiverId: null,
+          orderId: null,
+          content: "Pesan terkirim.",
+          attachments: [],
+          isRead: true,
+          createdAt: new Date().toISOString(),
+        },
+      });
+    }
+
+    // 2. Proteksi spam khusus Laporan Kendala/Bug: maksimal 5 laporan per menit
+    const isReport = Boolean(
+      body?.isReport ||
+      (typeof body?.content === "string" && body.content.startsWith("[LAPORAN KENDALA"))
+    );
+
+    if (isReport) {
+      const reportRl = await checkRateLimitAsync(`chat:report:${effectiveUserId}`, 5, 60);
+      if (reportRl.isLimited) {
+        return NextResponse.json(
+          { error: "Batas 5 laporan per menit tercapai. Mohon tunggu beberapa detik sebelum mengirim laporan baru." },
+          { status: 429, headers: rateLimitHeaders(reportRl, 5) }
+        );
+      }
+    }
+
+    // Rate limiter umum chat obrolan: 20 per menit (agar obrolan santai CS tidak terhambat)
     const rl = await checkRateLimitAsync(`chat:send:${effectiveUserId}`, 20, 60);
     if (rl.isLimited) {
       return NextResponse.json(
@@ -135,6 +177,17 @@ export async function POST(req: NextRequest) {
     }
     if (content.length > 2000) {
       return NextResponse.json({ error: "Pesan maksimal 2000 karakter." }, { status: 400 });
+    }
+
+    // Validasi & sanitize attachments (maksimal 5 URL gambar/screenshot bukti)
+    let sanitizedAttachments: string[] | null = null;
+    if (Array.isArray(body?.attachments)) {
+      const filtered = body.attachments
+        .filter((u: any) => typeof u === "string" && (u.startsWith("http://") || u.startsWith("https://") || u.startsWith("data:image/")))
+        .slice(0, 5);
+      if (filtered.length > 0) {
+        sanitizedAttachments = filtered;
+      }
     }
 
     const role = user ? ((user as any)?.role || "CUSTOMER") : "CUSTOMER";
@@ -178,7 +231,7 @@ export async function POST(req: NextRequest) {
       receiverId,
       orderId: body.orderId || null,
       content,
-      attachments: body.attachments ? JSON.stringify(body.attachments) : null,
+      attachments: sanitizedAttachments ? JSON.stringify(sanitizedAttachments) : null,
       isRead: false,
       createdAt: now,
       updatedAt: now,
@@ -232,6 +285,7 @@ export async function POST(req: NextRequest) {
         receiverId,
         orderId: body.orderId || null,
         content,
+        attachments: sanitizedAttachments || [],
         isRead: false,
         createdAt: now.toISOString(),
       },

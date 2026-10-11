@@ -373,56 +373,57 @@ export async function POST(req: NextRequest) {
       const totalQty = validatedItems.reduce((a, it) => a + (it.quantity || 0), 0);
       const weightGrams = Math.max(250, totalQty * 250);
       let liveResolved = false;
+      const wantCourier = (expeditionCourier || "").trim();
+      const wantService = (expeditionService || "").trim();
+      const wantSpecific = !!(wantCourier || wantService);
+
       if (destinationPostalCode) {
-        // P0-3 STRICT: kurir/layanan yang dipilih user WAJIB ada di live rates —
-        // JANGAN silent-fallback ke termurah (user membayar ekspektasi layanan
-        // yang tak terkirim). Tanpa pilihan eksplisit → termurah (default jujur).
-        const wantCourier = (expeditionCourier || "").trim();
-        const wantService = (expeditionService || "").trim();
-        const wantSpecific = !!(wantCourier || wantService);
         try {
-          const { awRatesCached } = await import("@/lib/shipping/agenwebsite");
-          const live = await awRatesCached(destinationPostalCode, weightGrams);
-          if (live && live.length > 0) {
-            const pick = wantSpecific
-              ? live.find(
-                  (r) =>
-                    (!wantCourier || r.courierCode === wantCourier) &&
-                    (!wantService || r.serviceCode === wantService)
-                )
-              : live.find((r) => r.cheapest) || live[0]!;
-            if (!pick) {
-              return NextResponse.json(
-                {
-                  error: `Kurir/layanan yang dipilih (${[wantCourier, wantService].filter(Boolean).join(" ")}) tidak tersedia untuk kode pos ${destinationPostalCode}. Pilih dari daftar tarif live terbaru lalu checkout ulang.`,
-                },
-                { status: 400 }
-              );
+          const { awRatesCached, isAgenWebsiteConfigured } = await import("@/lib/shipping/agenwebsite");
+          if (isAgenWebsiteConfigured()) {
+            const live = await awRatesCached(destinationPostalCode, weightGrams);
+            if (live && live.length > 0) {
+              const pick = wantSpecific
+                ? live.find(
+                    (r) =>
+                      (!wantCourier || r.courierCode === wantCourier) &&
+                      (!wantService || r.serviceCode === wantService)
+                  )
+                : live.find((r) => r.cheapest) || live[0]!;
+              if (pick) {
+                shippingCostIdr = pick.costIdr;
+                expeditionLabel = `${pick.courierName} ${pick.serviceName} (live, est. ${pick.etdText})`;
+                liveResolved = true;
+              }
             }
-            shippingCostIdr = pick.costIdr;
-            expeditionLabel = `${pick.courierName} ${pick.serviceName} (live, est. ${pick.etdText})`;
-            liveResolved = true;
-          } else if (wantSpecific) {
-            return NextResponse.json(
-              {
-                error: `Tarif live tidak tersedia untuk kode pos ${destinationPostalCode}. Coba lagi / pilih kurir lain.`,
-              },
-              { status: 400 }
-            );
           }
         } catch (e: any) {
-          if (wantSpecific) {
-            // Live down + pilihan eksplisit = 400 JUJUR (fallback zona diam-diam
-            // bisa menagih tarif/janji layanan yang tak dipilih user).
-            console.warn("Live ongkir gagal (pilihan eksplisit, tolak 400):", e?.message);
-            return NextResponse.json(
-              { error: "Tarif live kurir pilihan sedang gangguan. Coba lagi sebentar / pilih kurir lain." },
-              { status: 400 }
-            );
-          }
-          console.warn("Live ongkir gagal, fallback zona:", e?.message);
+          console.warn("Live ongkir gagal:", e?.message);
         }
       }
+
+      // Bila belum resolved (AgenWebsite off/limit/tidak ada match), gunakan Master Database 514 Kota & Kabupaten
+      if (!liveResolved) {
+        const { calculateMasterCourierRates } = await import("@/lib/shipping/masterShippingRates");
+        const masterQuote = calculateMasterCourierRates(
+          destinationCity || district || destinationPostalCode || "",
+          weightGrams
+        );
+        if (masterQuote && masterQuote.rates.length > 0) {
+          const pick = wantSpecific
+            ? masterQuote.rates.find(
+                (r) =>
+                  (!wantCourier || r.courierCode === wantCourier) &&
+                  (!wantService || r.serviceCode === wantService)
+              ) || masterQuote.rates[0]!
+            : masterQuote.rates[0]!;
+          shippingCostIdr = pick.costIdr;
+          expeditionLabel = `${pick.courierName} ${pick.serviceName} ke ${masterQuote.city.city} (est. ${pick.etdText})`;
+          liveResolved = true;
+        }
+      }
+
+      // Bila master database juga tidak cocok, gunakan fallback tabel zona
       if (!liveResolved) {
         const { resolveExpeditionCost } = await import("@/lib/shipping/zones");
         const resolved = await resolveExpeditionCost({

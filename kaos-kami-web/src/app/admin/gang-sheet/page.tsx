@@ -48,6 +48,21 @@ import {
   Sun,
   Moon,
   Grid,
+  Package,
+  PlusCircle,
+  UploadCloud,
+  ShoppingBag,
+  Sliders,
+  Image as ImageIcon,
+  Shirt,
+  FolderHeart,
+  Plus,
+  Minus,
+  Info,
+  Lock,
+  Unlock,
+  ArrowUpRight,
+  Tag,
 } from "lucide-react";
 
 // ─── Tipe baris task (bentuk GET /api/admin/production-tasks) ───
@@ -231,6 +246,1279 @@ function ModalPratinjauDesain({
   );
 }
 
+// ─── Modal Impor Desain E-Commerce / File Bebas Tanpa Melalui Kanban ───
+
+interface OrderItemApi {
+  id: string;
+  quantity: number;
+  unitPriceIdr: number;
+  snapshotName: string;
+  snapshotImageUrl?: string | null;
+  snapshotSize: string;
+  snapshotColorName: string;
+  designId?: string | null;
+}
+
+interface OrderApi {
+  id: string;
+  orderNumber: string;
+  status: string;
+  totalIdr: number;
+  createdAt: string;
+  user?: {
+    name?: string | null;
+    phoneNumber?: string | null;
+  } | null;
+  items: OrderItemApi[];
+}
+
+interface CatalogProductApi {
+  id: string;
+  name: string;
+  slug?: string | null;
+  apparelSlug?: string | null;
+  basePriceIdr: number;
+  images?: string[] | string | null;
+  tags?: any;
+  isActive?: boolean;
+}
+
+export interface OfflineVaultItem {
+  id: string;
+  title: string;
+  customerName?: string;
+  orderRef?: string;
+  imageUrl: string;
+  widthCm: number;
+  heightCm: number;
+  aspectRatio: number;
+  placementSide: "front" | "back" | "sleeve";
+  apparel?: string;
+  createdAt: string;
+}
+
+interface SelectedDesignItem {
+  id: string;
+  source: "ecommerce" | "catalog" | "offline";
+  title: string;
+  subtitle: string;
+  imageUrl: string | null;
+  orderRef: string;
+  customerName: string;
+  customerPhone?: string | null;
+  aspectRatio: number;
+  placementSide: "front" | "back" | "sleeve";
+}
+
+const STORAGE_VAULT_KEY = "kaoskami_offline_print_vault";
+
+function getOfflineVaultFromStorage(): OfflineVaultItem[] {
+  if (typeof window === "undefined") return [];
+  try {
+    const raw = localStorage.getItem(STORAGE_VAULT_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
+function saveOfflineVaultToStorage(item: OfflineVaultItem) {
+  if (typeof window === "undefined") return;
+  try {
+    const list = getOfflineVaultFromStorage();
+    const updated = [item, ...list.filter((x) => x.id !== item.id)];
+    localStorage.setItem(STORAGE_VAULT_KEY, JSON.stringify(updated));
+    window.dispatchEvent(new Event("kaoskami_vault_updated"));
+  } catch (e) {
+    console.error("Gagal menyimpan ke offline vault:", e);
+  }
+}
+
+function deleteOfflineVaultFromStorage(id: string) {
+  if (typeof window === "undefined") return;
+  try {
+    const list = getOfflineVaultFromStorage();
+    const updated = list.filter((x) => x.id !== id);
+    localStorage.setItem(STORAGE_VAULT_KEY, JSON.stringify(updated));
+    window.dispatchEvent(new Event("kaoskami_vault_updated"));
+  } catch (e) {
+    console.error("Gagal menghapus dari offline vault:", e);
+  }
+}
+
+function extractCatalogImageUrl(product: CatalogProductApi): string | null {
+  try {
+    let tagsObj = product.tags;
+    if (typeof tagsObj === "string") {
+      try {
+        tagsObj = JSON.parse(tagsObj);
+      } catch {}
+    }
+    if (tagsObj?.frontDecalUrl) return tagsObj.frontDecalUrl;
+    if (Array.isArray(tagsObj?.decals) && tagsObj.decals.length > 0 && tagsObj.decals[0]?.url) {
+      return tagsObj.decals[0].url;
+    }
+    if (tagsObj?.backDecalUrl) return tagsObj.backDecalUrl;
+  } catch {}
+
+  if (Array.isArray(product.images) && product.images.length > 0) {
+    return product.images[0] ?? null;
+  }
+  if (typeof product.images === "string") {
+    try {
+      const parsed = JSON.parse(product.images);
+      if (Array.isArray(parsed) && parsed.length > 0) return parsed[0] ?? null;
+    } catch {}
+    return product.images;
+  }
+  return null;
+}
+
+function ModalImporEcommerce({
+  onClose,
+  onImportItem,
+}: {
+  onClose: () => void;
+  onImportItem: (task: TaskRow) => void;
+}) {
+  // 3 Sumber: E-Commerce, Katalog Distro, Offline Vault / Studio
+  const [tabSumber, setTabSumber] = useState<"ecommerce" | "catalog" | "offline">("ecommerce");
+
+  // 1. Data E-Commerce
+  const [orders, setOrders] = useState<OrderApi[]>([]);
+  const [memuatOrder, setMemuatOrder] = useState(true);
+  const [galatOrder, setGalatOrder] = useState<string | null>(null);
+  const [cariOrder, setCariOrder] = useState("");
+
+  // 2. Data Katalog Distro
+  const [catalogProducts, setCatalogProducts] = useState<CatalogProductApi[]>([]);
+  const [memuatCatalog, setMemuatCatalog] = useState(true);
+  const [galatCatalog, setGalatCatalog] = useState<string | null>(null);
+  const [cariCatalog, setCariCatalog] = useState("");
+
+  // 3. Data Bank Desain Offline & Vault
+  const [offlineVault, setOfflineVault] = useState<OfflineVaultItem[]>([]);
+  const [cariVault, setCariVault] = useState("");
+  const [modeUnggahOffline, setModeUnggahOffline] = useState(false);
+
+  // Form Unggah Cepat Offline
+  const [judulOffline, setJudulOffline] = useState("");
+  const [namaPemesanOffline, setNamaPemesanOffline] = useState("");
+  const [urlGambarOffline, setUrlGambarOffline] = useState("");
+
+  // Selected item yang sedang di-inspeksi di kolom kanan
+  const [itemTerpilih, setItemTerpilih] = useState<SelectedDesignItem | null>(null);
+
+  // Form kustomisasi sablon di kolom kanan
+  const [lebarCm, setLebarCm] = useState<number>(28.0);
+  const [tinggiCm, setTinggiCm] = useState<number>(35.0);
+  const [jumlahKopi, setJumlahKopi] = useState<number>(1);
+  const [posisiSablon, setPosisiSablon] = useState<"front" | "back" | "sleeve">("front");
+  const [isAspectLocked, setIsAspectLocked] = useState<boolean>(true);
+  const [rasioAspek, setRasioAspek] = useState<number>(28.0 / 35.0);
+
+  // Muat Pesanan E-Commerce
+  useEffect(() => {
+    let aktif = true;
+    async function ambilOrder() {
+      setMemuatOrder(true);
+      setGalatOrder(null);
+      try {
+        const res = await fetch("/api/admin/orders?limit=50", { credentials: "include" });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || `Server ${res.status}`);
+        if (aktif) {
+          setOrders(Array.isArray(data.orders) ? data.orders : []);
+        }
+      } catch (e: any) {
+        if (aktif) setGalatOrder(e.message || "Gagal memuat daftar pesanan");
+      } finally {
+        if (aktif) setMemuatOrder(false);
+      }
+    }
+    ambilOrder();
+    return () => {
+      aktif = false;
+    };
+  }, []);
+
+  // Muat Katalog Distro
+  useEffect(() => {
+    let aktif = true;
+    async function ambilCatalog() {
+      setMemuatCatalog(true);
+      setGalatCatalog(null);
+      try {
+        const res = await fetch("/api/admin/distro-catalog", { credentials: "include" });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || `Server ${res.status}`);
+        if (aktif) {
+          setCatalogProducts(Array.isArray(data.products) ? data.products : []);
+        }
+      } catch (e: any) {
+        if (aktif) setGalatCatalog(e.message || "Gagal memuat katalog distro");
+      } finally {
+        if (aktif) setMemuatCatalog(false);
+      }
+    }
+    ambilCatalog();
+    return () => {
+      aktif = false;
+    };
+  }, []);
+
+  // Muat Offline Vault dari LocalStorage & dengarkan update
+  const sinkronVault = useCallback(() => {
+    const list = getOfflineVaultFromStorage();
+    setOfflineVault(list);
+  }, []);
+
+  useEffect(() => {
+    sinkronVault();
+    window.addEventListener("storage", sinkronVault);
+    window.addEventListener("kaoskami_vault_updated", sinkronVault);
+    return () => {
+      window.removeEventListener("storage", sinkronVault);
+      window.removeEventListener("kaoskami_vault_updated", sinkronVault);
+    };
+  }, [sinkronVault]);
+
+  // Hitung rasio asli gambar saat item dipilih
+  const setDanHitungRasioGambar = (imgUrl: string | null, fallbackW: number = 28.0, fallbackH: number = 35.0) => {
+    if (!imgUrl) {
+      setRasioAspek(fallbackW / fallbackH);
+      return;
+    }
+    const img = new Image();
+    img.onload = () => {
+      const nw = img.naturalWidth || 1000;
+      const nh = img.naturalHeight || 1000;
+      const ratio = nw / nh;
+      setRasioAspek(ratio);
+      if (isAspectLocked && ratio > 0) {
+        const calcH = Math.max(2, Math.round((fallbackW / ratio) * 10) / 10);
+        setTinggiCm(calcH);
+      }
+    };
+    img.onerror = () => {
+      setRasioAspek(fallbackW / fallbackH);
+    };
+    img.src = imgUrl;
+  };
+
+  // Pilih item dari E-Commerce
+  const handlePilihEcommerce = (order: OrderApi, item: OrderItemApi) => {
+    const ratio = 28.0 / 35.0;
+    setItemTerpilih({
+      id: `ecom-${item.id}`,
+      source: "ecommerce",
+      title: item.snapshotName,
+      subtitle: `Ukuran: ${item.snapshotSize} · Warna: ${item.snapshotColorName}`,
+      imageUrl: item.snapshotImageUrl || null,
+      orderRef: order.orderNumber,
+      customerName: order.user?.name || "Pelanggan E-Commerce",
+      customerPhone: order.user?.phoneNumber || null,
+      aspectRatio: ratio,
+      placementSide: "front",
+    });
+    setLebarCm(28.0);
+    setTinggiCm(35.0);
+    setJumlahKopi(item.quantity || 1);
+    setPosisiSablon("front");
+    setDanHitungRasioGambar(item.snapshotImageUrl || null, 28.0, 35.0);
+  };
+
+  // Pilih item dari Katalog Distro
+  const handlePilihCatalog = (product: CatalogProductApi) => {
+    const imgUrl = extractCatalogImageUrl(product);
+    const ratio = 28.0 / 35.0;
+    setItemTerpilih({
+      id: `cat-${product.id}`,
+      source: "catalog",
+      title: product.name,
+      subtitle: `Katalog ${product.apparelSlug?.toUpperCase() || "DISTRO"} · Rp${(product.basePriceIdr || 0).toLocaleString("id-ID")}`,
+      imageUrl: imgUrl,
+      orderRef: `KATALOG-${product.slug || product.id.slice(0, 6).toUpperCase()}`,
+      customerName: "Katalog Distro Kaos Kami",
+      customerPhone: null,
+      aspectRatio: ratio,
+      placementSide: "front",
+    });
+    setLebarCm(28.0);
+    setTinggiCm(35.0);
+    setJumlahKopi(1);
+    setPosisiSablon("front");
+    setDanHitungRasioGambar(imgUrl, 28.0, 35.0);
+  };
+
+  // Pilih item dari Vault Offline
+  const handlePilihVault = (v: OfflineVaultItem) => {
+    setItemTerpilih({
+      id: v.id,
+      source: "offline",
+      title: v.title,
+      subtitle: v.customerName ? `Pelanggan: ${v.customerName}` : "Bank Desain Offline",
+      imageUrl: v.imageUrl,
+      orderRef: v.orderRef || "OFFLINE-VAULT",
+      customerName: v.customerName || "Pelanggan Workshop",
+      customerPhone: null,
+      aspectRatio: v.aspectRatio || v.widthCm / v.heightCm,
+      placementSide: v.placementSide || "front",
+    });
+    setLebarCm(v.widthCm || 28.0);
+    setTinggiCm(v.heightCm || 35.0);
+    setRasioAspek(v.aspectRatio || v.widthCm / v.heightCm);
+    setJumlahKopi(1);
+    setPosisiSablon(v.placementSide || "front");
+  };
+
+  // Input file lokal offline cepat dengan deteksi rasio otomatis
+  const handlePilihFileOffline = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      if (typeof reader.result === "string") {
+        const dataUrl = reader.result;
+        setUrlGambarOffline(dataUrl);
+        const autoTitle = file.name.replace(/\.[^/.]+$/, "");
+        if (!judulOffline) setJudulOffline(autoTitle);
+
+        const img = new Image();
+        img.onload = () => {
+          const nw = img.naturalWidth || 1000;
+          const nh = img.naturalHeight || 1000;
+          const ratio = nw / nh;
+          const defaultW = 28.0;
+          const defaultH = Math.max(2, Math.round((defaultW / ratio) * 10) / 10);
+          setRasioAspek(ratio);
+          setLebarCm(defaultW);
+          setTinggiCm(defaultH);
+          setIsAspectLocked(true);
+
+          setItemTerpilih({
+            id: `quick-${Date.now().toString(36)}`,
+            source: "offline",
+            title: autoTitle,
+            subtitle: "Berkas Unggahan Gambar Offline",
+            imageUrl: dataUrl,
+            orderRef: "OFFLINE-MANUAL",
+            customerName: namaPemesanOffline.trim() || "Pelanggan Offline",
+            customerPhone: null,
+            aspectRatio: ratio,
+            placementSide: "front",
+          });
+        };
+        img.src = dataUrl;
+      }
+    };
+    reader.readAsDataURL(file);
+  };
+
+  // Ubah lebar dengan menjaga rasio aspek bila terkunci (Anti-Gepeng)
+  const handleLebarChange = (val: number) => {
+    const safeW = Math.min(30.0, Math.max(2, val));
+    setLebarCm(safeW);
+    if (isAspectLocked && rasioAspek > 0) {
+      const calcH = Math.round((safeW / rasioAspek) * 10) / 10;
+      setTinggiCm(Math.max(2, calcH));
+    }
+  };
+
+  // Ubah tinggi dengan menjaga rasio aspek bila terkunci (Anti-Gepeng)
+  const handleTinggiChange = (val: number) => {
+    const safeH = Math.max(2, val);
+    setTinggiCm(safeH);
+    if (isAspectLocked && rasioAspek > 0) {
+      const calcW = Math.min(30.0, Math.max(2, Math.round((safeH * rasioAspek) * 10) / 10));
+      setLebarCm(calcW);
+    }
+  };
+
+  const pilihPreset = (w: number, h: number) => {
+    setLebarCm(w);
+    if (isAspectLocked && rasioAspek > 0) {
+      const calcH = Math.round((w / rasioAspek) * 10) / 10;
+      setTinggiCm(Math.max(2, calcH));
+    } else {
+      setTinggiCm(h);
+    }
+  };
+
+  // Simpan desain offline ke Bank Desain (Vault)
+  const handleSimpanKeVaultOffline = () => {
+    const imgUrl = itemTerpilih?.imageUrl || urlGambarOffline;
+    if (!imgUrl) return;
+    const title = itemTerpilih?.title || judulOffline || "Desain Offline";
+    const cust = itemTerpilih?.customerName || namaPemesanOffline || "Pelanggan Workshop";
+    const newItem: OfflineVaultItem = {
+      id: `vault-${Date.now().toString(36)}`,
+      title,
+      customerName: cust,
+      orderRef: "OFFLINE-VAULT",
+      imageUrl: imgUrl,
+      widthCm: lebarCm,
+      heightCm: tinggiCm,
+      aspectRatio: rasioAspek,
+      placementSide: posisiSablon,
+      createdAt: new Date().toISOString(),
+    };
+    saveOfflineVaultToStorage(newItem);
+    sinkronVault();
+    setModeUnggahOffline(false);
+  };
+
+  // Masukkan item terpilih ke Lembar Gang Sheet
+  const handleSimpanKeGangSheet = () => {
+    if (!itemTerpilih) return;
+    const taskBaru: TaskRow = {
+      id: `${itemTerpilih.source}-${itemTerpilih.id}-${Date.now().toString(36)}`,
+      orderId: itemTerpilih.orderRef.toLowerCase().replace(/[^a-z0-9]/g, "-") || `offline-${Date.now()}`,
+      orderItemId: `item-${Date.now().toString(36)}`,
+      stage: "SCREEN_PRINT_SETUP", // Langsung masuk roll tanpa melalui Kanban!
+      printWidthCm: Math.min(30.0, Math.max(2, lebarCm)), // DTF sablon clamp 30 cm
+      printHeightCm: Math.max(2, tinggiCm),
+      printFileUrl: itemTerpilih.imageUrl || null,
+      rawAssetUrl: itemTerpilih.imageUrl || null,
+      placementSide: posisiSablon,
+      offsetFromCollarCm: posisiSablon === "back" ? 12 : 7.5,
+      notes: `[${itemTerpilih.source.toUpperCase()}] ${itemTerpilih.title}`,
+      order: {
+        orderNumber: itemTerpilih.orderRef,
+        customerName: itemTerpilih.customerName,
+        customerPhone: itemTerpilih.customerPhone || null,
+        items: [
+          {
+            id: `item-${Date.now().toString(36)}`,
+            quantity: jumlahKopi,
+            snapshotName: itemTerpilih.title,
+          },
+        ],
+      },
+    };
+
+    // Bila ini item offline baru, otomatis simpan juga ke vault untuk organizer
+    if (itemTerpilih.source === "offline" && !offlineVault.some((v) => v.id === itemTerpilih.id)) {
+      handleSimpanKeVaultOffline();
+    }
+
+    onImportItem(taskBaru);
+  };
+
+  // Filter daftar pesanan
+  const ordersTersaring = useMemo(() => {
+    const q = cariOrder.trim().toLowerCase();
+    if (!q) return orders;
+    return orders.filter(
+      (o) =>
+        o.orderNumber.toLowerCase().includes(q) ||
+        (o.user?.name && o.user.name.toLowerCase().includes(q)) ||
+        o.items.some((it) => it.snapshotName.toLowerCase().includes(q))
+    );
+  }, [orders, cariOrder]);
+
+  // Filter daftar katalog
+  const catalogTersaring = useMemo(() => {
+    const q = cariCatalog.trim().toLowerCase();
+    if (!q) return catalogProducts;
+    return catalogProducts.filter(
+      (p) =>
+        p.name.toLowerCase().includes(q) ||
+        (p.apparelSlug && p.apparelSlug.toLowerCase().includes(q)) ||
+        (p.slug && p.slug.toLowerCase().includes(q))
+    );
+  }, [catalogProducts, cariCatalog]);
+
+  // Filter vault offline
+  const vaultTersaring = useMemo(() => {
+    const q = cariVault.trim().toLowerCase();
+    if (!q) return offlineVault;
+    return offlineVault.filter(
+      (v) =>
+        v.title.toLowerCase().includes(q) ||
+        (v.customerName && v.customerName.toLowerCase().includes(q)) ||
+        (v.orderRef && v.orderRef.toLowerCase().includes(q))
+    );
+  }, [offlineVault, cariVault]);
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-5 bg-black/75 backdrop-blur-md animate-in fade-in duration-200">
+      <div className="relative w-full max-w-5xl h-[720px] max-h-[92vh] rounded-3xl bg-surface border border-border-subtle shadow-2xl overflow-hidden flex flex-col">
+        {/* Header Modal */}
+        <div className="flex items-center justify-between px-6 py-4 border-b border-border-subtle bg-surface-elevated shrink-0">
+          <div className="flex items-center gap-3">
+            <div className="h-10 w-10 rounded-2xl bg-amber-400/10 text-amber-500 border border-amber-400/20 flex items-center justify-center">
+              <Package size={20} />
+            </div>
+            <div>
+              <h3 className="text-base font-black text-text-primary flex items-center gap-2">
+                <span>Impor Desain ke Lembar Gang Sheet</span>
+                <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30 font-bold">
+                  Bypass Kanban
+                </span>
+              </h3>
+              <p className="text-xs text-text-muted mt-0.5">
+                Susun cetak langsung dari pesanan e-commerce, etalase katalog distro, atau bank desain offline & Studio 3D
+              </p>
+            </div>
+          </div>
+          <button
+            onClick={onClose}
+            className="p-2 rounded-xl text-text-muted hover:text-text-primary hover:bg-black/5 dark:hover:bg-white/5 transition-colors cursor-pointer"
+            title="Tutup Modal"
+          >
+            <X size={18} />
+          </button>
+        </div>
+
+        {/* 3-Tab Segmented Controls */}
+        <div className="flex items-center gap-2 px-6 py-2.5 bg-surface border-b border-border-subtle shrink-0 overflow-x-auto">
+          <button
+            type="button"
+            onClick={() => setTabSumber("ecommerce")}
+            className={`py-2 px-4 rounded-xl text-xs font-bold transition-all flex items-center gap-2 cursor-pointer shrink-0 ${
+              tabSumber === "ecommerce"
+                ? "bg-amber-400 text-black shadow-sm font-black"
+                : "bg-surface-elevated text-text-muted hover:text-text-primary border border-border-subtle"
+            }`}
+          >
+            <ShoppingBag size={14} />
+            <span>1. Pesanan E-Commerce</span>
+            <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-mono ${tabSumber === "ecommerce" ? "bg-black/20 text-black font-black" : "bg-black/10 dark:bg-white/10 text-text-muted"}`}>
+              {orders.length}
+            </span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setTabSumber("catalog")}
+            className={`py-2 px-4 rounded-xl text-xs font-bold transition-all flex items-center gap-2 cursor-pointer shrink-0 ${
+              tabSumber === "catalog"
+                ? "bg-amber-400 text-black shadow-sm font-black"
+                : "bg-surface-elevated text-text-muted hover:text-text-primary border border-border-subtle"
+            }`}
+          >
+            <Tag size={14} />
+            <span>2. Katalog Distro (Baju Jadi)</span>
+            <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-mono ${tabSumber === "catalog" ? "bg-black/20 text-black font-black" : "bg-black/10 dark:bg-white/10 text-text-muted"}`}>
+              {catalogProducts.length}
+            </span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setTabSumber("offline")}
+            className={`py-2 px-4 rounded-xl text-xs font-bold transition-all flex items-center gap-2 cursor-pointer shrink-0 ${
+              tabSumber === "offline"
+                ? "bg-amber-400 text-black shadow-sm font-black"
+                : "bg-surface-elevated text-text-muted hover:text-text-primary border border-border-subtle"
+            }`}
+          >
+            <FolderHeart size={14} />
+            <span>3. Bank Desain Offline & Studio 3D</span>
+            <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-mono ${tabSumber === "offline" ? "bg-black/20 text-black font-black" : "bg-black/10 dark:bg-white/10 text-text-muted"}`}>
+              {offlineVault.length}
+            </span>
+          </button>
+        </div>
+
+        {/* Modal Main Body (2 Columns: Left Browser & Right Inspector) */}
+        <div className="flex-1 grid grid-cols-1 md:grid-cols-12 min-h-0 overflow-hidden divide-y md:divide-y-0 md:divide-x divide-border-subtle/70">
+          {/* KOLOM KIRI: DAFTAR SUMBER DESAIN (md:col-span-7) */}
+          <div className="md:col-span-7 h-full flex flex-col min-h-0 overflow-hidden bg-surface p-5 space-y-3">
+            {/* ─── TAB 1: E-COMMERCE ─── */}
+            {tabSumber === "ecommerce" && (
+              <>
+                <div className="relative shrink-0">
+                  <Search size={14} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-text-muted" />
+                  <input
+                    type="text"
+                    placeholder="Cari order #, nama pembeli, atau judul desain kaos..."
+                    value={cariOrder}
+                    onChange={(e) => setCariOrder(e.target.value)}
+                    className="w-full pl-9 pr-3.5 py-2 rounded-xl border border-border-subtle bg-surface-elevated text-xs text-text-primary placeholder:text-text-muted focus:outline-none focus:ring-1 focus:ring-amber-400"
+                  />
+                </div>
+
+                <div className="flex-1 min-h-0 overflow-y-auto space-y-2.5 pr-1">
+                  {memuatOrder ? (
+                    <div className="py-16 text-center text-text-muted text-xs flex flex-col items-center justify-center gap-2">
+                      <RefreshCw size={18} className="animate-spin text-amber-500" />
+                      <span>Memuat daftar pesanan e-commerce...</span>
+                    </div>
+                  ) : galatOrder ? (
+                    <div className="p-4 rounded-xl bg-red-500/10 border border-red-500/30 text-red-600 text-xs font-bold">
+                      {galatOrder}
+                    </div>
+                  ) : ordersTersaring.length === 0 ? (
+                    <div className="py-16 text-center text-text-muted text-xs">
+                      Tidak ditemukan pesanan e-commerce yang cocok.
+                    </div>
+                  ) : (
+                    ordersTersaring.map((order) => (
+                      <div
+                        key={order.id}
+                        className="p-3 rounded-2xl border border-border-subtle bg-surface-elevated space-y-2 hover:border-border transition-colors"
+                      >
+                        <div className="flex items-center justify-between text-xs">
+                          <div className="flex items-center gap-2 min-w-0">
+                            <span className="font-mono font-black text-amber-500 shrink-0">{order.orderNumber}</span>
+                            <span className="text-xs font-semibold text-text-primary truncate">
+                              {order.user?.name || "Pelanggan Toko"}
+                            </span>
+                          </div>
+                          <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-black/5 dark:bg-white/10 text-text-muted shrink-0">
+                            {order.status}
+                          </span>
+                        </div>
+
+                        {/* Items list di dalam order */}
+                        <div className="space-y-1.5 pt-1">
+                          {order.items.map((item) => {
+                            const dipilih = itemTerpilih?.id === `ecom-${item.id}`;
+                            return (
+                              <button
+                                key={item.id}
+                                type="button"
+                                onClick={() => handlePilihEcommerce(order, item)}
+                                className={`w-full text-left p-2.5 rounded-xl border text-xs flex items-center justify-between transition-all cursor-pointer ${
+                                  dipilih
+                                    ? "bg-amber-400/15 border-amber-500 text-text-primary font-bold shadow-xs ring-1 ring-amber-500/30"
+                                    : "bg-surface border-border-subtle hover:border-amber-400/50 text-text-secondary"
+                                }`}
+                              >
+                                <div className="flex items-center gap-3 min-w-0">
+                                  {item.snapshotImageUrl ? (
+                                    // eslint-disable-next-line @next/next/no-img-element
+                                    <img
+                                      src={item.snapshotImageUrl}
+                                      alt={item.snapshotName}
+                                      className="h-10 w-10 object-contain rounded-lg bg-black/10 shrink-0 border border-border-subtle"
+                                    />
+                                  ) : (
+                                    <div className="h-10 w-10 rounded-lg bg-black/10 text-text-muted flex items-center justify-center text-[10px] shrink-0 font-bold border border-border-subtle">
+                                      KAOS
+                                    </div>
+                                  )}
+                                  <div className="min-w-0">
+                                    <p className="font-bold truncate text-xs text-text-primary">
+                                      {item.snapshotName}
+                                    </p>
+                                    <p className="text-[11px] text-text-muted mt-0.5">
+                                      Ukuran: <span className="font-mono font-bold text-text-primary">{item.snapshotSize}</span> · Warna: {item.snapshotColorName} · Qty:{" "}
+                                      <span className="font-mono font-bold text-amber-500">{item.quantity}</span>
+                                    </p>
+                                  </div>
+                                </div>
+                                <span className={`text-xs font-mono font-bold shrink-0 ml-3 ${dipilih ? "text-amber-500" : "text-text-muted"}`}>
+                                  {dipilih ? "✓ Terpilih" : "+ Pilih"}
+                                </span>
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </>
+            )}
+
+            {/* ─── TAB 2: KATALOG DISTRO ─── */}
+            {tabSumber === "catalog" && (
+              <>
+                <div className="relative shrink-0">
+                  <Search size={14} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-text-muted" />
+                  <input
+                    type="text"
+                    placeholder="Cari produk katalog distro, kaos, hoodie, crewneck..."
+                    value={cariCatalog}
+                    onChange={(e) => setCariCatalog(e.target.value)}
+                    className="w-full pl-9 pr-3.5 py-2 rounded-xl border border-border-subtle bg-surface-elevated text-xs text-text-primary placeholder:text-text-muted focus:outline-none focus:ring-1 focus:ring-amber-400"
+                  />
+                </div>
+
+                <div className="flex-1 min-h-0 overflow-y-auto space-y-2 pr-1">
+                  {memuatCatalog ? (
+                    <div className="py-16 text-center text-text-muted text-xs flex flex-col items-center justify-center gap-2">
+                      <RefreshCw size={18} className="animate-spin text-amber-500" />
+                      <span>Memuat katalog distro...</span>
+                    </div>
+                  ) : galatCatalog ? (
+                    <div className="p-4 rounded-xl bg-red-500/10 border border-red-500/30 text-red-600 text-xs font-bold">
+                      {galatCatalog}
+                    </div>
+                  ) : catalogTersaring.length === 0 ? (
+                    <div className="py-16 text-center text-text-muted text-xs">
+                      Tidak ditemukan produk katalog distro yang cocok.
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                      {catalogTersaring.map((product) => {
+                        const imgUrl = extractCatalogImageUrl(product);
+                        const dipilih = itemTerpilih?.id === `cat-${product.id}`;
+                        return (
+                          <button
+                            key={product.id}
+                            type="button"
+                            onClick={() => handlePilihCatalog(product)}
+                            className={`p-3 rounded-2xl border text-left flex flex-col justify-between transition-all cursor-pointer ${
+                              dipilih
+                                ? "bg-amber-400/15 border-amber-500 shadow-sm ring-1 ring-amber-500/30"
+                                : "bg-surface-elevated border-border-subtle hover:border-amber-400/50"
+                            }`}
+                          >
+                            <div className="flex items-center gap-3">
+                              {imgUrl ? (
+                                // eslint-disable-next-line @next/next/no-img-element
+                                <img
+                                  src={imgUrl}
+                                  alt={product.name}
+                                  className="h-12 w-12 object-contain rounded-xl bg-neutral-900 shrink-0 border border-border-subtle"
+                                />
+                              ) : (
+                                <div className="h-12 w-12 rounded-xl bg-black/10 flex items-center justify-center text-xs font-bold text-text-muted shrink-0 border border-border-subtle">
+                                  <Shirt size={18} />
+                                </div>
+                              )}
+                              <div className="min-w-0">
+                                <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-black/5 dark:bg-white/10 text-text-muted font-bold uppercase inline-block mb-1">
+                                  {product.apparelSlug || "Apparel"}
+                                </span>
+                                <h5 className="font-bold text-xs text-text-primary truncate">
+                                  {product.name}
+                                </h5>
+                                <p className="text-[11px] font-mono font-bold text-amber-500 mt-0.5">
+                                  Rp{(product.basePriceIdr || 0).toLocaleString("id-ID")}
+                                </p>
+                              </div>
+                            </div>
+                            <div className="flex items-center justify-between pt-2 mt-2 border-t border-border-subtle/50 text-[11px]">
+                              <span className="text-text-muted">Desain 3D Siap Cetak</span>
+                              <span className={`font-mono font-bold ${dipilih ? "text-amber-500" : "text-text-muted"}`}>
+                                {dipilih ? "✓ Dipilih" : "+ Pilih"}
+                              </span>
+                            </div>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              </>
+            )}
+
+            {/* ─── TAB 3: BANK DESAIN OFFLINE & STUDIO 3D ─── */}
+            {tabSumber === "offline" && (
+              <>
+                {/* Banner Akses Studio 3D */}
+                <div className="p-3.5 rounded-2xl bg-gradient-to-r from-amber-500/15 via-orange-500/10 to-amber-500/5 border border-amber-500/30 flex items-center justify-between shrink-0">
+                  <div className="space-y-0.5 min-w-0">
+                    <div className="flex items-center gap-1.5">
+                      <Sparkles size={14} className="text-amber-500" />
+                      <h5 className="text-xs font-black text-text-primary">Studio 3D Kustom Kaos & Apparel</h5>
+                    </div>
+                    <p className="text-[11px] text-text-muted truncate">
+                      Tempel desain ke kaos/hoodie 3D, atur ukuran cm, lalu simpan ke bank desain ini
+                    </p>
+                  </div>
+                  <a
+                    href="/studio?mode=gangsheet"
+                    target="_blank"
+                    rel="noreferrer"
+                    className="py-1.5 px-3 rounded-xl bg-amber-400 hover:bg-amber-300 text-black font-black text-xs flex items-center gap-1.5 shrink-0 shadow-sm transition-all"
+                  >
+                    <span>Buka Studio 3D</span>
+                    <ArrowUpRight size={13} />
+                  </a>
+                </div>
+
+                {/* Sub-bar Pilihan: Bank Desain vs Unggah Cepat */}
+                <div className="flex items-center justify-between shrink-0 pt-1">
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setModeUnggahOffline(false)}
+                      className={`py-1.5 px-3 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                        !modeUnggahOffline
+                          ? "bg-surface-elevated text-text-primary border border-amber-400/50 shadow-xs"
+                          : "text-text-muted hover:text-text-primary"
+                      }`}
+                    >
+                      Daftar Bank Desain ({offlineVault.length})
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setModeUnggahOffline(true)}
+                      className={`py-1.5 px-3 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
+                        modeUnggahOffline
+                          ? "bg-surface-elevated text-text-primary border border-amber-400/50 shadow-xs"
+                          : "text-text-muted hover:text-text-primary"
+                      }`}
+                    >
+                      <Plus size={13} />
+                      <span>+ Unggah Desain Baru</span>
+                    </button>
+                  </div>
+
+                  {!modeUnggahOffline && (
+                    <div className="relative w-48">
+                      <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-text-muted" />
+                      <input
+                        type="text"
+                        placeholder="Cari desain..."
+                        value={cariVault}
+                        onChange={(e) => setCariVault(e.target.value)}
+                        className="w-full pl-7 pr-2.5 py-1 rounded-lg border border-border-subtle bg-surface-elevated text-[11px] text-text-primary focus:outline-none"
+                      />
+                    </div>
+                  )}
+                </div>
+
+                {/* Body Tab Offline: Mode Unggah Cepat ATAU Daftar Vault */}
+                <div className="flex-1 min-h-0 overflow-y-auto space-y-2 pr-1">
+                  {modeUnggahOffline ? (
+                    <div className="p-4 rounded-2xl bg-surface-elevated border border-border-subtle space-y-3">
+                      <div>
+                        <label className="text-xs font-bold text-text-primary block mb-1">
+                          Nama Desain / Sablon *
+                        </label>
+                        <input
+                          type="text"
+                          placeholder="Contoh: Logo Kaos Futsal Reuni 2026"
+                          value={judulOffline}
+                          onChange={(e) => setJudulOffline(e.target.value)}
+                          className="w-full px-3 py-2 rounded-xl border border-border-subtle bg-surface text-xs text-text-primary focus:outline-none focus:ring-1 focus:ring-amber-400"
+                        />
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-2.5">
+                        <div>
+                          <label className="text-xs font-bold text-text-primary block mb-1">
+                            Nama Pelanggan (Opsional)
+                          </label>
+                          <input
+                            type="text"
+                            placeholder="Contoh: Kak Wahyu"
+                            value={namaPemesanOffline}
+                            onChange={(e) => setNamaPemesanOffline(e.target.value)}
+                            className="w-full px-3 py-2 rounded-xl border border-border-subtle bg-surface text-xs text-text-primary focus:outline-none focus:ring-1 focus:ring-amber-400"
+                          />
+                        </div>
+                        <div>
+                          <label className="text-xs font-bold text-text-primary block mb-1">
+                            Pilih Berkas Gambar (PNG Transparan)
+                          </label>
+                          <input
+                            type="file"
+                            accept="image/*"
+                            onChange={handlePilihFileOffline}
+                            className="w-full text-xs text-text-muted file:mr-2 file:py-1 file:px-2.5 file:rounded-lg file:border file:border-border-subtle file:bg-surface file:text-xs file:font-bold cursor-pointer"
+                          />
+                        </div>
+                      </div>
+
+                      <div>
+                        <label className="text-[11px] font-bold text-text-muted block mb-1">
+                          Atau Masukkan URL Gambar:
+                        </label>
+                        <input
+                          type="url"
+                          placeholder="https://.../gambar-sablon.png"
+                          value={urlGambarOffline}
+                          onChange={(e) => {
+                            setUrlGambarOffline(e.target.value);
+                            if (e.target.value) {
+                              setDanHitungRasioGambar(e.target.value);
+                              setItemTerpilih({
+                                id: `quick-${Date.now().toString(36)}`,
+                                source: "offline",
+                                title: judulOffline || "Desain Offline URL",
+                                subtitle: "Berkas URL Gambar",
+                                imageUrl: e.target.value,
+                                orderRef: "OFFLINE-URL",
+                                customerName: namaPemesanOffline || "Pelanggan Offline",
+                                customerPhone: null,
+                                aspectRatio: rasioAspek,
+                                placementSide: "front",
+                              });
+                            }
+                          }}
+                          className="w-full px-3 py-1.5 rounded-xl border border-border-subtle bg-surface text-xs text-text-primary focus:outline-none"
+                        />
+                      </div>
+
+                      <div className="pt-2 flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={handleSimpanKeVaultOffline}
+                          disabled={!urlGambarOffline}
+                          className="py-2 px-3 rounded-xl bg-surface border border-border-subtle hover:bg-surface-elevated disabled:opacity-40 text-text-primary font-bold text-xs flex items-center gap-1.5 cursor-pointer"
+                        >
+                          <FolderHeart size={14} className="text-amber-500" />
+                          <span>Simpan ke Bank Desain Saja</span>
+                        </button>
+                      </div>
+                    </div>
+                  ) : vaultTersaring.length === 0 ? (
+                    <div className="py-16 text-center text-text-muted text-xs flex flex-col items-center justify-center gap-2">
+                      <FolderHeart size={28} className="text-text-muted/40" />
+                      <p className="font-bold">Bank Desain Offline Masih Kosong</p>
+                      <p className="text-[11px] max-w-xs">
+                        Unggah gambar desain offline langsung di sini atau rancang di Studio 3D lalu klik simpan ke gang sheet.
+                      </p>
+                      <button
+                        type="button"
+                        onClick={() => setModeUnggahOffline(true)}
+                        className="mt-2 py-1.5 px-3 rounded-xl bg-amber-400 hover:bg-amber-300 text-black font-black text-xs cursor-pointer"
+                      >
+                        + Unggah Desain Baru Sekarang
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                      {vaultTersaring.map((v) => {
+                        const dipilih = itemTerpilih?.id === v.id;
+                        return (
+                          <div
+                            key={v.id}
+                            className={`p-3 rounded-2xl border flex flex-col justify-between transition-all ${
+                              dipilih
+                                ? "bg-amber-400/15 border-amber-500 shadow-sm ring-1 ring-amber-500/30"
+                                : "bg-surface-elevated border-border-subtle hover:border-amber-400/50"
+                            }`}
+                          >
+                            <div className="flex items-center gap-3">
+                              {/* eslint-disable-next-line @next/next/no-img-element */}
+                              <img
+                                src={v.imageUrl}
+                                alt={v.title}
+                                className="h-12 w-12 object-contain rounded-xl bg-neutral-900 shrink-0 border border-border-subtle"
+                              />
+                              <div className="min-w-0">
+                                <h5 className="font-bold text-xs text-text-primary truncate">
+                                  {v.title}
+                                </h5>
+                                <p className="text-[11px] text-text-muted truncate mt-0.5">
+                                  {v.customerName || "Pelanggan Offline"}
+                                </p>
+                                <span className="text-[10px] font-mono px-2 py-0.2 rounded-full bg-black/10 dark:bg-white/10 text-amber-500 font-bold mt-1 inline-block">
+                                  {v.widthCm} × {v.heightCm} cm
+                                </span>
+                              </div>
+                            </div>
+
+                            <div className="flex items-center justify-between pt-2.5 mt-2 border-t border-border-subtle/50 text-xs">
+                              <button
+                                type="button"
+                                onClick={() => deleteOfflineVaultFromStorage(v.id)}
+                                className="text-text-muted hover:text-red-500 p-1 rounded-lg transition-colors cursor-pointer"
+                                title="Hapus dari Bank Desain"
+                              >
+                                <Trash2 size={13} />
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handlePilihVault(v)}
+                                className={`font-mono font-bold text-xs px-2.5 py-1 rounded-lg cursor-pointer ${
+                                  dipilih ? "bg-amber-400 text-black font-black" : "bg-surface border border-border-subtle text-text-primary hover:border-amber-400"
+                                }`}
+                              >
+                                {dipilih ? "✓ Terpilih" : "+ Pilih"}
+                              </button>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              </>
+            )}
+          </div>
+
+          {/* KOLOM KANAN: INSPEKTOR PENGATURAN CETAK DTF (md:col-span-5) */}
+          <div className="md:col-span-5 h-full flex flex-col min-h-0 bg-surface-elevated/70 p-5 space-y-4 overflow-y-auto">
+            <div className="flex items-center justify-between pb-2 border-b border-border-subtle shrink-0">
+              <div className="flex items-center gap-2">
+                <Sliders size={16} className="text-amber-500" />
+                <h4 className="text-xs font-black uppercase text-text-primary tracking-wide">
+                  Pengaturan Cetak DTF Presisi
+                </h4>
+              </div>
+              {itemTerpilih && (
+                <span className="text-[10px] font-mono uppercase px-2 py-0.5 rounded-full bg-amber-400/20 text-amber-500 font-bold">
+                  {itemTerpilih.source}
+                </span>
+              )}
+            </div>
+
+            {itemTerpilih ? (
+              <div className="space-y-4 flex-1">
+                {/* Kartu Ringkasan Item Terpilih */}
+                <div className="p-3 rounded-2xl bg-surface border border-border-subtle flex items-center gap-3">
+                  {itemTerpilih.imageUrl ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={itemTerpilih.imageUrl}
+                      alt={itemTerpilih.title}
+                      className="h-14 w-14 object-contain rounded-xl bg-neutral-900 shrink-0 border border-border-subtle"
+                    />
+                  ) : (
+                    <div className="h-14 w-14 rounded-xl bg-black/10 flex items-center justify-center text-xs font-bold text-text-muted shrink-0 border border-border-subtle">
+                      No Image
+                    </div>
+                  )}
+                  <div className="min-w-0">
+                    <p className="text-xs font-black text-text-primary truncate">
+                      {itemTerpilih.title}
+                    </p>
+                    <p className="text-[11px] text-text-muted truncate mt-0.5">
+                      {itemTerpilih.subtitle}
+                    </p>
+                    <p className="text-[10px] font-mono text-amber-500 font-bold mt-0.5">
+                      Ref: {itemTerpilih.orderRef}
+                    </p>
+                  </div>
+                </div>
+
+                {/* Preset Ukuran Standar Cepat */}
+                <div>
+                  <div className="flex items-center justify-between mb-1.5">
+                    <p className="text-xs font-bold text-text-secondary">
+                      Preset Ukuran Sablon:
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() => setIsAspectLocked(!isAspectLocked)}
+                      className={`text-[10px] font-mono font-bold px-2 py-0.5 rounded-md flex items-center gap-1 transition-all cursor-pointer ${
+                        isAspectLocked
+                          ? "bg-amber-400/20 text-amber-600 dark:text-amber-400 border border-amber-400/30"
+                          : "bg-black/5 dark:bg-white/5 text-text-muted border border-border-subtle"
+                      }`}
+                      title={isAspectLocked ? "Rasio Terkunci (Gambar Tidak Gepeng)" : "Rasio Bebas (Bisa Diubah Terpisah)"}
+                    >
+                      {isAspectLocked ? <Lock size={10} /> : <Unlock size={10} />}
+                      <span>{isAspectLocked ? "Rasio 1:1 Terkunci" : "Rasio Bebas"}</span>
+                    </button>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-1.5">
+                    <button
+                      type="button"
+                      onClick={() => pilihPreset(28.0, 35.0)}
+                      className={`p-2 rounded-xl border text-xs font-bold transition-all cursor-pointer text-center ${
+                        lebarCm === 28.0
+                          ? "bg-amber-400 text-black border-amber-500 font-black shadow-xs"
+                          : "bg-surface border-border-subtle text-text-muted hover:text-text-primary"
+                      }`}
+                    >
+                      A3 (28 × 35 cm)
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => pilihPreset(21.0, 29.7)}
+                      className={`p-2 rounded-xl border text-xs font-bold transition-all cursor-pointer text-center ${
+                        lebarCm === 21.0
+                          ? "bg-amber-400 text-black border-amber-500 font-black shadow-xs"
+                          : "bg-surface border-border-subtle text-text-muted hover:text-text-primary"
+                      }`}
+                    >
+                      A4 (21 × 29.7 cm)
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => pilihPreset(14.8, 21.0)}
+                      className={`p-2 rounded-xl border text-xs font-bold transition-all cursor-pointer text-center ${
+                        lebarCm === 14.8
+                          ? "bg-amber-400 text-black border-amber-500 font-black shadow-xs"
+                          : "bg-surface border-border-subtle text-text-muted hover:text-text-primary"
+                      }`}
+                    >
+                      A5 (14.8 × 21 cm)
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => pilihPreset(10.0, 10.0)}
+                      className={`p-2 rounded-xl border text-xs font-bold transition-all cursor-pointer text-center ${
+                        lebarCm === 10.0
+                          ? "bg-amber-400 text-black border-amber-500 font-black shadow-xs"
+                          : "bg-surface border-border-subtle text-text-muted hover:text-text-primary"
+                      }`}
+                    >
+                      Saku (10 × 10 cm)
+                    </button>
+                  </div>
+                </div>
+
+                {/* Input Dimensi Manual Presisi */}
+                <div className="grid grid-cols-2 gap-2.5">
+                  <div>
+                    <label className="text-[10px] font-bold uppercase text-text-muted block mb-1">
+                      Lebar (cm) — Max 30
+                    </label>
+                    <input
+                      type="number"
+                      step="0.5"
+                      min="2"
+                      max="30"
+                      value={lebarCm}
+                      onChange={(e) => handleLebarChange(Number(e.target.value))}
+                      className="w-full px-3 py-2 rounded-xl border border-border-subtle bg-surface text-xs font-mono font-bold text-text-primary focus:outline-none focus:ring-1 focus:ring-amber-400"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-[10px] font-bold uppercase text-text-muted block mb-1">
+                      Tinggi (cm)
+                    </label>
+                    <input
+                      type="number"
+                      step="0.5"
+                      min="2"
+                      max="100"
+                      value={tinggiCm}
+                      onChange={(e) => handleTinggiChange(Number(e.target.value))}
+                      className="w-full px-3 py-2 rounded-xl border border-border-subtle bg-surface text-xs font-mono font-bold text-text-primary focus:outline-none focus:ring-1 focus:ring-amber-400"
+                    />
+                  </div>
+                </div>
+
+                {/* Jumlah Cetak (Qty Stepper) & Posisi Sablon */}
+                <div className="grid grid-cols-2 gap-2.5">
+                  <div>
+                    <label className="text-[10px] font-bold uppercase text-text-muted block mb-1">
+                      Jumlah Cetak (Qty)
+                    </label>
+                    <div className="flex items-center rounded-xl border border-border-subtle bg-surface overflow-hidden">
+                      <button
+                        type="button"
+                        onClick={() => setJumlahKopi(Math.max(1, jumlahKopi - 1))}
+                        className="px-2.5 py-2 text-text-muted hover:text-text-primary hover:bg-black/5 dark:hover:bg-white/5 cursor-pointer"
+                      >
+                        <Minus size={12} />
+                      </button>
+                      <input
+                        type="number"
+                        min="1"
+                        max="500"
+                        value={jumlahKopi}
+                        onChange={(e) => setJumlahKopi(Math.max(1, parseInt(e.target.value) || 1))}
+                        className="w-full text-center bg-transparent text-xs font-mono font-bold text-text-primary focus:outline-none"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setJumlahKopi(jumlahKopi + 1)}
+                        className="px-2.5 py-2 text-text-muted hover:text-text-primary hover:bg-black/5 dark:hover:bg-white/5 cursor-pointer"
+                      >
+                        <Plus size={12} />
+                      </button>
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="text-[10px] font-bold uppercase text-text-muted block mb-1">
+                      Posisi Sablon
+                    </label>
+                    <select
+                      value={posisiSablon}
+                      onChange={(e) => setPosisiSablon(e.target.value as any)}
+                      className="w-full px-3 py-2 rounded-xl border border-border-subtle bg-surface text-xs text-text-primary font-bold focus:outline-none"
+                    >
+                      <option value="front">Dada Depan</option>
+                      <option value="back">Punggung</option>
+                      <option value="sleeve">Lengan</option>
+                    </select>
+                  </div>
+                </div>
+
+                {/* Info Estimasi Roll Film */}
+                <div className="p-3 rounded-xl bg-amber-400/5 border border-amber-400/20 text-[11px] text-text-muted space-y-1">
+                  <div className="flex items-center justify-between font-mono">
+                    <span>Estimasi Luas Cetak:</span>
+                    <span className="font-bold text-text-primary">
+                      {lebarCm.toFixed(1)} × {(tinggiCm * jumlahKopi).toFixed(1)} cm
+                    </span>
+                  </div>
+                  <p className="text-[10px] text-text-muted">
+                    ✓ DTF sablon clamp lebar maks 30.0 cm menjaga margin heatpress workshop Makassar
+                  </p>
+                </div>
+
+                {/* Tombol Eksekusi Masukkan ke Gang Sheet */}
+                <div className="pt-2 space-y-2">
+                  <button
+                    type="button"
+                    onClick={handleSimpanKeGangSheet}
+                    className="w-full py-3 px-4 rounded-2xl bg-amber-400 hover:bg-amber-300 text-black font-black text-xs flex items-center justify-center gap-2 shadow-md transition-all cursor-pointer"
+                  >
+                    <PlusCircle size={16} />
+                    <span>+ Masukkan ke Lembar Gang Sheet</span>
+                  </button>
+
+                  {itemTerpilih.source === "offline" && (
+                    <button
+                      type="button"
+                      onClick={handleSimpanKeVaultOffline}
+                      className="w-full py-2 px-3 rounded-xl bg-surface border border-border-subtle hover:bg-surface-elevated text-text-primary font-bold text-xs flex items-center justify-center gap-1.5 cursor-pointer"
+                    >
+                      <FolderHeart size={14} className="text-amber-500" />
+                      <span>Simpan ke Bank Desain Offline Saja</span>
+                    </button>
+                  )}
+                </div>
+              </div>
+            ) : (
+              /* State Kosong Inspector dengan Panduan */
+              <div className="h-full flex flex-col items-center justify-center text-center p-6 space-y-3 text-text-muted">
+                <div className="h-14 w-14 rounded-3xl bg-surface border border-border-subtle flex items-center justify-center text-amber-500 shadow-sm">
+                  <Sliders size={24} />
+                </div>
+                <div>
+                  <h5 className="font-black text-xs text-text-primary">Pilih Desain Terlebih Dahulu</h5>
+                  <p className="text-[11px] text-text-muted mt-1 max-w-xs leading-relaxed">
+                    Klik salah satu item dari tab Pesanan E-Commerce, Katalog Distro, atau Bank Desain Offline di sebelah kiri untuk mengatur dimensi cm dan memasukkannya ke roll gang sheet.
+                  </p>
+                </div>
+                <div className="pt-3 w-full border-t border-border-subtle/50 space-y-1.5 text-[11px] font-mono text-left">
+                  <div className="flex justify-between">
+                    <span className="text-text-muted">Pesanan Aktif:</span>
+                    <span className="font-bold text-text-primary">{orders.length} order</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-text-muted">Katalog Toko:</span>
+                    <span className="font-bold text-text-primary">{catalogProducts.length} produk</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-text-muted">Bank Desain Vault:</span>
+                    <span className="font-bold text-text-primary">{offlineVault.length} desain</span>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Footer Modal */}
+        <div className="flex items-center justify-between px-6 py-3 border-t border-border-subtle bg-surface-elevated shrink-0">
+          <div className="flex items-center gap-2 text-xs text-text-muted">
+            <Info size={14} className="text-amber-500 shrink-0" />
+            <span>Desain yang diimpor langsung masuk ke antrean roll DTF tanpa perlu memindahkan kartu Kanban manual</span>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            className="px-4 py-2 rounded-xl bg-surface border border-border-subtle hover:bg-surface-elevated text-text-primary font-bold text-xs cursor-pointer"
+          >
+            Tutup
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ─── Halaman Utama ───
 
 export default function GangSheetBuilderPage() {
@@ -244,6 +1532,8 @@ export default function GangSheetBuilderPage() {
   const [hargaPerMeter, setHargaPerMeter] = useState(35000);
   const [draftPulih, setDraftPulih] = useState(false);
   const [taskPratinjau, setTaskPratinjau] = useState<TaskRow | null>(null);
+  const [modalImporEcommerce, setModalImporEcommerce] = useState(false);
+  const [mobileGangView, setMobileGangView] = useState<"queue" | "canvas">("canvas");
 
   // Parameter Packing Presisi & Celah (Murni Dimensi Asli Tanpa Pemangkasan)
   const [rollOrientation, setRollOrientation] = useState<"vertical" | "horizontal">("vertical");
@@ -409,6 +1699,16 @@ export default function GangSheetBuilderPage() {
   useEffect(() => {
     void muatTask();
   }, [muatTask]);
+
+  const handleImportItemKeGangSheet = useCallback((taskBaru: TaskRow) => {
+    setSemuaTasks((prev) => [taskBaru, ...prev]);
+    setCentang((prev) => ({ ...prev, [taskBaru.id]: true }));
+    setPesanSukses(
+      `✓ Berhasil memasukkan [${taskBaru.order?.orderNumber || "E-Commerce"}] ${labelBaris(taskBaru)} ke Antrean Roll DTF (Langsung Siap Disusun Tanpa Melalui Kanban)!`
+    );
+    setTabAntrean("antrean");
+    setModalImporEcommerce(false);
+  }, []);
 
   // Pisahkan task sesuai alur Kanban:
   // 1. Antrean Gang Sheet: SCREEN_PRINT_SETUP (desain yang sudah disetujui / diproses dari Kanban 1)
@@ -1033,11 +2333,49 @@ export default function GangSheetBuilderPage() {
         </div>
       )}
 
+      {/* ── MOBILE VIEW SWITCHER (Khusus Layar HP < lg) ── */}
+      <div className="flex lg:hidden p-1 rounded-2xl bg-surface border border-border-subtle shadow-xs">
+        <button
+          type="button"
+          onClick={() => setMobileGangView("queue")}
+          className={`flex-1 py-2 px-3 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2 cursor-pointer ${
+            mobileGangView === "queue"
+              ? "bg-amber-500 text-black shadow-xs font-black"
+              : "text-text-muted hover:text-text-primary"
+          }`}
+        >
+          <Package size={14} />
+          <span>Antrean Desain ({siapTasks.length})</span>
+        </button>
+        <button
+          type="button"
+          onClick={() => setMobileGangView("canvas")}
+          className={`flex-1 py-2 px-3 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2 cursor-pointer ${
+            mobileGangView === "canvas"
+              ? "bg-amber-500 text-black shadow-xs font-black"
+              : "text-text-muted hover:text-text-primary"
+          }`}
+        >
+          <Layers size={14} />
+          <span>Pratinjau Roll & Ekspor</span>
+        </button>
+      </div>
+
       {/* ── GRID UTAMA: 2 KOLOM SEIMBANG (KIRI: TASK & ANTREAN, KANAN: ROLL PREVIEW) ── */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
         {/* ── KOLOM KIRI (5 / 12): ANTREAN & SELEKSI DESAIN ── */}
-        <div className="lg:col-span-5 space-y-4">
+        <div className={`${mobileGangView === "queue" ? "block" : "hidden lg:block"} lg:col-span-5 space-y-4`}>
           <div className="rounded-2xl border border-border-subtle bg-surface p-4 space-y-4 shadow-sm">
+            {/* Tombol Impor Desain E-Commerce / Berkas Bebas Tanpa Kanban */}
+            <button
+              type="button"
+              onClick={() => setModalImporEcommerce(true)}
+              className="w-full py-2.5 px-3 rounded-xl bg-gradient-to-r from-amber-500 to-amber-400 hover:from-amber-400 hover:to-amber-300 text-black font-black text-xs flex items-center justify-center gap-2 shadow-md shadow-amber-500/15 transition-all cursor-pointer"
+            >
+              <Package size={15} />
+              <span>+ Impor Desain E-Commerce / Berkas Bebas (Tanpa Kanban)</span>
+            </button>
+
             {/* Tab Antrean: Antrean Gang Sheet vs Desain Masuk (Kanban 1) vs Sudah Sablon */}
             <div className="flex items-center gap-1 p-1 rounded-xl bg-black/5 dark:bg-white/5 border border-border-subtle">
               <button
@@ -1356,7 +2694,7 @@ export default function GangSheetBuilderPage() {
         </div>
 
         {/* ── KOLOM KANAN (7 / 12): PRATINJAU ROLL & EKSPOR MAKLON ── */}
-        <div className="lg:col-span-7 space-y-4">
+        <div className={`${mobileGangView === "canvas" ? "block" : "hidden lg:block"} lg:col-span-7 space-y-4`}>
           <div className="rounded-2xl border border-border-subtle bg-surface p-4 space-y-4 shadow-sm">
             {/* Header Pratinjau & Tab Lembar Meteran */}
             <div className="flex flex-wrap items-center justify-between gap-3 pb-3 border-b border-border-subtle">
@@ -1855,6 +3193,14 @@ export default function GangSheetBuilderPage() {
           </div>
         </div>
       </div>
+
+      {/* Modal Impor Desain E-Commerce / File Bebas */}
+      {modalImporEcommerce && (
+        <ModalImporEcommerce
+          onClose={() => setModalImporEcommerce(false)}
+          onImportItem={handleImportItemKeGangSheet}
+        />
+      )}
     </div>
   );
 }

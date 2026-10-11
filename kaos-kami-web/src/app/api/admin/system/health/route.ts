@@ -133,31 +133,27 @@ export async function GET(req: NextRequest) {
         : "Email opsional: notifikasi utama berjalan via WhatsApp.",
     });
 
-    // 5. Payment Gateway (iPaymu & Duitku)
+    // 5. Payment Gateway iPaymu (Direct QRIS & VA)
     const ipaymuVa = process.env.IPAYMU_VA || "";
     const ipaymuKey = process.env.IPAYMU_API_KEY || "";
-    const duitkuMerchant = process.env.DUITKU_MERCHANT_CODE || "";
-    const isPaymentConfigured = Boolean((ipaymuVa && ipaymuKey) || duitkuMerchant);
+    const isIpaymuConfigured = Boolean(ipaymuVa && ipaymuKey);
     services.push({
       id: "payment-gateway",
-      name: "Payment Gateway (iPaymu & Duitku)",
+      name: "Payment Gateway iPaymu (Direct QRIS)",
       category: "PAYMENT",
-      status: isPaymentConfigured ? "CONNECTED" : "STANDBY",
-      detail: isPaymentConfigured
-        ? `Direct QRIS Dinamis & Virtual Account aktif (${process.env.IPAYMU_ENV || "production"}).`
+      status: isIpaymuConfigured ? "CONNECTED" : "STANDBY",
+      detail: isIpaymuConfigured
+        ? `Direct QRIS Dinamis & Virtual Account iPaymu aktif (${process.env.IPAYMU_ENV || "production"}).`
         : "Mode Sandbox / Simpanan lokal aktif.",
     });
 
-    // 6. Ekspedisi Live API (AgenWebsite Rate)
-    const shippingKey = process.env.AGENWEBSITE_RATE_API_KEY || "";
+    // 6. Master Logistik 514 Kota & Kabupaten (5 Ekspedisi: Lion, SiCepat, Pos, JNE, J&T)
     services.push({
       id: "shipping-api",
-      name: "AgenWebsite Expedition Rate API",
+      name: "Master Logistik 514 Kota & Kurir",
       category: "SHIPPING",
-      status: shippingKey ? "CONNECTED" : "STANDBY",
-      detail: shippingKey
-        ? "API live rate ongkos kirim nasional (JNE/J&T/SiCepat) aktif."
-        : "Menggunakan fallback tabel tarif zona ExpeditionZone terstandarisasi.",
+      status: "CONNECTED",
+      detail: "Database mandiri 5 ekspedisi nasional aktif (offline-first, zero-rate-limit).",
     });
 
     return NextResponse.json({

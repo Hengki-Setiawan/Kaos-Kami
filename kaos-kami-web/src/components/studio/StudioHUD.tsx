@@ -136,30 +136,30 @@ export function StudioHUD() {
         drawerPosition === "right" || isDrawerCollapsed
           ? "md:left-6 md:right-auto md:max-w-[calc(100vw-420px)]"
           : "md:right-6 md:left-auto md:max-w-[calc(100vw-420px)]"
-      } md:bottom-6 md:top-auto top-[76px] right-2 left-auto translate-x-0 md:translate-x-0`}
+      } md:bottom-6 md:top-auto top-[68px] left-1/2 -translate-x-1/2 md:translate-x-0`}
     >
       {isMinimized ? (
         /* Minimized Dock Button */
         <button
           type="button"
           onClick={() => setIsMinimized(false)}
-          className="flex items-center gap-2 px-3 py-2 rounded-2xl glass-panel-elevated shadow-xl border border-white/20 dark:border-white/10 backdrop-blur-2xl bg-surface/90 text-text-primary hover:bg-surface active:scale-95 transition-all cursor-pointer font-sans text-xs font-semibold"
+          className="flex items-center gap-2 px-3 py-1.5 rounded-full glass-panel-elevated shadow-xl border border-white/20 dark:border-white/10 backdrop-blur-2xl bg-surface/90 text-text-primary hover:bg-surface active:scale-95 transition-all cursor-pointer font-sans text-xs font-semibold whitespace-nowrap"
           title="Buka panel kontrol sudut & kamera 3D"
         >
-          <Compass size={14} className="text-brand-accent animate-pulse" />
+          <Compass size={13} className="text-brand-accent animate-pulse" />
           <span>Sisi: {getSideLabel(currentViewSide)}</span>
-          <span className="w-1.5 h-1.5 rounded-full bg-brand-accent" />
+          <ChevronDown size={12} className="text-text-muted" />
         </button>
       ) : (
-        /* Full Expanded Dock Bar */
-        <div className="flex flex-col md:flex-row md:items-center items-stretch gap-1 sm:gap-1.5 p-1 rounded-2xl glass-panel-elevated shadow-2xl border border-white/15 dark:border-white/10 backdrop-blur-2xl bg-surface/90 overflow-y-auto md:overflow-x-auto no-scrollbar max-md:max-h-[60vh]">
+        /* Full Expanded Horizontal Dock Bar */
+        <div className="flex flex-row items-center gap-1 sm:gap-1.5 p-1 rounded-2xl glass-panel-elevated shadow-2xl border border-white/15 dark:border-white/10 backdrop-blur-2xl bg-surface/90 overflow-x-auto no-scrollbar max-w-[calc(100vw-16px)]">
           {/* GRUP 1: Panel Alih Sisi 1-Klik Ringkas (Segmented Controls) */}
           <div className="flex items-center gap-0.5 sm:gap-1 bg-surface-elevated/40 p-0.5 rounded-xl border border-border-subtle/40" role="group" aria-label="Alih Sisi Pakaian">
             {[
               { id: "front", label: "Dada", fullLabel: "Dada Depan", preset: "front", side: "front" },
               { id: "back", label: "Punggung", fullLabel: "Punggung", preset: "back", side: "back" },
-              { id: "left_sleeve", label: "Lengan Kiri", fullLabel: "Lengan Kiri", preset: "left", side: "left_sleeve" },
-              { id: "right_sleeve", label: "Lengan Kanan", fullLabel: "Lengan Kanan", preset: "right", side: "right_sleeve" },
+              { id: "left_sleeve", label: "Kiri", fullLabel: "Lengan Kiri", preset: "left", side: "left_sleeve" },
+              { id: "right_sleeve", label: "Kanan", fullLabel: "Lengan Kanan", preset: "right", side: "right_sleeve" },
             ].map((item) => {
               const isActive = currentViewSide === item.side;
               return (
@@ -171,7 +171,7 @@ export function StudioHUD() {
                     setActiveViewSide(item.side as any);
                   }}
                   aria-pressed={isActive}
-                  className={`flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-lg font-sans text-xs font-semibold transition-all active:scale-95 cursor-pointer whitespace-nowrap ${
+                  className={`flex items-center gap-1.5 px-2 sm:px-3 py-1.5 rounded-lg font-sans text-xs font-semibold transition-all active:scale-95 cursor-pointer whitespace-nowrap ${
                     isActive
                       ? "bg-brand-accent text-canvas shadow-[0_0_12px_rgba(230,81,0,0.45)]"
                       : "text-text-muted hover:text-text-primary hover:bg-surface/70"
@@ -189,21 +189,22 @@ export function StudioHUD() {
           {/* Tombol Cepat: Pindahkan Desain ke Sisi Ini */}
           {canMoveDecalToCurrentSide && (
             <>
-              <div className="h-px w-full md:h-5 md:w-px bg-border-subtle mx-0.5 sm:mx-1 my-0.5 md:my-0 shrink-0" />
+              <div className="h-5 w-px bg-border-subtle mx-0.5 sm:mx-1 shrink-0" />
               <button
                 type="button"
                 onClick={handleMoveDecalToCurrentSide}
-                className="flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-xl font-sans text-xs font-bold bg-amber-500 hover:bg-amber-400 text-neutral-950 shadow-[0_0_14px_rgba(245,158,11,0.5)] transition-all active:scale-95 cursor-pointer animate-pulse whitespace-nowrap"
+                className="flex items-center gap-1 px-2 sm:px-3 py-1.5 rounded-xl font-sans text-xs font-bold bg-amber-500 hover:bg-amber-400 text-neutral-950 shadow-[0_0_14px_rgba(245,158,11,0.5)] transition-all active:scale-95 cursor-pointer animate-pulse whitespace-nowrap"
                 title="Pindahkan posisi sablon aktif langsung ke sisi yang sedang dilihat ini"
               >
-                <ArrowRightLeft size={13} className="stroke-[2.5]" />
-                <span>Pindahkan ke Sisi Ini</span>
+                <ArrowRightLeft size={12} className="stroke-[2.5]" />
+                <span className="hidden sm:inline">Pindahkan ke Sisi Ini</span>
+                <span className="sm:hidden">Pindah</span>
               </button>
             </>
           )}
 
           {/* Divider Elegan */}
-          <div className="h-px w-full md:h-5 md:w-px bg-border-subtle mx-0.5 sm:mx-1 my-0.5 md:my-0 shrink-0" />
+          <div className="h-5 w-px bg-border-subtle mx-0.5 sm:mx-1 shrink-0" />
 
           {/* GRUP 2: Rotasi Otomatis & Reset Posisi */}
           <div className="flex items-center gap-0.5 sm:gap-1" role="group" aria-label="Alat Kamera">
@@ -236,7 +237,7 @@ export function StudioHUD() {
           {/* GRUP 3: Saklar Kotak Gizmo (jika ada sablon aktif) */}
           {decals.length > 0 && (
             <>
-              <div className="h-px w-full md:h-5 md:w-px bg-border-subtle mx-0.5 sm:mx-1 my-0.5 md:my-0 shrink-0" />
+              <div className="h-5 w-px bg-border-subtle mx-0.5 sm:mx-1 shrink-0" />
               <button
                 type="button"
                 onClick={toggleGizmoVisible}
@@ -255,12 +256,12 @@ export function StudioHUD() {
           )}
 
           {/* GRUP 4: Tombol Minimize Dock */}
-          <div className="h-px w-full md:h-5 md:w-px bg-border-subtle mx-0.5 sm:mx-1 my-0.5 md:my-0 shrink-0" />
+          <div className="h-5 w-px bg-border-subtle mx-0.5 sm:mx-1 shrink-0" />
           <button
             type="button"
             onClick={() => setIsMinimized(true)}
-            className="p-1.5 rounded-xl text-text-muted hover:text-text-primary hover:bg-surface/70 transition-all cursor-pointer flex items-center justify-center"
-            title="Perkecil panel kontrol bawah"
+            className="p-1.5 rounded-xl text-text-muted hover:text-text-primary hover:bg-surface/70 transition-all cursor-pointer flex items-center justify-center shrink-0"
+            title="Perkecil panel kontrol sudut"
             aria-label="Perkecil panel kontrol"
           >
             <ChevronDown size={14} />

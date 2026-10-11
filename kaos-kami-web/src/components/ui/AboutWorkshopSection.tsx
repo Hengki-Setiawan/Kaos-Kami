@@ -12,6 +12,7 @@ import {
   SHOP_MAPS_URL,
   shopWaLink,
 } from "@/lib/shop";
+import { useCmsContent } from "@/hooks/useCmsContent";
 import {
   MapPin,
   Clock,
@@ -23,6 +24,24 @@ import {
 } from "lucide-react";
 
 export const AboutWorkshopSection: React.FC = () => {
+  const cms = useCmsContent();
+  const rawTitle = cms.aboutTitle?.trim() || "Kaos Komunitas Berkualitas,\nDibuat Mandiri dengan Standar Distro";
+  const titleLines = rawTitle.split("\n").filter(Boolean);
+  const story =
+    cms.aboutStory?.trim() ||
+    "Kaos Kami adalah brand apparel independen Kota Makassar yang berfokus pada kaos komunitas, pop culture, dan sablon digital DTF presisi tinggi sejak 2024. Setiap potong pakaian dikerjakan dengan ketelitian penuh, mulai dari pemilihan bahan katun combed 24s murni yang sejuk, cetak transfer film beresolusi tajam, hingga proses heat press mandiri di workshop kami. Kami melayani pesanan satuan tanpa minimum order maupun pesanan komunitas di seluruh Indonesia.";
+
+  const tiktokUrl = cms.tiktokUrl || SHOP_TIKTOK_URL;
+  const instagramUrl = cms.instagramUrl || SHOP_INSTAGRAM_URL;
+  const fbUrl = cms.facebookUrl || SHOP_FB_COMMUNITY_URL;
+  const waUrl = cms.whatsappNumber
+    ? `https://wa.me/${cms.whatsappNumber.replace(/\D/g, "").replace(/^0/, "62")}?text=${encodeURIComponent("Halo CS Kaos Kami Makassar, saya ingin konsultasi sablon dan bahan.")}`
+    : shopWaLink("Halo CS Kaos Kami Makassar, saya ingin konsultasi sablon dan bahan.");
+  const workshopAddress = cms.workshopAddress || SHOP_WORKSHOP_ADDRESS;
+  const workshopHours = cms.workshopHours || SHOP_HOURS;
+  const mapsUrl = cms.workshopMapsUrl || SHOP_MAPS_URL;
+  const phoneDisplay = cms.whatsappNumber || SHOP_PHONE_DISPLAY;
+
   return (
     <section
       id="tentang-kami"
@@ -33,14 +52,26 @@ export const AboutWorkshopSection: React.FC = () => {
         <div className="space-y-4 max-w-3xl">
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-brand-accent/10 border border-brand-accent/30 text-brand-accent text-xs font-mono font-bold uppercase tracking-wider">
             <Sparkles size={13} />
-            <span>BRAND APPAREL & SABLON DTF MAKASSAR · EST. 2024</span>
+            <span>{cms.aboutBadge || "BRAND APPAREL & SABLON DTF MAKASSAR · EST. 2024"}</span>
           </div>
           <h2 className="text-3xl sm:text-4xl md:text-5xl font-sans font-extrabold tracking-tight text-text-primary leading-[1.1]">
-            Kaos Komunitas Berkualitas, <br className="hidden sm:block" />
-            <span className="text-brand-accent">Dibuat Mandiri dengan Standar Distro</span>
+            {titleLines.length > 1 ? (
+              titleLines.map((line, idx) => (
+                <React.Fragment key={idx}>
+                  {idx === 0 ? (
+                    <span>{line} </span>
+                  ) : (
+                    <span className="text-brand-accent block sm:inline">{line}</span>
+                  )}
+                  {idx < titleLines.length - 1 && <br className="hidden sm:block" />}
+                </React.Fragment>
+              ))
+            ) : (
+              <span>{rawTitle}</span>
+            )}
           </h2>
           <p className="text-sm sm:text-base text-text-muted leading-relaxed font-sans">
-            Kaos Kami adalah brand apparel independen Kota Makassar yang berfokus pada kaos komunitas, pop culture, dan sablon digital DTF presisi tinggi sejak 2024. Setiap potong pakaian dikerjakan dengan ketelitian penuh, mulai dari pemilihan bahan katun combed 24s murni yang sejuk, cetak transfer film beresolusi tajam, hingga proses heat press mandiri di workshop kami. Kami melayani pesanan satuan tanpa minimum order maupun pesanan komunitas di seluruh Indonesia.
+            {story}
           </p>
         </div>
 
@@ -88,7 +119,7 @@ export const AboutWorkshopSection: React.FC = () => {
                   <div>
                     <h5 className="text-xs font-bold text-text-primary">Alamat Workshop</h5>
                     <p className="text-xs text-text-muted leading-relaxed mt-0.5">
-                      {SHOP_WORKSHOP_ADDRESS}
+                      {workshopAddress}
                     </p>
                   </div>
                 </div>
@@ -100,7 +131,7 @@ export const AboutWorkshopSection: React.FC = () => {
                   <div>
                     <h5 className="text-xs font-bold text-text-primary">Jam Operasional</h5>
                     <p className="text-xs text-text-muted mt-0.5">
-                      {SHOP_HOURS} (Minggu Libur)
+                      {workshopHours}
                     </p>
                   </div>
                 </div>
@@ -128,7 +159,7 @@ export const AboutWorkshopSection: React.FC = () => {
 
             {/* Google Maps Button */}
             <a
-              href={SHOP_MAPS_URL}
+              href={mapsUrl}
               target="_blank"
               rel="noopener noreferrer"
               className="w-full py-3 px-4 rounded-xl bg-surface border border-border-strong hover:border-brand-accent text-text-primary font-bold text-xs flex items-center justify-center gap-2 transition-all hover:bg-surface-elevated shadow-sm cursor-pointer"
@@ -153,7 +184,7 @@ export const AboutWorkshopSection: React.FC = () => {
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               {/* 1. TikTok - Brand Accurate Duotone Vibe */}
               <a
-                href={SHOP_TIKTOK_URL}
+                href={tiktokUrl}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="group relative p-4 rounded-xl bg-black border border-neutral-800 hover:border-neutral-600 transition-all flex items-center justify-between text-white overflow-hidden shadow-sm"
@@ -178,7 +209,7 @@ export const AboutWorkshopSection: React.FC = () => {
 
               {/* 2. Instagram - Brand Accurate Gradient Camera */}
               <a
-                href={SHOP_INSTAGRAM_URL}
+                href={instagramUrl}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="group relative p-4 rounded-xl bg-surface border border-border-subtle hover:border-[#E4405F]/50 transition-all flex items-center justify-between overflow-hidden shadow-sm hover:shadow-md"
@@ -203,7 +234,7 @@ export const AboutWorkshopSection: React.FC = () => {
 
               {/* 3. Facebook Community - Official FB Blue */}
               <a
-                href={SHOP_FB_COMMUNITY_URL}
+                href={fbUrl}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="group relative p-4 rounded-xl bg-surface border border-border-subtle hover:border-[#1877F2]/50 transition-all flex items-center justify-between overflow-hidden shadow-sm hover:shadow-md"
@@ -228,7 +259,7 @@ export const AboutWorkshopSection: React.FC = () => {
 
               {/* 4. WhatsApp CS - Official WA Green & Status Dot */}
               <a
-                href={shopWaLink("Halo CS Kaos Kami Makassar, saya ingin konsultasi sablon dan bahan.")}
+                href={waUrl}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="group relative p-4 rounded-xl bg-surface border border-border-subtle hover:border-[#25D366]/50 transition-all flex items-center justify-between overflow-hidden shadow-sm hover:shadow-md"
@@ -245,7 +276,7 @@ export const AboutWorkshopSection: React.FC = () => {
                       WhatsApp CS
                       <span className="w-2 h-2 rounded-full bg-[#25D366] animate-pulse" />
                     </h4>
-                    <span className="text-xs text-text-muted font-mono">{SHOP_PHONE_DISPLAY}</span>
+                    <span className="text-xs text-text-muted font-mono">{phoneDisplay}</span>
                   </div>
                 </div>
                 <ArrowUpRight size={15} className="text-text-muted group-hover:text-[#25D366] transition-colors" />
@@ -254,7 +285,7 @@ export const AboutWorkshopSection: React.FC = () => {
 
             {/* Direct Contact Bar */}
             <div className="pt-2 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 text-xs text-text-muted border-t border-border-subtle">
-              <span>Customer Care: <strong className="text-text-primary font-semibold">{SHOP_PHONE_DISPLAY}</strong></span>
+              <span>Customer Care: <strong className="text-text-primary font-semibold">{phoneDisplay}</strong></span>
               <span>Email: <a href={`mailto:${SHOP_EMAIL}`} className="text-text-primary hover:text-brand-accent transition-colors font-medium">{SHOP_EMAIL}</a></span>
             </div>
           </div>

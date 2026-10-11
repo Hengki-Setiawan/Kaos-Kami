@@ -353,7 +353,7 @@ export function AdminChatManager() {
                 }`}
               >
                 <MessageSquare size={13} />
-                <span>Chat ({threads.length})</span>
+                <span>Chat & Pesan ({threads.length})</span>
               </button>
               <button
                 type="button"
@@ -949,9 +949,38 @@ export function AdminChatManager() {
                             </span>
                           </div>
 
+                          {m.content.startsWith("[LAPORAN KENDALA") && (
+                            <div className="flex items-center gap-1.5 text-[10px] font-mono px-2 py-0.5 rounded bg-rose-500/20 text-rose-600 dark:text-rose-400 font-bold border border-rose-500/30 w-fit">
+                              <AlertTriangle size={12} className="shrink-0" />
+                              <span>LAPORAN KENDALA / BUG PELANGGAN</span>
+                            </div>
+                          )}
+
                           <p className="text-xs leading-relaxed whitespace-pre-wrap break-words">
                             {m.content}
                           </p>
+
+                          {/* Lampiran Gambar Bukti dari Pelanggan */}
+                          {Array.isArray(m.attachments) && m.attachments.length > 0 && (
+                            <div className="flex flex-wrap gap-2 pt-1.5">
+                              {m.attachments.map((attUrl, aIdx) => (
+                                <a
+                                  key={aIdx}
+                                  href={attUrl}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="group relative rounded-xl overflow-hidden border border-border-subtle bg-black/5 dark:bg-white/5 w-20 h-20 block cursor-pointer transition-transform hover:scale-105"
+                                  title="Buka gambar bukti screenshot (tab baru)"
+                                >
+                                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                                  <img src={attUrl} alt="Bukti kendala" className="w-full h-full object-cover" />
+                                  <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity text-white">
+                                    <ExternalLink size={14} />
+                                  </div>
+                                </a>
+                              ))}
+                            </div>
+                          )}
 
                           {m.orderId && (
                             <div className="pt-1">

@@ -10,9 +10,9 @@ import {
 import { ShieldCheck, AlertCircle, RefreshCw, FileText } from "lucide-react";
 
 export const metadata = {
-  title: "Kebijakan Pengembalian Dana (Refund Policy) · Kaos Kami Makassar",
+  title: "Komplain & Retur Pesanan · Kaos Kami Makassar",
   description:
-    "Kebijakan pengembalian dana (refund) dan garansi ganti baru produk sablon DTF Kaos Kami Kota Makassar.",
+    "Kebijakan penanganan komplain cacat produksi dan pengembalian barang pesanan sablon DTF Kaos Kami Kota Makassar.",
 };
 
 const UPDATED = new Date().toLocaleDateString("id-ID", {
@@ -34,21 +34,21 @@ export default function RefundPage() {
             ← KEMBALI KE BERANDA
           </Link>
           <h1 className="font-sans text-3xl md:text-4xl font-bold uppercase text-text-primary mt-4 tracking-tight">
-            Kebijakan Pengembalian Dana & Barang
+            Komplain & Retur Pesanan
           </h1>
           <p className="font-mono text-xs text-text-muted mt-2">
-            Refund & Replacement Policy · Terakhir diperbarui: {UPDATED} (Kaos Kami Makassar).
+            Kebijakan penanganan komplain cacat produksi · Terakhir diperbarui: {UPDATED} (Kaos Kami Makassar).
           </p>
         </div>
 
         {/* Highlight Banner */}
-        <div className="p-5 rounded-2xl bg-brand-accent/5 border border-brand-accent/30 flex items-start gap-3 text-xs leading-relaxed text-text-muted">
-          <ShieldCheck size={22} className="text-brand-accent shrink-0 mt-0.5" />
+        <div className="p-4 rounded-xl bg-surface border border-border-strong flex items-start gap-3 text-xs leading-relaxed text-text-muted">
+          <ShieldCheck size={20} className="text-brand-accent shrink-0 mt-0.5" />
           <div>
             <strong className="text-text-primary block font-bold text-sm mb-1">
-              Garansi Kepuasan Pelanggan 100%
+              Ketentuan Komplain Cacat Produksi
             </strong>
-            Kami berkomitmen memberikan kualitas sablon DTF terbaik dengan bahan katun combed premium. Jika pesanan Anda mengalami cacat produksi fatal, salah ukuran dari pihak kami, atau sablon rusak saat diterima, kami siap memberikan <strong>Cetak Ulang Gratis (Ganti Baru)</strong> atau <strong>Pengembalian Dana Penuh (Refund)</strong>.
+            Jika pesanan Anda mengalami cacat sablon, salah kirim ukuran/warna, atau baju rusak saat diterima, kami akan cetak ulang atau kembalikan dana. Wajib menyertakan video unboxing utuh maksimal 2x24 jam sejak paket diterima.
           </div>
         </div>
 
@@ -181,7 +181,7 @@ export default function RefundPage() {
             <div className="mt-2 space-y-1 font-mono text-[11px] text-text-primary">
               <div>WhatsApp Layanan Pelanggan:{" "}
                 <a
-                  href={shopWaLink("Halo CS Kaos Kami, saya ingin mengajukan klaim garansi/refund pesanan saya.")}
+                  href={shopWaLink("Halo CS Kaos Kami, saya ingin lapor komplain pesanan saya.")}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="text-brand-accent hover:underline font-bold"

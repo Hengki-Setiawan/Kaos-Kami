@@ -86,8 +86,8 @@ const NO_BOX: SideBoxCm = { w: 0, h: 0 };
 
 export const MOBILE_SIDE_BOX_CM: Record<string, SideBoxes> = {
   tshirt: {
-    front: BOX(30, 42),
-    back: BOX(30, 42),
+    front: BOX(35, 42),
+    back: BOX(35, 42),
     left_sleeve: BOX(8.5, 14),
     right_sleeve: BOX(8.5, 14),
     side_left: BOX(12, 32),
@@ -95,8 +95,8 @@ export const MOBILE_SIDE_BOX_CM: Record<string, SideBoxes> = {
     hood: NO_BOX,
   },
   longsleeve: {
-    front: BOX(30, 42),
-    back: BOX(30, 42),
+    front: BOX(35, 42),
+    back: BOX(35, 42),
     left_sleeve: BOX(9, 42),
     right_sleeve: BOX(9, 42),
     side_left: BOX(12, 32),

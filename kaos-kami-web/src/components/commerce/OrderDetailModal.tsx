@@ -311,7 +311,7 @@ export function OrderDetailModal({
               </span>
             </div>
             <p className="text-[11px] text-text-muted">
-              Uji alur konfirmasi lunas instan (tanpa charge Duitku). Tiket sablon DTF langsung diterbitkan di Kanban.
+              Uji alur konfirmasi lunas instan (tanpa charge gateway). Tiket sablon DTF langsung diterbitkan di Kanban.
             </p>
             <button
               type="button"

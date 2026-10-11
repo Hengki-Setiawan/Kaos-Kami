@@ -285,8 +285,8 @@ export function StudioControlOverlay({
       <BottomSheet
         open={testLabOpen}
         onOpenChange={setTestLabOpen}
-        title="3D Test Lab"
-        description="Uji tarik kain, senter inspeksi & terowongan angin."
+        title="3D Test Lab (Beta)"
+        description="Tahap uji coba (Beta): Uji simulasi tarik kain, senter inspeksi & terowongan angin."
       >
         <MobileTestLabControls />
       </BottomSheet>

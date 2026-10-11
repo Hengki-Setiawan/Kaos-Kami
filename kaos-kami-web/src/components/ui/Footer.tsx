@@ -10,10 +10,22 @@ import {
   SHOP_HOURS,
   SHOP_PHONE_DISPLAY,
   shopWaLink,
+  APK_DOWNLOAD_URL,
 } from "@/lib/shop";
-import { ShieldCheck } from "lucide-react";
+import { useCmsContent } from "@/hooks/useCmsContent";
+import { ShieldCheck, Smartphone, Download } from "lucide-react";
 
 export const Footer: React.FC = () => {
+  const cms = useCmsContent();
+  const tiktokUrl = cms.tiktokUrl || SHOP_TIKTOK_URL;
+  const instagramUrl = cms.instagramUrl || SHOP_INSTAGRAM_URL;
+  const fbUrl = cms.facebookUrl || SHOP_FB_COMMUNITY_URL;
+  const waUrl = cms.whatsappNumber
+    ? `https://wa.me/${cms.whatsappNumber.replace(/\D/g, "").replace(/^0/, "62")}?text=${encodeURIComponent("Halo CS Kaos Kami, saya ingin konsultasi sablon.")}`
+    : shopWaLink("Halo CS Kaos Kami, saya ingin konsultasi sablon.");
+  const workshopAddress = cms.workshopAddress || SHOP_WORKSHOP_ADDRESS;
+  const workshopHours = cms.workshopHours || SHOP_HOURS;
+  const phoneDisplay = cms.whatsappNumber || SHOP_PHONE_DISPLAY;
   return (
     <footer className="relative z-20 border-t border-border-subtle bg-canvas px-6 md:px-12 py-12 md:py-16 font-sans text-xs text-text-primary">
       <div className="max-w-6xl mx-auto space-y-10">
@@ -44,7 +56,7 @@ export const Footer: React.FC = () => {
             <div className="flex items-center gap-2 pt-1" aria-label="Media sosial Kaos Kami">
               {/* TikTok */}
               <a
-                href={SHOP_TIKTOK_URL}
+                href={tiktokUrl}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="w-9 h-9 rounded-xl bg-surface border border-border-subtle hover:border-text-primary hover:bg-black hover:text-white text-text-muted flex items-center justify-center transition-all cursor-pointer"
@@ -57,7 +69,7 @@ export const Footer: React.FC = () => {
 
               {/* Instagram */}
               <a
-                href={SHOP_INSTAGRAM_URL}
+                href={instagramUrl}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="w-9 h-9 rounded-xl bg-surface border border-border-subtle hover:border-[#E4405F] hover:text-[#E4405F] text-text-muted flex items-center justify-center transition-all cursor-pointer"
@@ -70,7 +82,7 @@ export const Footer: React.FC = () => {
 
               {/* WhatsApp */}
               <a
-                href={shopWaLink("Halo CS Kaos Kami, saya ingin konsultasi sablon.")}
+                href={waUrl}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="w-9 h-9 rounded-xl bg-surface border border-border-subtle hover:border-[#25D366] hover:text-[#25D366] text-text-muted flex items-center justify-center transition-all cursor-pointer"
@@ -83,7 +95,7 @@ export const Footer: React.FC = () => {
 
               {/* Facebook */}
               <a
-                href={SHOP_FB_COMMUNITY_URL}
+                href={fbUrl}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="w-9 h-9 rounded-xl bg-surface border border-border-subtle hover:border-[#1877F2] hover:text-[#1877F2] text-text-muted flex items-center justify-center transition-all cursor-pointer"
@@ -116,6 +128,20 @@ export const Footer: React.FC = () => {
                 <Link href="/track" className="text-text-muted hover:text-brand-accent transition-colors">
                   Lacak Pesanan
                 </Link>
+              </li>
+              <li>
+                <a
+                  href={APK_DOWNLOAD_URL}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-text-muted hover:text-brand-accent transition-colors inline-flex items-center gap-1.5"
+                  title="Unduh file APK aplikasi Android Kaos Kami (Tahap Uji Coba Beta)"
+                >
+                  <span>Aplikasi Android</span>
+                  <span className="text-[9px] font-mono font-bold px-1.5 py-0.2 rounded bg-amber-500/15 text-amber-500 border border-amber-500/30">
+                    BETA
+                  </span>
+                </a>
               </li>
             </ul>
           </nav>
@@ -160,15 +186,47 @@ export const Footer: React.FC = () => {
               Workshop Makassar
             </span>
             <p className="text-text-muted text-xs leading-relaxed">
-              {SHOP_WORKSHOP_ADDRESS}
+              {workshopAddress}
             </p>
             <p className="text-text-muted text-xs">
-              Buka: <strong className="text-text-primary font-medium">{SHOP_HOURS}</strong>
+              Buka: <strong className="text-text-primary font-medium">{workshopHours}</strong>
             </p>
             <p className="text-text-muted text-xs">
-              Customer Care: <strong className="text-text-primary font-medium">{SHOP_PHONE_DISPLAY}</strong>
+              Customer Care: <strong className="text-text-primary font-medium">{phoneDisplay}</strong>
             </p>
           </div>
+        </div>
+
+        {/* Mobile Capacitor App Showcase Card (Beta) */}
+        <div className="p-4 sm:p-5 rounded-2xl bg-surface/80 border border-border-subtle flex flex-col md:flex-row items-start md:items-center justify-between gap-4 shadow-xs">
+          <div className="flex items-start sm:items-center gap-3.5">
+            <div className="w-10 h-10 rounded-xl bg-amber-500/10 border border-amber-500/25 flex items-center justify-center text-amber-500 shrink-0 mt-0.5 sm:mt-0">
+              <Smartphone size={20} />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-bold text-text-primary">
+                  Aplikasi Mobile Android
+                </span>
+                <span className="text-[9px] font-mono font-bold px-1.5 py-0.5 rounded-full bg-amber-500/15 text-amber-500 border border-amber-500/30">
+                  BETA • UJI COBA
+                </span>
+              </div>
+              <p className="text-[11px] text-text-muted mt-0.5 max-w-xl leading-relaxed">
+                Aplikasi Android (APK) kini tersedia dalam tahap uji coba (Beta). Desain pakaian 3D interaktif lebih responsif dengan akses hardware perangkat (haptic tactile feedback &amp; upload kamera langsung).
+              </p>
+            </div>
+          </div>
+          <a
+            href={APK_DOWNLOAD_URL}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="px-4 py-2 rounded-xl bg-brand-accent hover:bg-brand-accent/90 text-canvas text-xs font-bold font-sans transition-all active:scale-95 shrink-0 inline-flex items-center gap-2 shadow-sm cursor-pointer"
+            title="Unduh paket instalasi APK Android Kaos Kami"
+          >
+            <Download size={14} />
+            <span>Unduh APK Beta</span>
+          </a>
         </div>
 
         {/* Payment Partner & Integrasi Resmi iPaymu */}

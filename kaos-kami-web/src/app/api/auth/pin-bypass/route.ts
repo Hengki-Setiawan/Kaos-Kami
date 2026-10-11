@@ -15,8 +15,9 @@ export async function POST(req: NextRequest) {
   try {
     const body = await req.json().catch(() => ({}));
     const pin = String(body.pin || "").trim();
+    const action = String(body.action || "").trim();
 
-    let targetRole: "SUPER_ADMIN" | "CUSTOMER" | null = null;
+    let targetRole: "SUPER_ADMIN" | "CUSTOMER" | "GUEST" | null = null;
     let redirectUrl = "/";
 
     if (pin === "164164") {
@@ -25,11 +26,45 @@ export async function POST(req: NextRequest) {
     } else if (pin === "461461") {
       targetRole = "CUSTOMER";
       redirectUrl = "/dashboard/orders";
+    } else if (pin === "000000" || action === "logout" || action === "guest") {
+      targetRole = "GUEST";
+      redirectUrl = "/";
     } else {
       return NextResponse.json(
         { success: false, error: "PIN Salah! Akses ditolak." },
         { status: 401 }
       );
+    }
+
+    // 0. Jika mode GUEST / Logout: langsung bersihkan cookie sesi dan dev role
+    if (targetRole === "GUEST") {
+      const res = NextResponse.json({
+        success: true,
+        role: "GUEST",
+        userName: "Tamu",
+        redirectUrl: "/",
+        message: "Sesi berhasil diakhiri. Beralih ke Mode Tamu.",
+        sessionUser: null,
+      });
+
+      res.cookies.set("better-auth.session_token", "", {
+        path: "/",
+        maxAge: 0,
+      });
+      res.cookies.set("__Secure-better-auth.session_token", "", {
+        path: "/",
+        maxAge: 0,
+      });
+      res.cookies.set("kaos_dev_role", "GUEST", {
+        path: "/",
+        maxAge: 30 * 24 * 60 * 60,
+        sameSite: "lax",
+      });
+      res.cookies.set("kaos_dev_user_id", "", {
+        path: "/",
+        maxAge: 0,
+      });
+      return res;
     }
 
     // 1. Cari atau buat user yang sesuai di database Turso

@@ -5,6 +5,9 @@ import { CatalogProduct } from "@/lib/drizzle-schema";
 import { safeJsonArray } from "@/lib/json";
 import { checkRateLimitAsync, getClientIp, rateLimitHeaders } from "@/lib/security/rateLimiter";
 
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
 export async function GET(req: NextRequest) {
   try {
     const rl = await checkRateLimitAsync(`catalog:ip:${getClientIp(req)}`, 300, 60);
@@ -59,14 +62,26 @@ export async function GET(req: NextRequest) {
             }))
             .sort((a, b) => (sizeOrder[a.size] || 99) - (sizeOrder[b.size] || 99));
 
-          const totalStock = sizes.reduce((acc, s) => acc + s.stockQty, 0);
+          const totalStock = sizes.reduce((acc, s) => acc + (s.stockQty || 0), 0);
+
+          let parsedMockup3D: any = null;
+          try {
+            if (cp.tags) {
+              const parsed = typeof cp.tags === "string" ? JSON.parse(cp.tags) : cp.tags;
+              if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+                parsedMockup3D = parsed;
+              }
+            }
+          } catch {}
+
+          const effectiveColorHex = parsedMockup3D?.colorHex || colorHex;
 
           return {
             id: cp.id,
             name: cp.name,
             priceIdr: cp.basePriceIdr,
             colorName,
-            colorHex,
+            colorHex: effectiveColorHex,
             size: rawSizes.includes("L") ? "L" : rawSizes.includes("M") ? "M" : rawSizes[0] || "M",
             stockQty: totalStock,
             images: images.length > 0 ? images : ["/products/tshirt-orange-makassar.jpg"],
@@ -74,6 +89,14 @@ export async function GET(req: NextRequest) {
             tagline: cp.tagline,
             description: cp.description,
             tags: safeJsonArray(cp.tags),
+            mockup3D: {
+              colorHex: effectiveColorHex,
+              frontDecalUrl: parsedMockup3D?.frontDecalUrl || null,
+              backDecalUrl: parsedMockup3D?.backDecalUrl || null,
+              printSize: parsedMockup3D?.printSize || "A4",
+              printPosition: parsedMockup3D?.printPosition || "chest_center",
+              mockupSnapshotUrl: parsedMockup3D?.mockupSnapshotUrl || null,
+            },
             category: {
               slug: cp.apparelSlug,
               name: cp.tagline || cp.name,
@@ -82,7 +105,10 @@ export async function GET(req: NextRequest) {
           };
         });
 
-      return NextResponse.json({ success: true, variants: distroVariants });
+      return NextResponse.json(
+        { success: true, variants: distroVariants },
+        { headers: { "Cache-Control": "no-store, no-cache, must-revalidate" } }
+      );
     }
 
     // 2. Fallback jika CatalogProduct kosong: baca varian predesigned lawas

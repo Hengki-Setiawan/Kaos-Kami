@@ -435,15 +435,31 @@ export async function GET(req: NextRequest) {
     })
     .sort((a, b) => (a.weeksLeft ?? Infinity) - (b.weeksLeft ?? Infinity));
 
-  // -- Tren harian (daftar per hari dalam window) ------------------------------
+  // -- Tren harian & Breakdown Saluran / Metode Bayar -----------------------
   const spanDays = range === "today" ? 1 : range === "30d" ? 30 : 7;
   const dailyMap = new Map<string, { gross: number; orders: number }>();
   const trendOrders = await db.query.Order.findMany({
     where: gte(Order.createdAt, from),
-    columns: { createdAt: true, totalIdr: true, status: true },
+    columns: { createdAt: true, totalIdr: true, status: true, notes: true },
+    with: {
+      items: {
+        columns: { designId: true, productVariantId: true, lineTotalIdr: true },
+      },
+    },
     orderBy: (t, { asc }) => asc(t.createdAt),
     limit: 2000,
   });
+
+  let customStudioGross = 0;
+  let customStudioOrders = 0;
+  let catalogEcommerceGross = 0;
+  let catalogEcommerceOrders = 0;
+
+  let ipaymuQrisGross = 0;
+  let ipaymuQrisOrders = 0;
+  let otherPaymentGross = 0;
+  let otherPaymentOrders = 0;
+
   for (const o of trendOrders) {
     if ((EXCLUDED_FROM_GROSS as string[]).includes(o.status)) continue;
     const k = dayKey(o.createdAt);
@@ -451,7 +467,38 @@ export async function GET(req: NextRequest) {
     row.gross += o.totalIdr;
     row.orders += 1;
     dailyMap.set(k, row);
+
+    // Breakdown Channel (Studio Kustom DTF 3D vs Katalog Siap Pakai)
+    const isCustom = o.items && o.items.some((it: any) => it.designId !== null);
+    if (isCustom) {
+      customStudioGross += o.totalIdr;
+      customStudioOrders += 1;
+    } else {
+      catalogEcommerceGross += o.totalIdr;
+      catalogEcommerceOrders += 1;
+    }
+
+    // Breakdown Metode Pembayaran
+    const notesStr = String(o.notes || "").toUpperCase();
+    if (notesStr.includes("IPAYMU") || notesStr.includes("QRIS")) {
+      ipaymuQrisGross += o.totalIdr;
+      ipaymuQrisOrders += 1;
+    } else {
+      otherPaymentGross += o.totalIdr;
+      otherPaymentOrders += 1;
+    }
   }
+
+  const channels = {
+    customStudio: { gross: customStudioGross, orders: customStudioOrders },
+    catalogEcommerce: { gross: catalogEcommerceGross, orders: catalogEcommerceOrders },
+  };
+
+  const payments = {
+    ipaymuQris: { gross: ipaymuQrisGross, orders: ipaymuQrisOrders },
+    otherMethods: { gross: otherPaymentGross, orders: otherPaymentOrders },
+  };
+
   const daily: { date: string; gross: number | null; orders: number }[] = [];
   for (let i = spanDays - 1; i >= 0; i--) {
     const d = new Date(now);
@@ -535,6 +582,8 @@ export async function GET(req: NextRequest) {
     stockForecast,
     stockSource:
       "burnPerWeek = total qty OrderItem 30 hari terakhir (order valid non-void) ÷ 4. burn null = tak ada penjualan tercatat (bukan 0). suggestOrder = kebutuhan 4 minggu − sisa, bila sisa < 2 minggu; 0 = aman; null = tak bisa dihitung.",
+    channels,
+    payments,
     daily,
     closing,
     meta: {

@@ -257,17 +257,42 @@ export const CanvasStage: React.FC<CanvasStageProps> = ({ camPos, lookAtPos }) =
         }
       };
 
-      // Engine Ekspor Resolusi Tinggi (2K/HD) & Latar Transparan (PNG Alpha)
+      // Cek ketersediaan mesh pakaian 3D (apakah model GLTF sudah tuntas dimuat)
+      (canvas as any).hasApparelMesh = (): boolean => {
+        let found = false;
+        scene.traverse((obj) => {
+          if (
+            (obj as any).isMesh &&
+            obj.name !== "studio-floor" &&
+            (obj as any).geometry?.attributes?.position?.count > 100
+          ) {
+            found = true;
+          }
+        });
+        return found;
+      };
+
+      // Engine Ekspor Resolusi Tinggi (2K/HD/Standard) & Latar Transparan (PNG Alpha / WebP)
       (canvas as any).exportMockup = async (options?: {
         resolution?: "standard" | "hd" | "2k";
         transparent?: boolean;
+        side?: "front" | "back";
+        aspectRatio?: number;
+        format?: "png" | "webp";
+        quality?: number;
       }): Promise<string> => {
         const res = options?.resolution || "2k";
-        const isTransparent = !!options?.transparent;
-        const targetDim = res === "standard" ? 1280 : res === "hd" ? 1920 : 2048;
+        const isTransparent = options?.transparent !== false;
+        const targetDim = res === "standard" ? 1024 : res === "hd" ? 1536 : 2048;
 
         const rect = canvas.getBoundingClientRect();
-        const aspect = rect.width && rect.height ? rect.width / rect.height : 1;
+        const aspect =
+          typeof options?.aspectRatio === "number" && options.aspectRatio > 0
+            ? options.aspectRatio
+            : rect.width && rect.height
+            ? rect.width / rect.height
+            : 1;
+
         let w = targetDim;
         let h = Math.round(targetDim / aspect);
         if (aspect < 1) {
@@ -280,6 +305,8 @@ export const CanvasStage: React.FC<CanvasStageProps> = ({ camPos, lookAtPos }) =
         gl.getClearColor(prevClearColor);
         const prevAspect = (camera as any).aspect;
         const prevView = (camera as any).view ? { ...(camera as any).view } : null;
+        const prevCamPos = camera.position.clone();
+        const prevCamQuat = camera.quaternion.clone();
         const hiddenObjects: THREE.Object3D[] = [];
 
         if (isTransparent) {
@@ -287,7 +314,10 @@ export const CanvasStage: React.FC<CanvasStageProps> = ({ camPos, lookAtPos }) =
           scene.traverse((obj) => {
             if (
               obj.name === "studio-floor" ||
-              (obj as any).isMesh && (obj as any).receiveShadow && !(obj as any).castShadow && obj.position.y < -1
+              ((obj as any).isMesh &&
+                (obj as any).receiveShadow &&
+                !(obj as any).castShadow &&
+                obj.position.y < -0.5)
             ) {
               if (obj.visible) {
                 obj.visible = false;
@@ -299,13 +329,92 @@ export const CanvasStage: React.FC<CanvasStageProps> = ({ camPos, lookAtPos }) =
 
         try {
           gl.setSize(w, h, false);
+          // 1. Bersihkan frustum skew/shear bawaan drawer (-280px) -> Nol kemiringan (0% tilt)!
           (camera as any).clearViewOffset?.();
+
+          // 2. Presisi Poros Kamera Tegak Lurus & Auto-Zoom Proporsional (Hero 88% Fill)
+          const st = useConfiguratorStore.getState();
+          const cx = st.modelPosX || 0;
+          const cy = st.modelPosY || 0;
+
+          // Hitung Bounding Box mesh pakaian untuk auto-framing heroik
+          const apparelBox = new THREE.Box3();
+          let apparelMeshCount = 0;
+          scene.traverse((obj) => {
+            if (
+              (obj as any).isMesh &&
+              obj.name !== "studio-floor" &&
+              !obj.name.toLowerCase().includes("mannequin") &&
+              !obj.name.toLowerCase().includes("floor") &&
+              !obj.name.toLowerCase().includes("ground") &&
+              !obj.name.toLowerCase().includes("shadow") &&
+              !obj.name.toLowerCase().includes("helper") &&
+              (obj as any).geometry?.attributes?.position?.count > 50
+            ) {
+              apparelBox.expandByObject(obj);
+              apparelMeshCount++;
+            }
+          });
+
+          let targetX = cx;
+          let targetY = cy - 0.08;
+          let zoomZ = 1.12;
+
+          if (apparelMeshCount > 0 && !apparelBox.isEmpty()) {
+            const size = new THREE.Vector3();
+            const center = new THREE.Vector3();
+            apparelBox.getSize(size);
+            apparelBox.getCenter(center);
+
+            targetX = center.x;
+            targetY = center.y;
+
+            // Sudut pandang FOV vertikal kamera Three.js
+            const fovRad =
+              ((camera as THREE.PerspectiveCamera).fov || 40) * (Math.PI / 180);
+            const tanHalfFov = Math.tan(fovRad / 2);
+            const frameAspect = w / h;
+
+            // Target isi 88% frame (heroic framing, margin 6% sekeliling tanpa terpotong)
+            const targetFillRatio = 0.88;
+            const distForHeight = size.y / 2 / (tanHalfFov * targetFillRatio);
+            const distForWidth =
+              size.x / 2 / (tanHalfFov * frameAspect * targetFillRatio);
+
+            zoomZ = Math.max(distForHeight, distForWidth);
+            // Batas aman [0.55m s/d 2.0m]
+            zoomZ = Math.max(0.55, Math.min(zoomZ, 2.0));
+          } else {
+            // Preset fallback per-apparel jika bounding box kosong
+            const apparel = st.activeApparel;
+            zoomZ =
+              apparel === "hoodie"
+                ? 1.25
+                : apparel === "pants"
+                ? 1.45
+                : apparel === "cap"
+                ? 0.70
+                : 1.10;
+            targetY = apparel === "pants" ? cy - 0.25 : cy - 0.08;
+          }
+
+          if (options?.side === "back") {
+            camera.position.set(targetX, targetY, -zoomZ);
+            camera.lookAt(targetX, targetY, 0);
+          } else if (options?.side === "front") {
+            camera.position.set(targetX, targetY, zoomZ);
+            camera.lookAt(targetX, targetY, 0);
+          }
+
           if ((camera as any).aspect !== undefined) {
             (camera as any).aspect = w / h;
             camera.updateProjectionMatrix();
           }
+
           gl.render(scene, camera);
-          return origToDataURL("image/png");
+          const outFormat = options?.format === "webp" ? "image/webp" : "image/png";
+          const outQuality = options?.quality ?? 0.92;
+          return origToDataURL(outFormat, outQuality);
         } finally {
           for (const obj of hiddenObjects) {
             obj.visible = true;
@@ -313,6 +422,8 @@ export const CanvasStage: React.FC<CanvasStageProps> = ({ camPos, lookAtPos }) =
           if (isTransparent) {
             gl.setClearColor(prevClearColor, prevClearAlpha);
           }
+          camera.position.copy(prevCamPos);
+          camera.quaternion.copy(prevCamQuat);
           gl.setSize(rect.width || 800, rect.height || 600, false);
           if (prevView && prevView.enabled) {
             (camera as any).setViewOffset?.(

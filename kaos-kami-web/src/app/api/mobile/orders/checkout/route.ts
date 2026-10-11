@@ -693,7 +693,7 @@ export async function POST(req: NextRequest) {
     await db.insert(Payment).values({
       id: nanoid(),
       orderId: order.id,
-      provider: "DUITKU",
+      provider: "IPAYMU",
       providerRef: pendingRef,
       method: "QRIS",
       amountIdr: totalIdr,

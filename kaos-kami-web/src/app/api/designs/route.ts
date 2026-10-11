@@ -225,12 +225,22 @@ export async function POST(req: NextRequest) {
 const DesignMutationSchema = z.object({
   id: z.string().min(1),
   title: z.string().min(1).max(60).optional(),
+  colorHex: z.string().regex(/^#([0-9A-Fa-f]{3}|[0-9A-Fa-f]{6})$/).optional(),
+  colorName: z.string().max(40).optional(),
+  size: z.string().max(10).optional(),
+  materialFinishSlug: z.string().max(40).optional(),
+  sablonMethodSlug: z.string().max(40).optional(),
+  decals: z.array(z.any()).max(10).optional(),
+  studioTheme: z.string().max(40).optional(),
+  previewImageFrontUrl: z.string().optional(),
+  previewImageBackUrl: z.string().optional(),
+  masterAssetUrl: z.string().optional(),
 });
 
 async function ownDesignOr403(id: string) {
   const design = await db.query.Design.findFirst({
     where: (t, { eq }) => eq(t.id, id),
-    columns: { id: true, userId: true },
+    with: { category: true },
   });
   if (!design) return { error: NextResponse.json({ error: "Desain tidak ditemukan" }, { status: 404 }) };
   const viewer = await getAuthenticatedUser().catch(() => null);
@@ -240,28 +250,113 @@ async function ownDesignOr403(id: string) {
   if (design.userId && (!viewer || (!isStaff && viewer.id !== design.userId))) {
     return { error: NextResponse.json({ error: "Forbidden" }, { status: 403 }) };
   }
-  return { design };
+  return { design, viewer };
 }
 
-/** PATCH /api/designs — ganti judul milik sendiri. */
+/** PATCH /api/designs — perbarui desain milik sendiri (judul, sablon, warna, preview). */
 export async function PATCH(req: NextRequest) {
   try {
-    // Limiter mutasi (sejajar POST 10/mnt) — tanpa ini rename bisa di-spam.
-    // Key IP: tamu (userId null) pun bisa memegang ID desain, jadi userId
-    // tak cukup sebagai satu-satunya key di sini.
-    const rl = await checkRateLimitAsync(`designs-patch:ip:${getClientIp(req)}`, 10, 60);
+    const rl = await checkRateLimitAsync(`designs-patch:ip:${getClientIp(req)}`, 20, 60);
     if (rl.isLimited) {
-      return NextResponse.json({ error: "Terlalu banyak mengubah desain." }, { status: 429, headers: rateLimitHeaders(rl, 10) });
+      return NextResponse.json({ error: "Terlalu banyak mengubah desain." }, { status: 429, headers: rateLimitHeaders(rl, 20) });
     }
-    const parsed = DesignMutationSchema.safeParse(await req.json().catch(() => ({})));
-    if (!parsed.success || !parsed.data.title) {
-      return NextResponse.json({ error: "Judul wajib diisi" }, { status: 400 });
+    const rawBody = await req.json().catch(() => ({}));
+    const parsed = DesignMutationSchema.safeParse(rawBody);
+    if (!parsed.success) {
+      return NextResponse.json({ error: parsed.error.errors[0]?.message || "Payload tidak valid" }, { status: 400 });
     }
     const gate = await ownDesignOr403(parsed.data.id);
     if (gate.error) return gate.error;
-    await db.update(Design).set({ title: parsed.data.title }).where(eq(Design.id, parsed.data.id));
-    return NextResponse.json({ success: true });
+
+    const existing = gate.design!;
+    const updateData: Record<string, any> = {
+      updatedAt: new Date(),
+    };
+
+    if (parsed.data.title) updateData.title = parsed.data.title;
+    if (parsed.data.colorHex) updateData.colorHex = parsed.data.colorHex;
+    if (parsed.data.colorName) updateData.colorName = parsed.data.colorName;
+    if (parsed.data.size) updateData.size = parsed.data.size;
+    if (parsed.data.materialFinishSlug) updateData.materialFinishSlug = parsed.data.materialFinishSlug;
+    if (parsed.data.sablonMethodSlug) updateData.sablonMethodSlug = parsed.data.sablonMethodSlug;
+    if (parsed.data.studioTheme) updateData.studioTheme = parsed.data.studioTheme;
+
+    // Handle preview images (upload base64 to R2 if provided)
+    if (parsed.data.previewImageFrontUrl) {
+      let front = parsed.data.previewImageFrontUrl;
+      if (front.startsWith("data:image")) {
+        const up = await uploadBase64ToR2(front, `previews/${Date.now()}-front.png`);
+        if (up.success && up.url) front = up.url;
+      }
+      updateData.previewImageFrontUrl = front;
+    }
+
+    if (parsed.data.previewImageBackUrl) {
+      let back = parsed.data.previewImageBackUrl;
+      if (back.startsWith("data:image")) {
+        const up = await uploadBase64ToR2(back, `previews/${Date.now()}-back.png`);
+        if (up.success && up.url) back = up.url;
+      }
+      updateData.previewImageBackUrl = back;
+    }
+
+    // Handle decals
+    if (parsed.data.decals) {
+      const processedDecals = await Promise.all(
+        parsed.data.decals.map(async (d: any) => {
+          if (typeof d?.url === "string" && d.url.startsWith("data:image")) {
+            const uploaded = await uploadBase64ToR2(d.url, `decals/${Date.now()}-${d.id || "decal"}.png`);
+            if (uploaded.success && uploaded.url) {
+              return { ...d, url: uploaded.url, r2Key: uploaded.key };
+            }
+          }
+          return d;
+        })
+      );
+      updateData.decals = JSON.stringify(processedDecals);
+
+      // Recalculate price if decals or color changed
+      try {
+        const { calculate6VariablePrice } = await import("@/lib/pricingEngine");
+        const { PRODUCT_COLORS } = await import("@/lib/constants");
+        const activeColorHex = parsed.data.colorHex || existing.colorHex;
+        const matched = PRODUCT_COLORS.find(
+          (c: any) => String(c.hex).toLowerCase() === String(activeColorHex).toLowerCase()
+        );
+        const pricing = calculate6VariablePrice({
+          apparelSlug: (existing.category?.slug as any) || "tshirt",
+          size: parsed.data.size || existing.size,
+          colorHex: activeColorHex,
+          isSpecialPigment: !!matched?.isSpecialPigment,
+          decals: processedDecals,
+          quantity: 1,
+        });
+        updateData.calculatedPriceIdr = pricing.totalPriceIdr;
+        updateData.priceBreakdown = JSON.stringify({ ...pricing, serverPriced: true });
+      } catch {}
+    }
+
+    if (parsed.data.masterAssetUrl) {
+      updateData.masterAssetUrl = parsed.data.masterAssetUrl;
+    }
+
+    await db.update(Design).set(updateData).where(eq(Design.id, parsed.data.id));
+
+    const updated = await db.query.Design.findFirst({
+      where: (t, { eq }) => eq(t.id, parsed.data.id),
+      with: { category: true },
+    });
+
+    return NextResponse.json({
+      success: true,
+      design: updated ? {
+        ...updated,
+        decals: JSON.parse(updated.decals || "[]"),
+        priceBreakdown: JSON.parse(updated.priceBreakdown || "{}"),
+      } : undefined,
+    });
   } catch (e: any) {
+    console.error("PATCH design error:", e);
     return NextResponse.json({ error: e?.message || "Internal error" }, { status: 500 });
   }
 }

@@ -3,14 +3,17 @@
 import React, { Suspense, useMemo, useRef, useState, useEffect } from "react";
 import * as THREE from "three";
 import { Canvas } from "@react-three/fiber";
-import { OrbitControls, useGLTF } from "@react-three/drei";
+import { OrbitControls, useGLTF, Decal, useTexture } from "@react-three/drei";
 import { RotateCw, RefreshCw, ZoomIn, ZoomOut, Sun, Moon, Maximize2, Minimize2, X } from "lucide-react";
 import type { ApparelType } from "@/lib/constants";
 import { extractApparelGeometry } from "@/lib/extractApparelGeometry";
+import { SilentModelFallback } from "@/components/ui/ModelErrorBoundary";
+import { isSafeImageUrl } from "@/lib/safeUrl";
 
 interface Showcase3DOrbitViewerProps {
   apparelSlug: ApparelType;
   colorHex: string;
+  frontDecalUrl?: string | null;
 }
 
 const APPAREL_MODEL_PATHS: Record<string, string> = {
@@ -22,16 +25,68 @@ const APPAREL_MODEL_PATHS: Record<string, string> = {
 };
 
 /**
+ * Decal Sablon DTF di dada model 3D
+ */
+function ShowcaseDecal({ url }: { url: string }) {
+  const texture = useTexture(url);
+
+  useEffect(() => {
+    if (texture) {
+      texture.colorSpace = THREE.SRGBColorSpace;
+      texture.anisotropy = 8;
+      texture.needsUpdate = true;
+    }
+  }, [texture]);
+
+  const aspect = useMemo(() => {
+    const w = (texture.image as any)?.width || 1;
+    const h = (texture.image as any)?.height || 1;
+    return w > 0 && h > 0 ? w / h : 1;
+  }, [texture]);
+
+  const [scaleX, scaleY] = useMemo(() => {
+    const base = 0.32;
+    if (aspect >= 1) {
+      return [base, base / aspect];
+    } else {
+      return [base * aspect, base];
+    }
+  }, [aspect]);
+
+  return (
+    <Decal
+      position={[0, 0.05, 0.16]}
+      rotation={[0, 0, 0]}
+      scale={[scaleX, scaleY, 0.28]}
+      map={texture}
+    />
+  );
+}
+
+function SafeShowcaseDecal({ url }: { url: string | null | undefined }) {
+  if (!url || !isSafeImageUrl(url)) return null;
+  return (
+    <SilentModelFallback fallback={null}>
+      <Suspense fallback={null}>
+        <ShowcaseDecal url={url.trim()} />
+      </Suspense>
+    </SilentModelFallback>
+  );
+}
+
+/**
  * Centered Apparel Model rendered as a single unified geometry.
  */
 function Garment3D({
   path,
   colorHex,
   isFullscreen,
+  frontDecalUrl,
 }: {
   path: string;
   colorHex: string;
   isFullscreen?: boolean;
+  frontDecalUrl?: string | null;
 }) {
   const gltf = useGLTF(path) as any;
 
@@ -73,7 +128,9 @@ function Garment3D({
       material={material}
       scale={[scale, scale, scale]}
       position={[0, 0, 0]}
-    />
+    >
+      {frontDecalUrl ? <SafeShowcaseDecal url={frontDecalUrl} /> : null}
+    </mesh>
   );
 }
 
@@ -89,8 +146,9 @@ function Loader() {
 export const Showcase3DOrbitViewer: React.FC<Showcase3DOrbitViewerProps> = ({
   apparelSlug,
   colorHex,
+  frontDecalUrl,
 }) => {
-  const [autoRotate, setAutoRotate] = useState(true);
+  const [autoRotate, setAutoRotate] = useState(false);
   const [bgTheme, setBgTheme] = useState<"dark" | "light">("dark");
   const [isFullscreen, setIsFullscreen] = useState(false);
   const controlsRef = useRef<any>(null);
@@ -111,7 +169,7 @@ export const Showcase3DOrbitViewer: React.FC<Showcase3DOrbitViewerProps> = ({
       controlsRef.current.reset();
       const cam = controlsRef.current.object;
       if (cam) {
-        cam.position.set(0, 0, 2.05);
+        cam.position.set(0, 0, 1.95);
         controlsRef.current.target.set(0, 0, 0);
         controlsRef.current.update();
       }
@@ -122,7 +180,7 @@ export const Showcase3DOrbitViewer: React.FC<Showcase3DOrbitViewerProps> = ({
     if (controlsRef.current) {
       const cam = controlsRef.current.object;
       if (cam) {
-        const nextZ = Math.min(3.2, Math.max(1.2, cam.position.z + delta));
+        const nextZ = Math.min(3.0, Math.max(1.3, cam.position.z + delta));
         cam.position.z = nextZ;
         controlsRef.current.update();
       }
@@ -134,7 +192,7 @@ export const Showcase3DOrbitViewer: React.FC<Showcase3DOrbitViewerProps> = ({
   const renderCanvas = (fs = false) => (
     <div className="relative w-full h-full cursor-grab active:cursor-grabbing select-none">
       <Canvas
-        camera={{ position: [0, 0, 2.05], fov: 42 }}
+        camera={{ position: [0, 0, 1.95], fov: 38 }}
         dpr={[1, 2]}
         gl={{ antialias: true, alpha: true, powerPreference: "high-performance" }}
       >
@@ -144,16 +202,21 @@ export const Showcase3DOrbitViewer: React.FC<Showcase3DOrbitViewerProps> = ({
         <directionalLight position={[0, -3, 3]} intensity={0.5} />
 
         <Suspense fallback={<Loader />}>
-          <Garment3D path={modelPath} colorHex={colorHex} isFullscreen={fs} />
+          <Garment3D
+            path={modelPath}
+            colorHex={colorHex}
+            isFullscreen={fs}
+            frontDecalUrl={frontDecalUrl}
+          />
         </Suspense>
 
         <OrbitControls
           ref={controlsRef}
           autoRotate={autoRotate}
-          autoRotateSpeed={2.5}
+          autoRotateSpeed={1.5}
           enablePan={false}
           enableZoom={false}
-          minPolarAngle={Math.PI / 4}
+          minPolarAngle={Math.PI / 2.2}
           maxPolarAngle={Math.PI / 1.8}
           target={[0, 0, 0]}
         />

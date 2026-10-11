@@ -77,13 +77,18 @@ export function AppDownloadBanner() {
           className="h-10 w-10 rounded-xl object-contain bg-surface border border-border-subtle shrink-0 logo-light-mode"
         />
         <div className="flex-1 min-w-0">
-          <p className="font-bold text-text-primary text-sm leading-tight">
-            {isIOS ? "Kaos Kami di iPhone" : "Buka di Aplikasi Kaos Kami"}
+          <p className="font-bold text-text-primary text-sm leading-tight flex items-center gap-1.5">
+            <span>{isIOS ? "Kaos Kami di iPhone" : "Buka di Aplikasi Kaos Kami"}</span>
+            {!isIOS && (
+              <span className="text-[9px] font-mono px-1.5 py-0.2 rounded bg-amber-500/15 text-amber-500 border border-amber-500/30 font-bold">
+                BETA
+              </span>
+            )}
           </p>
           <p className="font-mono text-[11px] text-text-muted leading-tight mt-0.5">
             {isIOS
               ? "Aplikasi iOS belum tersedia — pakai versi web + Add to Home Screen."
-              : "Lebih cepat, hemat kuota + notifikasi status pesanan."}
+              : "Tahap uji coba (Beta): lebih cepat, hemat kuota & render 3D responsif."}
           </p>
         </div>
         {!isIOS && apkOk && (

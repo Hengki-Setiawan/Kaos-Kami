@@ -644,6 +644,19 @@ export const ProductReview = sqliteTable(
 );
 
 // ------------------------------------------------------------------
+// SHOP & WORKSHOP PROFILE CONFIGURATION (PERSISTED IN TURSO DB)
+// ------------------------------------------------------------------
+
+export const ShopConfig = sqliteTable("ShopConfig", {
+  key: text("key").primaryKey(),
+  value: text("value").notNull(),
+  updatedAt: isoDateTime("updatedAt")
+    .notNull()
+    .$defaultFn(() => new Date())
+    .$onUpdate(() => new Date()),
+});
+
+// ------------------------------------------------------------------
 // RELATIONS (untuk db.query.*.with — setara Prisma include)
 // ------------------------------------------------------------------
 
@@ -807,6 +820,7 @@ export const schema = {
   OrderComplaint,
   OrderRefund,
   ProductReview,
+  ShopConfig,
   UserRelations,
   SessionRelations,
   AccountRelations,
