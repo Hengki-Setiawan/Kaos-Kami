@@ -110,6 +110,7 @@ export class IpaymuPaymentProvider {
     const publicDomain = siteUrl.includes("localhost") || siteUrl.includes("127.0.0.1")
       ? "https://kaoskami.biz.id"
       : siteUrl;
+    const notifyUrl = `${publicDomain}/api/webhooks/ipaymu`;
     const returnUrl = params.returnUrlOverride || `${publicDomain}/orders/${params.orderId}`;
     const cancelUrl = params.cancelUrlOverride || `${publicDomain}/catalog`;
 
