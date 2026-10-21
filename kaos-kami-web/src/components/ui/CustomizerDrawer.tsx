@@ -521,6 +521,7 @@ export const CustomizerDrawer: React.FC = () => {
     isSizeGuideOpen,
     setIsSizeGuideOpen,
     toggleClothLab,
+    isClothLabOpen,
     toggleExportModal,
   } = useConfiguratorStore(
     useShallow((s) => ({
@@ -587,6 +588,7 @@ export const CustomizerDrawer: React.FC = () => {
       isSizeGuideOpen: s.isSizeGuideOpen,
       setIsSizeGuideOpen: s.setIsSizeGuideOpen,
       toggleClothLab: s.toggleClothLab,
+      isClothLabOpen: s.isClothLabOpen,
       toggleExportModal: s.toggleExportModal,
     }))
   );
@@ -1781,12 +1783,12 @@ export const CustomizerDrawer: React.FC = () => {
 
   if (!isVisible) return null;
 
-  const isDrawerHidden = isDrawerCollapsed || isHideWebsiteUI;
+  const isDrawerHidden = isDrawerCollapsed || isHideWebsiteUI || isClothLabOpen;
 
   return (
     <>
       {/* Collapsed Floating Recovery Pill - Hanya aktif saat di Studio Mode, tidak pernah di Story Mode */}
-      {isDrawerCollapsed && !isHideWebsiteUI && viewMode === "studio" && (
+      {isDrawerCollapsed && !isHideWebsiteUI && !isClothLabOpen && viewMode === "studio" && (
         <div
           className={`fixed z-40 pointer-events-auto transition-all ${
             drawerPosition === "left"

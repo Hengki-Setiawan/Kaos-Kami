@@ -27,6 +27,7 @@ import {
   X,
   FileText,
   Bell,
+  CreditCard,
 } from "lucide-react";
 import { useCartStore } from "@/store/useCartStore";
 import { ReorderButton } from "@/components/commerce/ReorderButton";
@@ -120,9 +121,10 @@ interface CustomerDashboardViewProps {
   canSeeAll?: boolean;
 }
 
-// 6 Tahapan pesanan kanonis untuk visual stepper
+// Tahapan pesanan kanonis untuk visual stepper (termasuk kurasi desain kustom)
 const ORDER_STEPS = [
-  { key: "PENDING_PAYMENT", label: "Dipesan", desc: "Menunggu pembayaran" },
+  { key: "DESIGN_REVIEW", label: "Review Desain", desc: "Kurasi artwork bengkel" },
+  { key: "PENDING_PAYMENT", label: "Menunggu Bayar", desc: "Desain disetujui, siap bayar QRIS" },
   { key: "PAYMENT_CONFIRMED", label: "Lunas", desc: "Pembayaran terverifikasi" },
   { key: "PRINTING", label: "Cetak DTF", desc: "Proses film & oven sablon" },
   { key: "QUALITY_CHECK", label: "Quality Check", desc: "Inspeksi press & finis" },
@@ -132,23 +134,25 @@ const ORDER_STEPS = [
 
 function getStepIndex(status: string): number {
   switch (status) {
-    case "PENDING_PAYMENT":
+    case "DESIGN_REVIEW":
       return 0;
+    case "PENDING_PAYMENT":
+      return 1;
     case "PAYMENT_CONFIRMED":
     case "IN_PRODUCTION_QUEUE":
-      return 1;
+      return 2;
     case "PRINTING":
     case "PRESSING":
-      return 2;
+      return 3;
     case "QUALITY_CHECK":
     case "PACKAGING":
-      return 3;
+      return 4;
     case "READY_TO_SHIP":
     case "SHIPPED":
     case "DELIVERED":
-      return 4;
-    case "COMPLETED":
       return 5;
+    case "COMPLETED":
+      return 6;
     default:
       return -1;
   }
@@ -631,10 +635,18 @@ export function CustomerDashboardView({
                               ? "bg-rose-500/10 text-rose-500 border-rose-500/30"
                               : order.status === "COMPLETED"
                               ? "bg-emerald-500/10 text-emerald-500 border-emerald-500/30"
+                              : order.status === "DESIGN_REVIEW"
+                              ? "bg-amber-500/15 text-amber-500 border-amber-500/30"
+                              : order.status === "PENDING_PAYMENT"
+                              ? "bg-sky-500/15 text-sky-500 border-sky-500/30"
                               : "bg-brand-accent/15 text-brand-accent border-brand-accent/30"
                           }`}
                         >
-                          {order.status.replace(/_/g, " ")}
+                          {order.status === "DESIGN_REVIEW"
+                            ? "Review Desain"
+                            : order.status === "PENDING_PAYMENT"
+                            ? "Menunggu Bayar"
+                            : order.status.replace(/_/g, " ")}
                         </span>
                       </div>
                       <p className="text-text-muted text-[11px]">
@@ -757,6 +769,28 @@ export function CustomerDashboardView({
                     </span>
 
                     <div className="flex flex-wrap items-center gap-2">
+                      {order.status === "PENDING_PAYMENT" && (
+                        <button
+                          type="button"
+                          onClick={() => setSelectedOrderId(order.id)}
+                          className="px-3.5 py-1.5 rounded-full bg-emerald-500 hover:bg-emerald-600 text-white font-bold text-xs flex items-center gap-1 shadow-sm transition-all cursor-pointer animate-pulse"
+                        >
+                          <CreditCard size={12} />
+                          <span>Bayar QRIS</span>
+                        </button>
+                      )}
+
+                      {order.status === "DESIGN_REVIEW" && (
+                        <button
+                          type="button"
+                          onClick={() => setSelectedOrderId(order.id)}
+                          className="px-3 py-1.5 rounded-full bg-amber-500/15 border border-amber-500/30 text-amber-500 font-bold text-xs flex items-center gap-1 cursor-pointer"
+                        >
+                          <Clock size={12} />
+                          <span>Kurasi Bengkel</span>
+                        </button>
+                      )}
+
                       <button
                         type="button"
                         onClick={() => setSelectedOrderId(order.id)}
@@ -796,7 +830,7 @@ export function CustomerDashboardView({
                         className="px-3.5 py-1.5 rounded-full bg-surface/90 dark:bg-white/5 border border-border-subtle/80 dark:border-white/10 hover:border-brand-accent text-text-primary font-bold text-xs flex items-center gap-1 transition-all"
                       >
                         <Printer size={12} className="text-brand-accent" />
-                        <span>Invoice</span>
+                        <span>{order.status === "PENDING_PAYMENT" ? "Tagihan" : "Invoice"}</span>
                       </Link>
                     </div>
                   </div>

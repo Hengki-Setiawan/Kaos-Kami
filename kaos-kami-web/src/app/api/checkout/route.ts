@@ -611,6 +611,24 @@ export async function POST(req: NextRequest) {
     // 3. User: gunakan sesi login jika ada, atau buatkan akun tamu otomatis dari data pemesan
     const cleanPhone = cleanOrderPhone;
     let user: any = sessionUser;
+
+    // Cek apakah item adalah kustom (memiliki decal atau designId) atau pakaian jadi katalog siap kirim
+    const isCustomDesign = validatedItems.some(
+      (it) => (Array.isArray(it.decals) && it.decals.length > 0) || Boolean(it.designId)
+    );
+
+    // K-ARCH: Pesanan kustom 3D Studio WAJIB memiliki akun pengguna terdaftar agar desain terikat ke akun & bisa direvisi
+    if (isCustomDesign && !user) {
+      await releaseIdemClaim();
+      return NextResponse.json(
+        {
+          error: "Pemesanan sablon kustom 3D Studio wajib masuk / buat akun terlebih dahulu agar desain Anda tersimpan dan dapat ditinjau oleh tim workshop.",
+          requiresAuth: true,
+        },
+        { status: 401 }
+      );
+    }
+
     if (!user) {
       const guestEmail = (email || "").trim() || `${cleanPhone}@kaoskami.phone`;
       let userRow = await db.query.User.findFirst({
@@ -656,18 +674,15 @@ export async function POST(req: NextRequest) {
       })
       .returning({ id: Address.id });
 
-    // Cek apakah item adalah kustom (memiliki decal) atau pakaian jadi katalog siap kirim
-    const isCustomDesign = validatedItems.some(
-      (it) => Array.isArray(it.decals) && it.decals.length > 0
-    );
     const isSandbox = isSandboxMode;
-    // Semua pesanan (kustom sablon DTF 3D maupun katalog) siap bayar langsung via Direct QRIS
+    // Produk katalog ready-stock: bayar langsung via Direct QRIS (isImmediatePayment: true).
+    // Pesanan kustom sablon DTF 3D: masuk ke antrean kurasi bengkel (DESIGN_REVIEW) terlebih dahulu!
     const isImmediatePayment = isAdminBypassActive
       ? Boolean(adminDirectConfirm)
-      : true;
+      : !isCustomDesign;
     const initialStatus = isAdminBypassActive
       ? (adminDirectConfirm ? "PENDING_PAYMENT" : "DESIGN_REVIEW")
-      : "PENDING_PAYMENT";
+      : (isCustomDesign ? "DESIGN_REVIEW" : "PENDING_PAYMENT");
 
     // 5. Generate Human-Readable Order Number (KK-YYYYMMDD-XXXX, tanggal WITA)
     // + retry anti-tabrakan UNIQUE (ruang 9000/hari bisa penuh saat ramai).

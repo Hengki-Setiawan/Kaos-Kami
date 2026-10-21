@@ -130,27 +130,19 @@ export default async function OrderReceiptPage({ params, searchParams }: OrderRe
   const needsPayLink = order.status === "PENDING_PAYMENT";
 
   return (
-    <div className="min-h-screen bg-canvas text-text-primary px-4 py-12 sm:py-20 max-w-3xl mx-auto space-y-6 print:py-4 print:px-2 print:bg-white print:text-black">
+    <div className="min-h-screen bg-canvas text-text-primary px-4 py-6 sm:py-10 max-w-3xl mx-auto space-y-4 print:py-4 print:px-2 print:bg-white print:text-black">
       {/* Back Link & Print Action Bar (Hidden on print) */}
       <div className="flex items-center justify-between gap-3 print:hidden">
         <Link
           href="/"
-          className="inline-flex items-center gap-2 font-mono text-xs text-text-muted hover:text-brand-accent transition-colors"
+          className="inline-flex items-center gap-2 font-sans text-xs font-semibold text-text-muted hover:text-brand-accent transition-colors"
         >
           <ArrowLeft size={14} />
-          <span>KEMBALI KE BERANDA</span>
+          <span>Kembali ke Beranda</span>
         </Link>
-        <PrintInvoiceButton />
-      </div>
-
-      {/* Tautan invoice kanonis (UI-only, tanpa ubah logika invoice existing). */}
-      <div className="print:hidden">
-        <Link
-          href={`/invoices/${order.id}`}
-          className="font-mono text-[11px] text-brand-accent hover:underline"
-        >
-          Buka invoice kanonis →
-        </Link>
+        <div className="flex items-center gap-2">
+          <PrintInvoiceButton />
+        </div>
       </div>
 
       {/* Official Workshop Letterhead (Visible ONLY during Printing) */}
@@ -167,18 +159,33 @@ export default async function OrderReceiptPage({ params, searchParams }: OrderRe
       </div>
 
       {/* Main Receipt Card */}
-      <div className="bg-surface/80 dark:bg-black/50 backdrop-blur-2xl border border-border-subtle/80 dark:border-white/10 rounded-3xl p-6 sm:p-8 shadow-[0_12px_40px_rgba(0,0,0,0.25)] space-y-6 print:border print:border-black print:bg-white print:p-4 print:shadow-none">
+      <div className="bg-surface/85 dark:bg-black/60 backdrop-blur-2xl border border-border-subtle/80 dark:border-white/10 rounded-2xl p-5 sm:p-7 shadow-[0_12px_40px_rgba(0,0,0,0.2)] space-y-5 print:border print:border-black print:bg-white print:p-4 print:shadow-none">
         {/* Status Header Banner */}
-        <div className="text-center space-y-2 pb-6 border-b border-border-subtle print:border-black print:pb-3">
-          <div className="w-16 h-16 rounded-full bg-brand-accent/20 border border-brand-accent/40 text-brand-accent flex items-center justify-center mx-auto mb-3 print:hidden">
-            {isSuccess ? <CheckCircle2 size={32} /> : <Clock size={32} />}
+        <div className="text-center space-y-2 pb-5 border-b border-border-subtle print:border-black print:pb-3">
+          <div className="w-12 h-12 rounded-full bg-brand-accent/15 border border-brand-accent/30 text-brand-accent flex items-center justify-center mx-auto mb-2 print:hidden shadow-sm">
+            {isSuccess ? <CheckCircle2 size={24} /> : <Clock size={24} />}
           </div>
-          <span className="inline-block px-3 py-1 rounded-full font-sans text-[11px] font-bold uppercase tracking-wider bg-brand-accent/15 text-brand-accent border border-brand-accent/30 print:bg-gray-100 print:text-black print:border-black">
-            STATUS: {order.status.replace(/_/g, " ")}
+          <span className="inline-block px-3 py-0.5 rounded-full font-sans text-[11px] font-bold uppercase tracking-wider bg-brand-accent/15 text-brand-accent border border-brand-accent/30 print:bg-gray-100 print:text-black print:border-black">
+            {order.status === "DESIGN_REVIEW"
+              ? "STATUS: MENUNGGU REVIEW DESAIN"
+              : order.status === "PENDING_PAYMENT"
+              ? "STATUS: MENUNGGU PEMBAYARAN"
+              : `STATUS: ${order.status.replace(/_/g, " ")}`}
           </span>
-          <h1 className="font-sans text-2xl sm:text-3xl font-bold uppercase tracking-tight text-text-primary print:text-black print:text-2xl">
-            {isSuccess ? "PESANAN BERHASIL DITERIMA" : "INVOICE RESMI PEMESANAN"}
+          <h1 className="font-sans text-xl sm:text-2xl font-bold uppercase tracking-tight text-text-primary print:text-black">
+            {order.status === "DESIGN_REVIEW"
+              ? "PENGAJUAN PESANAN KUSTOM"
+              : order.status === "PENDING_PAYMENT"
+              ? "TAGIHAN PEMESANAN"
+              : isSuccess
+              ? "PESANAN BERHASIL DITERIMA"
+              : "INVOICE RESMI PEMESANAN"}
           </h1>
+          {order.status === "DESIGN_REVIEW" && (
+            <p className="font-sans text-xs text-amber-500 font-medium max-w-md mx-auto print:hidden">
+              Pesanan Anda sedang dalam antrean kurasi tim workshop Kaos Kami. Tagihan pembayaran akan diterbitkan setelah desain disetujui.
+            </p>
+          )}
           {showPayError && (
             <p className="font-mono text-xs text-rose-400 font-bold print:hidden">
               ⚠️ Pembayaran gagal/dibatalkan: pesanan masih PENDING. Klik BAYAR ULANG di bawah atau minta link baru via WhatsApp.
@@ -189,8 +196,8 @@ export default async function OrderReceiptPage({ params, searchParams }: OrderRe
               ⏳ Pembayaran masih diproses: status berubah otomatis bila lunas (tunggu ~1 menit lalu muat ulang).
             </p>
           )}
-          <p className="font-mono text-xs text-text-muted print:text-black">
-            Nomor Pesanan: <span className="text-text-primary print:text-black font-bold font-mono text-sm">{order.orderNumber}</span>
+          <p className="font-sans text-xs text-text-muted print:text-black">
+            Nomor Pesanan: <span className="text-text-primary print:text-black font-bold font-mono text-xs sm:text-sm">{order.orderNumber}</span>
           </p>
 
           {/* Banner Alasan Khusus: REJECTED, CANCELLED, REFUNDED */}

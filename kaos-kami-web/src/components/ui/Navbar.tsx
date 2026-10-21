@@ -191,17 +191,17 @@ export const Navbar: React.FC = () => {
         {/* Lonceng notifikasi interaktif user: HANYA bila login */}
         {mounted && session?.user && <UserNotificationBell />}
 
-        {/* Shopping Cart Button: HANYA bila sudah login */}
-        {mounted && session?.user && (
+        {/* Shopping Cart Button: Tersedia untuk SEMUA pengunjung (Tamu maupun Login) */}
+        {mounted && (
           <button
             onClick={openCart}
-            className="relative w-10 h-10 rounded-full bg-surface border border-border-subtle text-text-muted hover:text-brand-accent hover:border-brand-accent/40 transition-all flex items-center justify-center shrink-0"
-            title="Shopping Cart"
-            aria-label="Shopping Cart"
+            className="relative w-10 h-10 rounded-full bg-surface border border-border-subtle text-text-muted hover:text-brand-accent hover:border-brand-accent/40 transition-all flex items-center justify-center shrink-0 cursor-pointer"
+            title="Keranjang Belanja"
+            aria-label="Keranjang Belanja"
           >
             <ShoppingBag size={16} />
             {cartCount > 0 && (
-              <span className="absolute -top-1 -right-1 min-w-4 h-4 px-0.5 rounded-full bg-brand-accent text-canvas text-[9px] font-mono font-bold flex items-center justify-center">
+              <span className="absolute -top-1 -right-1 min-w-4 h-4 px-1 rounded-full bg-brand-accent text-canvas text-[9px] font-mono font-bold flex items-center justify-center shadow-xs">
                 {cartCount > 99 ? "99+" : cartCount}
               </span>
             )}

@@ -6,6 +6,7 @@ import {
   X,
   Sun,
   Sparkles,
+  ArrowLeft,
 } from "lucide-react";
 import { useConfiguratorStore } from "@/store/useConfiguratorStore";
 import { useShallow } from "zustand/shallow";
@@ -22,6 +23,7 @@ export const ClothLabModal: React.FC = () => {
     setLightingPreset,
     isWireframe,
     toggleWireframe,
+    drawerPosition,
   } = useConfiguratorStore(
     useShallow((s) => ({
       isClothLabOpen: s.isClothLabOpen,
@@ -32,6 +34,7 @@ export const ClothLabModal: React.FC = () => {
       setLightingPreset: s.setLightingPreset,
       isWireframe: s.isWireframe,
       toggleWireframe: s.toggleWireframe,
+      drawerPosition: s.drawerPosition,
     }))
   );
 
@@ -54,17 +57,34 @@ export const ClothLabModal: React.FC = () => {
   return (
     <aside
       aria-label="Panel Uji Fisika Kain"
-      className="fixed top-20 left-4 sm:left-24 z-40 w-[340px] sm:w-[370px] max-h-[calc(100dvh-120px)] flex flex-col rounded-3xl bg-surface/95 border border-border-subtle shadow-2xl overflow-hidden backdrop-blur-2xl animate-in fade-in slide-in-from-left-4 duration-200 pointer-events-auto"
+      className={`fixed top-[68px] bottom-4 ${
+        drawerPosition === "left" ? "left-4 sm:left-5 right-auto" : "right-4 sm:right-5 left-auto"
+      } z-[55] max-w-[385px] w-[calc(100%-2rem)] sm:w-[385px] flex flex-col rounded-3xl bg-surface/95 border border-border-subtle shadow-2xl overflow-hidden backdrop-blur-2xl animate-in fade-in slide-in-from-left-4 duration-300 pointer-events-auto`}
     >
+      {/* Back to Main Customizer Navigation Bar */}
+      <div className="px-4 py-2.5 bg-canvas/80 border-b border-border-subtle flex items-center justify-between shrink-0">
+        <button
+          type="button"
+          onClick={() => setIsClothLabOpen(false)}
+          className="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl bg-surface hover:bg-brand-accent hover:text-white border border-border-subtle text-text-primary text-xs font-bold transition-all cursor-pointer shadow-xs active:scale-95 group"
+        >
+          <ArrowLeft size={14} className="transition-transform group-hover:-translate-x-0.5 text-brand-accent group-hover:text-white" />
+          <span>Kembali ke Menu Utama</span>
+        </button>
+        <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-text-muted">
+          Mode Lab
+        </span>
+      </div>
+
       {/* Header */}
-      <div className="flex items-center justify-between px-4 py-3.5 border-b border-border-subtle bg-surface/80">
+      <div className="flex items-center justify-between px-4 py-3 border-b border-border-subtle bg-surface/80 shrink-0">
         <div className="flex items-center space-x-2.5 min-w-0">
           <div className="w-8 h-8 rounded-xl bg-brand-accent/15 border border-brand-accent/30 flex items-center justify-center text-brand-accent shrink-0">
             <FlaskConical size={16} />
           </div>
           <div className="min-w-0">
             <h3 className="text-xs sm:text-sm font-bold text-text-primary font-sans truncate">
-              Uji Fisika &amp; Simulasi Kain
+              Laboratorium Fisika Kain
             </h3>
             <p className="text-[10px] text-text-muted font-sans truncate">
               {APPAREL_CATALOG[activeApparel]?.name ?? "Pakaian 3D"} · {activeColorName}

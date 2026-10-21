@@ -2,6 +2,7 @@
 
 import React, { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
+import Link from "next/link";
 import { useConfiguratorStore } from "@/store/useConfiguratorStore";
 import { useShallow } from "zustand/shallow";
 import {
@@ -24,6 +25,7 @@ import {
   CheckCircle2,
   Loader2,
   ArrowRight,
+  ArrowLeft,
   ShieldCheck,
   AlertCircle,
   Package,
@@ -149,6 +151,8 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
   const [recipientName, setRecipientName] = useState("");
   const [phoneNumber, setPhoneNumber] = useState("");
   const [email, setEmail] = useState("");
+  const [isEditingContact, setIsEditingContact] = useState(false);
+  const [savedAddresses, setSavedAddresses] = useState<any[]>([]);
   const [deliveryMethod, setDeliveryMethod] = useState<DeliveryMethod>("PICKUP");
   const [otpSent, setOtpSent] = useState(false);
   const [otpCode, setOtpCode] = useState("");
@@ -216,6 +220,17 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
   const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
   const turnstileEnabled = !!process.env.NEXT_PUBLIC_CLOUDFLARE_TURNSTILE_SITE_KEY;
   const [isClient, setIsClient] = useState(false);
+  const [submittedDesignReview, setSubmittedDesignReview] = useState<{
+    orderNumber: string;
+    orderId: string;
+  } | null>(null);
+
+  const isCustomOrder =
+    checkoutMode === "custom-3d" ||
+    (isCartCheckout &&
+      cartItems.some(
+        (it) => it.isCustom || (Array.isArray(it.decals) && it.decals.length > 0)
+      ));
 
   // Amandemen Bab 56 A2 (V2 2-tahap): 1 = Alamat+kurir (Kontak + Metode +
   // Alamat GPS + ongkir), 2 = Bayar (ringkasan + QRIS DirectQrisModal +
@@ -828,12 +843,14 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
         return;
       }
 
-      // ALUR REVIEW (owner Sep 2026): checkout = antre review, TANPA charge.
-      // Sukses = order DESIGN_REVIEW → kosongkan cart, arahkan ke dashboard
-      // (bayar hanya setelah admin ACC via tombol di sana).
+      // ALUR REVIEW (3D Studio Custom): pesanan masuk antre review workshop, TANPA charge awal.
       if ((data as any)?.status === "DESIGN_REVIEW" || (!(data as any)?.paymentUrl && !(data as any)?.qrImage && !(data as any)?.qrString && data.orderId)) {
         if (isCartCheckout) clearCart();
-        window.location.href = (data as any)?.invoiceUrl || `/orders/${data.orderId}`;
+        setIsLoading(false);
+        setSubmittedDesignReview({
+          orderId: data.orderId,
+          orderNumber: data.orderNumber || data.orderId,
+        });
         return;
       }
 
@@ -895,18 +912,105 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
     );
   }
 
+  // Tampilan Sukses Pengajuan 3D Custom (Menunggu Review Workshop)
+  if (submittedDesignReview) {
+    return createPortal(
+      <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-fadeIn">
+        <div className="w-full max-w-md bg-surface border border-border-subtle rounded-3xl p-6 sm:p-8 shadow-2xl text-center space-y-5">
+          <div className="w-16 h-16 rounded-2xl bg-amber-500/15 border border-amber-500/30 text-amber-500 flex items-center justify-center mx-auto shadow-md">
+            <Sparkles size={32} />
+          </div>
+          <div className="space-y-1.5">
+            <span className="px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider bg-amber-500/15 text-amber-500 border border-amber-500/30">
+              Antrean Kurasi Workshop
+            </span>
+            <h3 className="font-sans text-xl font-bold text-text-primary">
+              Desain Berhasil Diajukan!
+            </h3>
+            <p className="font-mono text-xs text-text-muted">
+              Nomor Pesanan: <span className="font-bold text-text-primary">{submittedDesignReview.orderNumber}</span>
+            </p>
+          </div>
+          <p className="font-sans text-xs text-text-muted leading-relaxed">
+            Pesanan sablon kustom Anda telah diterima tim Kaos Kami Makassar. Kami akan memverifikasi ketajaman artwork 300 DPI dan ketersediaan kain polos. Setelah disetujui, tagihan QRIS akan aktif di dashboard Anda.
+          </p>
+          <div className="space-y-2 pt-2">
+            <Link
+              href="/dashboard/orders"
+              onClick={onClose}
+              className="w-full py-3 px-4 rounded-xl bg-brand-accent text-canvas font-sans font-bold text-xs uppercase tracking-wider hover:brightness-110 active:scale-95 transition-all shadow-md flex items-center justify-center gap-2"
+            >
+              <span>Pantau di Dashboard Pesanan</span>
+              <ArrowRight size={14} />
+            </Link>
+            <button
+              type="button"
+              onClick={() => {
+                setSubmittedDesignReview(null);
+                onClose();
+              }}
+              className="w-full py-2.5 px-4 rounded-xl bg-surface border border-border-subtle text-text-muted hover:text-text-primary font-sans font-semibold text-xs transition-all cursor-pointer"
+            >
+              Tutup &amp; Kembali ke Studio
+            </button>
+          </div>
+        </div>
+      </div>,
+      document.body
+    );
+  }
+
+  // Wajib Login untuk Pemesanan 3D Custom
+  if (isCustomOrder && !session?.user) {
+    return createPortal(
+      <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-fadeIn">
+        <div className="w-full max-w-md bg-surface border border-border-subtle rounded-3xl p-6 sm:p-8 shadow-2xl text-center space-y-5">
+          <div className="w-14 h-14 rounded-2xl bg-brand-accent/15 border border-brand-accent/30 text-brand-accent flex items-center justify-center mx-auto shadow-md">
+            <User size={28} />
+          </div>
+          <div className="space-y-2">
+            <h3 className="font-sans text-lg sm:text-xl font-bold text-text-primary">
+              Masuk untuk Pesanan 3D Custom
+            </h3>
+            <p className="font-sans text-xs text-text-muted leading-relaxed">
+              Pesanan sablon kustom membutuhkan akun agar file desain Anda aman tersimpan di Wardrobe dan tim workshop dapat berkoordinasi langsung jika ada penyesuaian file sablon.
+            </p>
+          </div>
+          <div className="space-y-2 pt-2">
+            <button
+              type="button"
+              onClick={() => setIsAuthModalOpen(true)}
+              className="w-full py-3 px-4 rounded-xl bg-brand-accent text-canvas font-sans font-bold text-xs uppercase tracking-wider hover:brightness-110 active:scale-95 transition-all shadow-md flex items-center justify-center gap-2 cursor-pointer"
+            >
+              <span>Masuk / Buat Akun</span>
+              <ArrowRight size={14} />
+            </button>
+            <button
+              type="button"
+              onClick={onClose}
+              className="w-full py-2.5 px-4 rounded-xl bg-surface border border-border-subtle text-text-muted hover:text-text-primary font-sans font-semibold text-xs transition-all cursor-pointer"
+            >
+              Kembali ke Studio
+            </button>
+          </div>
+        </div>
+      </div>,
+      document.body
+    );
+  }
+
   return createPortal(
       <div
         className="fixed inset-0 z-[110] flex items-center justify-center p-2 sm:p-4 md:p-6 bg-black/80 backdrop-blur-md animate-fadeIn overflow-y-auto transition-opacity duration-200 opacity-100"
       data-lenis-prevent="true"
       role="dialog"
       aria-modal="true"
-      aria-label="Checkout pesanan sablon DTF"
+      aria-label="Checkout pesanan Kaos Kami"
     >
       <div
         ref={panelRef}
         data-lenis-prevent="true"
-        className="relative w-full max-w-4xl max-h-[92dvh] flex flex-col bg-surface border border-border-subtle rounded-2xl shadow-2xl text-text-primary my-auto overflow-hidden"
+        className="relative w-full max-w-3xl max-h-[92dvh] flex flex-col bg-surface border border-border-subtle rounded-2xl shadow-2xl text-text-primary my-auto overflow-hidden"
       >
         {/* Garis aksen atas standar */}
         <div className="absolute top-0 left-0 right-0 h-px bg-border-subtle" />
@@ -915,14 +1019,16 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
         <div className="px-5 py-3.5 sm:px-6 sm:py-4 border-b border-border-subtle flex items-center justify-between bg-surface/90 backdrop-blur-md shrink-0">
           <div className="flex items-center space-x-3 min-w-0">
             <div className="w-9 h-9 rounded-xl bg-brand-accent/15 border border-brand-accent/30 flex items-center justify-center text-brand-accent shrink-0 shadow-[0_0_12px_rgba(37,99,235,0.2)]">
-              <ShoppingBag size={18} />
+              {isCustomOrder ? <Sparkles size={18} /> : <ShoppingBag size={18} />}
             </div>
             <div className="min-w-0">
               <h2 className="font-sans text-sm sm:text-base font-bold uppercase tracking-tight text-text-primary truncate">
-                CHECKOUT PESANAN SABLON
+                {isCustomOrder ? "PENGAJUAN PESANAN 3D CUSTOM" : "CHECKOUT BELANJA KAOS KAMI"}
               </h2>
               <p className="font-sans text-[10px] sm:text-[11px] text-text-muted truncate">
-                Workshop Makassar · Pembayaran Instan via Direct QRIS
+                {isCustomOrder
+                  ? "Workshop Sablon DTF Makassar · Kurasi Desain & Produksi"
+                  : "Kaos Kami Makassar · Pengiriman Langsung & Siap Pakai"}
               </p>
             </div>
           </div>
@@ -936,50 +1042,47 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
           </button>
         </div>
 
-        {/* V2 Stepper: 1 Alamat+Kurir → 2 Bayar (khusus mobile — di desktop tampil 2 kolom berdampingan) */}
+        {/* Stepper 2-Tahap Bersih (Desktop & Mobile) */}
         <div
-          className="md:hidden px-4 sm:px-6 pt-3 pb-1 shrink-0 flex items-center gap-2 font-sans text-[11px] font-bold uppercase tracking-wider"
+          className="px-5 sm:px-6 py-2.5 border-b border-border-subtle bg-surface/50 shrink-0 flex items-center justify-between font-sans text-xs"
           aria-label="Tahap checkout"
         >
-          <button
-            type="button"
-            onClick={handleBackToAddress}
-            className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full border transition-all cursor-pointer ${
-              step === 1
-                ? "bg-brand-accent/15 border-brand-accent text-brand-accent"
-                : "bg-emerald-500/10 border-emerald-500/30 text-emerald-400"
-            }`}
-          >
-            <span
-              className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] ${
-                step === 1 ? "bg-brand-accent text-canvas" : "bg-emerald-500 text-canvas"
+          <div className="flex items-center gap-2.5 sm:gap-3">
+            <button
+              type="button"
+              onClick={handleBackToAddress}
+              className={`flex items-center gap-1.5 sm:gap-2 px-3 py-1.5 rounded-full border transition-all cursor-pointer font-bold ${
+                step === 1
+                  ? "bg-brand-accent text-white border-brand-accent shadow-xs"
+                  : "bg-emerald-500/10 border-emerald-500/30 text-emerald-400"
               }`}
             >
-              {step === 2 ? "✓" : "1"}
-            </span>
-            <span>Alamat & Kurir</span>
-          </button>
-          <span className="text-text-muted" aria-hidden="true">→</span>
-          <button
-            type="button"
-            onClick={handleNextToPayment}
-            className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full border transition-all cursor-pointer ${
-              step === 2
-                ? "bg-brand-accent/15 border-brand-accent text-brand-accent"
-                : "bg-surface border-border-subtle text-text-muted"
-            }`}
-          >
-            <span
-              className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] ${
-                step === 2 ? "bg-brand-accent text-canvas" : "bg-surface border border-border-subtle"
+              <span className={`w-4 h-4 rounded-full flex items-center justify-center text-[10px] font-bold ${step === 1 ? "bg-white text-brand-accent" : "bg-emerald-500 text-white"}`}>
+                {step === 2 ? "✓" : "1"}
+              </span>
+              <span>1. Alamat &amp; Kurir</span>
+            </button>
+
+            <span className="text-text-muted" aria-hidden="true">→</span>
+
+            <button
+              type="button"
+              onClick={handleNextToPayment}
+              className={`flex items-center gap-1.5 sm:gap-2 px-3 py-1.5 rounded-full border transition-all cursor-pointer font-bold ${
+                step === 2
+                  ? "bg-brand-accent text-white border-brand-accent shadow-xs"
+                  : "bg-surface border-border-subtle text-text-muted hover:text-text-primary"
               }`}
             >
-              2
-            </span>
-            <span>Bayar</span>
-          </button>
-          <span className="ml-auto text-[10px] text-text-muted normal-case font-normal">
-            {step === 1 ? "Langkah 1/2" : "Langkah 2/2"}
+              <span className={`w-4 h-4 rounded-full flex items-center justify-center text-[10px] font-bold ${step === 2 ? "bg-white text-brand-accent" : "bg-surface-elevated text-text-muted"}`}>
+                2
+              </span>
+              <span>2. {isCustomOrder ? "Ringkasan & Ajukan Desain" : "Ringkasan & Bayar QRIS"}</span>
+            </button>
+          </div>
+
+          <span className="text-xs text-text-muted font-medium hidden sm:inline">
+            {step === 1 ? "Langkah 1 dari 2" : "Langkah 2 dari 2"}
           </span>
         </div>
 
@@ -996,9 +1099,10 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
             </div>
           )}
 
-          <div className="grid grid-cols-1 md:grid-cols-12 gap-5 lg:gap-6 items-start">
+          <div className="max-w-2xl mx-auto w-full">
             {/* TAHAP 1: Kontak + Metode + Alamat GPS + ongkir */}
-            <div className={`md:col-span-7 space-y-4 ${step === 1 ? "block" : "hidden md:block"}`}>
+            {step === 1 && (
+              <div className="space-y-4 animate-fadeIn">
               <div className="flex items-center justify-between pb-1 border-b border-border-subtle">
                 <div className="flex items-center space-x-2 text-xs font-sans font-bold text-text-primary uppercase tracking-wider">
                   <MapPin size={13} className="text-brand-accent" />
@@ -1055,128 +1159,184 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
 
               {/* Section 1: Customer Contact & WhatsApp OTP */}
               <div className="space-y-3">
-                <div className="flex items-center space-x-2 text-xs font-sans font-bold text-text-primary uppercase tracking-wider pb-1 border-b border-border-subtle">
-                  <Phone size={13} className="text-brand-accent" />
-                  <span>1 · INFORMASI PEMESAN & WHATSAPP</span>
+                <div className="flex items-center justify-between pb-1 border-b border-border-subtle">
+                  <div className="flex items-center space-x-2 text-xs font-sans font-bold text-text-primary uppercase tracking-wider">
+                    <Phone size={13} className="text-brand-accent" />
+                    <span>1 · INFORMASI PEMESAN & WHATSAPP</span>
+                  </div>
+                  {session?.user && (
+                    <button
+                      type="button"
+                      onClick={() => setIsEditingContact(!isEditingContact)}
+                      className="text-[11px] font-sans font-bold text-brand-accent hover:underline cursor-pointer"
+                    >
+                      {isEditingContact ? "Batal / Pakai Data Akun" : "✏️ Ubah Kontak"}
+                    </button>
+                  )}
                 </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <div>
-                    <label className="block font-sans text-[11px] text-text-muted uppercase mb-1">
-                      Nama Lengkap *
-                    </label>
-                    <input
-                      type="text"
-                      required
-                      value={recipientName}
-                      onChange={(e) => setRecipientName(e.target.value)}
-                      placeholder="Contoh: Muhammad Fadil"
-                      className="w-full px-3.5 py-2.5 rounded-xl bg-surface border border-border-subtle focus:border-brand-accent text-sm text-text-primary focus:outline-none transition-colors"
-                    />
-                  </div>
-
-                  <div>
-                    <div className="flex items-center justify-between mb-1">
-                      <label className="block font-sans text-[11px] text-text-muted uppercase">
-                        Nomor WhatsApp *
-                      </label>
-                      {isAccountPhoneVerified && (
-                        <span className="inline-flex items-center gap-1 text-[10px] font-sans font-bold text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-full border border-emerald-500/30">
-                          <CheckCircle2 size={11} /> TERVERIFIKASI
-                        </span>
-                      )}
+                {session?.user && !isEditingContact ? (
+                  /* Kartu Profil Terverifikasi Akun (Tidak perlu ketik ulang) */
+                  <div className="p-3.5 rounded-2xl bg-brand-accent/5 border border-brand-accent/25 space-y-2.5 animate-fadeIn">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-3 min-w-0">
+                        <div className="w-10 h-10 rounded-full bg-brand-accent/20 border border-brand-accent/40 flex items-center justify-center font-bold text-brand-accent shrink-0 text-sm">
+                          {session.user.name?.[0]?.toUpperCase() || <User size={15} />}
+                        </div>
+                        <div className="min-w-0">
+                          <p className="font-sans text-xs font-bold text-text-primary truncate">
+                            {recipientName || session.user.name || "Akun Pelanggan"}
+                          </p>
+                          <p className="font-mono text-[11px] text-text-secondary truncate">
+                            {phoneNumber || (session.user as any)?.phoneNumber || "Nomor WA belum disetel"}
+                          </p>
+                        </div>
+                      </div>
+                      <span className="shrink-0 px-2 py-0.5 rounded-full text-[9px] font-sans font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 flex items-center gap-1">
+                        <CheckCircle2 size={10} />
+                        <span>Akun Terverifikasi</span>
+                      </span>
                     </div>
-                    <div className="flex gap-2">
-                      <input
-                        type="tel"
-                        required
-                        value={phoneNumber}
-                        onChange={(e) => {
-                          setPhoneNumber(e.target.value);
-                          setIsPhoneVerified(false);
-                          setOtpSent(false);
-                          setOtpCode("");
-                        }}
-                        placeholder="081234567890"
-                        aria-label="Nomor WhatsApp"
-                        className="flex-1 min-w-0 px-3.5 py-2.5 rounded-xl bg-surface border border-border-subtle focus:border-brand-accent text-sm text-text-primary font-sans focus:outline-none transition-colors"
-                      />
-                      {!isAccountPhoneVerified && (process.env.NEXT_PUBLIC_CHECKOUT_OTP_REQUIRED !== "false") && (
+                    {email && (
+                      <p className="font-sans text-[10px] text-text-muted truncate border-t border-border-subtle/50 pt-1.5">
+                        Faktur & notifikasi otomatis dikirim ke: <span className="text-text-primary font-medium">{email}</span>
+                      </p>
+                    )}
+                  </div>
+                ) : (
+                  /* Form Input Kontak (Untuk Tamu atau saat Ubah Data) */
+                  <div className="space-y-3">
+                    {!session?.user && (
+                      <div className="p-2.5 rounded-xl bg-surface/80 border border-border-subtle text-[11px] text-text-muted flex items-center justify-between gap-2">
+                        <span>Pemesanan tamu tanpa login.</span>
                         <button
                           type="button"
-                          onClick={handleSendOtp}
-                          disabled={isSendingOtp || !phoneNumber || resendCooldown > 0}
-                          className="px-3 py-2 rounded-xl bg-surface border border-brand-accent/40 text-brand-accent text-[11px] font-sans font-bold hover:bg-brand-accent hover:text-canvas disabled:opacity-50 transition-all shrink-0 cursor-pointer"
+                          onClick={() => setIsAuthModalOpen(true)}
+                          className="font-bold text-brand-accent hover:underline shrink-0"
                         >
-                          {isSendingOtp
-                            ? "..."
-                            : resendCooldown > 0
-                            ? `TUNGGU (${resendCooldown}s)`
-                            : otpSent
-                            ? "KIRIM ULANG"
-                            : "KIRIM OTP"}
+                          Masuk Akun ↗
                         </button>
-                      )}
-                    </div>
+                      </div>
+                    )}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <div>
+                        <label className="block font-sans text-[11px] text-text-muted uppercase mb-1">
+                          Nama Lengkap *
+                        </label>
+                        <input
+                          type="text"
+                          required
+                          value={recipientName}
+                          onChange={(e) => setRecipientName(e.target.value)}
+                          placeholder="Contoh: Muhammad Fadil"
+                          className="w-full px-3.5 py-2.5 rounded-xl bg-surface border border-border-subtle focus:border-brand-accent text-sm text-text-primary focus:outline-none transition-colors"
+                        />
+                      </div>
 
-                    {isAccountPhoneVerified ? (
-                      <p className="text-[11px] font-sans text-emerald-400/90 mt-1.5 flex items-center gap-1.5 bg-emerald-950/20 border border-emerald-500/20 px-2.5 py-1.5 rounded-lg">
-                        <CheckCircle2 size={13} className="shrink-0 text-emerald-400" />
-                        <span>Nomor WhatsApp terverifikasi permanen untuk akun ini. OTP tidak diperlukan lagi!</span>
-                      </p>
-                    ) : (process.env.NEXT_PUBLIC_CHECKOUT_OTP_REQUIRED === "false") ? (
-                      <p className="text-[11px] font-sans text-emerald-400/90 mt-1.5 flex items-center gap-1.5 bg-emerald-950/20 border border-emerald-500/20 px-2.5 py-1.5 rounded-lg">
-                        <CheckCircle2 size={13} className="shrink-0 text-emerald-400" />
-                        <span>Checkout Instan Aktif · Tanpa verifikasi OTP, langsung bayar via Direct QRIS.</span>
-                      </p>
-                    ) : sessionUser?.phoneVerified && sessionUser?.phoneNumber && cleanPhone(phoneNumber) !== cleanPhone(sessionUser?.phoneNumber) ? (
-                      <p className="text-[11px] font-sans text-amber-400/90 mt-1.5 flex items-center gap-1.5 bg-amber-950/20 border border-amber-500/20 px-2.5 py-1.5 rounded-lg">
-                        <span>Nomor baru terdeteksi. Verifikasi diperlukan untuk nomor ini.</span>
-                      </p>
-                    ) : null}
-
-                    {!isAccountPhoneVerified && otpSent && (
-                      <div className="mt-2 space-y-1.5 animate-fadeIn">
-                        <div className="relative">
-                          <input
-                            type="text"
-                            value={otpCode}
-                            onChange={(e) => {
-                              const val = e.target.value.replace(/[^0-9]/g, "").slice(0, 6);
-                              setOtpCode(val);
-                              if (val.length === 6) {
-                                setIsPhoneVerified(true);
-                              } else {
-                                setIsPhoneVerified(false);
-                              }
-                            }}
-                            placeholder="Ketik 6 digit kode OTP"
-                            aria-label="Kode OTP 6 digit dari WhatsApp"
-                            className="w-full px-3.5 py-2 rounded-xl bg-surface border border-brand-accent/60 text-sm text-text-primary font-sans tabular-nums tracking-widest focus:outline-none"
-                            maxLength={6}
-                          />
-                          {otpCode.length === 6 && (
-                            <span className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center space-x-1 text-emerald-400 text-xs font-sans font-bold">
-                              <CheckCircle2 size={15} />
-                              <span className="text-[10px]">SIAP</span>
+                      <div>
+                        <div className="flex items-center justify-between mb-1">
+                          <label className="block font-sans text-[11px] text-text-muted uppercase">
+                            Nomor WhatsApp *
+                          </label>
+                          {isAccountPhoneVerified && (
+                            <span className="inline-flex items-center gap-1 text-[10px] font-sans font-bold text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-full border border-emerald-500/30">
+                              <CheckCircle2 size={11} /> TERVERIFIKASI
                             </span>
                           )}
                         </div>
-                      </div>
-                    )}
+                        <div className="flex gap-2">
+                          <input
+                            type="tel"
+                            required
+                            value={phoneNumber}
+                            onChange={(e) => {
+                              setPhoneNumber(e.target.value);
+                              setIsPhoneVerified(false);
+                              setOtpSent(false);
+                              setOtpCode("");
+                            }}
+                            placeholder="081234567890"
+                            aria-label="Nomor WhatsApp"
+                            className="flex-1 min-w-0 px-3.5 py-2.5 rounded-xl bg-surface border border-border-subtle focus:border-brand-accent text-sm text-text-primary font-sans focus:outline-none transition-colors"
+                          />
+                          {!isAccountPhoneVerified && (process.env.NEXT_PUBLIC_CHECKOUT_OTP_REQUIRED !== "false") && (
+                            <button
+                              type="button"
+                              onClick={handleSendOtp}
+                              disabled={isSendingOtp || !phoneNumber || resendCooldown > 0}
+                              className="px-3 py-2 rounded-xl bg-surface border border-brand-accent/40 text-brand-accent text-[11px] font-sans font-bold hover:bg-brand-accent hover:text-canvas disabled:opacity-50 transition-all shrink-0 cursor-pointer"
+                            >
+                              {isSendingOtp
+                                ? "..."
+                                : resendCooldown > 0
+                                ? `TUNGGU (${resendCooldown}s)`
+                                : otpSent
+                                ? "KIRIM ULANG"
+                                : "KIRIM OTP"}
+                            </button>
+                          )}
+                        </div>
 
-                    {!isAccountPhoneVerified && otpMsg && (
-                      <p className="text-[11px] font-sans mt-1 text-amber-400" role="status">
-                        {otpMsg}
-                      </p>
-                    )}
-                    {!isAccountPhoneVerified && (
-                      <p className="text-[10px] font-sans text-text-muted mt-1 leading-snug">
-                        Verifikasi nomor WhatsApp 1x per akun selamanya untuk konfirmasi dan keamanan transaksi.
-                      </p>
-                    )}
+                        {isAccountPhoneVerified ? (
+                          <p className="text-[11px] font-sans text-emerald-400/90 mt-1.5 flex items-center gap-1.5 bg-emerald-950/20 border border-emerald-500/20 px-2.5 py-1.5 rounded-lg">
+                            <CheckCircle2 size={13} className="shrink-0 text-emerald-400" />
+                            <span>Nomor WhatsApp terverifikasi permanen untuk akun ini. OTP tidak diperlukan lagi!</span>
+                          </p>
+                        ) : (process.env.NEXT_PUBLIC_CHECKOUT_OTP_REQUIRED === "false") ? (
+                          <p className="text-[11px] font-sans text-emerald-400/90 mt-1.5 flex items-center gap-1.5 bg-emerald-950/20 border border-emerald-500/20 px-2.5 py-1.5 rounded-lg">
+                            <CheckCircle2 size={13} className="shrink-0 text-emerald-400" />
+                            <span>Checkout Instan Aktif · Tanpa verifikasi OTP, langsung bayar via Direct QRIS.</span>
+                          </p>
+                        ) : sessionUser?.phoneVerified && sessionUser?.phoneNumber && cleanPhone(phoneNumber) !== cleanPhone(sessionUser?.phoneNumber) ? (
+                          <p className="text-[11px] font-sans text-amber-400/90 mt-1.5 flex items-center gap-1.5 bg-amber-950/20 border border-amber-500/20 px-2.5 py-1.5 rounded-lg">
+                            <span>Nomor baru terdeteksi. Verifikasi diperlukan untuk nomor ini.</span>
+                          </p>
+                        ) : null}
+
+                        {!isAccountPhoneVerified && otpSent && (
+                          <div className="mt-2 space-y-1.5 animate-fadeIn">
+                            <div className="relative">
+                              <input
+                                type="text"
+                                value={otpCode}
+                                onChange={(e) => {
+                                  const val = e.target.value.replace(/[^0-9]/g, "").slice(0, 6);
+                                  setOtpCode(val);
+                                  if (val.length === 6) {
+                                    setIsPhoneVerified(true);
+                                  } else {
+                                    setIsPhoneVerified(false);
+                                  }
+                                }}
+                                placeholder="Ketik 6 digit kode OTP"
+                                aria-label="Kode OTP 6 digit dari WhatsApp"
+                                className="w-full px-3.5 py-2 rounded-xl bg-surface border border-brand-accent/60 text-sm text-text-primary font-sans tabular-nums tracking-widest focus:outline-none"
+                                maxLength={6}
+                              />
+                              {otpCode.length === 6 && (
+                                <span className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center space-x-1 text-emerald-400 text-xs font-sans font-bold">
+                                  <CheckCircle2 size={15} />
+                                  <span className="text-[10px]">SIAP</span>
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        )}
+
+                        {!isAccountPhoneVerified && otpMsg && (
+                          <p className="text-[11px] font-sans mt-1 text-amber-400" role="status">
+                            {otpMsg}
+                          </p>
+                        )}
+                        {!isAccountPhoneVerified && (
+                          <p className="text-[10px] font-sans text-text-muted mt-1 leading-snug">
+                            Verifikasi nomor WhatsApp 1x per akun selamanya untuk konfirmasi dan keamanan transaksi.
+                          </p>
+                        )}
+                      </div>
+                    </div>
                   </div>
-                </div>
+                )}
               </div>
 
               {/* Section 2: Delivery Method (3 Symmetric Cards) */}
@@ -1330,27 +1490,56 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
                         </button>
                       </div>
 
-                      {/* Notifikasi Status GPS / Error */}
+                      {/* Preview Visual Peta Interaktif OpenStreetMap (OSM) */}
                       {gpsCoords ? (
-                        <div className="p-2.5 rounded-xl bg-emerald-500/10 border border-emerald-500/25 text-xs flex items-center justify-between gap-2 animate-fadeIn">
-                          <div className="flex items-center gap-2 min-w-0">
-                            <CheckCircle2 size={14} className="text-emerald-400 shrink-0" />
-                            <div className="truncate">
-                              <span className="font-mono text-[11px] text-emerald-400 font-bold block truncate">
-                                GPS Terkunci: {gpsCoords.lat.toFixed(5)}, {gpsCoords.lon.toFixed(5)}
-                              </span>
-                              <span className="text-[10px] text-text-muted">
-                                {gpsMsg || "Kurir langsung diarahkan ke titik koordinat ini."}
-                              </span>
+                        <div className="rounded-xl overflow-hidden border border-emerald-500/30 bg-emerald-500/5 space-y-2 animate-fadeIn p-2.5">
+                          <div className="flex items-center justify-between text-xs">
+                            <span className="font-bold text-emerald-400 flex items-center gap-1.5">
+                              <MapPin size={13} className="text-emerald-400" />
+                              <span>Peta OpenStreetMap (OSM) Terkunci</span>
+                            </span>
+                            <span className="font-mono text-[10px] text-emerald-300 font-bold bg-emerald-500/20 px-2 py-0.5 rounded">
+                              {gpsCoords.lat.toFixed(5)}, {gpsCoords.lon.toFixed(5)}
+                            </span>
+                          </div>
+
+                          {/* Native OSM Embed Visual Map */}
+                          <div className="relative w-full h-36 rounded-lg overflow-hidden border border-border-subtle bg-black/10">
+                            <iframe
+                              title="Titik Pengantaran OpenStreetMap"
+                              width="100%"
+                              height="100%"
+                              frameBorder="0"
+                              scrolling="no"
+                              marginHeight={0}
+                              marginWidth={0}
+                              src={`https://www.openstreetmap.org/export/embed.html?bbox=${(gpsCoords.lon - 0.006).toFixed(6)}%2C${(gpsCoords.lat - 0.004).toFixed(6)}%2C${(gpsCoords.lon + 0.006).toFixed(6)}%2C${(gpsCoords.lat + 0.004).toFixed(6)}&layer=mapnik&marker=${gpsCoords.lat.toFixed(6)}%2C${gpsCoords.lon.toFixed(6)}`}
+                              className="w-full h-full opacity-90 contrast-105"
+                            />
+                            <div className="absolute bottom-1 right-1 bg-black/75 backdrop-blur-xs px-1.5 py-0.5 rounded text-[8px] text-white/80 pointer-events-none">
+                              © OpenStreetMap contributors
                             </div>
                           </div>
-                          <button
-                            type="button"
-                            onClick={() => setIsMapModalOpen(true)}
-                            className="text-[11px] font-sans font-bold text-brand-accent hover:underline shrink-0 cursor-pointer"
-                          >
-                            Ubah di Peta
-                          </button>
+
+                          <div className="flex items-center justify-between pt-0.5">
+                            <button
+                              type="button"
+                              onClick={() => setIsMapModalOpen(true)}
+                              className="text-[11px] font-sans font-bold text-brand-accent hover:underline flex items-center gap-1 cursor-pointer"
+                            >
+                              <Navigation size={11} />
+                              <span>Ubah / Geser Titik di Peta</span>
+                            </button>
+                            <a
+                              href={`https://www.openstreetmap.org/?mlat=${gpsCoords.lat}&mlon=${gpsCoords.lon}#map=17/${gpsCoords.lat}/${gpsCoords.lon}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-[10px] text-text-muted hover:text-text-primary hover:underline flex items-center gap-1"
+                            >
+                              <ExternalLink size={10} />
+                              <span>Buka OSM Penuh ↗</span>
+                            </a>
+                          </div>
                         </div>
                       ) : gpsMsg ? (
                         <div className="p-2.5 rounded-xl bg-amber-500/10 border border-amber-500/25 text-[11px] text-amber-300 flex items-start gap-2 animate-fadeIn">
@@ -1563,73 +1752,78 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
                 )}
               </div>
 
-              {/* Navigasi mobile Tahap 1 → 2 */}
-              <div className="md:hidden p-4 rounded-xl bg-surface border border-border-subtle space-y-2 font-sans text-xs">
-                <div className="flex justify-between text-text-muted">
-                  <span>Subtotal ({totalQty} pcs)</span>
-                  <span className="font-mono tabular-nums">Rp {effectiveSubtotal.toLocaleString("id-ID")}</span>
-                </div>
-                <div className="flex justify-between text-text-muted">
-                  <span>Ongkos kirim</span>
-                  <span className={`font-mono tabular-nums ${shippingCost === 0 ? "text-emerald-400 font-bold" : ""}`}>
-                    {shippingCost === 0 ? "Rp 0" : `Rp ${shippingCost.toLocaleString("id-ID")}`}
-                  </span>
-                </div>
-                <div className="flex justify-between items-baseline pt-2 border-t border-border-subtle">
-                  <span className="font-bold text-text-primary">TOTAL SEMENTARA:</span>
-                  <span className="text-brand-accent font-bold text-lg font-mono tabular-nums">
-                    Rp {grandTotal.toLocaleString("id-ID")}
-                  </span>
-                </div>
-                <button
-                  type="button"
-                  onClick={handleNextToPayment}
-                  className="w-full py-3.5 px-5 rounded-xl font-sans text-xs font-bold tracking-wider uppercase transition-all flex items-center justify-center gap-2 cursor-pointer bg-brand-accent text-canvas shadow-[0_0_20px_rgba(37,99,235,0.4)] hover:brightness-110 active:scale-[0.99]"
-                >
-                  <span>Lanjut ke Pembayaran</span>
-                  <ArrowRight size={14} />
-                </button>
-              </div>
-            </div>
-
-            {/* TAHAP 2: Bayar — ringkasan + QRIS DirectQrisModal (Sticky di Desktop agar posisi payment selalu tampak) */}
-            <div className={`md:col-span-5 space-y-3.5 md:sticky md:top-0 self-start ${step === 2 ? "block" : "hidden md:block"}`}>
-              <div className="flex items-center justify-between pb-1 border-b border-border-subtle">
-                <div className="flex items-center space-x-2 text-xs font-sans font-bold text-text-primary uppercase tracking-wider">
-                  <CreditCard size={13} className="text-brand-accent" />
-                  <span>TAHAP 2 · RINGKASAN &amp; BAYAR</span>
-                </div>
-                <span className="text-[10px] text-text-muted hidden md:inline">2. Direct QRIS</span>
-              </div>
-
-              {/* Ringkasan alamat terpilih (khusus tampilan mobile tahap 2) */}
-              <div className="md:hidden p-3.5 rounded-xl bg-surface-elevated/70 border border-border-subtle font-sans text-xs space-y-1.5">
-                <div className="flex items-center justify-between">
-                  <span className="font-bold text-text-primary uppercase tracking-wider text-[11px]">
-                    Tujuan &amp; Kurir
-                  </span>
+                {/* Navigasi Tahap 1 → 2 (Desktop & Mobile) */}
+                <div className="p-4 sm:p-5 rounded-2xl bg-surface/90 border border-border-subtle space-y-3 font-sans text-xs shadow-sm">
+                  <div className="flex justify-between text-text-muted">
+                    <span>Subtotal ({totalQty} pcs)</span>
+                    <span className="font-mono tabular-nums">Rp {effectiveSubtotal.toLocaleString("id-ID")}</span>
+                  </div>
+                  <div className="flex justify-between text-text-muted">
+                    <span>
+                      Ongkos Kirim ({deliveryMethod === "PICKUP" ? "Ambil Sendiri" : deliveryMethod === "FREE_MAKASSAR" ? "Gratis Makassar" : "Ekspedisi"})
+                    </span>
+                    <span className={`font-mono tabular-nums ${shippingCost === 0 ? "text-emerald-400 font-bold" : ""}`}>
+                      {shippingCost === 0 ? "Rp 0" : `Rp ${shippingCost.toLocaleString("id-ID")}`}
+                    </span>
+                  </div>
+                  <div className="flex justify-between items-baseline pt-2.5 border-t border-border-subtle">
+                    <span className="font-bold text-text-primary text-xs uppercase tracking-wider">Total Sementara:</span>
+                    <span className="text-brand-accent font-bold text-xl font-mono tabular-nums">
+                      Rp {grandTotal.toLocaleString("id-ID")}
+                    </span>
+                  </div>
                   <button
                     type="button"
-                    onClick={handleBackToAddress}
-                    className="px-2.5 py-1 rounded-lg text-[10px] font-bold bg-surface border border-border-subtle text-brand-accent hover:border-brand-accent transition-colors cursor-pointer"
+                    onClick={handleNextToPayment}
+                    className="w-full py-3.5 px-5 rounded-xl font-sans text-xs font-bold tracking-wider uppercase transition-all flex items-center justify-center gap-2 cursor-pointer bg-brand-accent text-canvas shadow-[0_0_20px_rgba(37,99,235,0.4)] hover:brightness-110 active:scale-[0.99]"
                   >
-                    ← Ubah Alamat/Kurir
+                    <span>Lanjut ke Ringkasan &amp; {isCustomOrder ? "Ajukan Desain" : "Pembayaran"}</span>
+                    <ArrowRight size={14} />
                   </button>
                 </div>
-                <p className="text-text-primary font-bold truncate">
-                  {recipientName || "—"} · {normalizePhoneId(phoneNumber) || phoneNumber || "—"}
-                </p>
-                <p className="text-text-muted leading-snug">
-                  {deliveryMethod === "PICKUP"
-                    ? "Ambil sendiri — Workshop Kaos Kami Makassar (Self Pick-up)"
-                    : deliveryMethod === "FREE_MAKASSAR"
-                      ? `${district} — ${fullAddress || "—"}`
-                      : `${destQuery || "—"} — ${fullAddress || "—"}`}
-                  {selectedQuote ? ` · ${selectedQuote.courier} ${selectedQuote.service} (Rp ${selectedQuote.cost.toLocaleString("id-ID")})` : ""}
-                  {deliveryMethod !== "EXPEDITION_MANUAL" && shippingCost === 0 ? " · Rp 0" : ""}
-                </p>
               </div>
-              <div className="space-y-4">
+            )}
+
+            {/* TAHAP 2: Ringkasan & Pembayaran (Desktop & Mobile) */}
+            {step === 2 && (
+              <div className="space-y-4 animate-fadeIn">
+                <div className="flex items-center justify-between pb-1 border-b border-border-subtle">
+                  <div className="flex items-center space-x-2 text-xs font-sans font-bold text-text-primary uppercase tracking-wider">
+                    {isCustomOrder ? <Sparkles size={13} className="text-brand-accent" /> : <CreditCard size={13} className="text-brand-accent" />}
+                    <span>TAHAP 2 · RINGKASAN &amp; {isCustomOrder ? "AJUKAN DESAIN" : "BAYAR QRIS"}</span>
+                  </div>
+                  <span className="text-[10px] text-text-muted">Langkah 2 dari 2</span>
+                </div>
+
+                {/* Ringkasan alamat & kurir terpilih */}
+                <div className="p-4 rounded-2xl bg-surface-elevated/70 border border-border-subtle font-sans text-xs space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="font-bold text-text-primary uppercase tracking-wider text-[11px] flex items-center gap-1.5">
+                      <MapPin size={13} className="text-brand-accent" />
+                      <span>Tujuan &amp; Kurir Pengiriman</span>
+                    </span>
+                    <button
+                      type="button"
+                      onClick={handleBackToAddress}
+                      className="px-3 py-1.5 rounded-xl text-[11px] font-bold bg-surface border border-border-subtle text-brand-accent hover:border-brand-accent hover:bg-brand-accent/10 transition-colors cursor-pointer flex items-center gap-1"
+                    >
+                      <ArrowLeft size={12} />
+                      <span>Ubah Alamat / Kurir</span>
+                    </button>
+                  </div>
+                  <p className="text-text-primary font-bold text-sm">
+                    {recipientName || "—"} · <span className="font-mono text-xs">{normalizePhoneId(phoneNumber) || phoneNumber || "—"}</span>
+                  </p>
+                  <p className="text-text-muted leading-relaxed">
+                    {deliveryMethod === "PICKUP"
+                      ? "Ambil sendiri — Workshop Kaos Kami Makassar (Jl. Pelita Raya / Workshop DTF)"
+                      : deliveryMethod === "FREE_MAKASSAR"
+                        ? `${district} — ${fullAddress || "—"}`
+                        : `${destQuery || "—"} — ${fullAddress || "—"}`}
+                    {selectedQuote ? ` · ${selectedQuote.courier} ${selectedQuote.service} (Rp ${selectedQuote.cost.toLocaleString("id-ID")})` : ""}
+                    {deliveryMethod !== "EXPEDITION_MANUAL" && shippingCost === 0 ? " · Rp 0 (Gratis Ongkir)" : ""}
+                  </p>
+                </div>
                 {/* Order Summary Box */}
                 <div className="p-4 rounded-xl bg-surface-elevated/70 border border-border-subtle space-y-3 font-sans text-xs">
                   <div className="flex justify-between items-center pb-2 border-b border-border-subtle">
@@ -1907,6 +2101,12 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
                         <span>PESAN UJI COBA (BYPASS RP 0)</span>
                         <ArrowRight size={14} />
                       </>
+                    ) : isCustomOrder ? (
+                      <>
+                        <Sparkles size={15} />
+                        <span>AJUKAN DESAIN KE WORKSHOP</span>
+                        <ArrowRight size={14} />
+                      </>
                     ) : (
                       <>
                         <CreditCard size={15} />
@@ -1932,65 +2132,21 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
                           : "QRIS Dinamis Resmi BI · Langsung Muncul di Layar · Bebas Biaya"}
                       </span>
                     </p>
+                    <div className="text-center pt-2">
+                      <button
+                        type="button"
+                        onClick={handleBackToAddress}
+                        className="text-xs text-text-muted hover:text-text-primary underline font-medium cursor-pointer"
+                      >
+                        ← Kembali ke Ubah Alamat &amp; Kurir
+                      </button>
+                    </div>
                   </div>
                 </div>
               </div>
-            </div>
+            )}
           </div>
-
-            {/* V2 Mobile Bottom Sticky Bar — tahap-aware (tak submit dini di tahap 1) */}
-            <div className="md:hidden sticky bottom-0 -mx-4 -mb-4 sm:-mx-6 sm:-mb-6 p-4 bg-surface/95 border-t border-border-subtle backdrop-blur-xl flex items-center justify-between gap-3 shadow-2xl z-20">
-              <div>
-                <p className="text-[10px] font-sans text-text-muted uppercase">
-                  {step === 1 ? "TOTAL SEMENTARA" : "TOTAL BAYAR"}
-                </p>
-                <p className="text-base font-mono tabular-nums font-bold text-brand-accent">
-                  {adminBypassActive && step === 2 ? "Rp 0 (Bypass)" : `Rp ${grandTotal.toLocaleString("id-ID")}`}
-                </p>
-                {step === 2 && (
-                  <button
-                    type="button"
-                    onClick={handleBackToAddress}
-                    className="text-[10px] font-sans font-bold text-brand-accent hover:underline cursor-pointer"
-                  >
-                    ← Ubah Alamat/Kurir
-                  </button>
-                )}
-              </div>
-              {step === 1 ? (
-                <button
-                  type="button"
-                  onClick={handleNextToPayment}
-                  className="py-2.5 px-5 rounded-xl font-sans font-bold text-xs uppercase flex items-center gap-1.5 shadow-lg active:scale-95 transition-all cursor-pointer bg-brand-accent text-canvas"
-                >
-                  <span>LANJUT</span>
-                  <ArrowRight size={14} />
-                </button>
-              ) : (
-                <button
-                  type="submit"
-                  disabled={isLoading}
-                  className={`py-2.5 px-5 rounded-xl font-sans font-bold text-xs uppercase flex items-center gap-1.5 shadow-lg active:scale-95 transition-all cursor-pointer disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-accent focus-visible:ring-offset-2 focus-visible:ring-offset-canvas ${
-                    adminBypassActive
-                      ? "bg-amber-500 text-black shadow-[0_0_16px_rgba(245,158,11,0.4)]"
-                      : "bg-brand-accent text-canvas"
-                  }`}
-                >
-                  {isLoading ? (
-                    <>
-                      <Loader2 size={14} className="animate-spin" />
-                      <span>MEMPROSES...</span>
-                    </>
-                  ) : (
-                    <>
-                      <span>{adminBypassActive ? "PESAN (BYPASS)" : "BAYAR SEKARANG"}</span>
-                      <ArrowRight size={14} />
-                    </>
-                  )}
-                </button>
-              )}
-            </div>
-          </form>
+        </form>
 
           {/* Blueprint Bab 37.2 + 41: AuthModal eks-lusif di atas (early-return
               tutup-dulu-baru-buka) — JANGAN render AuthModal bertumpuk di sini. */}

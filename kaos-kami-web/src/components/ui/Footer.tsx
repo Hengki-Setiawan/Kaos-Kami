@@ -228,9 +228,9 @@ export const Footer: React.FC = () => {
                   Verified
                 </span>
               </a>
-              <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-black/5 dark:bg-white/5 border border-border-subtle/80 text-[10px] font-mono">
+              <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-black/5 dark:bg-white/5 border border-border-subtle/80 text-[10px] font-sans font-semibold">
                 <ShieldCheck size={11} className="text-emerald-500 shrink-0" />
-                <span>QRIS 0%</span>
+                <span>Biaya Admin Rp 0</span>
               </span>
               <span className="inline-flex items-center px-1.5 py-0.5 rounded-md bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border border-emerald-500/30 text-[9px] font-bold">
                 ✓ Berizin BI

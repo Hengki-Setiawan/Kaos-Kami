@@ -2,9 +2,10 @@
 
 import React, { useEffect, useState } from "react";
 import Link from "next/link";
-import { X, ExternalLink, CreditCard, MessageCircleWarning, ShieldCheck } from "lucide-react";
+import { X, ExternalLink, CreditCard, MessageCircleWarning, ShieldCheck, MapPin, Truck, Navigation } from "lucide-react";
 import { RepayButton } from "@/components/commerce/RepayButton";
 import { ComplaintForm } from "@/components/commerce/ComplaintForm";
+import { OrderMiniLeafletMap } from "@/components/maps/OrderMiniLeafletMap";
 
 /**
  * OrderDetailModal — jendela detail order (klik kartu di CustomerDashboardView).
@@ -39,8 +40,14 @@ export interface ModalOrder {
   orderNumber: string;
   status: string;
   totalIdr: number;
+  deliveryMethod?: string | null;
   courierNotes?: string | null;
   notes?: string | null;
+  shippingAddress?: {
+    recipientName?: string;
+    fullAddress?: string;
+    city?: string;
+  } | null;
   createdAt: string | Date;
   items: ModalOrderItem[];
 }
@@ -295,6 +302,61 @@ export function OrderDetailModal({
           <div className="flex justify-between pt-1.5 border-t border-border-subtle font-bold">
             <span className="text-text-muted">Total</span>
             <span className="text-brand-accent">{formatRupiah(order.totalIdr)}</span>
+          </div>
+        </div>
+
+        {/* Informasi Pengiriman & Lokasi OpenStreetMap (OSM) */}
+        <div className="rounded-xl bg-surface/70 dark:bg-black/30 border border-border-subtle p-3.5 space-y-2.5">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-bold text-text-primary flex items-center gap-1.5">
+              <Truck size={14} className="text-brand-accent" />
+              <span>Pengiriman & Titik OpenStreetMap (OSM)</span>
+            </span>
+            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-brand-accent/10 text-brand-accent border border-brand-accent/20">
+              {order.deliveryMethod === "FREE_MAKASSAR"
+                ? "🚀 Gratis Antar Makassar"
+                : order.deliveryMethod === "PICKUP"
+                ? "🏬 Ambil di Workshop"
+                : "📦 Ekspedisi Nasional"}
+            </span>
+          </div>
+
+          <div className="text-xs text-text-secondary space-y-1">
+            {order.shippingAddress?.recipientName && (
+              <p className="font-semibold text-text-primary">
+                Penerima: {order.shippingAddress.recipientName}
+              </p>
+            )}
+            <p className="text-[11px] leading-relaxed text-text-muted">
+              {order.shippingAddress?.fullAddress
+                ? `${order.shippingAddress.fullAddress}${order.shippingAddress.city ? `, ${order.shippingAddress.city}` : ""}`
+                : order.deliveryMethod === "PICKUP"
+                ? "Workshop Kaos Kami: Jl. Pongtiku No. 22, Tallo, Kota Makassar"
+                : "Alamat pengiriman tercatat di sistem."}
+            </p>
+            {order.courierNotes && (
+              <p className="text-[11px] text-amber-500/90 italic">
+                Catatan kurir: {order.courierNotes}
+              </p>
+            )}
+          </div>
+
+          {/* Peta Interaktif OpenStreetMap (OSM) */}
+          <div className="pt-1">
+            <OrderMiniLeafletMap
+              orderId={order.id}
+              orderNumber={order.orderNumber}
+              recipientName={order.shippingAddress?.recipientName || "Pelanggan"}
+              addressText={
+                order.shippingAddress?.fullAddress ||
+                (order.deliveryMethod === "PICKUP"
+                  ? "Workshop Kaos Kami Makassar"
+                  : "Kota Makassar")
+              }
+              notes={order.courierNotes}
+              deliveryMethod={order.deliveryMethod}
+              heightClass="h-40"
+            />
           </div>
         </div>
 
