@@ -359,14 +359,23 @@
   - Membuat berkas *full snapshot backup* JSON 1,556 KB (`backup/backup_database_orders_users_*.json`) berisi seluruh tabel: `User`, `Account`, `Session`, `Order`, `OrderItem`, `OrderStatusEvent`, `Payment`, `ProductionTask`, `Address`, `Design`.
   - Membersihkan 374 pesanan dummy, 42 akun dummy (kanban, extra, tester, e2e), 35 production tasks, 343 payments, dan 376 alamat dummy.
   - Mempertahankan secara utuh 5 Akun Riil (3 Admin Workshop & 2 Customer Akun Owner) serta 234 desain milik akun asli dan 100% data master katalog (8 kategori, 331 varian produk).
+* **Build Capacitor Mobile & Deployment Cloudflare Workers (OpenNext v15)**:
+  - `npm run mobile:build`: Lolos (Next.js static export ke `kaos-kami-mobile/out/`).
+  - `npm run mobile:sync`: Lolos (Sinkronisasi 17 plugin native Capacitor ke platform Android & iOS).
+  - Mengonfigurasi secret `IPAYMU_ENV=production` di Cloudflare Worker (`kaos-kami-3d`) via Wrangler.
+  - Menambahkan flag kompatibilitas `--dangerouslyUseUnsupportedNextVersion` pada skrip OpenNext `kaos-kami-web/package.json`.
+  - Deployment produksi Cloudflare Workers sukses (`npm run web:deploy`): Version ID `34c3d064-da62-4ac7-9073-c2b14c454064`.
+  - Verifikasi live: `https://kaoskami.biz.id` mengembalikan HTTP `200 OK`, dan `https://kaos-kami-3d.hengkisetiawan461.workers.dev` mengembalikan HTTP `308 Permanent Redirect` menuju domain utama.
 
 ---
 
 ## 🧪 STATUS VALIDASI SISTEM
-* **Status jujur (per AGENTS.md Pilar 1 — AI dilarang mengklaim selesai):** 🟡 KODE DIUBAH — entri 26/28/31/32, Gelombang 9, dan Gelombang 10 **MENUNGGU VERIFIKASI FISIK OWNER** (`http://localhost:3000` + uji sandbox iPaymu + live-run Wave7 + uji orbit 3D). Label "100% SELESAI PENUH" di revisi lama DICABUT 05 Okt 2026 karena kontradiktif dengan status entri-entri tersebut; hanya owner yang boleh menyatakan selesai dan mencentang.
+* **Status jujur (per AGENTS.md Pilar 1 — AI dilarang mengklaim selesai):** 🟡 KODE DIUBAH — entri 26/28/31/32, Gelombang 9, dan Gelombang 10 **MENUNGGU VERIFIKASI FISIK OWNER** (`http://localhost:3000` + live `https://kaoskami.biz.id` + uji QRIS live). Label "100% SELESAI PENUH" di revisi lama DICABUT 05 Okt 2026 karena kontradiktif dengan status entri-entri tersebut; hanya owner yang boleh menyatakan selesai dan mencentang.
 * **TypeScript Compiler (`tsc --noEmit`)**: 0 error (100% lolos pada `kaos-kami-web` dan `kaos-kami-mobile`).
-* **Database Turso Pasca-Pembersihan**: 0 order dummy (database siap produksi), 5 akun riil aktif, 234 desain asli tersimpan, 1.55 MB backup JSON terverifikasi.
-* **Dev Server**: Berjalan stabil di `http://127.0.0.1:3000`.
+* **Database Turso Pasca-Pembersihan**: 0 order dummy (database bersih & siap produksi), 5 akun riil aktif, 234 desain asli tersimpan, 1.55 MB backup JSON terverifikasi.
+* **Mobile Capacitor 8.5.1**: 17 plugin tersinkronisasi (`npx cap sync android ios`), build web statis `out/` siap bungkus APK/AAB.
+* **Cloudflare Workers Live**: Aktif di `https://kaoskami.biz.id` (HTTP 200 OK, Version ID: `34c3d064-da62-4ac7-9073-c2b14c454064`).
+
 
 
 
