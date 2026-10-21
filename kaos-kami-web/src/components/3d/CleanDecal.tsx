@@ -211,12 +211,14 @@ export const CleanDecal = forwardRef<THREE.Mesh, CleanDecalProps>(function Clean
       state.current.scale
     );
 
-    // Apply strict backface culling with spatial isolation guard
+    // Apply strict backface culling with spatial isolation guard.
+    // Lengan silindris membutuhkan threshold -0.35 agar kelengkungan manset/ujung lengan tidak terpotong (arc cutout).
+    const isSleeve = inferredSide === "left_sleeve" || inferredSide === "right_sleeve";
     target.geometry = filterDecalBackfaces(
       rawGeometry,
       state.current.position,
       state.current.rotation,
-      0.05,
+      isSleeve ? -0.35 : 0.05,
       inferredSide
     );
 

@@ -392,7 +392,7 @@ export function CatalogPageTabs({
             onClick={() => setActiveTab("matrix")}
             className={`flex items-center gap-2 px-4 py-2.5 rounded-2xl font-bold uppercase tracking-wider text-xs transition-all whitespace-nowrap ${
               activeTab === "matrix"
-                ? "bg-brand-accent text-canvas shadow-[0_4px_16px_rgba(230,81,0,0.35)]"
+                ? "bg-brand-accent text-canvas shadow-[0_4px_16px_rgba(37,99,235,0.35)]"
                 : "bg-surface hover:bg-surface-elevated text-text-muted hover:text-text-primary border border-border-subtle"
             }`}
           >
@@ -412,7 +412,7 @@ export function CatalogPageTabs({
               onClick={() => setActiveTab("distro")}
               className={`flex items-center gap-2 px-4 py-2.5 rounded-2xl font-bold uppercase tracking-wider text-xs transition-all whitespace-nowrap ${
                 activeTab === "distro"
-                  ? "bg-brand-accent text-canvas shadow-[0_4px_16px_rgba(230,81,0,0.35)]"
+                  ? "bg-brand-accent text-canvas shadow-[0_4px_16px_rgba(37,99,235,0.35)]"
                   : "bg-surface hover:bg-surface-elevated text-text-muted hover:text-text-primary border border-border-subtle"
               }`}
             >
@@ -432,7 +432,7 @@ export function CatalogPageTabs({
             onClick={() => setActiveTab("master")}
             className={`flex items-center gap-2 px-4 py-2.5 rounded-2xl font-bold uppercase tracking-wider text-xs transition-all whitespace-nowrap ${
               activeTab === "master"
-                ? "bg-brand-accent text-canvas shadow-[0_4px_16px_rgba(230,81,0,0.35)]"
+                ? "bg-brand-accent text-canvas shadow-[0_4px_16px_rgba(37,99,235,0.35)]"
                 : "bg-surface hover:bg-surface-elevated text-text-muted hover:text-text-primary border border-border-subtle"
             }`}
           >

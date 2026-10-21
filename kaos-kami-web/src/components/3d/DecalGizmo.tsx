@@ -343,11 +343,47 @@ export const DecalGizmo: React.FC<DecalGizmoProps> = ({ surfaceZ }) => {
       let rawX = curInitialX + dx * signX;
       let rawY = curInitialY - dy;
 
-      // 360° Seamless Torso Zone Transition (Depan <-> Rusuk Samping <-> Punggung):
-      if (hasSides) {
-        if (currentSide === "front") {
-          // Rusuk Kanan
-          if (rawX > 0.19) {
+      // 360° Seamless Torso Zone Transition (Depan <-> Rusuk Samping / Lengan <-> Punggung):
+      if (currentSide === "front") {
+        // Transisi ke Lengan (Bahu & Lengan Atas ke Manset) bila kursor di area dada atas (rawY > -0.08)
+        if (hasSleeves && rawY > -0.08) {
+          const sleeveMaxScale = maxDecalScaleUnits(activeApparel, "left_sleeve");
+          const nextScale = Math.min(activeDecal.scale, sleeveMaxScale);
+          if (rawX < -0.18) {
+            currentSide = "left_sleeve";
+            curStartX = ev.clientX;
+            curStartY = ev.clientY;
+            curInitialX = 0;
+            curInitialY = Math.max(-DECAL_MOVE_LIMITS.sleeveY, Math.min(DECAL_MOVE_LIMITS.sleeveY, rawY));
+            updateDecal(activeDecal.id, {
+              targetSide: "left_sleeve",
+              x: 0,
+              y: Number(curInitialY.toFixed(4)),
+              scale: Number(nextScale.toFixed(4)),
+            });
+            setActiveViewSide("left_sleeve");
+            return;
+          }
+          if (rawX > 0.18) {
+            currentSide = "right_sleeve";
+            curStartX = ev.clientX;
+            curStartY = ev.clientY;
+            curInitialX = 0;
+            curInitialY = Math.max(-DECAL_MOVE_LIMITS.sleeveY, Math.min(DECAL_MOVE_LIMITS.sleeveY, rawY));
+            updateDecal(activeDecal.id, {
+              targetSide: "right_sleeve",
+              x: 0,
+              y: Number(curInitialY.toFixed(4)),
+              scale: Number(nextScale.toFixed(4)),
+            });
+            setActiveViewSide("right_sleeve");
+            return;
+          }
+        }
+
+        // Transisi ke Rusuk Samping (Hanya di area pinggang/rusuk bawah rawY <= -0.08)
+        if (hasSides && rawY <= -0.08) {
+          if (rawX > 0.18) {
             const sideMaxScale = maxDecalScaleUnits(activeApparel, "side_right");
             const nextScale = Math.min(activeDecal.scale, sideMaxScale);
             currentSide = "side_right";
@@ -364,8 +400,7 @@ export const DecalGizmo: React.FC<DecalGizmoProps> = ({ surfaceZ }) => {
             setActiveViewSide("side_right");
             return;
           }
-          // Rusuk Kiri
-          if (rawX < -0.19) {
+          if (rawX < -0.18) {
             const sideMaxScale = maxDecalScaleUnits(activeApparel, "side_left");
             const nextScale = Math.min(activeDecal.scale, sideMaxScale);
             currentSide = "side_left";
@@ -382,7 +417,8 @@ export const DecalGizmo: React.FC<DecalGizmoProps> = ({ surfaceZ }) => {
             setActiveViewSide("side_left");
             return;
           }
-        } else if (currentSide === "side_right") {
+        }
+      } else if (hasSides && currentSide === "side_right") {
           if (rawX > 0.09) {
             // Kembali ke Dada Depan
             currentSide = "front";
@@ -473,44 +509,9 @@ export const DecalGizmo: React.FC<DecalGizmoProps> = ({ surfaceZ }) => {
             return;
           }
         }
-      }
 
-      // Transisi ke Lengan (Bahu Atas):
-      if (hasSleeves && currentSide === "front" && rawY > 0.04) {
-        const sleeveMaxScale = maxDecalScaleUnits(activeApparel, "left_sleeve");
-        const nextScale = Math.min(activeDecal.scale, sleeveMaxScale);
-        if (rawX < -0.19) {
-          currentSide = "left_sleeve";
-          curStartX = ev.clientX;
-          curStartY = ev.clientY;
-          curInitialX = 0;
-          curInitialY = Math.max(-0.25, Math.min(0.25, rawY));
-          updateDecal(activeDecal.id, {
-            targetSide: "left_sleeve",
-            x: 0,
-            y: Number(curInitialY.toFixed(4)),
-            scale: Number(nextScale.toFixed(4)),
-          });
-          setActiveViewSide("left_sleeve");
-          return;
-        }
-        if (rawX > 0.19) {
-          currentSide = "right_sleeve";
-          curStartX = ev.clientX;
-          curStartY = ev.clientY;
-          curInitialX = 0;
-          curInitialY = Math.max(-0.25, Math.min(0.25, rawY));
-          updateDecal(activeDecal.id, {
-            targetSide: "right_sleeve",
-            x: 0,
-            y: Number(curInitialY.toFixed(4)),
-            scale: Number(nextScale.toFixed(4)),
-          });
-          setActiveViewSide("right_sleeve");
-          return;
-        }
-      }
-      if (currentSide === "left_sleeve" && rawX > 0.08) {
+
+      if (currentSide === "left_sleeve" && rawX > 0.15) {
         currentSide = "front";
         curStartX = ev.clientX;
         curStartY = ev.clientY;
@@ -524,7 +525,7 @@ export const DecalGizmo: React.FC<DecalGizmoProps> = ({ surfaceZ }) => {
         setActiveViewSide("front");
         return;
       }
-      if (currentSide === "right_sleeve" && rawX > 0.08) {
+      if (currentSide === "right_sleeve" && rawX > 0.15) {
         currentSide = "front";
         curStartX = ev.clientX;
         curStartY = ev.clientY;
@@ -586,7 +587,7 @@ export const DecalGizmo: React.FC<DecalGizmoProps> = ({ surfaceZ }) => {
               seamAdvisory.isOverSeam
                 ? "border-amber-400/90 shadow-[0_0_10px_rgba(251,191,36,0.3)]"
                 : activeGizmoTool
-                ? "border-brand-accent shadow-[0_0_8px_rgba(230,81,0,0.35)]"
+                ? "border-brand-accent shadow-[0_0_8px_rgba(37,99,235,0.35)]"
                 : "border-brand-accent/70 hover:border-brand-accent"
             }`}
           />
@@ -617,10 +618,10 @@ export const DecalGizmo: React.FC<DecalGizmoProps> = ({ surfaceZ }) => {
             title="Klik & geser untuk memindahkan posisi sablon (Otomatis beralih ke samping/lengan saat digeser ke tepi)"
           />
 
-          {/* Rotation Handle (Canva / Figma Stem Style above top-center) */}
-          <div className="absolute -top-6 left-1/2 -translate-x-1/2 flex flex-col items-center pointer-events-auto">
+          {/* Rotation Handle (Canva / Figma Stem Style cleanly above top-center) */}
+          <div className="absolute -top-7 left-1/2 -translate-x-1/2 flex flex-col items-center pointer-events-auto">
             {activeGizmoTool === "rotate" && (
-              <div className="mb-1 px-1.5 py-0.5 rounded-full bg-neutral-950/90 border border-brand-accent text-[8.5px] font-mono font-bold text-amber-300 shadow-md whitespace-nowrap pointer-events-none">
+              <div className="mb-1 px-1.5 py-0.5 rounded-full bg-neutral-950/90 border border-brand-accent text-[8px] font-mono font-bold text-amber-300 shadow-md whitespace-nowrap pointer-events-none">
                 {activeDecal.rotation}°
               </div>
             )}
@@ -629,85 +630,74 @@ export const DecalGizmo: React.FC<DecalGizmoProps> = ({ surfaceZ }) => {
               tabIndex={0}
               aria-label="Putar sablon"
               onPointerDown={onRotateDown}
-              className={`w-5 h-5 rounded-full bg-neutral-900/85 hover:bg-brand-accent text-white border border-white/30 shadow-md flex items-center justify-center transition-all before:absolute before:-inset-2 before:content-[''] ${
-                activeGizmoTool === "rotate"
-                  ? "cursor-grabbing scale-110 bg-brand-accent"
-                  : "cursor-grab hover:scale-110"
+              className={`w-4 h-4 rounded-full bg-neutral-900/90 hover:bg-brand-accent text-white border border-white/40 shadow-sm flex items-center justify-center transition-all cursor-grab active:cursor-grabbing hover:scale-115 ${
+                activeGizmoTool === "rotate" ? "scale-115 bg-brand-accent" : ""
               }`}
-              title="Tarik melingkar untuk memutar sudut sablon (Tahan Shift untuk snap 15°)"
+              title="Tarik melingkar untuk memutar sudut sablon"
             >
-              <RotateCw size={10} className="stroke-[2.5]" />
+              <RotateCw size={9} className="stroke-[2.5]" />
             </div>
             {/* Connection stem line */}
-            <div className="w-px h-2 bg-brand-accent/70" />
+            <div className="w-px h-2 bg-brand-accent/60" />
           </div>
 
-          {/* Corner Resize Handle 1: Top-Right */}
+          {/* 4 Corner Resize Handles (Sleek 8px white dots with subtle accent ring) */}
           <div
             role="button"
             tabIndex={0}
-            aria-label="Ubah ukuran sablon"
+            aria-label="Ubah ukuran sablon (Kanan Atas)"
             onPointerDown={onScaleDown}
-            className="absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full bg-white border-2 border-brand-accent shadow-sm cursor-nwse-resize hover:scale-130 active:scale-110 transition-transform before:absolute before:-inset-2 before:content-['']"
-            title="Tarik untuk memperbesar/memperkecil sablon"
+            className="absolute -top-1 -right-1 w-2 h-2 rounded-full bg-white border border-brand-accent shadow-sm cursor-nwse-resize hover:scale-130 transition-transform"
+            title="Tarik untuk mengubah ukuran sablon"
           />
-
-          {/* Corner Resize Handle 2: Bottom-Right */}
           <div
             role="button"
             tabIndex={0}
-            aria-label="Ubah ukuran sablon"
+            aria-label="Ubah ukuran sablon (Kanan Bawah)"
             onPointerDown={onScaleDown}
-            className="absolute -bottom-1 -right-1 w-2.5 h-2.5 rounded-full bg-white border-2 border-brand-accent shadow-sm cursor-nesw-resize hover:scale-130 active:scale-110 transition-transform before:absolute before:-inset-2 before:content-['']"
-            title="Tarik untuk memperbesar/memperkecil sablon"
+            className="absolute -bottom-1 -right-1 w-2 h-2 rounded-full bg-white border border-brand-accent shadow-sm cursor-nesw-resize hover:scale-130 transition-transform"
+            title="Tarik untuk mengubah ukuran sablon"
           />
-
-          {/* Corner Resize Handle 3: Bottom-Left */}
           <div
             role="button"
             tabIndex={0}
-            aria-label="Ubah ukuran sablon"
+            aria-label="Ubah ukuran sablon (Kiri Bawah)"
             onPointerDown={onScaleDown}
-            className="absolute -bottom-1 -left-1 w-2.5 h-2.5 rounded-full bg-white border-2 border-brand-accent shadow-sm cursor-nwse-resize hover:scale-130 active:scale-110 transition-transform before:absolute before:-inset-2 before:content-['']"
-            title="Tarik untuk memperbesar/memperkecil sablon"
+            className="absolute -bottom-1 -left-1 w-2 h-2 rounded-full bg-white border border-brand-accent shadow-sm cursor-nwse-resize hover:scale-130 transition-transform"
+            title="Tarik untuk mengubah ukuran sablon"
+          />
+          <div
+            role="button"
+            tabIndex={0}
+            aria-label="Ubah ukuran sablon (Kiri Atas)"
+            onPointerDown={onScaleDown}
+            className="absolute -top-1 -left-1 w-2 h-2 rounded-full bg-white border border-brand-accent shadow-sm cursor-nesw-resize hover:scale-130 transition-transform"
+            title="Tarik untuk mengubah ukuran sablon"
           />
 
-          {/* Corner Handle 4: Top-Left (Quick Hide/Close) */}
-          <button
-            type="button"
-            onClick={(e) => {
-              e.stopPropagation();
-              toggleGizmoVisible();
-            }}
-            aria-label="Sembunyikan gizmo"
-            className="absolute -top-1.5 -left-1.5 w-3.5 h-3.5 rounded-full bg-neutral-900/80 hover:bg-rose-600 text-white/90 hover:text-white border border-white/30 shadow-sm flex items-center justify-center transition-all before:absolute before:-inset-2 before:content-[''] cursor-pointer"
-            title="Sembunyikan kotak kontrol gizmo (Mode Preview)"
-          >
-            <X size={8} className="stroke-[3]" />
-          </button>
-
-          {/* Real-world physical dimensions pill (Ukuran sablon nyata cm terkalibrasi per sisi + Seam Advisory) */}
+          {/* Real-world physical dimensions badge (Sleek, Compact, High-contrast glass) */}
           {physicalDims && (
             <div
-              className={`absolute -bottom-6 left-1/2 -translate-x-1/2 flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-neutral-950/92 backdrop-blur-md border text-[9px] font-mono font-bold text-white shadow-lg pointer-events-none whitespace-nowrap select-none transition-all ${
+              style={{ backgroundColor: "rgba(10, 15, 26, 0.94)" }}
+              className={`absolute -bottom-5 left-1/2 -translate-x-1/2 flex items-center gap-1.5 px-2 py-0.5 rounded-full border text-[8px] font-mono font-medium text-white shadow-lg pointer-events-none whitespace-nowrap select-none transition-all ${
                 seamAdvisory.isOverSeam
-                  ? "border-amber-400/70 shadow-[0_0_10px_rgba(251,191,36,0.25)]"
-                  : "border-brand-accent/50"
+                  ? "border-amber-400 text-amber-200"
+                  : "border-white/15 text-neutral-200"
               }`}
             >
-              <span className="text-amber-300">
+              <span className="text-amber-300 font-semibold">
                 {physicalDims.widthCm.toFixed(1)} × {physicalDims.heightCm.toFixed(1)} cm
               </span>
-              <span className="text-white/40">·</span>
-              <span
-                className={
-                  seamAdvisory.isOverSeam
-                    ? "text-amber-300 font-medium"
-                    : "text-emerald-400 font-medium"
-                }
-                title={seamAdvisory.detailTip}
-              >
-                {seamAdvisory.pillBadge}
+              <span className="text-white/30">·</span>
+              <span className="flex items-center gap-1">
+                {seamAdvisory.isOverSeam ? (
+                  <span className="text-amber-300">{seamAdvisory.pillBadge}</span>
+                ) : (
+                  <>
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 shadow-[0_0_4px_rgba(52,211,153,0.8)] inline-block" />
+                    <span className="text-emerald-300">Aman</span>
+                  </>
+                )}
               </span>
             </div>
           )}

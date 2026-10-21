@@ -238,7 +238,7 @@ export default function AdminDeliveriesPage() {
           onClick={() => setActiveTab("makassar")}
           className={`p-4 rounded-2xl border text-left transition-all ${
             activeTab === "makassar"
-              ? "bg-brand-accent/10 border-brand-accent text-brand-accent shadow-[0_0_20px_rgba(230,81,0,0.15)]"
+              ? "bg-brand-accent/10 border-brand-accent text-brand-accent shadow-[0_0_20px_rgba(37,99,235,0.15)]"
               : "bg-surface border-border-subtle text-text-muted hover:border-border-strong"
           }`}
         >
@@ -261,7 +261,7 @@ export default function AdminDeliveriesPage() {
           onClick={() => setActiveTab("expedition")}
           className={`p-4 rounded-2xl border text-left transition-all ${
             activeTab === "expedition"
-              ? "bg-brand-accent/10 border-brand-accent text-brand-accent shadow-[0_0_20px_rgba(230,81,0,0.15)]"
+              ? "bg-brand-accent/10 border-brand-accent text-brand-accent shadow-[0_0_20px_rgba(37,99,235,0.15)]"
               : "bg-surface border-border-subtle text-text-muted hover:border-border-strong"
           }`}
         >
@@ -284,7 +284,7 @@ export default function AdminDeliveriesPage() {
           onClick={() => setActiveTab("pickup")}
           className={`p-4 rounded-2xl border text-left transition-all ${
             activeTab === "pickup"
-              ? "bg-brand-accent/10 border-brand-accent text-brand-accent shadow-[0_0_20px_rgba(230,81,0,0.15)]"
+              ? "bg-brand-accent/10 border-brand-accent text-brand-accent shadow-[0_0_20px_rgba(37,99,235,0.15)]"
               : "bg-surface border-border-subtle text-text-muted hover:border-border-strong"
           }`}
         >

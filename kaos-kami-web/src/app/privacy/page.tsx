@@ -17,8 +17,8 @@ export default function PrivacyPage() {
   return (
     <div className="min-h-screen bg-canvas text-text-primary flex flex-col">
       <Navbar />
-      <main className="flex-1 px-4 py-12 max-w-3xl mx-auto space-y-6 w-full">
-      <Link href="/" className="font-sans text-xs text-text-muted hover:text-brand-accent">
+      <main className="flex-1 px-4 pt-24 sm:pt-28 pb-16 max-w-3xl mx-auto space-y-6 w-full">
+      <Link href="/" className="font-sans text-xs font-semibold text-text-muted hover:text-brand-accent transition-colors">
         ← KEMBALI KE BERANDA
       </Link>
       <h1 className="font-sans text-3xl font-bold uppercase text-text-primary">
@@ -28,7 +28,7 @@ export default function PrivacyPage() {
         Terakhir diperbarui: {UPDATED} · Kaos Kami, Kota Makassar.
       </p>
       {/* Daftar Isi sticky (CSS only — tanpa lib): anchor per seksi */}
-      <nav aria-label="Daftar isi Kebijakan Privasi" className="lg:sticky lg:top-24 rounded-xl border border-border-subtle bg-surface/60 p-4 font-sans text-xs text-text-muted">
+      <nav aria-label="Daftar isi Kebijakan Privasi" className="lg:sticky lg:top-24 rounded-2xl border border-border-subtle/80 dark:border-white/10 bg-surface/75 dark:bg-black/40 backdrop-blur-xl p-4 sm:p-5 font-sans text-xs text-text-muted shadow-sm">
         <p className="font-bold text-text-primary text-[11px] uppercase tracking-wider mb-2">Daftar Isi</p>
         <ol className="space-y-1.5 list-none">
           <li><a href="#data-dikumpulkan" className="hover:text-brand-accent hover:underline">1. Data yang kami kumpulkan</a></li>

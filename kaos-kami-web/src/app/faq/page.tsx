@@ -141,11 +141,11 @@ export default function FaqPage() {
   return (
     <div className="min-h-screen bg-canvas text-text-primary flex flex-col font-sans">
       <Navbar />
-      <main className="flex-1 px-4 py-12 max-w-4xl mx-auto space-y-8 w-full">
+      <main className="flex-1 px-4 pt-24 sm:pt-28 pb-16 max-w-4xl mx-auto space-y-8 w-full">
         <div>
           <Link
             href="/"
-            className="font-sans text-xs font-medium text-text-muted hover:text-brand-accent transition-colors"
+            className="font-sans text-xs font-semibold text-text-muted hover:text-brand-accent transition-colors"
           >
             ← Kembali ke Beranda
           </Link>
@@ -168,11 +168,11 @@ export default function FaqPage() {
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder="Cari pertanyaan (misal: ukuran, satuan, ongkir, cuci)..."
-            className="w-full pl-11 pr-4 py-3 rounded-xl bg-surface border border-border-subtle text-xs text-text-primary focus:outline-none focus:border-brand-accent placeholder:text-text-muted transition-colors font-sans"
+            className="w-full pl-11 pr-4 py-3 rounded-full bg-surface/80 dark:bg-white/5 border border-border-subtle/80 dark:border-white/10 text-xs text-text-primary focus:outline-none focus:border-brand-accent placeholder:text-text-muted transition-colors font-sans backdrop-blur-md"
           />
         </div>
 
-        {/* Category Filters */}
+        {/* Category Filters — Frameless Pill Capsules */}
         <div className="flex items-center gap-2 overflow-x-auto no-scrollbar pb-1">
           {CATEGORIES.map((cat) => {
             const Icon = cat.icon;
@@ -182,10 +182,10 @@ export default function FaqPage() {
                 key={cat.id}
                 type="button"
                 onClick={() => setSelectedCategory(cat.id)}
-                className={`px-3 py-2 rounded-xl text-xs flex items-center gap-2 whitespace-nowrap transition-all ${
+                className={`px-3.5 py-2 rounded-full text-xs flex items-center gap-2 whitespace-nowrap transition-all cursor-pointer backdrop-blur-md ${
                   isActive
-                    ? "bg-brand-accent text-canvas font-bold shadow-sm"
-                    : "bg-surface border border-border-subtle text-text-muted hover:text-text-primary hover:border-brand-accent/50"
+                    ? "bg-brand-accent text-canvas font-bold shadow-[0_2px_12px_rgba(37,99,235,0.4)]"
+                    : "bg-surface/80 dark:bg-black/30 border border-border-subtle/80 dark:border-white/10 text-text-muted hover:text-text-primary hover:border-brand-accent/40"
                 }`}
               >
                 <Icon size={14} />
@@ -198,7 +198,7 @@ export default function FaqPage() {
         {/* FAQ Accordion List */}
         <div className="space-y-3">
           {filteredFaqs.length === 0 ? (
-            <div className="p-8 text-center rounded-2xl bg-surface border border-border-subtle space-y-2 text-xs text-text-muted">
+            <div className="p-8 text-center rounded-3xl bg-surface/70 dark:bg-black/35 backdrop-blur-xl border border-border-subtle/80 dark:border-white/10 space-y-2 text-xs text-text-muted">
               <p>Tidak ada pertanyaan yang sesuai dengan kata kunci pencarian Anda.</p>
               <button
                 type="button"
@@ -206,7 +206,7 @@ export default function FaqPage() {
                   setSearchQuery("");
                   setSelectedCategory("all");
                 }}
-                className="text-brand-accent font-sans underline hover:brightness-110"
+                className="text-brand-accent font-sans underline hover:brightness-110 cursor-pointer"
               >
                 Reset Filter Pencarian
               </button>
@@ -217,7 +217,7 @@ export default function FaqPage() {
               return (
                 <div
                   key={idx}
-                  className="rounded-2xl bg-surface/60 border border-border-subtle overflow-hidden transition-colors hover:border-border-subtle/80"
+                  className="rounded-2xl bg-surface/75 dark:bg-black/35 backdrop-blur-xl border border-border-subtle/80 dark:border-white/10 overflow-hidden transition-all hover:border-brand-accent/40 shadow-xs"
                 >
                   <button
                     type="button"

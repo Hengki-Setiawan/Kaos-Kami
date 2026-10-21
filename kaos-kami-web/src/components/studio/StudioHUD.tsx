@@ -134,16 +134,16 @@ export function StudioHUD() {
         isHideWebsiteUI ? "opacity-20 hover:opacity-100" : "opacity-100"
       } ${
         drawerPosition === "right" || isDrawerCollapsed
-          ? "md:left-6 md:right-auto md:max-w-[calc(100vw-420px)]"
-          : "md:right-6 md:left-auto md:max-w-[calc(100vw-420px)]"
-      } md:bottom-6 md:top-auto top-[68px] left-1/2 -translate-x-1/2 md:translate-x-0`}
+          ? "md:left-6 md:right-auto md:max-w-[calc(100vw-415px)]"
+          : "md:right-6 md:left-auto md:max-w-[calc(100vw-415px)]"
+      } md:bottom-6 md:top-auto top-[76px] left-1/2 -translate-x-1/2 md:translate-x-0`}
     >
       {isMinimized ? (
         /* Minimized Dock Button */
         <button
           type="button"
           onClick={() => setIsMinimized(false)}
-          className="flex items-center gap-2 px-3 py-1.5 rounded-full glass-panel-elevated shadow-xl border border-white/20 dark:border-white/10 backdrop-blur-2xl bg-surface/90 text-text-primary hover:bg-surface active:scale-95 transition-all cursor-pointer font-sans text-xs font-semibold whitespace-nowrap"
+          className="flex items-center gap-2 px-3.5 py-1.5 rounded-full glass-panel-elevated shadow-xl border border-white/20 dark:border-white/10 backdrop-blur-2xl bg-surface/90 text-text-primary hover:bg-surface active:scale-95 transition-all cursor-pointer font-sans text-xs font-semibold whitespace-nowrap"
           title="Buka panel kontrol sudut & kamera 3D"
         >
           <Compass size={13} className="text-brand-accent animate-pulse" />
@@ -151,10 +151,10 @@ export function StudioHUD() {
           <ChevronDown size={12} className="text-text-muted" />
         </button>
       ) : (
-        /* Full Expanded Horizontal Dock Bar */
-        <div className="flex flex-row items-center gap-1 sm:gap-1.5 p-1 rounded-2xl glass-panel-elevated shadow-2xl border border-white/15 dark:border-white/10 backdrop-blur-2xl bg-surface/90 overflow-x-auto no-scrollbar max-w-[calc(100vw-16px)]">
+        /* Full Expanded Horizontal Dock Bar (Frameless Floating Capsule Island) */
+        <div id="studio-side-dock" className="flex flex-row items-center gap-1 sm:gap-1.5 p-1.5 rounded-full glass-panel-elevated shadow-[0_12px_40px_rgba(0,0,0,0.35)] border border-white/15 dark:border-white/10 backdrop-blur-2xl bg-canvas/80 dark:bg-black/75 overflow-x-auto no-scrollbar max-w-[calc(100vw-16px)]">
           {/* GRUP 1: Panel Alih Sisi 1-Klik Ringkas (Segmented Controls) */}
-          <div className="flex items-center gap-0.5 sm:gap-1 bg-surface-elevated/40 p-0.5 rounded-xl border border-border-subtle/40" role="group" aria-label="Alih Sisi Pakaian">
+          <div className="flex items-center gap-0.5 sm:gap-1 bg-surface-elevated/40 p-1 rounded-full border border-border-subtle/40" role="group" aria-label="Alih Sisi Pakaian">
             {[
               { id: "front", label: "Dada", fullLabel: "Dada Depan", preset: "front", side: "front" },
               { id: "back", label: "Punggung", fullLabel: "Punggung", preset: "back", side: "back" },
@@ -171,9 +171,9 @@ export function StudioHUD() {
                     setActiveViewSide(item.side as any);
                   }}
                   aria-pressed={isActive}
-                  className={`flex items-center gap-1.5 px-2 sm:px-3 py-1.5 rounded-lg font-sans text-xs font-semibold transition-all active:scale-95 cursor-pointer whitespace-nowrap ${
+                  className={`flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-full font-sans text-xs font-semibold transition-all active:scale-95 cursor-pointer whitespace-nowrap ${
                     isActive
-                      ? "bg-brand-accent text-canvas shadow-[0_0_12px_rgba(230,81,0,0.45)]"
+                      ? "bg-brand-accent text-canvas shadow-[0_0_12px_rgba(37,99,235,0.45)]"
                       : "text-text-muted hover:text-text-primary hover:bg-surface/70"
                   }`}
                   title={`Lihat tampak ${item.fullLabel} tegak lurus`}
@@ -193,7 +193,7 @@ export function StudioHUD() {
               <button
                 type="button"
                 onClick={handleMoveDecalToCurrentSide}
-                className="flex items-center gap-1 px-2 sm:px-3 py-1.5 rounded-xl font-sans text-xs font-bold bg-amber-500 hover:bg-amber-400 text-neutral-950 shadow-[0_0_14px_rgba(245,158,11,0.5)] transition-all active:scale-95 cursor-pointer animate-pulse whitespace-nowrap"
+                className="flex items-center gap-1 px-2.5 sm:px-3 py-1.5 rounded-full font-sans text-xs font-bold bg-amber-500 hover:bg-amber-400 text-neutral-950 shadow-[0_0_14px_rgba(245,158,11,0.5)] transition-all active:scale-95 cursor-pointer animate-pulse whitespace-nowrap"
                 title="Pindahkan posisi sablon aktif langsung ke sisi yang sedang dilihat ini"
               >
                 <ArrowRightLeft size={12} className="stroke-[2.5]" />
@@ -212,9 +212,9 @@ export function StudioHUD() {
               type="button"
               onClick={toggleRotating}
               aria-pressed={isRotating}
-              className={`flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-xl font-sans text-xs font-semibold transition-all active:scale-95 cursor-pointer ${
+              className={`flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-full font-sans text-xs font-semibold transition-all active:scale-95 cursor-pointer ${
                 isRotating
-                  ? "bg-brand-accent text-canvas shadow-[0_0_12px_rgba(230,81,0,0.45)]"
+                  ? "bg-brand-accent text-canvas shadow-[0_0_12px_rgba(37,99,235,0.45)]"
                   : "text-text-muted hover:text-text-primary hover:bg-surface/70"
               }`}
               title={isRotating ? "Hentikan putaran otomatis" : "Mulai putaran otomatis 360°"}
@@ -226,7 +226,7 @@ export function StudioHUD() {
             <button
               type="button"
               onClick={handleResetPosition}
-              className="flex items-center gap-1 px-2.5 sm:px-3 py-1.5 rounded-xl font-sans text-xs font-semibold transition-all active:scale-95 cursor-pointer text-text-muted hover:text-text-primary hover:bg-surface/70"
+              className="flex items-center gap-1 px-2.5 sm:px-3 py-1.5 rounded-full font-sans text-xs font-semibold transition-all active:scale-95 cursor-pointer text-text-muted hover:text-text-primary hover:bg-surface/70"
               title="Kembalikan posisi & sudut pakaian ke depan (Reset)"
             >
               <Maximize2 size={13} />
@@ -242,9 +242,9 @@ export function StudioHUD() {
                 type="button"
                 onClick={toggleGizmoVisible}
                 aria-pressed={isGizmoVisible}
-                className={`flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-xl font-sans text-xs font-semibold transition-all active:scale-95 cursor-pointer ${
+                className={`flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-full font-sans text-xs font-semibold transition-all active:scale-95 cursor-pointer ${
                   isGizmoVisible
-                    ? "bg-brand-accent/20 border border-brand-accent text-brand-accent shadow-[0_0_10px_rgba(230,81,0,0.3)]"
+                    ? "bg-brand-accent/20 border border-brand-accent text-brand-accent shadow-[0_0_10px_rgba(37,99,235,0.3)]"
                     : "text-text-muted hover:text-text-primary hover:bg-surface/70"
                 }`}
                 title={isGizmoVisible ? "Sembunyikan kotak kontrol sablon" : "Tampilkan kotak kontrol sablon"}
@@ -260,7 +260,7 @@ export function StudioHUD() {
           <button
             type="button"
             onClick={() => setIsMinimized(true)}
-            className="p-1.5 rounded-xl text-text-muted hover:text-text-primary hover:bg-surface/70 transition-all cursor-pointer flex items-center justify-center shrink-0"
+            className="p-1.5 rounded-full text-text-muted hover:text-text-primary hover:bg-surface/70 transition-all cursor-pointer flex items-center justify-center shrink-0"
             title="Perkecil panel kontrol sudut"
             aria-label="Perkecil panel kontrol"
           >

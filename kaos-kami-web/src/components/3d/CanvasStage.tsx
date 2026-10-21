@@ -529,21 +529,21 @@ export const CanvasStage: React.FC<CanvasStageProps> = ({ camPos, lookAtPos }) =
     isFlashlightMode
       ? "#050505"
       : studioTheme === "gallery"
-        ? "#EFECE6"
+        ? "#F8FAFC"
         : studioTheme === "concrete"
-          ? "#222326"
-          : "#121214";
-  // M2.6: gradient gelap bawah via CSS (nol biaya GPU, semua tier — ganti
+          ? "#141518"
+          : "#090A0F";
+  // M2.6: gradient studio via CSS (nol biaya GPU, semua tier — ganti
   // plane gradient 3D yang butuh draw call + depth tuning). Lantai 3D
   // (lingkaran matte + reflektor high-tier) ada di StudioLighting.
   const themeGradientTo =
     isFlashlightMode
       ? "#000000"
       : studioTheme === "gallery"
-        ? "#DDD9D0"
+        ? "#E2E8F0"
         : studioTheme === "concrete"
-          ? "#131415"
-          : "#080809";
+          ? "#0E0F12"
+          : "#090A0F";
 
   const isInteractive = viewMode === "studio" || isHideWebsiteUI;
 
@@ -581,7 +581,14 @@ export const CanvasStage: React.FC<CanvasStageProps> = ({ camPos, lookAtPos }) =
             }`}
           // TOUCH: pan-y agar 1-jari horizontal = rotate 3D, swipe vertikal =
           // scroll halaman (cermin perilaku mobile TouchOrbitControls).
-          style={{ backgroundColor: themeBgHex, backgroundImage: `linear-gradient(180deg, ${themeBgHex} 0%, ${themeGradientTo} 100%)`, touchAction: "pan-y" }}
+          style={{
+            backgroundColor: themeBgHex,
+            backgroundImage:
+              studioTheme === "gallery" && !isFlashlightMode
+                ? "radial-gradient(ellipse at 65% 42%, #F3F6FA 0%, #E5EBF2 55%, #DCE3EC 100%)"
+                : `linear-gradient(180deg, ${themeBgHex} 0%, ${themeGradientTo} 100%)`,
+            touchAction: "pan-y",
+          }}
         >
           <Canvas
             // PERF: key = antialias WebGL hanya berlaku saat konteks dibuat;

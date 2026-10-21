@@ -99,7 +99,7 @@ function JourneyTimeline({ status }: { status: string }) {
                 todo
                   ? "bg-surface border-border-subtle"
                   : isNow
-                    ? "bg-brand-accent border-brand-accent shadow-[0_0_8px_rgba(230,81,0,0.6)] animate-pulse"
+                    ? "bg-brand-accent border-brand-accent shadow-[0_0_8px_rgba(37,99,235,0.6)] animate-pulse"
                     : "bg-emerald-500 border-emerald-500"
               }`}
             />
@@ -246,15 +246,15 @@ export function TrackClient() {
   };
 
   return (
-    <div className="min-h-screen bg-canvas text-text-primary px-4 py-12 max-w-xl mx-auto space-y-6">
+    <div className="min-h-screen bg-canvas text-text-primary px-4 pt-24 sm:pt-28 pb-16 max-w-xl mx-auto space-y-6">
       <Link href="/" className="inline-flex items-center gap-1.5 font-sans text-xs font-semibold text-text-muted hover:text-brand-accent transition-colors">
         <ArrowLeft size={14} />
         <span>Kembali ke Beranda</span>
       </Link>
 
       <div className="space-y-1">
-        <div className="flex items-center gap-2">
-          <span className="p-2 rounded-xl bg-brand-accent/10 text-brand-accent border border-brand-accent/20">
+        <div className="flex items-center gap-2.5">
+          <span className="p-2.5 rounded-2xl bg-brand-accent/15 text-brand-accent border border-brand-accent/30 shadow-inner">
             <Search size={18} />
           </span>
           <div>
@@ -268,15 +268,15 @@ export function TrackClient() {
         </div>
       </div>
 
-      {/* Progress Step Indicator */}
-      <div className="grid grid-cols-3 gap-2 text-center font-sans text-[11px] font-bold">
-        <div className={`p-2 rounded-xl border transition-all ${step >= 1 ? "bg-brand-accent/10 border-brand-accent text-brand-accent" : "bg-surface border-border-subtle text-text-muted"}`}>
+      {/* Progress Step Indicator — Frameless Segmented Pill */}
+      <div className="p-1 sm:p-1.5 rounded-full bg-surface-elevated/40 dark:bg-black/40 border border-border-subtle/60 dark:border-white/10 backdrop-blur-xl grid grid-cols-3 gap-1 text-center font-sans text-[11px] font-bold shadow-inner">
+        <div className={`py-1.5 px-2 rounded-full transition-all ${step >= 1 ? "bg-brand-accent text-canvas shadow-[0_2px_12px_rgba(37,99,235,0.4)]" : "text-text-muted"}`}>
           1. Nomor WA
         </div>
-        <div className={`p-2 rounded-xl border transition-all ${step >= 2 ? "bg-brand-accent/10 border-brand-accent text-brand-accent" : "bg-surface border-border-subtle text-text-muted"}`}>
+        <div className={`py-1.5 px-2 rounded-full transition-all ${step >= 2 ? "bg-brand-accent text-canvas shadow-[0_2px_12px_rgba(37,99,235,0.4)]" : "text-text-muted"}`}>
           2. Kode OTP
         </div>
-        <div className={`p-2 rounded-xl border transition-all ${step === 3 ? "bg-brand-accent/10 border-brand-accent text-brand-accent" : "bg-surface border-border-subtle text-text-muted"}`}>
+        <div className={`py-1.5 px-2 rounded-full transition-all ${step === 3 ? "bg-brand-accent text-canvas shadow-[0_2px_12px_rgba(37,99,235,0.4)]" : "text-text-muted"}`}>
           3. Riwayat Order
         </div>
       </div>
@@ -287,7 +287,7 @@ export function TrackClient() {
             e.preventDefault();
             sendOtp();
           }}
-          className="p-6 rounded-2xl bg-surface border border-border-subtle space-y-4 shadow-sm"
+          className="p-6 sm:p-7 rounded-3xl bg-surface/75 dark:bg-black/40 backdrop-blur-2xl border border-border-subtle/80 dark:border-white/10 space-y-4 shadow-[0_12px_40px_rgba(0,0,0,0.2)]"
         >
           <label className="block space-y-1.5">
             <span className="font-sans text-xs font-bold text-text-primary">
@@ -299,7 +299,7 @@ export function TrackClient() {
               placeholder="Contoh: 081234567890"
               inputMode="tel"
               autoComplete="tel"
-              className="w-full px-4 py-3 rounded-xl bg-surface border border-border-subtle font-mono text-sm text-text-primary focus:outline-none focus:border-brand-accent transition-colors"
+              className="w-full px-4 py-3 rounded-2xl bg-surface/90 dark:bg-white/5 border border-border-subtle/80 dark:border-white/10 font-mono text-sm text-text-primary focus:outline-none focus:border-brand-accent transition-colors"
             />
             <span className="font-sans text-[11px] text-text-muted block">
               Gunakan nomor WhatsApp aktif yang Anda daftarkan saat checkout pesanan.
@@ -308,7 +308,7 @@ export function TrackClient() {
           <button
             type="submit"
             disabled={busy}
-            className="w-full py-3.5 rounded-xl bg-brand-accent text-canvas font-sans font-bold text-xs uppercase tracking-wider disabled:opacity-50 hover:brightness-110 active:scale-[0.98] transition-all shadow-md"
+            className="w-full py-3.5 rounded-full bg-brand-accent text-canvas font-sans font-bold text-xs uppercase tracking-wider disabled:opacity-50 hover:brightness-110 active:scale-[0.98] transition-all shadow-md cursor-pointer"
           >
             {busy ? "Mengirim Kode…" : "Kirim Kode OTP WhatsApp"}
           </button>
@@ -316,7 +316,7 @@ export function TrackClient() {
       )}
 
       {step === 2 && (
-        <form onSubmit={check} className="p-6 rounded-2xl bg-surface border border-border-subtle space-y-4 shadow-sm">
+        <form onSubmit={check} className="p-6 sm:p-7 rounded-3xl bg-surface/75 dark:bg-black/40 backdrop-blur-2xl border border-border-subtle/80 dark:border-white/10 space-y-4 shadow-[0_12px_40px_rgba(0,0,0,0.2)]">
           <div className="flex items-center justify-between">
             <p className="font-sans text-xs text-text-muted">
               Kode OTP dikirim ke <span className="text-text-primary font-mono font-bold">{phone}</span>
@@ -324,7 +324,7 @@ export function TrackClient() {
             <button
               type="button"
               onClick={() => setStep(1)}
-              className="font-sans text-xs text-brand-accent hover:underline font-semibold"
+              className="font-sans text-xs text-brand-accent hover:underline font-semibold cursor-pointer"
             >
               Ubah Nomor
             </button>
@@ -341,7 +341,7 @@ export function TrackClient() {
               placeholder="••••••"
               inputMode="numeric"
               autoComplete="one-time-code"
-              className="w-full px-4 py-3 rounded-xl bg-surface border border-border-subtle text-text-primary text-center font-mono text-2xl tracking-[0.4em] focus:outline-none focus:border-brand-accent transition-colors"
+              className="w-full px-4 py-3 rounded-2xl bg-surface/90 dark:bg-white/5 border border-border-subtle/80 dark:border-white/10 text-text-primary text-center font-mono text-2xl tracking-[0.4em] focus:outline-none focus:border-brand-accent transition-colors"
             />
           </label>
 
@@ -353,7 +353,7 @@ export function TrackClient() {
           <button
             type="submit"
             disabled={busy}
-            className="w-full py-3.5 rounded-xl bg-brand-accent text-canvas font-sans font-bold text-xs uppercase tracking-wider disabled:opacity-50 hover:brightness-110 active:scale-[0.98] transition-all shadow-md"
+            className="w-full py-3.5 rounded-full bg-brand-accent text-canvas font-sans font-bold text-xs uppercase tracking-wider disabled:opacity-50 hover:brightness-110 active:scale-[0.98] transition-all shadow-md cursor-pointer"
           >
             {busy ? "Memeriksa…" : "Verifikasi & Buka Pesanan"}
           </button>
@@ -363,7 +363,7 @@ export function TrackClient() {
               type="button"
               onClick={sendOtp}
               disabled={busy || otpLeft > 240}
-              className="font-sans text-xs text-brand-accent hover:underline disabled:opacity-40 font-semibold"
+              className="font-sans text-xs text-brand-accent hover:underline disabled:opacity-40 font-semibold cursor-pointer"
             >
               {otpLeft > 240 ? `Kirim ulang kode dalam ${mm}:${ss}` : "Kirim ulang kode baru"}
             </button>
@@ -382,7 +382,7 @@ export function TrackClient() {
               </p>
               <Link
                 href="/catalog"
-                className="inline-block mt-2 px-5 py-2.5 rounded-xl bg-brand-accent text-canvas font-sans font-bold text-xs uppercase tracking-wider hover:brightness-110 shadow-md transition-all"
+                className="inline-block mt-2 px-6 py-2.5 rounded-full bg-brand-accent text-canvas font-sans font-bold text-xs uppercase tracking-wider hover:brightness-110 shadow-md transition-all"
               >
                 Mulai Belanja Kaos
               </Link>
@@ -391,7 +391,7 @@ export function TrackClient() {
             orders.map((o) => (
               <div
                 key={o.id}
-                className="p-5 rounded-2xl bg-surface border border-border-subtle hover:border-brand-accent/40 transition-all space-y-3 shadow-sm"
+                className="p-5 sm:p-6 rounded-3xl bg-surface/75 dark:bg-black/40 backdrop-blur-2xl border border-border-subtle/80 dark:border-white/10 hover:border-brand-accent/50 hover:shadow-[0_12px_36px_rgba(37,99,235,0.12)] transition-all space-y-3.5 shadow-sm"
               >
                 <div className="flex justify-between items-start gap-2">
                   <div>
@@ -418,7 +418,7 @@ export function TrackClient() {
 
                 {/* Banner Alasan Workshop bila Batal / Tolak / Refund */}
                 {(o.status === "REJECTED" || o.status === "CANCELLED" || o.status === "REFUNDED") && (
-                  <div className={`p-3 rounded-xl text-xs space-y-1.5 border ${
+                  <div className={`p-3.5 rounded-2xl text-xs space-y-1.5 border ${
                     o.status === "REFUNDED"
                       ? "bg-amber-500/10 border-amber-500/30 text-amber-200"
                       : "bg-rose-500/10 border-rose-500/30 text-rose-200"
@@ -431,7 +431,7 @@ export function TrackClient() {
                         {o.status === "REFUNDED" && "Keterangan Pengembalian Dana:"}
                       </span>
                     </p>
-                    <p className="text-zinc-200 bg-black/40 p-2 rounded-lg border border-white/5 font-sans leading-relaxed text-[11px]">
+                    <p className="text-zinc-200 bg-black/40 p-2.5 rounded-xl border border-white/5 font-sans leading-relaxed text-[11px]">
                       {o.reviewNote || "Tidak ada catatan spesifik. Silakan hubungi WhatsApp CS Kaos Kami."}
                     </p>
                   </div>
@@ -439,7 +439,7 @@ export function TrackClient() {
 
                 {/* Nomor resi + salin + link lacak ekspedisi (tampil bila API menyertakan trackingNumber) */}
                 {o.trackingNumber?.trim() && (
-                  <div className="p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/30 flex flex-col gap-2.5">
+                  <div className="p-3.5 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 flex flex-col gap-2.5">
                     <div className="flex items-center gap-2">
                       <Truck size={15} className="text-emerald-400 shrink-0" />
                       <div className="min-w-0">
@@ -453,7 +453,7 @@ export function TrackClient() {
                       <button
                         type="button"
                         onClick={() => void copyResi(o.trackingNumber!.trim())}
-                        className="py-1.5 px-3 rounded-lg bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-400 font-sans font-bold text-[11px] flex items-center gap-1.5 transition-all"
+                        className="py-1.5 px-3.5 rounded-full bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-400 font-sans font-bold text-[11px] flex items-center gap-1.5 transition-all cursor-pointer"
                       >
                         {copiedResi === o.trackingNumber!.trim() ? <Check size={13} /> : <Copy size={13} />}
                         <span>{copiedResi === o.trackingNumber!.trim() ? "Tersalin!" : "Salin Resi"}</span>
@@ -467,7 +467,7 @@ export function TrackClient() {
                         }
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="py-1.5 px-3 rounded-lg bg-surface border border-border-subtle hover:border-brand-accent text-brand-accent font-sans font-bold text-[11px] flex items-center gap-1.5 transition-all"
+                        className="py-1.5 px-3.5 rounded-full bg-surface/80 border border-border-subtle hover:border-brand-accent text-brand-accent font-sans font-bold text-[11px] flex items-center gap-1.5 transition-all cursor-pointer"
                         title="Lacak paket di situs ekspedisi (atau invoice bila kurir tak dikenali)"
                       >
                         <span>Lacak Ekspedisi</span>
@@ -477,7 +477,7 @@ export function TrackClient() {
                   </div>
                 )}
 
-                <div className="flex items-center justify-between pt-2 border-t border-border-subtle font-sans text-xs">
+                <div className="flex items-center justify-between pt-2 border-t border-border-subtle/60 font-sans text-xs">
                   <span className="text-text-muted">
                     {o.items.reduce((a, it) => a + it.quantity, 0)} Pcs · {o.deliveryMethod}
                   </span>
@@ -488,7 +488,7 @@ export function TrackClient() {
 
                 <Link
                   href={`/orders/${o.id}`}
-                  className="w-full py-2.5 px-3 rounded-xl bg-surface/80 border border-border-subtle hover:border-brand-accent text-brand-accent font-sans font-bold text-xs uppercase tracking-wider flex items-center justify-center gap-1.5 transition-all"
+                  className="w-full py-2.5 px-4 rounded-full bg-surface/90 dark:bg-white/5 border border-border-subtle/80 dark:border-white/10 hover:border-brand-accent text-brand-accent font-sans font-bold text-xs uppercase tracking-wider flex items-center justify-center gap-1.5 transition-all"
                 >
                   <span>Buka Status & Invoice</span>
                   <ArrowRight size={13} />
@@ -504,7 +504,7 @@ export function TrackClient() {
               setOrders([]);
               setOtpSentAt(null);
             }}
-            className="w-full py-2.5 rounded-xl border border-dashed border-border-subtle hover:border-brand-accent/50 font-sans text-xs text-text-muted hover:text-text-primary font-semibold transition-all"
+            className="w-full py-2.5 rounded-full border border-dashed border-border-subtle/80 hover:border-brand-accent/50 font-sans text-xs text-text-muted hover:text-text-primary font-semibold transition-all cursor-pointer"
           >
             Lacak dengan Nomor Lain
           </button>

@@ -100,7 +100,7 @@ export const ShippingHubLeafletMap: React.FC<ShippingHubLeafletMapProps> = ({
         className: "origin-leaflet-marker",
         html: `
           <div style="
-            background: #e65100;
+            background: #1d4ed8;
             color: #ffffff;
             width: 34px;
             height: 34px;
@@ -109,7 +109,7 @@ export const ShippingHubLeafletMap: React.FC<ShippingHubLeafletMapProps> = ({
             display: flex;
             align-items: center;
             justify-content: center;
-            box-shadow: 0 4px 14px rgba(230,81,0,0.5);
+            box-shadow: 0 4px 14px rgba(29,78,216,0.5);
             border: 2.5px solid #ffffff;
           ">
             <span style="transform: rotate(45deg); font-size: 15px;">🏭</span>
@@ -126,11 +126,11 @@ export const ShippingHubLeafletMap: React.FC<ShippingHubLeafletMapProps> = ({
 
       originMarker.bindPopup(`
         <div style="font-family: inherit; font-size: 12px; color: #1a1a1a; min-width: 180px; padding: 2px;">
-          <strong style="color: #e65100; display: block; font-size: 13px; margin-bottom: 2px;">
+          <strong style="color: #1d4ed8; display: block; font-size: 13px; margin-bottom: 2px;">
             ${ORIGIN_MAKASSAR.label}
           </strong>
           <div style="color: #555; font-size: 11px; margin-bottom: 4px;">${ORIGIN_MAKASSAR.address}</div>
-          <div style="background: #fff3e0; color: #e65100; padding: 3px 6px; border-radius: 4px; font-weight: bold; font-size: 10px;">
+          <div style="background: #eff6ff; color: #1d4ed8; padding: 3px 6px; border-radius: 4px; font-weight: bold; font-size: 10px;">
             ✓ Titik Asal Pengiriman Seluruh Ekspedisi
           </div>
         </div>
@@ -254,7 +254,7 @@ export const ShippingHubLeafletMap: React.FC<ShippingHubLeafletMapProps> = ({
       ];
 
       const polyline = L.polyline(latlngs, {
-        color: "#e65100",
+        color: "#2563eb",
         weight: 3,
         dashArray: "6, 8",
         opacity: 0.85,

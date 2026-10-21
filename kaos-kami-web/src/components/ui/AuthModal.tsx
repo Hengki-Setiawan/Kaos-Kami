@@ -954,7 +954,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                     <button
                       type="submit"
                       disabled={loading}
-                      className="w-full mt-2 py-2.5 px-4 rounded-xl font-sans text-xs font-bold tracking-wider uppercase bg-brand-accent text-canvas dark:shadow-[0_0_20px_rgba(230,81,0,0.35)] hover:brightness-110 active:scale-[0.99] disabled:opacity-50 transition-all flex items-center justify-center gap-2 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-accent focus-visible:ring-offset-2 focus-visible:ring-offset-canvas"
+                      className="w-full mt-2 py-2.5 px-4 rounded-xl font-sans text-xs font-bold tracking-wider uppercase bg-brand-accent text-canvas dark:shadow-[0_0_20px_rgba(37,99,235,0.35)] hover:brightness-110 active:scale-[0.99] disabled:opacity-50 transition-all flex items-center justify-center gap-2 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-accent focus-visible:ring-offset-2 focus-visible:ring-offset-canvas"
                     >
                       {loading ? (
                         <>
@@ -1086,7 +1086,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                     <button
                       type="submit"
                       disabled={loading}
-                      className="w-full mt-2 py-2.5 px-4 rounded-xl font-sans text-xs font-bold tracking-wider uppercase bg-brand-accent text-canvas dark:shadow-[0_0_20px_rgba(230,81,0,0.35)] hover:brightness-110 active:scale-[0.99] disabled:opacity-50 transition-all flex items-center justify-center gap-2 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-accent focus-visible:ring-offset-2 focus-visible:ring-offset-canvas"
+                      className="w-full mt-2 py-2.5 px-4 rounded-xl font-sans text-xs font-bold tracking-wider uppercase bg-brand-accent text-canvas dark:shadow-[0_0_20px_rgba(37,99,235,0.35)] hover:brightness-110 active:scale-[0.99] disabled:opacity-50 transition-all flex items-center justify-center gap-2 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-accent focus-visible:ring-offset-2 focus-visible:ring-offset-canvas"
                     >
                       {loading ? (
                         <>
@@ -1206,7 +1206,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                     <button
                       type="submit"
                       disabled={loading || registerOtpCode.length !== 6}
-                      className="w-full mt-2 py-3 px-4 rounded-xl font-sans text-xs font-bold tracking-wider uppercase bg-brand-accent text-canvas dark:shadow-[0_0_20px_rgba(230,81,0,0.35)] hover:brightness-110 active:scale-[0.99] disabled:opacity-50 transition-all flex items-center justify-center gap-2 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-accent focus-visible:ring-offset-2 focus-visible:ring-offset-canvas"
+                      className="w-full mt-2 py-3 px-4 rounded-xl font-sans text-xs font-bold tracking-wider uppercase bg-brand-accent text-canvas dark:shadow-[0_0_20px_rgba(37,99,235,0.35)] hover:brightness-110 active:scale-[0.99] disabled:opacity-50 transition-all flex items-center justify-center gap-2 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-accent focus-visible:ring-offset-2 focus-visible:ring-offset-canvas"
                     >
                       {loading ? (
                         <>
@@ -1258,7 +1258,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                     <button
                       type="submit"
                       disabled={loading || !forgotEmail.trim()}
-                      className="w-full mt-2 py-2.5 px-4 rounded-xl font-sans text-xs font-bold tracking-wider uppercase bg-brand-accent text-canvas dark:shadow-[0_0_20px_rgba(230,81,0,0.35)] hover:brightness-110 active:scale-[0.99] disabled:opacity-50 transition-all flex items-center justify-center gap-2 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-accent focus-visible:ring-offset-2 focus-visible:ring-offset-canvas"
+                      className="w-full mt-2 py-2.5 px-4 rounded-xl font-sans text-xs font-bold tracking-wider uppercase bg-brand-accent text-canvas dark:shadow-[0_0_20px_rgba(37,99,235,0.35)] hover:brightness-110 active:scale-[0.99] disabled:opacity-50 transition-all flex items-center justify-center gap-2 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-accent focus-visible:ring-offset-2 focus-visible:ring-offset-canvas"
                     >
                       {loading ? (
                         <>
@@ -1399,7 +1399,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                     <button
                       type="submit"
                       disabled={loading || forgotOtp.length !== 6 || forgotNewPassword.length < 6}
-                      className="w-full mt-2 py-3 px-4 rounded-xl font-sans text-xs font-bold tracking-wider uppercase bg-brand-accent text-canvas dark:shadow-[0_0_20px_rgba(230,81,0,0.35)] hover:brightness-110 active:scale-[0.99] disabled:opacity-50 transition-all flex items-center justify-center gap-2 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-accent focus-visible:ring-offset-2 focus-visible:ring-offset-canvas"
+                      className="w-full mt-2 py-3 px-4 rounded-xl font-sans text-xs font-bold tracking-wider uppercase bg-brand-accent text-canvas dark:shadow-[0_0_20px_rgba(37,99,235,0.35)] hover:brightness-110 active:scale-[0.99] disabled:opacity-50 transition-all flex items-center justify-center gap-2 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-accent focus-visible:ring-offset-2 focus-visible:ring-offset-canvas"
                     >
                       {loading ? (
                         <>

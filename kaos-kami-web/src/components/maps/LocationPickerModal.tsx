@@ -146,10 +146,10 @@ export const LocationPickerModal: React.FC<LocationPickerModalProps> = ({
               width: 36px;
               height: 36px;
               border-radius: 50% 50% 50% 0;
-              background: #e65100;
+              background: #2563eb;
               transform: rotate(-45deg);
               border: 2.5px solid #ffffff;
-              box-shadow: 0 4px 14px rgba(230,81,0,0.5), 0 2px 6px rgba(0,0,0,0.3);
+              box-shadow: 0 4px 14px rgba(37,99,235,0.5), 0 2px 6px rgba(0,0,0,0.3);
               display: flex;
               align-items: center;
               justify-content: center;

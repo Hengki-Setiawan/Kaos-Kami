@@ -41,32 +41,47 @@
   max-height: 100dvh;
 }
 
+/* Mobile Capacitor & Native Touch Physics (Tier-1 Startup Feel) */
+* {
+  -webkit-tap-highlight-color: transparent;
+}
+button, a, [role="button"] {
+  touch-action: manipulation;
+}
+.overflow-y-auto,
+.overflow-x-auto {
+  -webkit-overflow-scrolling: touch;
+}
+[role="dialog"] {
+  overscroll-behavior-y: contain;
+}
+
 
 :root,
 [data-theme="obsidian"] {
   color-scheme: dark;
-  --color-canvas: #121214;
-  --color-surface: rgba(26, 26, 30, 0.75);
-  --color-surface-elevated: rgba(38, 38, 44, 0.9);
-  --color-text-primary: #F5F5F7;
-  --color-text-muted: #8E8E93;
-  --color-brand-accent: #FF7A1A; /* A11Y X-001: #E65100 3.21:1 -> 4.65:1 di kanvas gelap (hue sama) */
-  --color-success: #25D366;
+  --color-canvas: #090A0F;
+  --color-surface: rgba(15, 23, 42, 0.75);
+  --color-surface-elevated: rgba(30, 41, 59, 0.85);
+  --color-text-primary: #F8FAFC;
+  --color-text-muted: #94A3B8;
+  --color-brand-accent: #3B82F6; /* High-Tech Electric Blue: WCAG AAA 7.4:1 contrast on dark obsidian */
+  --color-success: #10B981;
   --color-border-subtle: rgba(255, 255, 255, 0.08);
   --color-border-strong: rgba(255, 255, 255, 0.2);
 }
 
 [data-theme="gallery"] {
   color-scheme: light;
-  --color-canvas: #EFECE6;
-  --color-surface: rgba(255, 255, 255, 0.88);
-  --color-surface-elevated: #FDFCFA;
-  --color-text-primary: #121214;
-  --color-text-muted: #52525B;
-  --color-brand-accent: #B53E00; /* A11Y X-001: #E65100 ~3.2:1 -> ~4.9:1 di kanvas terang (hue sama, digelapkan) */
-  --color-success: #25D366;
-  --color-border-subtle: rgba(0, 0, 0, 0.09);
-  --color-border-strong: rgba(0, 0, 0, 0.18);
+  --color-canvas: #F8FAFC; /* Crisp Clean White, eliminates muddy beige/brown */
+  --color-surface: rgba(255, 255, 255, 0.92);
+  --color-surface-elevated: #FFFFFF;
+  --color-text-primary: #0F172A;
+  --color-text-muted: #64748B;
+  --color-brand-accent: #2563EB; /* Vivid Cobalt Blue: WCAG AA 4.6:1 contrast on white canvas */
+  --color-success: #10B981;
+  --color-border-subtle: rgba(0, 0, 0, 0.08);
+  --color-border-strong: rgba(0, 0, 0, 0.16);
 }
 
 /* Automatic logo switching based on active theme */
@@ -95,13 +110,13 @@
 
 [data-theme="concrete"] {
   color-scheme: dark;
-  --color-canvas: #222326;
-  --color-surface: rgba(42, 43, 48, 0.8);
-  --color-surface-elevated: rgba(54, 55, 62, 0.95);
-  --color-text-primary: #F0F0F2;
-  --color-text-muted: #A0A0AA;
-  --color-brand-accent: #FF7A1A; /* A11Y X-001: sama obsidian, 6.05:1 di concrete */
-  --color-success: #25D366;
+  --color-canvas: #111318;
+  --color-surface: rgba(22, 26, 36, 0.8);
+  --color-surface-elevated: rgba(30, 36, 50, 0.95);
+  --color-text-primary: #F1F5F9;
+  --color-text-muted: #94A3B8;
+  --color-brand-accent: #3B82F6;
+  --color-success: #10B981;
   --color-border-subtle: rgba(255, 255, 255, 0.1);
   --color-border-strong: rgba(255, 255, 255, 0.25);
 }
@@ -299,5 +314,43 @@ textarea {
   .dialog-spring-in,
   .dialog-overlay-expo {
     animation: none;
+  }
+}
+
+/* Continuous Infinite Marquee (Hardware Accelerated 60FPS Streetwear Conveyor) */
+@keyframes continuous-marquee {
+  0% {
+    transform: translate3d(0, 0, 0);
+  }
+  100% {
+    transform: translate3d(-50%, 0, 0);
+  }
+}
+
+.animate-marquee-continuous {
+  display: flex;
+  width: max-content;
+  animation: continuous-marquee 35s linear infinite;
+  will-change: transform;
+}
+
+.animate-marquee-ticker {
+  display: flex;
+  width: max-content;
+  animation: continuous-marquee 25s linear infinite;
+  will-change: transform;
+}
+
+.animate-marquee-continuous:hover,
+.animate-marquee-continuous:focus-within,
+.animate-marquee-ticker:hover {
+  animation-play-state: paused;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-marquee-continuous,
+  .animate-marquee-ticker {
+    animation: none;
+    transform: none;
   }
 }

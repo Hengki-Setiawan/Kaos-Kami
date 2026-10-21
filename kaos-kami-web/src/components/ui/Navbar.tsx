@@ -97,12 +97,17 @@ export const Navbar: React.FC = () => {
     <>
       <AnnouncementTicker />
       <header
-      className={`fixed top-0 left-0 right-0 ${Z_CLASS_NAV} px-4 sm:px-8 md:px-12 py-3.5 flex items-center justify-between pointer-events-auto backdrop-blur-xl border-b ${isScrolled ? "bg-canvas border-border-strong shadow-sm" : "bg-canvas/80 border-border-subtle"} text-text-primary transition-all duration-500 ${
-        isHideWebsiteUI ? "opacity-30 hover:opacity-100" : "opacity-100"
-      }`}
-    >
-      {/* Left: Brand Logo & Navigation Links (Left-Aligned to prevent any overlap) */}
-      <div className="flex items-center gap-6 xl:gap-8 shrink-0">
+        className={`fixed top-0 inset-x-0 w-full ${Z_CLASS_NAV} h-16 pointer-events-auto backdrop-blur-2xl border-b transition-all duration-300 ${
+          isScrolled
+            ? "bg-surface/95 dark:bg-black/90 border-border-strong shadow-md"
+            : "bg-surface/85 dark:bg-black/75 border-border-subtle"
+        } text-text-primary ${
+          isHideWebsiteUI ? "opacity-30 hover:opacity-100" : "opacity-100"
+        }`}
+      >
+        <div className="max-w-7xl mx-auto h-full px-4 sm:px-8 flex items-center justify-between">
+          {/* Left: Brand Logo & Navigation Links (Left-Aligned to prevent any overlap) */}
+          <div className="flex items-center gap-6 xl:gap-8 shrink-0">
         <Link
           href="/"
           onClick={handleLogoClick}
@@ -291,14 +296,15 @@ export const Navbar: React.FC = () => {
         {/* Enter 3D Sandbox Dedicated Page (English: Create 3D) */}
         <Link
           href="/studio"
-          className="inline-flex items-center justify-center h-10 px-5 rounded-full font-sans text-sm font-medium bg-brand-accent text-canvas shadow-[0_0_16px_rgba(230,81,0,0.3)] hover:brightness-110 active:scale-95 transition-all shrink-0"
+          className="inline-flex items-center justify-center h-10 px-5 rounded-full font-sans text-sm font-bold bg-brand-accent text-white shadow-[0_0_16px_rgba(37,99,235,0.4)] hover:brightness-110 active:scale-95 transition-all shrink-0"
           aria-label="Open 3D Studio"
         >
           <span>Create 3D</span>
         </Link>
       </div>
+    </div>
 
-      {/* Mobile / Tablet dropdown menu */}
+    {/* Mobile / Tablet dropdown menu */}
       {isMenuOpen && (
         <nav
           className="lg:hidden absolute top-full left-0 right-0 bg-surface/95 backdrop-blur-xl border-b border-border-subtle px-4 py-3 flex flex-col gap-1 font-sans text-sm"

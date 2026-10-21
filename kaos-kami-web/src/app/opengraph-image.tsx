@@ -24,7 +24,7 @@ export default function Image() {
           flexDirection: "column",
           justifyContent: "center",
           padding: "80px",
-          backgroundColor: "#121214",
+          backgroundColor: "#0B0C10",
         }}
       >
         <div
@@ -32,7 +32,7 @@ export default function Image() {
             display: "flex",
             fontSize: 28,
             letterSpacing: 6,
-            color: "#E65100",
+            color: "#3B82F6",
             fontWeight: 700,
           }}
         >
@@ -54,7 +54,7 @@ export default function Image() {
           style={{
             display: "flex",
             fontSize: 32,
-            color: "#A1A1AA",
+            color: "#94A3B8",
             marginTop: 20,
           }}
         >
@@ -65,8 +65,8 @@ export default function Image() {
             display: "flex",
             marginTop: 32,
             fontSize: 24,
-            color: "#121214",
-            backgroundColor: "#E65100",
+            color: "#FFFFFF",
+            backgroundColor: "#2563EB",
             padding: "12px 28px",
             borderRadius: 999,
             fontWeight: 700,

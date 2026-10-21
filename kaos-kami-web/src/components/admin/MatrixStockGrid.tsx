@@ -467,7 +467,7 @@ export function MatrixStockGrid({ categories, initialVariants }: MatrixStockGrid
               onClick={() => setSelectedCatId(cat.id)}
               className={`flex items-center gap-2.5 px-4 py-2.5 rounded-2xl font-bold uppercase tracking-wider text-xs whitespace-nowrap transition-all border shrink-0 ${
                 isActive
-                  ? "bg-brand-accent text-canvas border-brand-accent shadow-[0_4px_16px_rgba(230,81,0,0.35)] scale-[1.02]"
+                  ? "bg-brand-accent text-canvas border-brand-accent shadow-[0_4px_16px_rgba(37,99,235,0.35)] scale-[1.02]"
                   : "bg-surface border-border-subtle text-text-secondary hover:text-text-primary hover:border-brand-accent/40 hover:bg-surface-elevated"
               }`}
             >

@@ -37,7 +37,9 @@ import {
   Zap,
   Copy,
   CheckCheck,
+  Printer,
 } from "lucide-react";
+import { ThermalShippingLabelModal } from "@/components/admin/ThermalShippingLabelModal";
 
 const OrderInspector3D = dynamic(() => import("@/components/admin/OrderInspector3D"), {
   ssr: false,
@@ -235,6 +237,7 @@ export function AdminOrdersManager({
   const router = useRouter();
   const [orders, setOrders] = useState<OrderRow[]>(initialOrders);
   const [selectedOrder, setSelectedOrder] = useState<OrderRow | null>(null);
+  const [labelModalOrder, setLabelModalOrder] = useState<OrderRow | null>(null);
   const [previewMode, setPreviewMode] = useState<"2d" | "3d">("2d");
   const [copiedOrderNumber, setCopiedOrderNumber] = useState<string | null>(null);
 
@@ -734,17 +737,30 @@ export function AdminOrdersManager({
                     </span>
                   </div>
 
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setSelectedOrder(order);
-                    }}
-                    className="px-3 py-1.5 rounded-xl bg-brand-accent text-canvas font-bold text-xs flex items-center gap-1.5 shadow-xs cursor-pointer hover:opacity-90 transition-opacity"
-                  >
-                    <Eye size={12} />
-                    <span>Rincian</span>
-                  </button>
+                  <div className="flex items-center gap-1.5">
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setLabelModalOrder(order);
+                      }}
+                      className="p-1.5 rounded-xl bg-surface border border-border-subtle text-text-muted hover:text-brand-accent transition-all cursor-pointer shadow-xs"
+                      title="Cetak Resi Thermal 80mm / Bluetooth"
+                    >
+                      <Printer size={13} />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setSelectedOrder(order);
+                      }}
+                      className="px-3 py-1.5 rounded-xl bg-brand-accent text-canvas font-bold text-xs flex items-center gap-1.5 shadow-xs cursor-pointer hover:opacity-90 transition-opacity"
+                    >
+                      <Eye size={12} />
+                      <span>Rincian</span>
+                    </button>
+                  </div>
                 </div>
               </div>
             );
@@ -942,17 +958,30 @@ export function AdminOrdersManager({
 
                     {/* 6. Tindakan (Pasti Muat, Tidak Terpotong) */}
                     <td className="py-2.5 px-3.5 text-right whitespace-nowrap align-middle pr-4">
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setSelectedOrder(order);
-                        }}
-                        className="px-2.5 py-1 rounded-lg bg-surface border border-border-subtle hover:border-brand-accent text-text-primary font-bold hover:text-brand-accent transition-all inline-flex items-center gap-1 text-[11px] cursor-pointer shadow-2xs"
-                      >
-                        <Eye size={11} />
-                        <span>Rincian</span>
-                      </button>
+                      <div className="inline-flex items-center gap-1">
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setLabelModalOrder(order);
+                          }}
+                          className="p-1.5 rounded-lg bg-surface border border-border-subtle hover:border-brand-accent text-text-muted hover:text-brand-accent transition-all inline-flex items-center text-[11px] cursor-pointer shadow-2xs"
+                          title="Cetak Resi Thermal 80mm / Bluetooth"
+                        >
+                          <Printer size={12} />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setSelectedOrder(order);
+                          }}
+                          className="px-2.5 py-1 rounded-lg bg-surface border border-border-subtle hover:border-brand-accent text-text-primary font-bold hover:text-brand-accent transition-all inline-flex items-center gap-1 text-[11px] cursor-pointer shadow-2xs"
+                        >
+                          <Eye size={11} />
+                          <span>Rincian</span>
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 );
@@ -1479,15 +1508,26 @@ export function AdminOrdersManager({
             </div>
 
             {/* Modal Footer */}
-            <div className="p-3.5 sm:p-4 bg-black/5 dark:bg-white/5 border-t border-border-subtle flex items-center justify-between shrink-0">
-              <Link
-                href={`/admin/orders/${selectedOrder.id}`}
-                target="_blank"
-                className="text-xs font-bold text-brand-accent hover:underline flex items-center gap-1"
-              >
-                <ExternalLink size={13} />
-                <span>Buka Detail Halaman Penuh</span>
-              </Link>
+            <div className="p-3.5 sm:p-4 bg-black/5 dark:bg-white/5 border-t border-border-subtle flex items-center justify-between gap-2 flex-wrap shrink-0">
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setLabelModalOrder(selectedOrder)}
+                  className="px-3.5 py-2 rounded-xl bg-brand-accent text-canvas font-bold text-xs flex items-center gap-1.5 shadow-md hover:brightness-110 active:scale-95 transition-all cursor-pointer"
+                  title="Cetak Resi & Surat Jalan (Thermal 80mm Bluetooth / 100×150)"
+                >
+                  <Printer size={14} />
+                  <span>Cetak Resi (80mm Bluetooth)</span>
+                </button>
+                <Link
+                  href={`/admin/orders/${selectedOrder.id}`}
+                  target="_blank"
+                  className="text-xs font-bold text-text-muted hover:text-brand-accent hover:underline flex items-center gap-1"
+                >
+                  <ExternalLink size={13} />
+                  <span>Detail Halaman Penuh</span>
+                </Link>
+              </div>
               <button
                 type="button"
                 onClick={() => {
@@ -1502,6 +1542,14 @@ export function AdminOrdersManager({
             </div>
           </div>
         </div>
+      )}
+
+      {/* Modal Cetak Resi Thermal 80mm / Bluetooth */}
+      {labelModalOrder && (
+        <ThermalShippingLabelModal
+          order={labelModalOrder as any}
+          onClose={() => setLabelModalOrder(null)}
+        />
       )}
     </div>
   );

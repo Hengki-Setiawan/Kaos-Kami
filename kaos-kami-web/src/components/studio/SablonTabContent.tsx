@@ -174,6 +174,7 @@ export const SablonTabContent: React.FC<SablonTabContentProps> = ({
         />
         <div className="grid grid-cols-2 gap-2">
           <button
+            id="studio-btn-upload"
             type="button"
             onClick={() => fileInputRef.current?.click()}
             className="flex items-center justify-center space-x-1.5 py-3 px-3 rounded-xl border border-dashed border-border-subtle hover:border-brand-accent bg-surface/50 text-[11px] font-mono text-text-primary transition-all hover:bg-surface font-bold shadow-sm cursor-pointer"
@@ -183,6 +184,7 @@ export const SablonTabContent: React.FC<SablonTabContentProps> = ({
           </button>
 
           <button
+            id="studio-btn-text"
             type="button"
             onClick={() => setShowTextInput(!showTextInput)}
             className={`flex items-center justify-center space-x-1.5 py-3 px-3 rounded-xl border border-dashed text-[11px] font-mono transition-all font-bold shadow-sm cursor-pointer ${
@@ -847,31 +849,25 @@ export const SablonTabContent: React.FC<SablonTabContentProps> = ({
       )}
 
       {/* Akses Cepat Lab Kain 3D */}
-      <div className="p-3.5 rounded-2xl bg-surface/60 border border-border-subtle flex items-center justify-between shadow-sm mt-3">
-        <div className="flex items-center space-x-2.5 min-w-0">
-          <div className="w-8 h-8 rounded-xl bg-brand-accent/15 border border-brand-accent/30 flex items-center justify-center text-brand-accent shrink-0">
-            <FlaskConical size={16} />
+      <div className="p-3.5 rounded-2xl bg-surface/80 border border-border-subtle space-y-2.5 shadow-sm mt-3">
+        <div className="flex items-center gap-2">
+          <div className="w-7 h-7 rounded-lg bg-brand-accent/15 border border-brand-accent/30 flex items-center justify-center text-brand-accent shrink-0">
+            <FlaskConical size={15} />
           </div>
-          <div className="min-w-0">
-            <div className="flex items-center gap-1.5">
-              <span className="text-xs font-sans font-bold text-text-primary block truncate">
-                Uji Fisika Kain &amp; Simulasi 3D
-              </span>
-              <span className="text-[9px] font-mono font-bold px-1.5 py-0.2 rounded bg-amber-500/15 text-amber-500 border border-amber-500/30 shrink-0">
-                BETA
-              </span>
-            </div>
-            <span className="text-[11px] font-sans text-text-muted block truncate">
-              Tahap uji coba: simulasi angin, kelenturan &amp; pencahayaan
-            </span>
-          </div>
+          <span className="text-xs font-bold text-text-primary">
+            Uji Fisika Kain &amp; Simulasi 3D
+          </span>
         </div>
+        <p className="text-[11.5px] text-text-muted leading-relaxed">
+          Simulasi hembusan angin dinamis, elastisitas tarikan bahan, dan pantulan pencahayaan senter 3D.
+        </p>
         <button
           type="button"
           onClick={toggleClothLab}
-          className="px-3.5 py-1.5 rounded-xl bg-brand-accent text-canvas font-sans text-xs font-bold transition-all shrink-0 cursor-pointer hover:brightness-110 active:scale-95 shadow-sm"
+          className="w-full py-2 px-3 rounded-xl bg-brand-accent/15 border border-brand-accent/30 hover:bg-brand-accent hover:text-canvas text-brand-accent font-semibold text-xs transition-all flex items-center justify-center gap-1.5 active:scale-98 cursor-pointer shadow-sm"
         >
-          Buka Lab
+          <FlaskConical size={13} />
+          <span>Buka Panel Uji Fisika</span>
         </button>
       </div>
     </>

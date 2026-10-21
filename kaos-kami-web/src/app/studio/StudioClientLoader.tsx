@@ -31,7 +31,7 @@ function StudioInitialLoader() {
         </div>
         <div className="relative w-64 h-[4px] bg-border-subtle/80 overflow-hidden rounded-full shadow-inner">
           <div
-            className="h-full bg-brand-accent transition-[width] duration-200 ease-out shadow-[0_0_12px_rgba(230,81,0,0.8)]"
+            className="h-full bg-brand-accent transition-[width] duration-200 ease-out shadow-[0_0_12px_rgba(37,99,235,0.8)]"
             style={{ width: `${progress}%` }}
           />
           <div className="absolute inset-y-0 w-24 bg-gradient-to-r from-transparent via-white/60 to-transparent animate-shimmer" />

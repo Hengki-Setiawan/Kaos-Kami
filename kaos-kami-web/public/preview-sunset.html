@@ -1,0 +1,724 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Kaos Kami — Sunset Gradient Streetwear Preview</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Syne:wght@700;800&display=swap" rel="stylesheet">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    :root {
+      /* SUNSET GRADIENT PALETTE (STREETWEAR DISTRO GEN-Z) */
+      --color-canvas: #FCFCFD;
+      --color-canvas-subtle: #F6F7FB;
+      --color-surface: rgba(255, 255, 255, 0.90);
+      --color-text-primary: #0F172A;
+      --color-text-secondary: #334155;
+      --color-text-muted: #64748B;
+      
+      /* Vibrant Sunset Gradient */
+      --grad-sunset: linear-gradient(135deg, #8B5CF6 0%, #EC4899 60%, #F97316 100%);
+      --grad-sunset-subtle: linear-gradient(135deg, rgba(139, 92, 246, 0.08) 0%, rgba(236, 72, 153, 0.08) 100%);
+      --color-accent-violet: #8B5CF6;
+      --color-accent-pink: #EC4899;
+      --color-accent-glow: rgba(236, 72, 153, 0.35);
+      
+      --color-border: rgba(226, 232, 240, 0.8);
+      
+      --font-display: 'Syne', sans-serif;
+      --font-body: 'Plus Jakarta Sans', sans-serif;
+    }
+
+    body {
+      background-color: var(--color-canvas);
+      background-image: 
+        radial-gradient(circle at 20% 15%, rgba(139, 92, 246, 0.08) 0%, transparent 50%),
+        radial-gradient(circle at 80% 25%, rgba(236, 72, 153, 0.08) 0%, transparent 50%),
+        radial-gradient(circle at 50% 85%, rgba(249, 115, 22, 0.05) 0%, transparent 60%),
+        linear-gradient(180deg, #FFFFFF 0%, #F8FAFC 100%);
+      color: var(--color-text-primary);
+      font-family: var(--font-body);
+      min-height: 100vh;
+      overflow-x: hidden;
+      position: relative;
+    }
+
+    .studio-grid {
+      position: absolute;
+      inset: 0;
+      background-image: 
+        linear-gradient(rgba(148, 163, 184, 0.07) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(148, 163, 184, 0.07) 1px, transparent 1px);
+      background-size: 40px 40px;
+      pointer-events: none;
+      mask-image: radial-gradient(ellipse at 50% 50%, black 35%, transparent 80%);
+      -webkit-mask-image: radial-gradient(ellipse at 50% 50%, black 35%, transparent 80%);
+    }
+
+    /* FLOATING NAVBAR */
+    header {
+      position: fixed;
+      top: 18px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: calc(100% - 48px);
+      max-width: 1200px;
+      height: 60px;
+      background: var(--color-surface);
+      backdrop-filter: blur(20px);
+      border: 1px solid var(--color-border);
+      border-radius: 9999px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 24px;
+      z-index: 50;
+      box-shadow: 0 8px 30px rgba(15, 23, 42, 0.04);
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      text-decoration: none;
+      color: var(--color-text-primary);
+    }
+
+    .brand-mark {
+      width: 32px;
+      height: 32px;
+      border-radius: 10px;
+      background: var(--grad-sunset);
+      color: white;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 800;
+      font-size: 15px;
+      box-shadow: 0 4px 14px var(--color-accent-glow);
+    }
+
+    .brand-name {
+      font-family: var(--font-display);
+      font-size: 18px;
+      font-weight: 800;
+      letter-spacing: -0.5px;
+      color: var(--color-text-primary);
+    }
+
+    .nav-links {
+      display: flex;
+      align-items: center;
+      gap: 28px;
+      list-style: none;
+    }
+
+    .nav-links a {
+      text-decoration: none;
+      color: var(--color-text-muted);
+      font-size: 13px;
+      font-weight: 600;
+      transition: color 0.2s;
+    }
+
+    .nav-links a:hover, .nav-links a.active {
+      color: var(--color-accent-pink);
+    }
+
+    .nav-actions {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .cart-btn {
+      width: 38px;
+      height: 38px;
+      border-radius: 50%;
+      background: rgba(241, 245, 249, 0.8);
+      border: 1px solid var(--color-border);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--color-text-secondary);
+      cursor: pointer;
+      position: relative;
+    }
+
+    .cart-badge {
+      position: absolute;
+      top: -2px;
+      right: -2px;
+      background: var(--color-accent-pink);
+      color: white;
+      font-size: 10px;
+      font-weight: 700;
+      width: 17px;
+      height: 17px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border: 2px solid #FFFFFF;
+    }
+
+    .cta-btn {
+      padding: 0 20px;
+      height: 38px;
+      border-radius: 9999px;
+      background: var(--grad-sunset);
+      color: white;
+      border: none;
+      font-family: var(--font-body);
+      font-size: 12.5px;
+      font-weight: 700;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      box-shadow: 0 4px 16px var(--color-accent-glow);
+      transition: all 0.2s;
+    }
+
+    .cta-btn:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 6px 20px rgba(236, 72, 153, 0.45);
+    }
+
+    /* MAIN HERO & STUDIO LAYOUT */
+    main {
+      padding-top: 100px;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      max-width: 1380px;
+      margin: 0 auto;
+      padding-left: 36px;
+      padding-right: 36px;
+      position: relative;
+      z-index: 10;
+    }
+
+    /* LEFT HERO INTRO */
+    .hero-info {
+      flex: 1;
+      max-width: 380px;
+      display: flex;
+      flex-direction: column;
+      gap: 18px;
+      z-index: 20;
+    }
+
+    .hero-badge {
+      align-self: flex-start;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 14px;
+      border-radius: 9999px;
+      background: rgba(236, 72, 153, 0.08);
+      border: 1px solid rgba(236, 72, 153, 0.2);
+      color: #DB2777;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.5px;
+      text-transform: uppercase;
+    }
+
+    .hero-badge-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: #EC4899;
+      box-shadow: 0 0 8px #EC4899;
+    }
+
+    .hero-title {
+      font-family: var(--font-display);
+      font-size: 44px;
+      font-weight: 800;
+      line-height: 1.08;
+      letter-spacing: -1.5px;
+      color: var(--color-text-primary);
+    }
+
+    .hero-title span {
+      background: var(--grad-sunset);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      display: block;
+    }
+
+    .hero-desc {
+      font-size: 13.5px;
+      line-height: 1.6;
+      color: var(--color-text-muted);
+    }
+
+    .hero-price-tag {
+      display: flex;
+      align-items: baseline;
+      gap: 8px;
+      margin-top: 4px;
+    }
+
+    .hero-price-label {
+      font-size: 12px;
+      color: var(--color-text-muted);
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .hero-price-val {
+      font-size: 24px;
+      font-weight: 800;
+      color: var(--color-text-primary);
+      font-family: var(--font-display);
+    }
+
+    .hero-actions {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-top: 8px;
+    }
+
+    .btn-primary {
+      padding: 12px 26px;
+      border-radius: 9999px;
+      background: var(--grad-sunset);
+      color: white;
+      font-weight: 700;
+      font-size: 13px;
+      border: none;
+      cursor: pointer;
+      box-shadow: 0 6px 20px var(--color-accent-glow);
+      transition: all 0.2s;
+    }
+
+    .btn-secondary {
+      padding: 12px 22px;
+      border-radius: 9999px;
+      background: rgba(255, 255, 255, 0.9);
+      color: var(--color-text-secondary);
+      font-weight: 700;
+      font-size: 13px;
+      border: 1px solid var(--color-border);
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    /* CENTER 3D APPAREL STAGE */
+    .stage-center {
+      flex: 1.4;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      position: relative;
+      min-height: 580px;
+    }
+
+    .pedestal-ring {
+      position: absolute;
+      bottom: 45px;
+      width: 440px;
+      height: 120px;
+      border-radius: 50%;
+      background: radial-gradient(ellipse at center, rgba(255, 255, 255, 0.95) 0%, rgba(243, 232, 255, 0.5) 70%, transparent 100%);
+      border: 1.5px solid rgba(236, 72, 153, 0.2);
+      box-shadow: 0 24px 60px rgba(139, 92, 246, 0.08);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .pedestal-inner {
+      width: 320px;
+      height: 80px;
+      border-radius: 50%;
+      border: 1px dashed rgba(236, 72, 153, 0.3);
+    }
+
+    /* 3D T-Shirt Visual (Sunset Graphic Print) */
+    .tshirt-wrapper {
+      position: relative;
+      z-index: 10;
+      filter: drop-shadow(0 30px 45px rgba(236, 72, 153, 0.16));
+      transform: translateY(-20px);
+    }
+
+    .tshirt-svg {
+      width: 380px;
+      height: auto;
+    }
+
+    .hud-controls {
+      position: absolute;
+      bottom: 16px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 14px;
+      border-radius: 9999px;
+      background: rgba(255, 255, 255, 0.9);
+      backdrop-filter: blur(16px);
+      border: 1px solid var(--color-border);
+      box-shadow: 0 4px 16px rgba(15, 23, 42, 0.05);
+      z-index: 30;
+    }
+
+    .hud-btn {
+      padding: 5px 12px;
+      border-radius: 9999px;
+      border: none;
+      background: transparent;
+      font-size: 11px;
+      font-weight: 700;
+      color: var(--color-text-muted);
+      cursor: pointer;
+    }
+
+    .hud-btn.active {
+      background: var(--grad-sunset);
+      color: white;
+      box-shadow: 0 2px 8px var(--color-accent-glow);
+    }
+
+    /* RIGHT CUSTOMIZER DRAWER (PANEL) */
+    .customizer-panel {
+      flex: 1;
+      max-width: 380px;
+      background: var(--color-surface);
+      backdrop-filter: blur(24px);
+      border: 1px solid var(--color-border);
+      border-radius: 28px;
+      padding: 24px;
+      box-shadow: 0 16px 40px rgba(15, 23, 42, 0.05);
+      display: flex;
+      flex-direction: column;
+      gap: 18px;
+      z-index: 20;
+    }
+
+    .panel-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-bottom: 1px solid var(--color-border);
+      padding-bottom: 14px;
+    }
+
+    .panel-title {
+      font-size: 14px;
+      font-weight: 800;
+      color: var(--color-text-primary);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .panel-tag {
+      font-size: 10px;
+      font-weight: 700;
+      padding: 3px 8px;
+      border-radius: 6px;
+      background: rgba(236, 72, 153, 0.1);
+      color: #DB2777;
+    }
+
+    .dtf-box {
+      border: 1.5px dashed #EC4899;
+      background: rgba(236, 72, 153, 0.04);
+      border-radius: 16px;
+      padding: 16px;
+      text-align: center;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 8px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .dtf-box:hover {
+      background: rgba(236, 72, 153, 0.08);
+    }
+
+    .dtf-icon {
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
+      background: var(--grad-sunset);
+      color: white;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 2px 8px var(--color-accent-glow);
+    }
+
+    .dtf-title {
+      font-size: 12px;
+      font-weight: 800;
+      color: #DB2777;
+    }
+
+    .dtf-sub {
+      font-size: 10.5px;
+      color: var(--color-text-muted);
+    }
+
+    .section-label {
+      font-size: 11.5px;
+      font-weight: 700;
+      color: var(--color-text-secondary);
+      text-transform: uppercase;
+      letter-spacing: 0.4px;
+      display: flex;
+      justify-content: space-between;
+    }
+
+    .swatches {
+      display: flex;
+      gap: 10px;
+    }
+
+    .swatch {
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      border: 2px solid white;
+      box-shadow: 0 2px 6px rgba(0, 0, 0, 0.12);
+      cursor: pointer;
+    }
+
+    .swatch.active {
+      outline: 2.5px solid #EC4899;
+      outline-offset: 2px;
+    }
+
+    .size-grid {
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      gap: 6px;
+    }
+
+    .size-pill {
+      height: 36px;
+      border-radius: 10px;
+      background: white;
+      border: 1px solid var(--color-border);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 12px;
+      font-weight: 700;
+      color: var(--color-text-secondary);
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+
+    .size-pill.active {
+      background: var(--grad-sunset);
+      color: white;
+      border-color: transparent;
+      box-shadow: 0 4px 12px var(--color-accent-glow);
+    }
+
+    .panel-order-btn {
+      width: 100%;
+      height: 48px;
+      border-radius: 14px;
+      background: var(--grad-sunset);
+      color: white;
+      border: none;
+      font-family: var(--font-body);
+      font-size: 13px;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      box-shadow: 0 6px 20px var(--color-accent-glow);
+      transition: all 0.2s;
+      margin-top: 6px;
+    }
+
+    .panel-order-btn:hover {
+      box-shadow: 0 8px 26px rgba(236, 72, 153, 0.5);
+    }
+  </style>
+</head>
+<body>
+
+  <div class="studio-grid"></div>
+
+  <!-- FLOATING NAVBAR -->
+  <header>
+    <a href="#" class="brand">
+      <div class="brand-mark">K</div>
+      <div class="brand-name">Kaos Kami</div>
+    </a>
+
+    <ul class="nav-links">
+      <li><a href="#" class="active">Katalog</a></li>
+      <li><a href="#">Studio 3D</a></li>
+      <li><a href="#">Kalkulator Sablon</a></li>
+      <li><a href="#">Lacak Pesanan</a></li>
+      <li><a href="#">FAQ</a></li>
+    </ul>
+
+    <div class="nav-actions">
+      <button class="cart-btn" aria-label="Keranjang">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4Z"/><path d="M3 6h18"/><path d="M16 10a4 4 0 0 1-8 0"/></svg>
+        <span class="cart-badge">1</span>
+      </button>
+      <button class="cta-btn">
+        <span>Create 3D</span>
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
+      </button>
+    </div>
+  </header>
+
+  <!-- MAIN HERO & 3D STUDIO -->
+  <main>
+    
+    <div class="hero-info">
+      <div class="hero-badge">
+        <span class="hero-badge-dot"></span>
+        <span>Makassar Streetwear Distro</span>
+      </div>
+
+      <h1 class="hero-title">
+        Sablon DTF Satuan <span>Custom Studio 3D</span>
+      </h1>
+
+      <p class="hero-desc">
+        Kustomisasi kaos distro interaktif real-time 3D. Warna cetak ultra tajam, tanpa minimum order, produksi lokal workshop Makassar.
+      </p>
+
+      <div class="hero-price-tag">
+        <span class="hero-price-label">Mulai dari</span>
+        <span class="hero-price-val">Rp 85.000</span>
+      </div>
+
+      <div class="hero-actions">
+        <button class="btn-primary">Mulai Desain 3D</button>
+        <button class="btn-secondary">Lihat Koleksi</button>
+      </div>
+    </div>
+
+    <!-- CENTER 3D APPAREL STAGE -->
+    <div class="stage-center">
+      <div class="pedestal-ring">
+        <div class="pedestal-inner"></div>
+      </div>
+
+      <div class="tshirt-wrapper">
+        <svg class="tshirt-svg" viewBox="0 0 500 520" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <defs>
+            <linearGradient id="sunsetShirt" x1="100" y1="50" x2="400" y2="480" gradientUnits="userSpaceOnUse">
+              <stop offset="0%" stop-color="#FFFFFF"/>
+              <stop offset="45%" stop-color="#FAF5FF"/>
+              <stop offset="100%" stop-color="#F3E8FF"/>
+            </linearGradient>
+            <filter id="sunsetShadow" x="-20%" y="-20%" width="140%" height="140%">
+              <feDropShadow dx="0" dy="18" stdDeviation="24" flood-color="#EC4899" flood-opacity="0.15"/>
+            </filter>
+          </defs>
+
+          <!-- T-Shirt Body -->
+          <g filter="url(#sunsetShadow)">
+            <path d="M175 48 C205 78 295 78 325 48 L415 110 L370 185 L325 155 L325 460 C325 470 315 478 300 478 L200 478 C185 478 175 470 175 460 L175 155 L130 185 L85 110 Z" 
+                  fill="url(#sunsetShirt)" stroke="#E9D5FF" stroke-width="2.5" stroke-linejoin="round"/>
+            
+            <path d="M175 48 C205 78 295 78 325 48 C295 86 205 86 175 48 Z" 
+                  fill="#FAF5FF" stroke="#C084FC" stroke-width="2"/>
+            
+            <line x1="370" y1="185" x2="330" y2="155" stroke="#C084FC" stroke-width="1.5" stroke-dasharray="3 3"/>
+            <line x1="130" y1="185" x2="170" y2="155" stroke="#C084FC" stroke-width="1.5" stroke-dasharray="3 3"/>
+            
+            <!-- Graphic Decal Inside Bounding Box (Vibrant Street Art) -->
+            <g transform="translate(195, 155)">
+              <rect x="0" y="0" width="110" height="155" rx="8" fill="#18181B"/>
+              <circle cx="55" cy="55" r="28" fill="url(#sunsetShirtGrad)"/>
+              <text x="55" y="32" fill="#F472B6" font-family="'Syne', sans-serif" font-size="11" font-weight="800" text-anchor="middle">MAKASSAR</text>
+              <text x="55" y="82" fill="#FFFFFF" font-family="'Syne', sans-serif" font-size="22" font-weight="800" text-anchor="middle">STREET</text>
+              <text x="55" y="105" fill="#A855F7" font-family="'Syne', sans-serif" font-size="16" font-weight="800" text-anchor="middle">CULTURE</text>
+              <rect x="20" y="125" width="70" height="16" rx="4" fill="#EC4899"/>
+              <text x="55" y="136" fill="#FFFFFF" font-family="'Plus Jakarta Sans', sans-serif" font-size="8" font-weight="800" text-anchor="middle">DTF VIBRANT 3D</text>
+            </g>
+
+            <line x1="175" y1="462" x2="325" y2="462" stroke="#C084FC" stroke-width="1.5" stroke-dasharray="4 3"/>
+          </g>
+        </svg>
+      </div>
+
+      <div class="hud-controls">
+        <button class="hud-btn active">Depan</button>
+        <button class="hud-btn">Belakang</button>
+        <button class="hud-btn">Kiri</button>
+        <button class="hud-btn">Kanan</button>
+        <button class="hud-btn">360°</button>
+      </div>
+    </div>
+
+    <!-- RIGHT CUSTOMIZER PANEL -->
+    <div class="customizer-panel">
+      <div class="panel-header">
+        <span class="panel-title">T-Shirt Heavyweight 24s</span>
+        <span class="panel-tag">DTF Sablon</span>
+      </div>
+
+      <div class="dtf-box">
+        <div class="dtf-icon">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+        </div>
+        <div class="dtf-title">Upload Desain Sablon</div>
+        <div class="dtf-sub">Maksimal A3 (30 × 42 cm) · Format PNG / SVG</div>
+      </div>
+
+      <div style="display: flex; flex-direction: column; gap: 8px;">
+        <div class="section-label">
+          <span>Pilih Warna Kaos</span>
+          <span style="color: #EC4899; font-size: 11px;">Lavender Mist</span>
+        </div>
+        <div class="swatches">
+          <div class="swatch active" style="background: #FFFFFF;" title="White"></div>
+          <div class="swatch" style="background: #18181B;" title="Black"></div>
+          <div class="swatch" style="background: #7C3AED;" title="Purple"></div>
+          <div class="swatch" style="background: #EC4899;" title="Hot Pink"></div>
+          <div class="swatch" style="background: #F97316;" title="Orange"></div>
+        </div>
+      </div>
+
+      <div style="display: flex; flex-direction: column; gap: 8px;">
+        <div class="section-label">
+          <span>Ukuran Kaos</span>
+          <span style="color: var(--color-text-muted); font-size: 11px;">Size Chart</span>
+        </div>
+        <div class="size-grid">
+          <div class="size-pill">S</div>
+          <div class="size-pill active">M</div>
+          <div class="size-pill">L</div>
+          <div class="size-pill">XL</div>
+          <div class="size-pill">XXL</div>
+        </div>
+      </div>
+
+      <button class="panel-order-btn">
+        <span>Masukkan Keranjang · Rp 85.000</span>
+      </button>
+    </div>
+
+  </main>
+
+</body>
+</html>

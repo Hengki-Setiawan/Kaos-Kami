@@ -1,0 +1,738 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Kaos Kami — Editorial Monochrome Preview</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Syne:wght@700;800&display=swap" rel="stylesheet">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    :root {
+      /* EDITORIAL MONOCHROME PALETTE */
+      --color-canvas: #FFFFFF;
+      --color-canvas-subtle: #F8F9FA;
+      --color-surface: rgba(255, 255, 255, 0.95);
+      --color-surface-card: #FFFFFF;
+      --color-text-primary: #000000;
+      --color-text-secondary: #27272A;
+      --color-text-muted: #71717A;
+      
+      --color-accent: #000000;
+      --color-accent-contrast: #FFFFFF;
+      
+      --color-border: rgba(0, 0, 0, 0.08);
+      --color-border-strong: rgba(0, 0, 0, 0.9);
+      
+      --font-display: 'Syne', sans-serif;
+      --font-body: 'Plus Jakarta Sans', sans-serif;
+    }
+
+    body {
+      background-color: var(--color-canvas);
+      background-image: 
+        radial-gradient(circle at 50% 15%, rgba(0, 0, 0, 0.02) 0%, transparent 60%),
+        linear-gradient(180deg, #FFFFFF 0%, #F8F9FA 100%);
+      color: var(--color-text-primary);
+      font-family: var(--font-body);
+      min-height: 100vh;
+      overflow-x: hidden;
+      position: relative;
+    }
+
+    /* Minimal Architectural Grid */
+    .studio-grid {
+      position: absolute;
+      inset: 0;
+      background-image: 
+        linear-gradient(rgba(0, 0, 0, 0.04) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(0, 0, 0, 0.04) 1px, transparent 1px);
+      background-size: 48px 48px;
+      pointer-events: none;
+      mask-image: radial-gradient(ellipse at 50% 50%, black 30%, transparent 75%);
+      -webkit-mask-image: radial-gradient(ellipse at 50% 50%, black 30%, transparent 75%);
+    }
+
+    /* FLOATING NAVBAR */
+    header {
+      position: fixed;
+      top: 18px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: calc(100% - 48px);
+      max-width: 1200px;
+      height: 60px;
+      background: var(--color-surface);
+      backdrop-filter: blur(24px);
+      border: 1px solid var(--color-border);
+      border-radius: 9999px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 24px;
+      z-index: 50;
+      box-shadow: 0 4px 24px rgba(0, 0, 0, 0.03);
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      text-decoration: none;
+      color: var(--color-text-primary);
+    }
+
+    .brand-mark {
+      width: 32px;
+      height: 32px;
+      border-radius: 8px;
+      background: #000000;
+      color: #FFFFFF;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 800;
+      font-size: 15px;
+      font-family: var(--font-display);
+    }
+
+    .brand-name {
+      font-family: var(--font-display);
+      font-size: 19px;
+      font-weight: 800;
+      letter-spacing: -0.8px;
+      color: var(--color-text-primary);
+      text-transform: uppercase;
+    }
+
+    .nav-links {
+      display: flex;
+      align-items: center;
+      gap: 32px;
+      list-style: none;
+    }
+
+    .nav-links a {
+      text-decoration: none;
+      color: var(--color-text-muted);
+      font-size: 12px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+      transition: color 0.2s;
+    }
+
+    .nav-links a:hover, .nav-links a.active {
+      color: #000000;
+    }
+
+    .nav-actions {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .cart-btn {
+      width: 38px;
+      height: 38px;
+      border-radius: 50%;
+      background: transparent;
+      border: 1px solid var(--color-border);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--color-text-primary);
+      cursor: pointer;
+      position: relative;
+    }
+
+    .cart-badge {
+      position: absolute;
+      top: -2px;
+      right: -2px;
+      background: #000000;
+      color: white;
+      font-size: 10px;
+      font-weight: 700;
+      width: 17px;
+      height: 17px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border: 2px solid #FFFFFF;
+    }
+
+    .cta-btn {
+      padding: 0 22px;
+      height: 38px;
+      border-radius: 9999px;
+      background: #000000;
+      color: white;
+      border: none;
+      font-family: var(--font-body);
+      font-size: 12px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.6px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      transition: all 0.2s;
+    }
+
+    .cta-btn:hover {
+      background: #27272A;
+      transform: translateY(-1px);
+    }
+
+    /* MAIN HERO & STUDIO LAYOUT */
+    main {
+      padding-top: 100px;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      max-width: 1380px;
+      margin: 0 auto;
+      padding-left: 36px;
+      padding-right: 36px;
+      position: relative;
+      z-index: 10;
+    }
+
+    /* LEFT HERO INTRO */
+    .hero-info {
+      flex: 1;
+      max-width: 380px;
+      display: flex;
+      flex-direction: column;
+      gap: 18px;
+      z-index: 20;
+    }
+
+    .hero-badge {
+      align-self: flex-start;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 14px;
+      border-radius: 9999px;
+      background: #F4F4F5;
+      border: 1px solid #E4E4E7;
+      color: #000000;
+      font-size: 10.5px;
+      font-weight: 800;
+      letter-spacing: 0.8px;
+      text-transform: uppercase;
+    }
+
+    .hero-badge-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: #000000;
+    }
+
+    .hero-title {
+      font-family: var(--font-display);
+      font-size: 46px;
+      font-weight: 800;
+      line-height: 1.05;
+      letter-spacing: -1.8px;
+      color: #000000;
+      text-transform: uppercase;
+    }
+
+    .hero-title span {
+      color: #71717A;
+      display: block;
+      font-weight: 700;
+    }
+
+    .hero-desc {
+      font-size: 13px;
+      line-height: 1.6;
+      color: var(--color-text-muted);
+    }
+
+    .hero-price-tag {
+      display: flex;
+      align-items: baseline;
+      gap: 8px;
+      margin-top: 4px;
+    }
+
+    .hero-price-label {
+      font-size: 11px;
+      color: var(--color-text-muted);
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+    }
+
+    .hero-price-val {
+      font-size: 26px;
+      font-weight: 800;
+      color: #000000;
+      font-family: var(--font-display);
+    }
+
+    .hero-actions {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-top: 8px;
+    }
+
+    .btn-primary {
+      padding: 13px 28px;
+      border-radius: 9999px;
+      background: #000000;
+      color: white;
+      font-weight: 700;
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 0.6px;
+      border: none;
+      cursor: pointer;
+      box-shadow: 0 4px 14px rgba(0, 0, 0, 0.15);
+      transition: all 0.2s;
+    }
+
+    .btn-primary:hover {
+      background: #27272A;
+    }
+
+    .btn-secondary {
+      padding: 13px 24px;
+      border-radius: 9999px;
+      background: #FFFFFF;
+      color: #000000;
+      font-weight: 700;
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 0.6px;
+      border: 1px solid var(--color-border);
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .btn-secondary:hover {
+      border-color: #000000;
+    }
+
+    /* CENTER 3D APPAREL STAGE */
+    .stage-center {
+      flex: 1.4;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      position: relative;
+      min-height: 580px;
+    }
+
+    /* Pedestal / Turntable */
+    .pedestal-ring {
+      position: absolute;
+      bottom: 45px;
+      width: 440px;
+      height: 120px;
+      border-radius: 50%;
+      background: radial-gradient(ellipse at center, rgba(255, 255, 255, 0.95) 0%, rgba(244, 244, 245, 0.7) 70%, transparent 100%);
+      border: 1.5px solid #E4E4E7;
+      box-shadow: 0 20px 50px rgba(0, 0, 0, 0.05);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .pedestal-inner {
+      width: 320px;
+      height: 80px;
+      border-radius: 50%;
+      border: 1px dashed #D4D4D8;
+    }
+
+    /* 3D T-Shirt Visual (Pure Monochrome High Detail) */
+    .tshirt-wrapper {
+      position: relative;
+      z-index: 10;
+      filter: drop-shadow(0 25px 35px rgba(0, 0, 0, 0.12));
+      transform: translateY(-20px);
+    }
+
+    .tshirt-svg {
+      width: 380px;
+      height: auto;
+    }
+
+    /* HUD Camera Floating Controls */
+    .hud-controls {
+      position: absolute;
+      bottom: 16px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 14px;
+      border-radius: 9999px;
+      background: rgba(255, 255, 255, 0.95);
+      border: 1px solid #E4E4E7;
+      box-shadow: 0 4px 16px rgba(0, 0, 0, 0.04);
+      z-index: 30;
+    }
+
+    .hud-btn {
+      padding: 5px 12px;
+      border-radius: 9999px;
+      border: none;
+      background: transparent;
+      font-size: 11px;
+      font-weight: 700;
+      color: #71717A;
+      cursor: pointer;
+    }
+
+    .hud-btn.active {
+      background: #000000;
+      color: white;
+    }
+
+    /* RIGHT CUSTOMIZER DRAWER (PANEL) */
+    .customizer-panel {
+      flex: 1;
+      max-width: 380px;
+      background: #FFFFFF;
+      border: 1px solid #E4E4E7;
+      border-radius: 28px;
+      padding: 24px;
+      box-shadow: 0 16px 40px rgba(0, 0, 0, 0.04);
+      display: flex;
+      flex-direction: column;
+      gap: 18px;
+      z-index: 20;
+    }
+
+    .panel-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-bottom: 1px solid #F4F4F5;
+      padding-bottom: 14px;
+    }
+
+    .panel-title {
+      font-size: 13.5px;
+      font-weight: 800;
+      color: #000000;
+      text-transform: uppercase;
+      letter-spacing: 0.6px;
+    }
+
+    .panel-tag {
+      font-size: 10px;
+      font-weight: 700;
+      padding: 3px 8px;
+      border-radius: 6px;
+      background: #F4F4F5;
+      color: #000000;
+    }
+
+    /* Sablon DTF Area Card */
+    .dtf-box {
+      border: 1.5px dashed #000000;
+      background: #FAFAFA;
+      border-radius: 16px;
+      padding: 16px;
+      text-align: center;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 8px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .dtf-box:hover {
+      background: #F4F4F5;
+    }
+
+    .dtf-icon {
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
+      background: #000000;
+      color: white;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .dtf-title {
+      font-size: 12px;
+      font-weight: 800;
+      color: #000000;
+      text-transform: uppercase;
+    }
+
+    .dtf-sub {
+      font-size: 10.5px;
+      color: #71717A;
+    }
+
+    /* Color Swatches */
+    .section-label {
+      font-size: 11px;
+      font-weight: 800;
+      color: #000000;
+      text-transform: uppercase;
+      letter-spacing: 0.6px;
+      display: flex;
+      justify-content: space-between;
+    }
+
+    .swatches {
+      display: flex;
+      gap: 10px;
+    }
+
+    .swatch {
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      border: 2px solid white;
+      box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
+      cursor: pointer;
+    }
+
+    .swatch.active {
+      outline: 2.5px solid #000000;
+      outline-offset: 2px;
+    }
+
+    /* Size Selector Pills */
+    .size-grid {
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      gap: 6px;
+    }
+
+    .size-pill {
+      height: 36px;
+      border-radius: 10px;
+      background: white;
+      border: 1px solid #E4E4E7;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 12px;
+      font-weight: 700;
+      color: #000000;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+
+    .size-pill.active {
+      background: #000000;
+      color: white;
+      border-color: #000000;
+    }
+
+    /* Add to Cart CTA */
+    .panel-order-btn {
+      width: 100%;
+      height: 48px;
+      border-radius: 14px;
+      background: #000000;
+      color: white;
+      border: none;
+      font-family: var(--font-body);
+      font-size: 12.5px;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      box-shadow: 0 4px 14px rgba(0, 0, 0, 0.15);
+      transition: all 0.2s;
+      margin-top: 6px;
+    }
+
+    .panel-order-btn:hover {
+      background: #27272A;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="studio-grid"></div>
+
+  <!-- FLOATING NAVBAR -->
+  <header>
+    <a href="#" class="brand">
+      <div class="brand-mark">K</div>
+      <div class="brand-name">Kaos Kami</div>
+    </a>
+
+    <ul class="nav-links">
+      <li><a href="#" class="active">Katalog</a></li>
+      <li><a href="#">Studio 3D</a></li>
+      <li><a href="#">Kalkulator</a></li>
+      <li><a href="#">Lacak Pesanan</a></li>
+      <li><a href="#">FAQ</a></li>
+    </ul>
+
+    <div class="nav-actions">
+      <button class="cart-btn" aria-label="Keranjang">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4Z"/><path d="M3 6h18"/><path d="M16 10a4 4 0 0 1-8 0"/></svg>
+        <span class="cart-badge">1</span>
+      </button>
+      <button class="cta-btn">
+        <span>Create 3D</span>
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
+      </button>
+    </div>
+  </header>
+
+  <!-- MAIN HERO & 3D STUDIO -->
+  <main>
+    
+    <!-- LEFT HERO INFO -->
+    <div class="hero-info">
+      <div class="hero-badge">
+        <span class="hero-badge-dot"></span>
+        <span>Studio Sablon DTF Satuan</span>
+      </div>
+
+      <h1 class="hero-title">
+        Kaos Kami <span>Studio 3D</span>
+      </h1>
+
+      <p class="hero-desc">
+        Kustomisasi apparel streetwear presisi dalam lingkungan 3D WebGL real-time. Katun Combed 24s Heavyweight asli Makassar.
+      </p>
+
+      <div class="hero-price-tag">
+        <span class="hero-price-label">Mulai</span>
+        <span class="hero-price-val">IDR 85.000</span>
+      </div>
+
+      <div class="hero-actions">
+        <button class="btn-primary">Mulai Desain 3D</button>
+        <button class="btn-secondary">Lihat Etalase</button>
+      </div>
+    </div>
+
+    <!-- CENTER 3D APPAREL STAGE -->
+    <div class="stage-center">
+      <div class="pedestal-ring">
+        <div class="pedestal-inner"></div>
+      </div>
+
+      <div class="tshirt-wrapper">
+        <svg class="tshirt-svg" viewBox="0 0 500 520" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <defs>
+            <linearGradient id="monoShirt" x1="100" y1="50" x2="400" y2="480" gradientUnits="userSpaceOnUse">
+              <stop offset="0%" stop-color="#FFFFFF"/>
+              <stop offset="50%" stop-color="#F4F4F5"/>
+              <stop offset="100%" stop-color="#E4E4E7"/>
+            </linearGradient>
+            <filter id="monoShadow" x="-20%" y="-20%" width="140%" height="140%">
+              <feDropShadow dx="0" dy="18" stdDeviation="24" flood-color="#000000" flood-opacity="0.10"/>
+            </filter>
+          </defs>
+
+          <!-- T-Shirt Body -->
+          <g filter="url(#monoShadow)">
+            <path d="M175 48 C205 78 295 78 325 48 L415 110 L370 185 L325 155 L325 460 C325 470 315 478 300 478 L200 478 C185 478 175 470 175 460 L175 155 L130 185 L85 110 Z" 
+                  fill="url(#monoShirt)" stroke="#D4D4D8" stroke-width="2.5" stroke-linejoin="round"/>
+            
+            <path d="M175 48 C205 78 295 78 325 48 C295 86 205 86 175 48 Z" 
+                  fill="#F4F4F5" stroke="#71717A" stroke-width="2"/>
+            
+            <line x1="370" y1="185" x2="330" y2="155" stroke="#A1A1AA" stroke-width="1.5" stroke-dasharray="3 3"/>
+            <line x1="130" y1="185" x2="170" y2="155" stroke="#A1A1AA" stroke-width="1.5" stroke-dasharray="3 3"/>
+            
+            <!-- Graphic Decal Artwork (Editorial High Contrast) -->
+            <g transform="translate(200, 160)">
+              <rect x="0" y="0" width="100" height="150" rx="4" fill="#000000"/>
+              <text x="50" y="34" fill="#FFFFFF" font-family="'Syne', sans-serif" font-size="12" font-weight="800" text-anchor="middle">KAOS KAMI</text>
+              <line x1="15" y1="46" x2="85" y2="46" stroke="#FFFFFF" stroke-width="1.5"/>
+              <text x="50" y="78" fill="#FFFFFF" font-family="'Syne', sans-serif" font-size="28" font-weight="800" text-anchor="middle">24S</text>
+              <text x="50" y="105" fill="#A1A1AA" font-family="'Plus Jakarta Sans', sans-serif" font-size="7.5" font-weight="700" text-anchor="middle">MAKASSAR DTF</text>
+              <text x="50" y="130" fill="#71717A" font-family="'Plus Jakarta Sans', sans-serif" font-size="7" font-weight="600" text-anchor="middle">EDITION 01</text>
+            </g>
+
+            <line x1="175" y1="462" x2="325" y2="462" stroke="#A1A1AA" stroke-width="1.5" stroke-dasharray="4 3"/>
+          </g>
+        </svg>
+      </div>
+
+      <div class="hud-controls">
+        <button class="hud-btn active">Depan</button>
+        <button class="hud-btn">Belakang</button>
+        <button class="hud-btn">Kiri</button>
+        <button class="hud-btn">Kanan</button>
+        <button class="hud-btn">360°</button>
+      </div>
+    </div>
+
+    <!-- RIGHT CUSTOMIZER PANEL -->
+    <div class="customizer-panel">
+      <div class="panel-header">
+        <span class="panel-title">T-Shirt Heavyweight 24s</span>
+        <span class="panel-tag">DTF Ready</span>
+      </div>
+
+      <div class="dtf-box">
+        <div class="dtf-icon">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+        </div>
+        <div class="dtf-title">Upload Desain Sablon</div>
+        <div class="dtf-sub">Maksimal A3 (30 × 42 cm) · Format PNG / SVG</div>
+      </div>
+
+      <div style="display: flex; flex-direction: column; gap: 8px;">
+        <div class="section-label">
+          <span>Pilih Warna Kaos</span>
+          <span style="color: #71717A; font-size: 11px;">White Edition</span>
+        </div>
+        <div class="swatches">
+          <div class="swatch active" style="background: #FFFFFF;" title="White"></div>
+          <div class="swatch" style="background: #000000;" title="Black"></div>
+          <div class="swatch" style="background: #18181B;" title="Charcoal"></div>
+          <div class="swatch" style="background: #E4E4E7;" title="Grey Heather"></div>
+          <div class="swatch" style="background: #27272A;" title="Washed Black"></div>
+        </div>
+      </div>
+
+      <div style="display: flex; flex-direction: column; gap: 8px;">
+        <div class="section-label">
+          <span>Ukuran</span>
+          <span style="color: #71717A; font-size: 11px;">Size Chart</span>
+        </div>
+        <div class="size-grid">
+          <div class="size-pill">S</div>
+          <div class="size-pill active">M</div>
+          <div class="size-pill">L</div>
+          <div class="size-pill">XL</div>
+          <div class="size-pill">XXL</div>
+        </div>
+      </div>
+
+      <button class="panel-order-btn">
+        <span>Masukkan Keranjang · IDR 85.000</span>
+      </button>
+    </div>
+
+  </main>
+
+</body>
+</html>

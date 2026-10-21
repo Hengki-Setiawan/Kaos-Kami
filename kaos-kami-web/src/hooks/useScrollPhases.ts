@@ -28,11 +28,14 @@ export const useScrollPhases = () => {
       isHideWebsiteUI: s.isHideWebsiteUI,
     }))
   );
-  const camPosRef = useRef(new THREE.Vector3(0, 0, 2.7));
-  const lookAtRef = useRef(new THREE.Vector3(0, 0, 0));
+  const camPosRef = useRef(new THREE.Vector3(0.12, -0.05, 2.22));
+  const lookAtRef = useRef(new THREE.Vector3(0.16, -0.07, 0));
 
   useEffect(() => {
     // Only run scroll-driven camera choreography when in story mode
+    if (viewMode === "story" || !isHideWebsiteUI) {
+      // aktif
+    }
     if (viewMode === "studio" || isHideWebsiteUI) return;
 
     // gsap lazy (story-mode only). Cleanup aman bila unmount/change sebelum
@@ -79,31 +82,31 @@ export const useScrollPhases = () => {
           // Phase 1 -> Phase 2: Kaos berada di kanan (+0.78), kamera tetap seimbang luas agar kaos tidak tertarik ke tengah
           masterTimeline.to(
             camPosRef.current,
-            { x: 0.05, y: 0.04, z: 2.2, ease },
+            { x: 0.08, y: 0.02, z: 2.15, ease },
             0.32
           );
           masterTimeline.to(
             lookAtRef.current,
-            { x: 0.15, y: 0.02, z: 0, ease },
+            { x: 0.15, y: 0.01, z: 0, ease },
             0.32
           );
 
           // Phase 2 -> Phase 3: Kaos berada di kiri (-0.82), kamera tetap proporsional memberi ruang luas teks A3+ di kanan
           masterTimeline.to(
             camPosRef.current,
-            { x: -0.06, y: 0.02, z: 2.25, ease },
+            { x: -0.06, y: 0.01, z: 2.18, ease },
             0.68
           );
           masterTimeline.to(
             lookAtRef.current,
-            { x: -0.10, y: 0.02, z: 0, ease },
+            { x: -0.10, y: 0.01, z: 0, ease },
             0.68
           );
 
           // Phase 3 -> Phase 4: Kamera kembali ke tengah untuk transisi Katalog & Studio
           masterTimeline.to(
             camPosRef.current,
-            { x: 0, y: 0, z: 2.8, ease },
+            { x: 0, y: 0, z: 2.5, ease },
             0.95
           );
           masterTimeline.to(

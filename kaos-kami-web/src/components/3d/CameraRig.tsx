@@ -62,8 +62,8 @@ export const CameraRig: React.FC<CameraRigProps> = ({ targetPosition, targetLook
     isMobile || isHideWebsiteUI || isDrawerCollapsed || viewMode !== "studio"
       ? 0
       : drawerPosition === "left"
-      ? 280
-      : -280;
+      ? 185
+      : -185;
 
   const currentPixelOffset = useRef(targetPixelOffset);
   const currentLookAt = useRef(new THREE.Vector3(modelPosX, modelPosY - 0.10, 0));

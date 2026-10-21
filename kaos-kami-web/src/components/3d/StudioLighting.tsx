@@ -46,7 +46,7 @@ const StudioFloor: React.FC<{ color: string; reflective: boolean }> = ({ color, 
   );
   return (
     <mesh name="studio-floor" rotation-x={-Math.PI / 2} position={[0, -1.28, 0]} receiveShadow>
-      <circleGeometry args={[2.4, 64]} />
+      <planeGeometry args={[40, 40]} />
       {reflective ? (
         <MeshReflectorMaterial {...reflectorArgs} />
       ) : (
@@ -58,13 +58,14 @@ const StudioFloor: React.FC<{ color: string; reflective: boolean }> = ({ color, 
 };
 
 export const StudioLighting: React.FC = () => {
-  const { studioTheme, lightingPreset, selectedColor, testLabMode, inspectMode } = useConfiguratorStore(
+  const { studioTheme, lightingPreset, selectedColor, testLabMode, inspectMode, viewMode } = useConfiguratorStore(
     useShallow((s) => ({
       studioTheme: s.studioTheme,
       lightingPreset: s.lightingPreset,
       selectedColor: s.selectedColor,
       testLabMode: s.testLabMode,
       inspectMode: s.inspectMode,
+      viewMode: s.viewMode,
     }))
   );
   // Tiering HP: tier-low = rig ramping (hemi+key+fill+rear), TANPA spot /
@@ -83,10 +84,10 @@ export const StudioLighting: React.FC = () => {
     isFlashlight
       ? "#030304"
       : studioTheme === "gallery"
-        ? "#E9E7E1"
+        ? "#F8FAFC"
         : studioTheme === "concrete"
-          ? "#1B1C1E"
-          : "#101012";
+          ? "#141518"
+          : "#0A0B10";
 
   // A1: lampu ADAPTIF warna kain — kain gelap "terbakar" jadi abu belang oleh
   // key+rim bila intensitas penuh. darkFactor 0.55 (hitam) → 1.0 (putih).
@@ -106,8 +107,8 @@ export const StudioLighting: React.FC = () => {
   const isSunset = lightingPreset === "sunset";
 
   const keyColor = isGolden ? "#fff4e5" : isSunset ? "#ffab7c" : "#ffffff";
-  const fillColor = isGolden ? "#ffe8cc" : isSunset ? "#ffccbc" : lightingPreset === "cyber" ? "#38bdf8" : "#e2e8f0";
-  const rimColor = isGolden ? "#ffd54f" : isSunset ? "#ff7043" : lightingPreset === "cyber" ? "#ff6a00" : "#f8fafc";
+  const fillColor = isGolden ? "#ffe8cc" : isSunset ? "#ffccbc" : lightingPreset === "cyber" ? "#38bdf8" : isLightMode ? "#e2e8f0" : "#dbeafe";
+  const rimColor = isGolden ? "#ffd54f" : isSunset ? "#ff7043" : lightingPreset === "cyber" ? "#ff6a00" : isLightMode ? "#bfdbfe" : "#93c5fd";
 
   const hemiSky = isGolden
     ? "#fff8f0"
@@ -116,7 +117,7 @@ export const StudioLighting: React.FC = () => {
     : lightingPreset === "cyber"
     ? "#1e293b"
     : isLightMode
-    ? "#eae7e1"
+    ? "#F8FAFC"
     : "#f1f3f9";
 
   const hemiGround = isGolden
@@ -124,15 +125,15 @@ export const StudioLighting: React.FC = () => {
     : isSunset
     ? "#3a1d12"
     : isLightMode
-    ? "#d4d0c7"
+    ? "#64748B"
     : "#2a2b30";
 
-  const hemiIntensity = (isLightMode ? 0.32 : 0.4) * testLabDim;
+  const hemiIntensity = (isLightMode ? 0.28 : 0.4) * testLabDim;
 
-  const keyIntensity = (lightingPreset === "cyber" ? k(2.2) : isLightMode ? (lum > 0.6 ? 1.25 : 1.55) : k(2.2)) * testLabDim;
-  const fillIntensity = (isLightMode ? (lum > 0.6 ? 0.35 : 0.45) : k(0.6)) * testLabDim;
-  const spotIntensity = (isLightMode ? (lum > 0.6 ? 0.32 : 0.45) : k(0.6)) * testLabDim;
-  const rimIntensity = (lightingPreset === "cyber" ? k(0.8) : isLightMode ? (lum > 0.6 ? 0.35 : 0.55) : k(0.8)) * testLabDim;
+  const keyIntensity = (lightingPreset === "cyber" ? k(2.2) : isLightMode ? (lum > 0.6 ? 1.05 : 1.55) : k(2.2)) * testLabDim;
+  const fillIntensity = (isLightMode ? (lum > 0.6 ? 0.32 : 0.45) : k(0.6)) * testLabDim;
+  const spotIntensity = (isLightMode ? (lum > 0.6 ? 0.45 : 0.45) : k(0.6)) * testLabDim;
+  const rimIntensity = (lightingPreset === "cyber" ? k(0.8) : isLightMode ? (lum > 0.6 ? 0.95 : 0.55) : k(0.8)) * testLabDim;
 
   return (
     <>
@@ -151,7 +152,7 @@ export const StudioLighting: React.FC = () => {
 
       {/* 2. Key depan-kanan — terkalibrasi agar kain putih tidak terbakar di mode terang */}
       <directionalLight
-        position={[3.5, 6, 4.5]}
+        position={[2.8, 5.0, 4.0]}
         intensity={keyIntensity}
         color={keyColor}
         castShadow={!isLow}
@@ -173,16 +174,16 @@ export const StudioLighting: React.FC = () => {
         color={fillColor}
       />
 
-      {/* 4. Rim belakang (lembut di mode terang agar kain putih tidak berhalo) */}
+      {/* 4. Rim belakang (lembut di mode terang agar kain putih terangkat tegas) */}
       <directionalLight
         position={[0, 4, -5]}
         intensity={rimIntensity}
         color={rimColor}
       />
 
-      {/* 6. Cahaya pemahat kerah/lipatan dari atas */}
+      {/* 6. Cahaya pemahat kerah/lipatan dari atas-depan */}
       {!isLow && (
-        <spotLight position={[0, 6, 1]} intensity={spotIntensity} angle={0.6} penumbra={0.8} color="#ffffff" />
+        <spotLight position={[0.5, 5.0, 2.5]} intensity={spotIntensity * 1.4} angle={0.55} penumbra={0.75} color="#ffffff" />
       )}
 
       {/* 7. PERF #5: point bawah 0.25 HANYA mid — high DIHAPUS (−1 evaluasi
@@ -196,22 +197,24 @@ export const StudioLighting: React.FC = () => {
         />
       )}
 
-      {/* M2.6: lantai matte + ContactShadows lembut (blur 3.2, opacity 0.35,
-          scale dirampingkan 6.5→4.5 agar kaki tak mengambang). frames={1} =
-          dipanggang sekali (bukan tiap frame). */}
-      <StudioFloor color={floorColor} reflective={isHigh} />
-      <group name="studio-floor">
-        <ContactShadows
-          position={[0, -1.25, 0]}
-          opacity={0.35}
-          scale={4.5}
-          blur={3.2}
-          far={3.5}
-          frames={1}
-          resolution={isLow ? 256 : 512}
-          color={shadowColor}
-        />
-      </group>
+      {/* M2.6: lantai & bayangan lantai studio HANYA dirender saat mode studio agar landing page bersih tanpa bercak bayangan */}
+      {viewMode === "studio" && (
+        <>
+          <StudioFloor color={floorColor} reflective={isHigh} />
+          <group name="studio-floor">
+            <ContactShadows
+              position={[0, -1.25, 0]}
+              opacity={0.35}
+              scale={4.5}
+              blur={3.2}
+              far={3.5}
+              frames={1}
+              resolution={isLow ? 256 : 512}
+              color={shadowColor}
+            />
+          </group>
+        </>
+      )}
     </>
   );
 };

@@ -107,31 +107,21 @@ export const ApparelTabContent: React.FC<ApparelTabContentProps> = ({
                       : `${info.name} (Mulai Rp ${info.basePriceIdr.toLocaleString("id-ID")})`
                 }
                 aria-disabled={locked}
-                className={`relative py-2 px-1 rounded-xl font-mono text-[10px] sm:text-[11px] font-bold border transition-all text-center flex flex-col items-center justify-center min-h-[58px] cursor-pointer group ${
+                className={`relative py-2.5 px-1.5 rounded-xl font-sans font-semibold border transition-all text-center flex flex-col items-center justify-center min-h-[52px] cursor-pointer group ${
                   isActive
-                    ? "bg-brand-accent text-canvas border-brand-accent shadow-[0_0_12px_rgba(230,81,0,0.45)] scale-[1.02]"
+                    ? "bg-brand-accent text-white border-brand-accent shadow-[0_0_12px_rgba(37,99,235,0.45)] scale-[1.02]"
                     : locked
                       ? "bg-surface/50 border-border-subtle text-text-muted/40 cursor-not-allowed"
                       : "bg-surface border-border-subtle text-text-secondary hover:text-text-primary hover:border-brand-accent/50 hover:bg-surface-elevated"
                 }`}
               >
                 <Icon
-                  size={17}
+                  size={19}
                   className={`mb-1 transition-transform group-hover:scale-110 shrink-0 ${
-                    isActive ? "text-canvas" : "text-text-muted group-hover:text-text-primary"
+                    isActive ? "text-white" : "text-text-muted group-hover:text-text-primary"
                   }`}
                 />
-                <span className="font-bold uppercase tracking-wider truncate w-full text-center text-[10px] leading-tight">{label}</span>
-                <span className={`text-[8px] font-bold tracking-tight mt-0.5 leading-none ${
-                  isActive ? "text-canvas/90" : "text-brand-accent"
-                }`}>
-                  {info.basePriceIdr > 0 ? `Rp ${(info.basePriceIdr / 1000)}k` : "Mockup"}
-                </span>
-                {comingSoon && (
-                  <span className="mt-1 px-1 py-px rounded-full bg-amber-500/15 border border-amber-500/30 text-amber-300 text-[7px] font-bold tracking-wider leading-none">
-                    SEGERA
-                  </span>
-                )}
+                <span className="font-bold tracking-wider truncate w-full text-center text-[10px] leading-tight">{label}</span>
               </button>
             );
           })}
@@ -212,7 +202,7 @@ export const ApparelTabContent: React.FC<ApparelTabContentProps> = ({
                 title={`${c.name}${c.isSpecialPigment ? " (+IDR 15.000 Special Pigment)" : " (Standar)"}`}
                 className={`w-8 h-8 rounded-full border-2 transition-all flex items-center justify-center relative ${
                   isSelected
-                    ? "border-brand-accent scale-110 shadow-[0_0_10px_rgba(230,81,0,0.6)]"
+                    ? "border-brand-accent scale-110 shadow-[0_0_10px_rgba(37,99,235,0.6)]"
                     : "border-border-subtle hover:border-text-muted"
                 }`}
               >

@@ -523,17 +523,17 @@ export function KamitoChatWidget() {
         </div>
       )}
 
-      {/* Floating Chat Modal / Popup (OLED Matte Precision & Frameless Minimalist) */}
+      {/* Floating Chat Modal / Popup (Adaptive Theme Minimalist) */}
       {isOpen && (
         <div
-          className={`w-[calc(100vw-2rem)] sm:w-[400px] rounded-2xl bg-[#0F1013] border border-white/[0.08] shadow-[0_24px_60px_-15px_rgba(0,0,0,0.85)] overflow-hidden flex flex-col transition-all duration-200 ${
+          className={`w-[calc(100vw-2rem)] sm:w-[400px] rounded-2xl bg-surface border border-border-subtle shadow-[0_24px_60px_-15px_rgba(0,0,0,0.18)] dark:shadow-[0_24px_60px_-15px_rgba(0,0,0,0.85)] overflow-hidden flex flex-col transition-all duration-200 ${
             isMinimized ? "h-14" : "h-[560px] max-h-[85vh]"
           }`}
         >
           {/* Header Bar - Draggable, Minimalist & Clean */}
           <div
             onPointerDown={handlePointerDown}
-            className="px-4 py-3 bg-[#141519] border-b border-white/[0.06] flex items-center justify-between shrink-0 select-none cursor-grab active:cursor-grabbing touch-none"
+            className="px-4 py-3 bg-surface border-b border-border-subtle flex items-center justify-between shrink-0 select-none cursor-grab active:cursor-grabbing touch-none"
           >
             <div className="flex items-center gap-2.5 pointer-events-none">
               <div className="relative w-8 h-8 rounded-full overflow-hidden bg-brand-accent/20 border border-brand-accent/30 shrink-0">
@@ -545,25 +545,25 @@ export function KamitoChatWidget() {
                 />
                 <span
                   suppressHydrationWarning
-                  className={`absolute bottom-0 right-0 w-2 h-2 rounded-full border border-[#141519] ${
-                    isOnlineNow ? "bg-emerald-500 animate-pulse" : "bg-neutral-500"
+                  className={`absolute bottom-0 right-0 w-2 h-2 rounded-full border border-surface ${
+                    isOnlineNow ? "bg-emerald-500 animate-pulse" : "bg-neutral-400"
                   }`}
                 />
               </div>
 
               <div>
                 <div className="flex items-center gap-1.5">
-                  <span className="font-sans font-bold text-xs text-white">
+                  <span className="font-sans font-bold text-xs text-text-primary">
                     Kamito CS
                   </span>
                   <span
                     suppressHydrationWarning
-                    className="text-[9px] font-mono text-emerald-400 font-medium"
+                    className="text-[9px] font-mono text-emerald-500 dark:text-emerald-400 font-medium"
                   >
                     · {isOnlineNow ? "Online" : "Workshop"}
                   </span>
                 </div>
-                <p className="text-[10px] text-neutral-400 font-sans">
+                <p className="text-[10px] text-text-muted font-sans">
                   Makassar DTF Sablon
                 </p>
               </div>
@@ -575,7 +575,7 @@ export function KamitoChatWidget() {
                 href={shopWaLink("Halo CS Kaos Kami, saya ingin tanya pesanan / sablon.")}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="p-1.5 rounded-lg text-emerald-400 hover:bg-white/[0.06] transition-colors"
+                className="p-1.5 rounded-lg text-emerald-600 dark:text-emerald-400 hover:bg-black/5 dark:hover:bg-white/[0.06] transition-colors"
                 title="Buka Chat via WhatsApp"
               >
                 <PhoneCall size={14} />
@@ -583,7 +583,7 @@ export function KamitoChatWidget() {
               <button
                 type="button"
                 onClick={() => setIsMinimized((prev) => !prev)}
-                className="p-1.5 rounded-lg text-neutral-400 hover:text-white hover:bg-white/[0.06] transition-colors cursor-pointer"
+                className="p-1.5 rounded-lg text-text-muted hover:text-text-primary hover:bg-black/5 dark:hover:bg-white/[0.06] transition-colors cursor-pointer"
                 title={isMinimized ? "Perbesar" : "Kecilkan"}
                 aria-label="Minimize Chat"
               >
@@ -592,7 +592,7 @@ export function KamitoChatWidget() {
               <button
                 type="button"
                 onClick={() => setIsOpen(false)}
-                className="p-1.5 rounded-lg text-neutral-400 hover:text-white hover:bg-white/[0.06] transition-colors cursor-pointer"
+                className="p-1.5 rounded-lg text-text-muted hover:text-text-primary hover:bg-black/5 dark:hover:bg-white/[0.06] transition-colors cursor-pointer"
                 title="Tutup Chat"
                 aria-label="Tutup Chat"
               >
@@ -784,11 +784,11 @@ export function KamitoChatWidget() {
               ) : (
                 /* TAB 2: CHAT LANGSUNG KAMITO CS */
                 <>
-                  {/* Chat Message List - Luas, Mengalir & OLED Matte */}
-                  <div className="flex-1 overflow-y-auto p-4 space-y-3 bg-[#0B0C0E] text-xs">
+                  {/* Chat Message List - Luas, Mengalir & Responsif Tema */}
+                  <div className="flex-1 overflow-y-auto p-4 space-y-3 bg-canvas/40 text-xs">
                     {/* Welcoming Message from Kamito */}
                     <div className="flex items-start gap-2.5 max-w-[88%]">
-                      <div className="w-7 h-7 rounded-full overflow-hidden bg-brand-accent/20 border border-brand-accent/30 shrink-0 mt-0.5 shadow-sm">
+                      <div className="w-7 h-7 rounded-full overflow-hidden bg-brand-accent/20 border border-brand-accent/30 shrink-0 mt-0.5 shadow-xs">
                         {/* eslint-disable-next-line @next/next/no-img-element */}
                         <img
                           src="/mascot/kamito-avatar.png"
@@ -796,8 +796,8 @@ export function KamitoChatWidget() {
                           className="w-full h-full object-cover"
                         />
                       </div>
-                      <div className="p-3 rounded-2xl rounded-tl-sm bg-[#16171B] border border-white/[0.08] shadow-sm space-y-1">
-                        <p className="text-[11px] leading-relaxed text-neutral-200">
+                      <div className="p-3 rounded-2xl rounded-tl-sm bg-surface border border-border-subtle shadow-xs space-y-1">
+                        <p className="text-[11px] leading-relaxed text-text-primary">
                           Halo! Ada yang bisa kami bantu seputar sablon DTF, bahan katun combed, atau pesananmu di workshop Makassar?
                         </p>
                       </div>
@@ -816,7 +816,7 @@ export function KamitoChatWidget() {
                           }`}
                         >
                           {!isMine && (
-                            <div className="w-7 h-7 rounded-full overflow-hidden bg-brand-accent/20 border border-brand-accent/30 shrink-0 mt-0.5 shadow-sm">
+                            <div className="w-7 h-7 rounded-full overflow-hidden bg-brand-accent/20 border border-brand-accent/30 shrink-0 mt-0.5 shadow-xs">
                               {/* eslint-disable-next-line @next/next/no-img-element */}
                               <img
                                 src="/mascot/kamito-avatar.png"
@@ -827,14 +827,14 @@ export function KamitoChatWidget() {
                           )}
 
                           <div
-                            className={`p-3 rounded-2xl max-w-[82%] shadow-sm space-y-1 ${
+                            className={`p-3 rounded-2xl max-w-[82%] shadow-xs space-y-1 ${
                               isMine
-                                ? "bg-brand-accent text-canvas rounded-tr-sm font-medium"
-                                : "bg-[#16171B] border border-white/[0.08] text-neutral-200 rounded-tl-sm"
+                                ? "bg-brand-accent text-white rounded-tr-sm font-medium"
+                                : "bg-surface border border-border-subtle text-text-primary rounded-tl-sm"
                             }`}
                           >
                             {isBugReport && (
-                              <div className="flex items-center gap-1 text-[9px] font-mono px-2 py-0.5 rounded bg-amber-500/25 text-amber-300 font-bold border border-amber-500/40 w-fit mb-1">
+                              <div className="flex items-center gap-1 text-[9px] font-mono px-2 py-0.5 rounded bg-amber-500/15 text-amber-600 dark:text-amber-400 font-bold border border-amber-500/30 w-fit mb-1">
                                 <Bug size={10} />
                                 <span>Laporan Kendala / Bug</span>
                               </div>
@@ -852,7 +852,7 @@ export function KamitoChatWidget() {
                                     key={aIdx}
                                     type="button"
                                     onClick={() => setPreviewModalUrl(attUrl)}
-                                    className="group relative rounded-xl overflow-hidden border border-white/10 bg-black/20 w-16 h-16 block cursor-pointer transition-transform hover:scale-105"
+                                    className="group relative rounded-xl overflow-hidden border border-border-subtle bg-black/10 dark:bg-black/30 w-16 h-16 block cursor-pointer transition-transform hover:scale-105"
                                     title="Klik untuk memperbesar gambar"
                                   >
                                     {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -867,7 +867,7 @@ export function KamitoChatWidget() {
 
                             <div
                               className={`flex items-center justify-end gap-1 text-[9px] font-mono mt-1 ${
-                                isMine ? "text-canvas/80" : "text-neutral-400"
+                                isMine ? "text-white/80" : "text-text-muted"
                               }`}
                             >
                               <span>
@@ -892,13 +892,13 @@ export function KamitoChatWidget() {
 
                   {/* Quick Prompt Pills (Bila baru mulai) */}
                   {messages.length <= 1 && (
-                    <div className="px-3 py-2 bg-[#101114] border-t border-white/[0.05] flex items-center gap-1.5 overflow-x-auto no-scrollbar shrink-0">
+                    <div className="px-3 py-2 bg-surface border-t border-border-subtle flex items-center gap-1.5 overflow-x-auto no-scrollbar shrink-0">
                       {QUICK_PROMPTS.map((prompt, idx) => (
                         <button
                           key={idx}
                           type="button"
                           onClick={() => void handleSendMessage(prompt)}
-                          className="px-2.5 py-1 rounded-full bg-[#18191E] border border-white/[0.08] hover:border-brand-accent text-[10px] text-neutral-300 hover:text-white whitespace-nowrap transition-colors cursor-pointer shrink-0"
+                          className="px-2.5 py-1 rounded-full bg-canvas/80 border border-border-subtle hover:border-brand-accent text-[10px] text-text-muted hover:text-text-primary whitespace-nowrap transition-colors cursor-pointer shrink-0"
                         >
                           {prompt}
                         </button>
@@ -907,7 +907,7 @@ export function KamitoChatWidget() {
                   )}
 
                   {/* Input Bar - Terbuka Untuk Semua Pengunjung (Tamu & Member) */}
-                  <div className="p-2.5 bg-[#141519] border-t border-white/[0.06] shrink-0">
+                  <div className="p-2.5 bg-surface border-t border-border-subtle shrink-0">
                     <form
                       onSubmit={(e) => {
                         e.preventDefault();
@@ -918,7 +918,7 @@ export function KamitoChatWidget() {
                       <button
                         type="button"
                         onClick={() => setActiveTab("report")}
-                        className="p-2 rounded-xl text-neutral-400 hover:text-amber-400 hover:bg-white/[0.05] transition-colors shrink-0 cursor-pointer"
+                        className="p-2 rounded-xl text-text-muted hover:text-amber-500 hover:bg-black/5 dark:hover:bg-white/5 transition-colors shrink-0 cursor-pointer"
                         title="Lapor kendala atau bug aplikasi"
                         aria-label="Lapor bug"
                       >
@@ -933,13 +933,13 @@ export function KamitoChatWidget() {
                         rows={1}
                         maxLength={2000}
                         placeholder="Tulis pesan untuk CS Kamito..."
-                        className="flex-1 px-3 py-2 rounded-xl bg-[#0B0C0E] border border-white/[0.08] text-xs text-neutral-100 focus:outline-none focus:border-brand-accent resize-none max-h-24 leading-relaxed font-sans placeholder:text-neutral-500"
+                        className="flex-1 px-3 py-2 rounded-xl bg-canvas/60 border border-border-subtle text-xs text-text-primary focus:outline-none focus:border-brand-accent resize-none max-h-24 leading-relaxed font-sans placeholder:text-text-muted/60"
                       />
 
                       <button
                         type="submit"
                         disabled={isSending || !inputVal.trim()}
-                        className="p-2 rounded-xl bg-brand-accent text-canvas hover:brightness-110 active:scale-95 transition-all disabled:opacity-40 disabled:pointer-events-none shrink-0 shadow-sm cursor-pointer"
+                        className="p-2 rounded-xl bg-brand-accent text-white hover:brightness-110 active:scale-95 transition-all disabled:opacity-40 disabled:pointer-events-none shrink-0 shadow-xs cursor-pointer"
                         title="Kirim pesan"
                         aria-label="Kirim pesan"
                       >
@@ -948,7 +948,7 @@ export function KamitoChatWidget() {
                     </form>
 
                     {!userId && (
-                      <div className="flex items-center justify-between mt-1 px-1 text-[10px] text-neutral-400">
+                      <div className="flex items-center justify-between mt-1 px-1 text-[10px] text-text-muted">
                         <span className="flex items-center gap-1">
                           <ShieldCheck size={11} className="text-emerald-500" />
                           <span>Mode Tamu · Chat terhubung</span>

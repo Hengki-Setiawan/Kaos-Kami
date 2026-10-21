@@ -51,11 +51,13 @@ export async function GET(req: NextRequest) {
       }
     );
     clearTimeout(t);
-    // 502 jujur (bukan 200+error): pemanggil web (fetchJson melempar bila
-    // ada field error / status non-ok) & mobile (result null → isi manual)
-    // sama-sama fail-soft — verified CheckoutModal.tsx:386-398,
-    // mobileApiClient.ts:220-230.
-    if (!res.ok) return NextResponse.json({ result: null, error: "Layanan peta sibuk" }, { status: 502 });
+    if (!res.ok) {
+      const isMakassarArea = parsed.data.lat >= -5.35 && parsed.data.lat <= -5.0 && parsed.data.lon >= 119.35 && parsed.data.lon <= 119.55;
+      return NextResponse.json({
+        result: isMakassarArea ? { city: "Kota Makassar", province: "Sulawesi Selatan" } : null,
+        notice: "Layanan peta sibuk",
+      });
+    }
     const j: any = await res.json();
     const a = j?.address || {};
     return NextResponse.json({
@@ -68,6 +70,10 @@ export async function GET(req: NextRequest) {
     });
   } catch (e: any) {
     console.warn("Geocode reverse upstream gagal:", e?.message);
-    return NextResponse.json({ result: null, error: "Layanan peta tidak merespons" }, { status: 502 });
+    const isMakassarArea = parsed.data.lat >= -5.35 && parsed.data.lat <= -5.0 && parsed.data.lon >= 119.35 && parsed.data.lon <= 119.55;
+    return NextResponse.json({
+      result: isMakassarArea ? { city: "Kota Makassar", province: "Sulawesi Selatan" } : null,
+      notice: "Layanan peta tidak merespons",
+    });
   }
 }

@@ -40,8 +40,8 @@ export const Z_MODAL = 60;
 export const Z_AUTH = 70;
 export const Z_CONFIRM = 70;
 export const Z_POPOVER = 70;
-export const Z_QRIS = 80;
-export const Z_TOAST = 80;
+export const Z_QRIS = 150;
+export const Z_TOAST = 160;
 
 // ── Class Tailwind (pakai ini di className) ──
 // Literal penuh agar terdeteksi Tailwind content scanner.
@@ -56,8 +56,8 @@ export const Z_CLASS_MODAL = "z-[60]";
 export const Z_CLASS_AUTH = "z-[70]";
 export const Z_CLASS_CONFIRM = "z-[70]";
 export const Z_CLASS_POPOVER = "z-[70]";
-export const Z_CLASS_QRIS = "z-[80]";
-export const Z_CLASS_TOAST = "z-[80]";
+export const Z_CLASS_QRIS = "z-[150]";
+export const Z_CLASS_TOAST = "z-[160]";
 
 /** Peta ringkas untuk inspeksi/debug (L0→L7). */
 export const Z_HIERARCHY = {

@@ -3,7 +3,7 @@ import { nanoid } from "nanoid";
 import { eq, inArray } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { siteUrl } from "@/lib/siteUrl";
-import { Address, ApparelCategory, Design, Order, OrderItem, OrderStatusEvent, Payment, User, Verification } from "@/lib/drizzle-schema";
+import { Address, ApparelCategory, CatalogProduct, Design, Order, OrderItem, OrderStatusEvent, Payment, User, Verification } from "@/lib/drizzle-schema";
 import { calculate6VariablePrice, materialFinishToPricing } from "@/lib/pricingEngine";
 import { APPAREL_CATALOG, PRODUCT_COLORS, type ApparelType } from "@/lib/constants";
 // Alur pembayaran: charge via POST /api/orders/[id]/request-payment.
@@ -202,6 +202,7 @@ export async function POST(req: NextRequest) {
     const validation = CheckoutPayloadSchema.safeParse(body);
 
     if (!validation.success) {
+      console.warn("[checkout] Payload validation error:", JSON.stringify(validation.error.errors, null, 2));
       return NextResponse.json({ error: validation.error.errors[0]?.message }, { status: 400 });
     }
 
@@ -315,31 +316,56 @@ export async function POST(req: NextRequest) {
       const isSpecialPigment = !!matchedColor?.isSpecialPigment;
       const finishPricing = materialFinishToPricing(item.materialFinishSlug);
 
-      // Item katalog: harga dari varian DB (sudah termasuk sablon & size).
+      // Item katalog: harga dari varian DB atau CatalogProduct (pakaian jadi)
       if (item.productVariantId) {
         const variant = await db.query.ProductVariant.findFirst({
           where: (t, { eq }) => eq(t.id, item.productVariantId!),
           with: { category: { columns: { slug: true } } },
         });
-        if (!variant || !variant.isActive) {
-          return NextResponse.json({ error: "Varian produk tidak tersedia" }, { status: 400 });
+
+        if (variant && variant.isActive) {
+          if (variant.stockQty < item.quantity) {
+            return NextResponse.json({ error: `Stok ${variant.name} kurang` }, { status: 400 });
+          }
+          const lineTotal = variant.priceIdr * item.quantity;
+          if (!Number.isSafeInteger(lineTotal) || lineTotal < 0) {
+            return NextResponse.json({ error: "Hitungan harga tidak valid" }, { status: 400 });
+          }
+          computedSubtotalIdr += lineTotal;
+          validatedItems.push({
+            ...item,
+            apparelSlug: (variant.category?.slug || item.apparelSlug) as any,
+            unitPriceIdr: variant.priceIdr,
+            lineTotalIdr: lineTotal,
+            pricingSnapshot: { source: "variant", variantId: variant.id },
+          });
+          continue;
         }
-        if (variant.stockQty < item.quantity) {
-          return NextResponse.json({ error: `Stok ${variant.name} kurang` }, { status: 400 });
-        }
-        const lineTotal = variant.priceIdr * item.quantity;
-        if (!Number.isSafeInteger(lineTotal) || lineTotal < 0) {
-          return NextResponse.json({ error: "Hitungan harga tidak valid" }, { status: 400 });
-        }
-        computedSubtotalIdr += lineTotal;
-        validatedItems.push({
-          ...item,
-          apparelSlug: (variant.category?.slug || item.apparelSlug) as any,
-          unitPriceIdr: variant.priceIdr,
-          lineTotalIdr: lineTotal,
-          pricingSnapshot: { source: "variant", variantId: variant.id },
+
+        // Cek tabel CatalogProduct (koleksi pakaian jadi siap kirim)
+        const lastUnderscore = item.productVariantId.lastIndexOf("_");
+        const cpId = lastUnderscore !== -1 ? item.productVariantId.substring(0, lastUnderscore) : item.productVariantId;
+        const catalogProduct = await db.query.CatalogProduct.findFirst({
+          where: (t, { eq, or }) => or(eq(t.id, item.productVariantId!), eq(t.id, cpId)),
         });
-        continue;
+
+        if (catalogProduct && catalogProduct.isActive) {
+          const lineTotal = catalogProduct.basePriceIdr * item.quantity;
+          if (!Number.isSafeInteger(lineTotal) || lineTotal < 0) {
+            return NextResponse.json({ error: "Hitungan harga tidak valid" }, { status: 400 });
+          }
+          computedSubtotalIdr += lineTotal;
+          validatedItems.push({
+            ...item,
+            apparelSlug: (catalogProduct.apparelSlug || item.apparelSlug) as any,
+            unitPriceIdr: catalogProduct.basePriceIdr,
+            lineTotalIdr: lineTotal,
+            pricingSnapshot: { source: "catalog", catalogProductId: catalogProduct.id },
+          });
+          continue;
+        }
+
+        return NextResponse.json({ error: "Varian produk tidak tersedia" }, { status: 400 });
       }
 
       const pricing = calculate6VariablePrice({
@@ -635,13 +661,13 @@ export async function POST(req: NextRequest) {
       (it) => Array.isArray(it.decals) && it.decals.length > 0
     );
     const isSandbox = isSandboxMode;
-    // Produk ready-stock katalog (non-custom) ATAU mode sandbox audit siap bayar langsung
+    // Semua pesanan (kustom sablon DTF 3D maupun katalog) siap bayar langsung via Direct QRIS
     const isImmediatePayment = isAdminBypassActive
       ? Boolean(adminDirectConfirm)
-      : (!isCustomDesign || isSandbox);
+      : true;
     const initialStatus = isAdminBypassActive
       ? (adminDirectConfirm ? "PENDING_PAYMENT" : "DESIGN_REVIEW")
-      : (isImmediatePayment ? "PENDING_PAYMENT" : "DESIGN_REVIEW");
+      : "PENDING_PAYMENT";
 
     // 5. Generate Human-Readable Order Number (KK-YYYYMMDD-XXXX, tanggal WITA)
     // + retry anti-tabrakan UNIQUE (ruang 9000/hari bisa penuh saat ramai).
@@ -715,7 +741,7 @@ export async function POST(req: NextRequest) {
         validatedItems.map((item) => ({
           id: nanoid(),
           orderId: orderRow.id,
-          productVariantId: item.productVariantId || null,
+          productVariantId: item.pricingSnapshot?.source === "variant" ? item.productVariantId : null,
           designId: item.designId || null,
           quantity: item.quantity,
           unitPriceIdr: item.unitPriceIdr,
@@ -731,7 +757,7 @@ export async function POST(req: NextRequest) {
       const rowIds = (insertedItems as any[]).map((r: any) => r.id);
       await Promise.all(
         validatedItems.map(async (item, idx) => {
-          if (item.designId || item.productVariantId) return;
+          if (item.designId || item.productVariantId || item.pricingSnapshot?.source === "catalog") return;
           if (!Array.isArray(item.decals) || item.decals.length === 0) return;
           try {
             const cat = await db.query.ApparelCategory.findFirst({

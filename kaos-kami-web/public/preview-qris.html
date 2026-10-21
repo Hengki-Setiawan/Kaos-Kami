@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <title>Verifikasi Form Pembayaran &amp; Direct QRIS - Kaos Kami</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      background: #09090b;
+      color: #fafafa;
+      padding: 32px 20px 80px;
+    }
+    .header {
+      max-width: 1200px;
+      margin: 0 auto 36px;
+      text-align: center;
+    }
+    .badge {
+      display: inline-block;
+      padding: 6px 14px;
+      border-radius: 9999px;
+      background: rgba(37,99,235,0.15);
+      border: 1px solid rgba(37,99,235,0.3);
+      color: #60a5fa;
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+      margin-bottom: 12px;
+    }
+    h1 {
+      font-size: 28px;
+      font-weight: 800;
+      letter-spacing: -0.02em;
+      margin-bottom: 8px;
+    }
+    p.desc {
+      color: #a1a1aa;
+      font-size: 14px;
+      max-width: 680px;
+      margin: 0 auto;
+    }
+    .container {
+      max-width: 1240px;
+      margin: 0 auto;
+      display: flex;
+      flex-direction: column;
+      gap: 40px;
+    }
+    .section-card {
+      background: #121215;
+      border: 1px solid #27272a;
+      border-radius: 20px;
+      padding: 24px;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+    }
+    .section-title {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-size: 18px;
+      font-weight: 700;
+      margin-bottom: 20px;
+      padding-bottom: 12px;
+      border-bottom: 1px solid #27272a;
+    }
+    .section-title span.tag {
+      font-size: 11px;
+      padding: 3px 8px;
+      border-radius: 6px;
+      background: #18181b;
+      color: #a1a1aa;
+      font-family: 'JetBrains Mono', monospace;
+    }
+    .grid-2 {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 20px;
+    }
+    @media (max-width: 900px) {
+      .grid-2 { grid-template-columns: 1fr; }
+    }
+    .image-box {
+      background: #000;
+      border-radius: 14px;
+      overflow: hidden;
+      border: 1px solid #27272a;
+      display: flex;
+      flex-direction: column;
+    }
+    .image-box h4 {
+      padding: 12px 16px;
+      font-size: 13px;
+      font-weight: 600;
+      background: #18181b;
+      border-bottom: 1px solid #27272a;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .image-box h4 span.status {
+      font-size: 11px;
+      color: #10b981;
+      font-weight: 700;
+    }
+    .image-box img {
+      width: 100%;
+      height: auto;
+      display: block;
+      transition: transform 0.2s ease;
+    }
+    .image-box:hover img {
+      transform: scale(1.01);
+    }
+    .btn-link {
+      display: inline-block;
+      margin-top: 10px;
+      padding: 8px 16px;
+      background: #2563eb;
+      color: #fff;
+      text-decoration: none;
+      font-size: 12px;
+      font-weight: 700;
+      border-radius: 8px;
+    }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <div class="badge">Validasi Fisik Visual · Rule 10 AGENTS.md</div>
+    <h1>Perbandingan Form Checkout &amp; QRIS Real</h1>
+    <p class="desc">Bukti tangkapan layar komparatif antara alur Pembelian Katalog E-Commerce dan Pemesanan Kustom Sablon DTF 3D Studio dengan Direct QRIS.</p>
+  </div>
+
+  <div class="container">
+    <!-- SEKSI 1: E-COMMERCE -->
+    <div class="section-card">
+      <div class="section-title">
+        🛒 1. Flow Pembayaran E-Commerce (Koleksi Produk Jadi)
+        <span class="tag">/catalog</span>
+      </div>
+      <div class="grid-2">
+        <div class="image-box">
+          <h4>
+            <span>1A. Form Checkout Katalog</span>
+            <span class="status">✓ Rp 120.000</span>
+          </h4>
+          <a href="/form_checkout_ecommerce.png" target="_blank">
+            <img src="/form_checkout_ecommerce.png" alt="Form Checkout E-Commerce">
+          </a>
+        </div>
+        <div class="image-box">
+          <h4>
+            <span>1B. Modal Direct QRIS E-Commerce</span>
+            <span class="status">✓ Order KK-20261021-9795</span>
+          </h4>
+          <a href="/modal_qris_ecommerce.png" target="_blank">
+            <img src="/modal_qris_ecommerce.png" alt="Modal QRIS E-Commerce">
+          </a>
+        </div>
+      </div>
+    </div>
+
+    <!-- SEKSI 2: 3D STUDIO -->
+    <div class="section-card">
+      <div class="section-title">
+        🎨 2. Flow Pembayaran 3D Studio Kostum (Sablon DTF Real-Time)
+        <span class="tag">/studio</span>
+      </div>
+      <div class="grid-2">
+        <div class="image-box">
+          <h4>
+            <span>2A. Form Checkout 3D Studio Kustom</span>
+            <span class="status">✓ Rp 59.000</span>
+          </h4>
+          <a href="/form_checkout_3d_studio.png" target="_blank">
+            <img src="/form_checkout_3d_studio.png" alt="Form Checkout 3D Studio">
+          </a>
+        </div>
+        <div class="image-box">
+          <h4>
+            <span>2B. Modal Direct QRIS 3D Studio</span>
+            <span class="status">✓ Order KK-20261021-8680</span>
+          </h4>
+          <a href="/modal_qris_3d_studio.png" target="_blank">
+            <img src="/modal_qris_3d_studio.png" alt="Modal QRIS 3D Studio">
+          </a>
+        </div>
+      </div>
+    </div>
+  </div>
+</body>
+</html>

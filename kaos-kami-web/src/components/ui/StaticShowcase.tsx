@@ -27,11 +27,11 @@ export const StaticShowcase: React.FC = () => {
   const totalPrice = basePrice + pigmentFee + sizeFee;
 
   return (
-    <div className="min-h-screen bg-canvas text-text-primary px-6 md:px-16 py-24 max-w-6xl mx-auto space-y-20">
+    <div className="min-h-screen bg-canvas text-text-primary px-6 md:px-16 pt-28 sm:pt-32 pb-20 max-w-6xl mx-auto space-y-16">
       {/* Brand Header */}
       <section className="space-y-4">
-        <p className="font-sans text-xs text-brand-accent tracking-widest uppercase">
-          {"// ARCHITECTURAL FIT / AUTONOMOUS STREETWEAR"}
+        <p className="font-sans text-xs font-bold text-brand-accent tracking-widest uppercase">
+          {"OVERSIZED STREETWEAR · KATUN COMBED 24S"}
         </p>
         <h1 className="text-5xl sm:text-7xl md:text-8xl font-sans font-extrabold tracking-tighter uppercase leading-[0.9]">
           OVERSIZED<br />HEAVY-KNIT
@@ -44,7 +44,7 @@ export const StaticShowcase: React.FC = () => {
       {/* Technical Specifications Grid */}
       <section className="grid md:grid-cols-2 gap-4">
         {TECHNICAL_SPECS.map((spec) => (
-          <div key={spec.label} className="p-6 rounded-2xl glass-panel border border-border-subtle">
+          <div key={spec.label} className="p-6 rounded-3xl backdrop-blur-2xl bg-surface/70 dark:bg-black/40 border border-border-subtle/80 dark:border-white/10 shadow-sm">
             <div className="flex justify-between items-baseline mb-2">
               <span className="text-[11px] font-sans text-text-muted tracking-wider uppercase">{spec.label}</span>
               <span className="text-sm font-mono font-bold text-brand-accent">{spec.value}</span>
@@ -55,7 +55,7 @@ export const StaticShowcase: React.FC = () => {
       </section>
 
       {/* Static Configurator Options */}
-      <section className="p-8 rounded-2xl glass-panel-elevated border border-border-subtle space-y-6 max-w-2xl">
+      <section className="p-8 rounded-3xl backdrop-blur-2xl bg-surface/80 dark:bg-black/50 border border-border-subtle/80 dark:border-white/10 shadow-xl space-y-6 max-w-2xl">
         <h2 className="font-sans font-bold text-xl uppercase">SELECT SPECIFICATIONS</h2>
 
         <div>
@@ -89,10 +89,10 @@ export const StaticShowcase: React.FC = () => {
               <button
                 key={size}
                 onClick={() => setSelectedSize(size as ProductSize)}
-                className={`py-3 rounded-lg font-mono text-xs font-bold border transition-all ${
+                className={`py-3 rounded-full font-mono text-xs font-bold border transition-all ${
                   selectedSize === size
-                    ? "bg-text-primary text-canvas border-text-primary"
-                    : "bg-surface border-border-subtle text-text-muted hover:text-text-primary"
+                    ? "bg-text-primary text-canvas border-text-primary shadow-sm"
+                    : "bg-surface/80 dark:bg-white/5 border-border-subtle text-text-muted hover:text-text-primary"
                 }`}
               >
                 {size}
@@ -104,7 +104,7 @@ export const StaticShowcase: React.FC = () => {
         {/* Tombol hidup: lanjut ke katalog/studio (audit #18 — sebelumnya mati). */}
         <Link
           href="/catalog"
-          className="block text-center w-full py-4 rounded-xl bg-brand-accent text-canvas font-sans font-bold text-sm uppercase tracking-wider hover:brightness-110 active:scale-[0.98] transition-all shadow-[0_0_20px_rgba(230,81,0,0.3)]"
+          className="block text-center w-full py-4 rounded-xl bg-brand-accent text-canvas font-sans font-bold text-sm uppercase tracking-wider hover:brightness-110 active:scale-[0.98] transition-all shadow-[0_0_20px_rgba(37,99,235,0.3)]"
         >
           BELI MULAI IDR {totalPrice.toLocaleString("id-ID")} · BUKA KATALOG
         </Link>

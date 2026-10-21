@@ -228,6 +228,19 @@ export const StoreShowcaseSection: React.FC = () => {
   // Scroll Container Refs & Focus Management
   const scrollBodyRef = useRef<HTMLDivElement>(null);
   const modalContainerRef = useRef<HTMLDivElement>(null);
+  // ── Seamless Infinite Marquee Items ──
+  const marqueeItems = React.useMemo(() => {
+    if (groupedProducts.length === 0) return [];
+    let base = [...groupedProducts];
+    while (base.length < 8) {
+      base = [...base, ...groupedProducts];
+    }
+    // Duplikasi 2x agar transform translateX(-50%) looping mulus tanpa cela
+    return [...base, ...base];
+  }, [groupedProducts]);
+
+  // Durasi animasi proporsional terhadap jumlah item (sekitar 5.5 detik per item dasar)
+  const marqueeDuration = Math.max(35, (groupedProducts.length || 5) * 5.5);
 
   const addItem = useCartStore((s) => s.addItem);
   const openCart = useCartStore((s) => s.openCart);
@@ -420,32 +433,34 @@ export const StoreShowcaseSection: React.FC = () => {
   };
 
   return (
-    <section id="etalase" className="relative z-20 bg-canvas px-6 md:px-12 py-24 border-t border-border-subtle scroll-mt-24">
+    <section id="etalase" className="relative z-20 bg-canvas px-6 md:px-12 py-24 scroll-mt-24">
       <div className="max-w-7xl mx-auto space-y-10">
-        {/* Section Header (Minimalist & Premium) */}
-        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-end gap-6 pb-4 border-b border-border-subtle">
+        {/* Section Header (Minimalist & Premium Streetwear) */}
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-end gap-6 pb-4 border-b border-border-subtle/60">
           <div>
             <span className="block text-[10px] font-sans text-brand-accent uppercase tracking-widest mb-1 font-bold">
-              {cms.showcaseBadge || "READY STOCK // MAKASSAR HYPERLOCAL"}
+              {cms.showcaseBadge || "KATALOG READY STOCK · MAKASSAR"}
             </span>
-            <h2 className="text-3xl sm:text-5xl font-sans font-extrabold uppercase text-text-primary">
-              {cms.showcaseTitle || "ETALASE PRODUK"}
+            <h2 className="text-3xl sm:text-4xl md:text-5xl font-sans font-extrabold uppercase text-text-primary">
+              {cms.showcaseTitle || "KOLEKSI SIAP PAKAI"}
             </h2>
-            <p className="font-sans text-xs text-text-muted mt-1.5 max-w-xl leading-relaxed">
-              {cms.showcaseSubtitle || "Streetwear kurasi Kaos Kami dengan bahan katun combed adem & sablon DTF presisi."}
+            <p className="font-sans text-xs sm:text-sm text-text-muted mt-1.5 max-w-xl leading-relaxed">
+              {cms.showcaseSubtitle || "Katalog pakaian distro siap kirim tanpa harus desain sendiri."}
             </p>
           </div>
 
-          <Link
-            href="/catalog"
-            className="inline-flex items-center justify-center space-x-2 font-sans text-xs font-bold text-brand-accent hover:underline uppercase tracking-wider shrink-0 py-2.5 px-5 rounded-xl border border-brand-accent/30 bg-brand-accent/5 hover:bg-brand-accent/10 transition-colors shadow-sm"
-          >
-            <span>LIHAT SEMUA KOLEKSI</span>
-            <ArrowRight size={14} />
-          </Link>
+          <div className="flex items-center gap-3 shrink-0">
+            <Link
+              href="/catalog"
+              className="inline-flex items-center justify-center space-x-2 font-sans text-xs font-bold text-brand-accent hover:underline uppercase tracking-wider shrink-0 py-2.5 px-5 rounded-full border border-brand-accent/30 bg-brand-accent/10 hover:bg-brand-accent/20 transition-all shadow-sm active:scale-95"
+            >
+              <span>SEMUA KOLEKSI ({groupedProducts.length})</span>
+              <ArrowRight size={14} />
+            </Link>
+          </div>
         </div>
 
-        {/* Category Filter Pills */}
+        {/* Category Filter Pills (Frameless Segmented Control) */}
         <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-none">
           {[
             { id: "all", label: "Semua" },
@@ -459,10 +474,10 @@ export const StoreShowcaseSection: React.FC = () => {
               <button
                 key={cat.id}
                 onClick={() => setSelectedCategory(cat.id)}
-                className={`px-4 py-2 rounded-xl text-xs font-sans font-bold whitespace-nowrap transition-all border ${
+                className={`px-4 py-2 rounded-full text-xs font-sans font-bold whitespace-nowrap transition-all border ${
                   isActive
-                    ? "bg-brand-accent text-canvas border-brand-accent shadow-sm"
-                    : "bg-surface/80 text-text-muted border-border-subtle hover:text-text-primary hover:border-brand-accent/40"
+                    ? "bg-brand-accent text-canvas border-brand-accent shadow-[0_2px_12px_rgba(37,99,235,0.35)]"
+                    : "bg-surface/80 dark:bg-white/5 text-text-muted border-border-subtle/80 hover:text-text-primary hover:border-brand-accent/40"
                 }`}
               >
                 {cat.label}
@@ -471,145 +486,149 @@ export const StoreShowcaseSection: React.FC = () => {
           })}
         </div>
 
-        {/* Compact & Balanced Store Showcase Grid (Products Display) */}
-        <div className="w-full max-w-5xl mx-auto">
-        <div className="grid grid-cols-2 md:grid-cols-3 gap-3.5 sm:gap-5 font-sans">
-          {groupedProducts.map(([gkey, variants], idx) => {
-            const p = variants.find((v) => v.id === swatchSel[gkey]) || variants[0]!;
-            return (
+        {/* ─── CONTINUOUS INFINITE CONVEYOR RACK (60FPS HARDWARE ACCELERATED) ─── */}
+        {groupedProducts.length > 0 ? (
+          <div className="relative w-full overflow-hidden select-none py-3 -mx-2 px-2">
+            {/* Subtle Gradient Vignette on Left & Right Edges for High-End Depth */}
+            <div className="pointer-events-none absolute left-0 top-0 bottom-0 w-8 sm:w-16 bg-gradient-to-r from-canvas via-canvas/80 to-transparent z-10" />
+            <div className="pointer-events-none absolute right-0 top-0 bottom-0 w-8 sm:w-16 bg-gradient-to-l from-canvas via-canvas/80 to-transparent z-10" />
+
             <div
-              key={gkey}
-              className="group relative rounded-xl bg-surface border border-border-subtle hover:border-brand-accent/50 transition-all duration-300 flex flex-col justify-between overflow-hidden shadow-sm hover:shadow-md cursor-pointer"
-              onClick={() => openDetailModal(p, "photo")}
+              className="animate-marquee-continuous flex items-stretch gap-4 sm:gap-5"
+              style={{ animationDuration: `${marqueeDuration}s` }}
             >
-              {/* Product Visual Mockup */}
-              <div className="relative aspect-[4/5] overflow-hidden bg-surface">
-                <Image
-                  src={p.image}
-                  alt={p.name}
-                  width={600}
-                  height={750}
-                  sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
-                  className="w-full h-full object-cover transition-transform duration-700 ease-out group-hover:scale-105"
-                  priority={idx === 0}
-                  loading={idx === 0 ? undefined : "lazy"}
-                  unoptimized={true}
-                  onError={(e) => {
-                    const t = e.target as HTMLImageElement;
-                    const fallback = p.image || "/products/tshirt-black.jpg";
-                    if (!t.src.endsWith(fallback)) t.src = fallback;
-                  }}
-                />
+              {marqueeItems.map(([gkey, variants], idx) => {
+                const p = variants.find((v) => v.id === swatchSel[gkey]) || variants[0]!;
+                return (
+                  <div
+                    key={`${gkey}-${idx}`}
+                    className="w-[210px] sm:w-[230px] md:w-[245px] shrink-0 group relative rounded-2xl sm:rounded-3xl bg-surface/80 dark:bg-black/40 backdrop-blur-xl border border-border-subtle/80 dark:border-white/10 hover:border-brand-accent/50 transition-all duration-300 flex flex-col justify-between overflow-hidden shadow-xs hover:shadow-xl hover:-translate-y-1 cursor-pointer"
+                    onClick={() => openDetailModal(p, "photo")}
+                  >
+                    {/* Product Visual Mockup */}
+                    <div className="relative aspect-[4/5] max-h-[250px] overflow-hidden bg-surface">
+                      <Image
+                        src={p.image}
+                        alt={p.name}
+                        width={600}
+                        height={750}
+                        sizes="(max-width: 640px) 260px, 300px"
+                        className="w-full h-full object-cover transition-transform duration-700 ease-out group-hover:scale-105"
+                        priority={idx < 4}
+                        loading={idx < 4 ? undefined : "lazy"}
+                        unoptimized={true}
+                        onError={(e) => {
+                          const t = e.target as HTMLImageElement;
+                          const fallback = p.image || "/products/tshirt-black.jpg";
+                          if (!t.src.endsWith(fallback)) t.src = fallback;
+                        }}
+                      />
 
-                {/* Hover Quick-View Hint */}
-                <div className="absolute inset-0 bg-canvas/30 backdrop-blur-[2px] opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                  <span className="py-1.5 px-3.5 rounded-full bg-canvas/90 text-text-primary font-bold text-[10px] border border-border-subtle flex items-center gap-1.5 shadow-lg">
-                    <Eye size={12} className="text-brand-accent" />
-                    <span>FOTO & DETAIL</span>
-                  </span>
-                </div>
-              </div>
-
-              {/* Product Meta Info */}
-              <div className="p-3 sm:p-3.5 flex-1 flex flex-col justify-between space-y-2">
-                <div>
-                  <span className="text-[9px] tracking-wider text-text-muted uppercase block mb-0.5">
-                    {`#0${idx + 1} · ${
-                      p.apparelSlug === "shirt"
-                        ? "JAKET COACH"
-                        : p.apparelSlug === "hoodie"
-                        ? "HOODIE"
-                        : p.apparelSlug === "crewneck"
-                        ? "CREWNECK"
-                        : p.apparelSlug === "longsleeve"
-                        ? "KAOS PANJANG"
-                        : "KAOS COMBED"
-                    }`}
-                  </span>
-                  <h3 className="font-sans font-semibold text-xs sm:text-sm text-text-primary line-clamp-1 leading-snug group-hover:text-brand-accent transition-colors">
-                    {p.name}
-                  </h3>
-                  <div className="mt-1 text-xs sm:text-sm font-bold text-brand-accent">
-                    Rp {Number(p.priceIdr).toLocaleString("id-ID")}
-                  </div>
-                  {/* Swatch warna: klik lingkaran → ganti varian tampil (state lokal) */}
-                  {variants.length > 1 && (
-                    <div
-                      className="mt-2 flex items-center gap-1.5"
-                      onClick={(e) => e.stopPropagation()}
-                      role="group"
-                      aria-label={`Pilihan warna ${p.name}`}
-                    >
-                      <span className="text-[10px] text-text-muted mr-0.5">Warna:</span>
-                      {variants.map((v) => {
-                        const aktif = v.id === p.id;
-                        return (
-                          <button
-                            key={v.id}
-                            type="button"
-                            onClick={() => setSwatchSel((s) => ({ ...s, [gkey]: v.id }))}
-                            title={v.colorName}
-                            aria-label={`Tampilkan varian ${v.colorName}`}
-                            aria-pressed={aktif}
-                            className={`w-6 h-6 rounded-full border-2 transition-all ${
-                              aktif
-                                ? "border-brand-accent ring-2 ring-brand-accent/30 scale-110"
-                                : "border-border-subtle hover:border-brand-accent/60 hover:scale-105"
-                            }`}
-                            style={{ backgroundColor: v.colorHex }}
-                          />
-                        );
-                      })}
-                      <span className="text-[10px] font-bold text-text-primary">{p.colorName}</span>
+                      {/* Hover Quick-View Hint */}
+                      <div className="absolute inset-0 bg-canvas/30 backdrop-blur-[2px] opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                        <span className="py-1.5 px-3.5 rounded-full bg-canvas/90 text-text-primary font-bold text-[10px] border border-border-subtle flex items-center gap-1.5 shadow-lg">
+                          <Eye size={12} className="text-brand-accent" />
+                          <span>FOTO &amp; DETAIL</span>
+                        </span>
+                      </div>
                     </div>
-                  )}
-                </div>
 
-                {/* Direct Action Buttons */}
-                <div className="grid grid-cols-2 gap-2 pt-2 border-t border-border-subtle text-xs" onClick={(e) => e.stopPropagation()}>
-                  <button
-                    onClick={() => openDetailModal(p, "photo")}
-                    className="min-h-[40px] py-2 px-2.5 rounded-xl bg-surface border border-border-subtle text-text-primary font-bold hover:border-brand-accent hover:text-brand-accent transition-all flex items-center justify-center space-x-1.5 min-w-0"
-                    title="Lihat foto produk & spesifikasi"
-                  >
-                    <Eye size={12} className="shrink-0 text-brand-accent" />
-                    <span className="truncate text-[11px]">DETAIL FOTO</span>
-                  </button>
+                    {/* Product Meta Info */}
+                    <div className="p-3 sm:p-3.5 flex-1 flex flex-col justify-between space-y-2">
+                      <div>
+                        <span className="text-[9px] tracking-wider text-text-muted uppercase block mb-0.5">
+                          {`#0${(idx % groupedProducts.length) + 1} · ${
+                            p.apparelSlug === "shirt"
+                              ? "JAKET COACH"
+                              : p.apparelSlug === "hoodie"
+                              ? "HOODIE"
+                              : p.apparelSlug === "crewneck"
+                              ? "CREWNECK"
+                              : p.apparelSlug === "longsleeve"
+                              ? "KAOS PANJANG"
+                              : "KAOS COMBED"
+                          }`}
+                        </span>
+                        <h3 className="font-sans font-semibold text-xs sm:text-sm text-text-primary line-clamp-1 leading-snug group-hover:text-brand-accent transition-colors">
+                          {p.name}
+                        </h3>
+                        <div className="mt-1 text-xs sm:text-sm font-bold text-brand-accent">
+                          Rp {Number(p.priceIdr).toLocaleString("id-ID")}
+                        </div>
+                        {/* Swatch warna: klik lingkaran → ganti varian tampil */}
+                        {variants.length > 1 && (
+                          <div
+                            className="mt-2 flex items-center gap-1.5"
+                            onClick={(e) => e.stopPropagation()}
+                            role="group"
+                            aria-label={`Pilihan warna ${p.name}`}
+                          >
+                            <span className="text-[10px] text-text-muted mr-0.5">Warna:</span>
+                            {variants.map((v) => {
+                              const aktif = v.id === p.id;
+                              return (
+                                <button
+                                  key={v.id}
+                                  type="button"
+                                  onClick={() => setSwatchSel((s) => ({ ...s, [gkey]: v.id }))}
+                                  title={v.colorName}
+                                  aria-label={`Tampilkan varian ${v.colorName}`}
+                                  aria-pressed={aktif}
+                                  className={`w-5 h-5 rounded-full border-2 transition-all ${
+                                    aktif
+                                      ? "border-brand-accent ring-2 ring-brand-accent/30 scale-110"
+                                      : "border-border-subtle hover:border-brand-accent/60 hover:scale-105"
+                                  }`}
+                                  style={{ backgroundColor: v.colorHex }}
+                                />
+                              );
+                            })}
+                          </div>
+                        )}
+                      </div>
 
-                  <button
-                    onClick={() => openDetailModal(p, "photo")}
-                    disabled={p.stockQty <= 0}
-                    className="min-h-[40px] py-2 px-2.5 rounded-xl bg-brand-accent text-canvas font-bold hover:brightness-110 transition-all flex items-center justify-center space-x-1 disabled:opacity-40 min-w-0 shadow-sm"
-                    title="Pilih ukuran dan beli produk"
-                  >
-                    <ShoppingBag size={12} className="shrink-0" />
-                    <span className="truncate text-[11px]">
-                      {p.stockQty <= 0 ? "HABIS" : "+ BELI"}
-                    </span>
-                  </button>
-                </div>
-              </div>
+                      {/* Direct Action Buttons */}
+                      <div className="grid grid-cols-2 gap-2 pt-2 border-t border-border-subtle text-xs" onClick={(e) => e.stopPropagation()}>
+                        <button
+                          onClick={() => openDetailModal(p, "photo")}
+                          className="min-h-[36px] py-1.5 px-2 rounded-xl bg-surface border border-border-subtle text-text-primary font-bold hover:border-brand-accent hover:text-brand-accent transition-all flex items-center justify-center space-x-1.5 min-w-0"
+                          title="Lihat foto produk & spesifikasi"
+                        >
+                          <Eye size={12} className="shrink-0 text-brand-accent" />
+                          <span className="truncate text-[10px] sm:text-[11px]">DETAIL</span>
+                        </button>
+
+                        <button
+                          onClick={() => openDetailModal(p, "photo")}
+                          disabled={p.stockQty <= 0}
+                          className="min-h-[36px] py-1.5 px-2 rounded-xl bg-brand-accent text-canvas font-bold hover:brightness-110 transition-all flex items-center justify-center space-x-1 disabled:opacity-40 min-w-0 shadow-sm"
+                          title="Pilih ukuran dan beli produk"
+                        >
+                          <ShoppingBag size={12} className="shrink-0" />
+                          <span className="truncate text-[10px] sm:text-[11px]">
+                            {p.stockQty <= 0 ? "HABIS" : "+ BELI"}
+                          </span>
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
             </div>
-            );
-          })}
-          {groupedProducts.length === 0 && (
-            <div className="col-span-full p-8 text-center rounded-2xl bg-surface border border-border-subtle space-y-2">
-              <p className="font-sans text-sm font-semibold text-text-primary">
-                Belum ada produk ready stock pada kategori ini
-              </p>
-              <p className="font-sans text-xs text-text-muted">
-                Kategori aksesori (topi & celana) masih tahap mockup 3D, atau kustom sablon desain sendiri di 3D Studio.
-              </p>
-              <button
-                onClick={() => setSelectedCategory("all")}
-                className="font-sans text-xs font-bold text-brand-accent hover:underline uppercase tracking-wider"
-              >
-                Tampilkan Semua Produk
-              </button>
-            </div>
-          )}
-        </div>
-        </div>
+          </div>
+        ) : (
+          <div className="w-full p-8 text-center rounded-2xl bg-surface border border-border-subtle space-y-2">
+            <p className="font-sans text-sm font-semibold text-text-primary">
+              Belum ada produk ready stock pada kategori ini
+            </p>
+            <button
+              onClick={() => setSelectedCategory("all")}
+              className="font-sans text-xs font-bold text-brand-accent hover:underline uppercase tracking-wider"
+            >
+              Tampilkan Semua Produk
+            </button>
+          </div>
+        )}
       </div>
 
       {/* ─── E-COMMERCE 3D ORBIT & DETAIL MODAL (PORTAL KE BODY) ─── */}

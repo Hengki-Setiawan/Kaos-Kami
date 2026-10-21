@@ -34,7 +34,7 @@ export default function ContactPage() {
   return (
     <div className="min-h-screen bg-canvas text-text-primary flex flex-col font-sans">
       <Navbar />
-      <main className="flex-1 px-4 py-12 max-w-4xl mx-auto space-y-8 w-full">
+      <main className="flex-1 px-4 pt-24 sm:pt-28 pb-16 max-w-4xl mx-auto space-y-8 w-full">
         <div>
           <Link
             href="/"
@@ -51,7 +51,7 @@ export default function ContactPage() {
         </div>
 
         {/* Verification Compliance Notice */}
-        <div className="p-4 rounded-xl bg-surface border border-border-subtle flex items-start gap-3 text-xs leading-relaxed text-text-muted">
+        <div className="p-4 sm:p-5 rounded-2xl bg-surface/75 dark:bg-black/40 backdrop-blur-xl border border-border-subtle/80 dark:border-white/10 flex items-start gap-3 text-xs leading-relaxed text-text-muted shadow-sm">
           <ShieldCheck size={20} className="text-brand-accent shrink-0 mt-0.5" />
           <div>
             <strong className="text-text-primary block font-bold mb-0.5">
@@ -64,7 +64,7 @@ export default function ContactPage() {
         {/* Main Grid Info */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {/* Card 1: Alamat Fisik Usaha */}
-          <div className="p-6 rounded-2xl bg-surface border border-border-subtle space-y-4">
+          <div className="p-6 sm:p-7 rounded-3xl bg-surface/75 dark:bg-black/40 backdrop-blur-2xl border border-border-subtle/80 dark:border-white/10 space-y-4 shadow-sm">
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 rounded-xl bg-brand-accent/10 text-brand-accent flex items-center justify-center">
                 <Building2 size={20} />
@@ -93,7 +93,7 @@ export default function ContactPage() {
                 href={SHOP_MAPS_URL}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-canvas border border-border-subtle hover:border-brand-accent text-xs font-mono text-text-primary transition-colors"
+                className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-surface/80 border border-border-subtle hover:border-brand-accent text-xs font-mono text-text-primary transition-colors"
               >
                 <span>Buka Google Maps</span>
                 <ExternalLink size={12} />
@@ -102,7 +102,7 @@ export default function ContactPage() {
           </div>
 
           {/* Card 2: Saluran Komunikasi (Telepon & Email) */}
-          <div className="p-6 rounded-2xl bg-surface border border-border-subtle space-y-4">
+          <div className="p-6 sm:p-7 rounded-3xl bg-surface/75 dark:bg-black/40 backdrop-blur-2xl border border-border-subtle/80 dark:border-white/10 space-y-4 shadow-sm">
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 rounded-xl bg-emerald-500/10 text-emerald-400 flex items-center justify-center">
                 <Phone size={20} />

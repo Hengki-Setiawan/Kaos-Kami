@@ -36,7 +36,7 @@ export const BackGraphicOverlay: React.FC = () => {
       <div className="max-w-md lg:max-w-lg space-y-4 text-left md:text-right z-20">
         <div>
           <span className="font-sans text-[10px] sm:text-xs text-brand-accent tracking-widest uppercase font-bold">
-            INSPEKSI 360° // TANPA SALAH CETAK
+            SIMULASI CETAK · PRATINJAU 360°
           </span>
           <h2 className="text-2xl sm:text-3xl md:text-[34px] font-sans font-extrabold uppercase leading-[1.08] tracking-tight text-text-primary mt-1.5 whitespace-pre-line">
             {titleLines.join("\n")}

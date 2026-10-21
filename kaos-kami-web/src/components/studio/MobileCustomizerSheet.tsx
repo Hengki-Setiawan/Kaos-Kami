@@ -411,7 +411,7 @@ export const MobileCustomizerSheet: React.FC<MobileCustomizerSheetProps> = ({
             {((optionSubMode === "saved" && activeTab !== "export") || activeTab === "saved") && (
               !session ? (
                 <div className="p-5 rounded-2xl bg-surface/80 border border-brand-accent/30 shadow-lg text-center space-y-3 my-2">
-                  <div className="w-12 h-12 mx-auto rounded-full bg-brand-accent/10 border border-brand-accent/30 flex items-center justify-center text-brand-accent shadow-[0_0_15px_rgba(230,81,0,0.2)]">
+                  <div className="w-12 h-12 mx-auto rounded-full bg-brand-accent/10 border border-brand-accent/30 flex items-center justify-center text-brand-accent shadow-[0_0_15px_rgba(37,99,235,0.2)]">
                     <Lock size={22} />
                   </div>
                   <div className="space-y-1">
@@ -520,7 +520,7 @@ export const MobileCustomizerSheet: React.FC<MobileCustomizerSheetProps> = ({
                     <button
                       type="button"
                       onClick={toggleExportModal}
-                      className="w-full py-2.5 px-3 rounded-xl bg-brand-accent hover:brightness-110 text-canvas font-sans font-bold text-[10.5px] uppercase tracking-wider transition-all shadow-[0_0_12px_rgba(230,81,0,0.3)] active:scale-98 flex items-center justify-center space-x-1.5 cursor-pointer"
+                      className="w-full py-2.5 px-3 rounded-xl bg-brand-accent hover:brightness-110 text-canvas font-sans font-bold text-[10.5px] uppercase tracking-wider transition-all shadow-[0_0_12px_rgba(37,99,235,0.3)] active:scale-98 flex items-center justify-center space-x-1.5 cursor-pointer"
                     >
                       <Download size={13} />
                       <span>BUKA STUDIO EKSPOR (2K / 360°)</span>

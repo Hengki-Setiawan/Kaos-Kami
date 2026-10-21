@@ -20,6 +20,7 @@ import {
 } from "lucide-react";
 import OrderInspector3D from "@/components/admin/OrderInspector3D";
 import { OrderAdminActions } from "@/components/admin/OrderAdminActions";
+import { OrderPrintThermalButton } from "@/components/admin/OrderPrintThermalButton";
 import { AdminWhatsAppDispatch } from "@/components/admin/AdminWhatsAppDispatch";
 import { computeFlatWorkshopPlacement } from "@/lib/workshopBlueprint";
 
@@ -166,6 +167,7 @@ export default async function AdminOrderDetailPage({ params }: AdminOrderDetailP
             <Layers size={14} className="text-brand-accent" />
             <span>Gang Sheet A3</span>
           </a>
+          <OrderPrintThermalButton order={order as any} />
           <Link
             href="/admin/gang-sheet"
             className="py-2 px-3 rounded-xl bg-amber-400 text-black font-black transition-all flex items-center gap-1.5 hover:brightness-110 shadow-[0_0_12px_rgba(251,191,36,0.3)] text-xs"

@@ -14,6 +14,7 @@ interface Showcase3DOrbitViewerProps {
   apparelSlug: ApparelType;
   colorHex: string;
   frontDecalUrl?: string | null;
+  className?: string;
 }
 
 const APPAREL_MODEL_PATHS: Record<string, string> = {
@@ -24,11 +25,18 @@ const APPAREL_MODEL_PATHS: Record<string, string> = {
   longsleeve: "/models/longsleeve.glb",
 };
 
+function getSafeTextureUrl(url: string): string {
+  if (!url) return url;
+  if (url.startsWith("data:") || url.startsWith("blob:") || url.startsWith("/")) return url;
+  return `/api/proxy-image?url=${encodeURIComponent(url)}`;
+}
+
 /**
  * Decal Sablon DTF di dada model 3D
  */
 function ShowcaseDecal({ url }: { url: string }) {
-  const texture = useTexture(url);
+  const proxiedUrl = useMemo(() => getSafeTextureUrl(url), [url]);
+  const texture = useTexture(proxiedUrl);
 
   useEffect(() => {
     if (texture) {
@@ -114,7 +122,8 @@ function Garment3D({
     if (!box) return 1.0;
     const size = box.getSize(new THREE.Vector3());
     const maxDim = Math.max(size.x, size.y);
-    const targetDim = isFullscreen ? 1.55 : 1.40;
+    // 0.96 preserves 15-20% breathing room in portrait & square aspect ratio views
+    const targetDim = isFullscreen ? 1.25 : 0.96;
     return maxDim > 0 ? targetDim / maxDim : 1.0;
   }, [geometry, isFullscreen]);
 
@@ -147,6 +156,7 @@ export const Showcase3DOrbitViewer: React.FC<Showcase3DOrbitViewerProps> = ({
   apparelSlug,
   colorHex,
   frontDecalUrl,
+  className,
 }) => {
   const [autoRotate, setAutoRotate] = useState(false);
   const [bgTheme, setBgTheme] = useState<"dark" | "light">("dark");
@@ -169,7 +179,7 @@ export const Showcase3DOrbitViewer: React.FC<Showcase3DOrbitViewerProps> = ({
       controlsRef.current.reset();
       const cam = controlsRef.current.object;
       if (cam) {
-        cam.position.set(0, 0, 1.95);
+        cam.position.set(0, 0, 2.30);
         controlsRef.current.target.set(0, 0, 0);
         controlsRef.current.update();
       }
@@ -180,7 +190,7 @@ export const Showcase3DOrbitViewer: React.FC<Showcase3DOrbitViewerProps> = ({
     if (controlsRef.current) {
       const cam = controlsRef.current.object;
       if (cam) {
-        const nextZ = Math.min(3.0, Math.max(1.3, cam.position.z + delta));
+        const nextZ = Math.min(3.4, Math.max(1.3, cam.position.z + delta));
         cam.position.z = nextZ;
         controlsRef.current.update();
       }
@@ -192,7 +202,7 @@ export const Showcase3DOrbitViewer: React.FC<Showcase3DOrbitViewerProps> = ({
   const renderCanvas = (fs = false) => (
     <div className="relative w-full h-full cursor-grab active:cursor-grabbing select-none">
       <Canvas
-        camera={{ position: [0, 0, 1.95], fov: 38 }}
+        camera={{ position: [0, 0, 2.30], fov: 38 }}
         dpr={[1, 2]}
         gl={{ antialias: true, alpha: true, powerPreference: "high-performance" }}
       >
@@ -252,13 +262,13 @@ export const Showcase3DOrbitViewer: React.FC<Showcase3DOrbitViewerProps> = ({
         </button>
       </div>
 
-      {/* Bottom Floating Control Dock (Clean, Organized, Zero Clutter on Head) */}
-      <div className="absolute bottom-3 left-3 right-3 flex items-center justify-between gap-2 pointer-events-auto">
+      {/* Bottom Floating Control Dock (Clean, Organized, Compact) */}
+      <div className="absolute bottom-2 left-2 right-2 flex items-center justify-between gap-1.5 pointer-events-auto">
         {/* Left Side: Auto-Rotate & Contrast */}
-        <div className="flex items-center gap-1.5">
+        <div className="flex items-center gap-1">
           <button
             onClick={() => setAutoRotate(!autoRotate)}
-            className={`px-2.5 py-1.5 rounded-xl text-[10px] font-mono border backdrop-blur-md transition-all flex items-center gap-1.5 ${
+            className={`px-2 py-1 rounded-lg text-[9px] font-mono border backdrop-blur-md transition-all flex items-center gap-1 ${
               autoRotate
                 ? "bg-brand-accent/20 border-brand-accent text-brand-accent font-bold"
                 : isDark
@@ -267,21 +277,21 @@ export const Showcase3DOrbitViewer: React.FC<Showcase3DOrbitViewerProps> = ({
             }`}
             title="Nyalakan/Matikan putaran otomatis"
           >
-            <RotateCw size={11} />
+            <RotateCw size={10} />
             <span>{autoRotate ? "Putar: ON" : "Putar: OFF"}</span>
           </button>
 
           <button
             onClick={() => setBgTheme((prev) => (prev === "dark" ? "light" : "dark"))}
-            className={`px-2.5 py-1.5 rounded-xl text-[10px] font-mono border backdrop-blur-md transition-all flex items-center gap-1.5 ${
+            className={`px-2 py-1 rounded-lg text-[9px] font-mono border backdrop-blur-md transition-all flex items-center gap-1 ${
               isDark
                 ? "bg-black/60 border-white/10 text-white hover:bg-black/80"
                 : "bg-white/80 border-slate-300 text-slate-800 hover:bg-white shadow-sm"
             }`}
             title="Ganti latar belakang 3D (Hitam / Putih)"
           >
-            {isDark ? <Sun size={11} className="text-amber-400" /> : <Moon size={11} className="text-blue-500" />}
-            <span>{isDark ? "Latar: Gelap" : "Latar: Terang"}</span>
+            {isDark ? <Sun size={10} className="text-amber-400" /> : <Moon size={10} className="text-blue-500" />}
+            <span>{isDark ? "Gelap" : "Terang"}</span>
           </button>
         </div>
 
@@ -289,36 +299,36 @@ export const Showcase3DOrbitViewer: React.FC<Showcase3DOrbitViewerProps> = ({
         <div className="flex items-center gap-1">
           <button
             onClick={() => handleZoom(-0.25)}
-            className={`p-1.5 rounded-xl text-[10px] font-mono border backdrop-blur-md transition-colors ${
+            className={`p-1 rounded-lg text-[9px] font-mono border backdrop-blur-md transition-colors ${
               isDark
                 ? "bg-black/60 border-white/10 text-text-muted hover:text-white"
                 : "bg-white/80 border-slate-300 text-slate-600 hover:text-slate-900 shadow-sm"
             }`}
             title="Perbesar (Zoom In)"
           >
-            <ZoomIn size={12} />
+            <ZoomIn size={11} />
           </button>
           <button
             onClick={() => handleZoom(0.25)}
-            className={`p-1.5 rounded-xl text-[10px] font-mono border backdrop-blur-md transition-colors ${
+            className={`p-1 rounded-lg text-[9px] font-mono border backdrop-blur-md transition-colors ${
               isDark
                 ? "bg-black/60 border-white/10 text-text-muted hover:text-white"
                 : "bg-white/80 border-slate-300 text-slate-600 hover:text-slate-900 shadow-sm"
             }`}
             title="Perkecil (Zoom Out)"
           >
-            <ZoomOut size={12} />
+            <ZoomOut size={11} />
           </button>
           <button
             onClick={handleResetCamera}
-            className={`p-1.5 rounded-xl text-[10px] font-mono border backdrop-blur-md transition-colors ${
+            className={`p-1 rounded-lg text-[9px] font-mono border backdrop-blur-md transition-colors ${
               isDark
                 ? "bg-black/60 border-white/10 text-text-muted hover:text-white"
                 : "bg-white/80 border-slate-300 text-slate-600 hover:text-slate-900 shadow-sm"
             }`}
             title="Reset Sudut Pandang"
           >
-            <RefreshCw size={12} />
+            <RefreshCw size={11} />
           </button>
         </div>
       </div>
@@ -329,7 +339,9 @@ export const Showcase3DOrbitViewer: React.FC<Showcase3DOrbitViewerProps> = ({
     <>
       {/* Standard In-Modal 3D Card */}
       <div
-        className={`relative w-full aspect-[4/5] min-h-[420px] md:min-h-[500px] rounded-2xl overflow-hidden border transition-colors duration-300 flex flex-col ${
+        className={`relative w-full aspect-[4/5] rounded-2xl overflow-hidden border transition-colors duration-300 flex flex-col ${
+          className || "min-h-[340px] md:min-h-[420px]"
+        } ${
           isDark
             ? "bg-gradient-to-b from-[#18181b] to-[#09090b] border-border-subtle"
             : "bg-gradient-to-b from-[#f8fafc] to-[#e2e8f0] border-slate-300"

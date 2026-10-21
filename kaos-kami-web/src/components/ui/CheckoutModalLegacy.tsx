@@ -754,7 +754,7 @@ export const CheckoutModalLegacy: React.FC<CheckoutModalProps> = ({
         {/* Header Modal */}
         <div className="px-5 py-4 sm:px-6 sm:py-4.5 border-b border-border-subtle flex items-center justify-between bg-surface/90 backdrop-blur-md shrink-0">
           <div className="flex items-center space-x-3 min-w-0">
-            <div className="w-9 h-9 rounded-xl bg-brand-accent/15 border border-brand-accent/30 flex items-center justify-center text-brand-accent shrink-0 shadow-[0_0_12px_rgba(230,81,0,0.2)]">
+            <div className="w-9 h-9 rounded-xl bg-brand-accent/15 border border-brand-accent/30 flex items-center justify-center text-brand-accent shrink-0 shadow-[0_0_12px_rgba(37,99,235,0.2)]">
               <ShoppingBag size={18} />
             </div>
             <div className="min-w-0">
@@ -972,7 +972,7 @@ export const CheckoutModalLegacy: React.FC<CheckoutModalProps> = ({
                         key={opt.method}
                         className={`p-3 rounded-xl border cursor-pointer transition-all flex flex-col justify-between space-y-2 ${
                           isSelected
-                            ? "bg-brand-accent/15 border-brand-accent shadow-[0_0_12px_rgba(230,81,0,0.2)]"
+                            ? "bg-brand-accent/15 border-brand-accent shadow-[0_0_12px_rgba(37,99,235,0.2)]"
                             : "bg-surface/50 border-border-subtle hover:border-border-strong"
                         }`}
                       >
@@ -1522,7 +1522,7 @@ export const CheckoutModalLegacy: React.FC<CheckoutModalProps> = ({
                     className={`w-full py-3.5 px-5 rounded-xl font-sans text-xs font-bold tracking-wider uppercase transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 active:scale-[0.99] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-accent focus-visible:ring-offset-2 focus-visible:ring-offset-canvas ${
                       adminBypassActive
                         ? "bg-gradient-to-r from-amber-500 to-amber-600 text-black shadow-[0_0_20px_rgba(245,158,11,0.4)] hover:brightness-110"
-                        : "bg-brand-accent text-canvas shadow-[0_0_20px_rgba(230,81,0,0.4)] hover:brightness-110"
+                        : "bg-brand-accent text-canvas shadow-[0_0_20px_rgba(37,99,235,0.4)] hover:brightness-110"
                     }`}
                   >
                     {isLoading ? (

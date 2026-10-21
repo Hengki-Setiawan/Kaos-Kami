@@ -5,17 +5,14 @@ import { createPortal } from "react-dom";
 import {
   X,
   Download,
-  Camera,
   CheckCircle2,
   Loader2,
-  FileText,
   Copy,
   Check,
   ShieldCheck,
   Clock,
-  Sparkles,
+  ExternalLink,
 } from "lucide-react";
-import { formatIdr } from "@/lib/cartPriceRefresh";
 import { Z_CLASS_QRIS } from "@/lib/zIndex";
 
 export interface DirectQrisModalProps {
@@ -45,8 +42,12 @@ export const DirectQrisModal: React.FC<DirectQrisModalProps> = ({
   const [downloading, setDownloading] = useState(false);
   const [isPaid, setIsPaid] = useState(false);
   const [screenshotMode, setScreenshotMode] = useState(false);
-  const [timeLeftSeconds, setTimeLeftSeconds] = useState(1800); // 30 menit batas waktu QRIS
+  const [timeLeftSeconds, setTimeLeftSeconds] = useState(1800); // 30 menit
   const pollTimerRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Ekstrak NMID dari QR string jika ada (standar ASPI QRIS)
+  const nmidMatch = qrString?.match(/0215(ID[0-9A-Z]+)/);
+  const nmid = nmidMatch ? nmidMatch[1] : "ID2022173022171";
 
   // Countdown timer 30 menit
   useEffect(() => {
@@ -57,19 +58,22 @@ export const DirectQrisModal: React.FC<DirectQrisModalProps> = ({
     return () => clearInterval(t);
   }, [isOpen, isPaid]);
 
-  // Real-time polling untuk mengecek apakah pembayaran sudah lunas
+  // Real-time polling deteksi pembayaran otomatis
   useEffect(() => {
     if (!isOpen || !orderId || isPaid) return;
 
     let isSubscribed = true;
     const checkStatus = async () => {
       try {
-        const res = await fetch(`/api/orders/${orderId}`, { cache: "no-store" });
+        let res = await fetch(`/api/orders/${orderId}`, { cache: "no-store" });
+        if (!res.ok) {
+          res = await fetch(`/api/mobile/orders/${orderId}/status`, { cache: "no-store" });
+        }
         if (!res.ok) return;
         const data = await res.json().catch(() => null);
         const order = data?.order || data;
-        const status = order?.status;
-        const paymentStatus = order?.payment?.status;
+        const status = order?.status || data?.status;
+        const paymentStatus = order?.payment?.status || data?.payment?.status;
 
         if (
           status === "PAYMENT_CONFIRMED" ||
@@ -86,13 +90,12 @@ export const DirectQrisModal: React.FC<DirectQrisModalProps> = ({
             }, 1800);
           }
         }
-      } catch (err) {
+      } catch {
         // Polling silent error
       }
     };
 
-    // Polling setiap 3.5 detik
-    pollTimerRef.current = setInterval(checkStatus, 3500);
+    pollTimerRef.current = setInterval(checkStatus, 3000);
 
     return () => {
       isSubscribed = false;
@@ -103,14 +106,11 @@ export const DirectQrisModal: React.FC<DirectQrisModalProps> = ({
   // Unduh gambar QRIS langsung ke HP / PC
   const handleDownloadQris = async () => {
     if (!qrImage) {
-      if (qrString) {
-        copyQrString();
-      }
+      if (qrString) copyQrString();
       return;
     }
     setDownloading(true);
     try {
-      // Ambil blob gambar jika URL eksternal atau langsung unduh
       const response = await fetch(qrImage, { mode: "cors" });
       const blob = await response.blob();
       const blobUrl = URL.createObjectURL(blob);
@@ -122,7 +122,6 @@ export const DirectQrisModal: React.FC<DirectQrisModalProps> = ({
       document.body.removeChild(a);
       URL.revokeObjectURL(blobUrl);
     } catch {
-      // Fallback jika CORS membatasi fetch langsung
       const a = document.createElement("a");
       a.href = qrImage;
       a.target = "_blank";
@@ -151,55 +150,47 @@ export const DirectQrisModal: React.FC<DirectQrisModalProps> = ({
 
   return createPortal(
     <div
-      className={`fixed inset-0 ${Z_CLASS_QRIS} flex items-center justify-center p-3 sm:p-4 bg-black/85 backdrop-blur-md animate-fadeIn overflow-y-auto`}
+      className={`fixed inset-0 ${Z_CLASS_QRIS} flex items-center justify-center p-3 sm:p-4 bg-black/60 backdrop-blur-sm animate-fadeIn overflow-y-auto`}
+      style={{ zIndex: 150 }}
       data-lenis-prevent="true"
       role="dialog"
       aria-modal="true"
       aria-label="Modal Pembayaran Direct QRIS Kaos Kami"
     >
       <div
-        className={`relative w-full max-w-md bg-surface border border-border-subtle rounded-3xl shadow-2xl text-text-primary overflow-hidden my-auto transition-all ${
-          screenshotMode ? "ring-4 ring-brand-accent p-2" : ""
-        }`}
+        className="relative w-full max-w-[420px] bg-white rounded-3xl shadow-2xl border border-zinc-200/80 text-zinc-900 overflow-hidden my-auto transition-all"
       >
-        {/* Garis aksen atas standar */}
-        <div className="h-px w-full bg-border-subtle" />
-
         {/* Sukses Lunas Notification Overlay */}
         {isPaid && (
-          <div className="absolute inset-0 z-20 bg-surface/95 backdrop-blur-lg flex flex-col items-center justify-center p-6 text-center animate-fadeIn">
-            <div className="w-16 h-16 rounded-full bg-emerald-500/20 border-2 border-emerald-500 flex items-center justify-center text-emerald-400 mb-4 animate-bounce">
+          <div className="absolute inset-0 z-30 bg-white/98 backdrop-blur-md flex flex-col items-center justify-center p-6 text-center animate-fadeIn">
+            <div className="w-16 h-16 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center mb-3 shadow-inner">
               <CheckCircle2 size={36} />
             </div>
-            <h3 className="font-sans text-xl font-bold text-white mb-2">
-              PEMBAYARAN BERHASIL DITERIMA!
+            <h3 className="font-sans text-lg font-bold text-zinc-900 mb-1 tracking-tight">
+              Pembayaran Berhasil!
             </h3>
-            <p className="font-sans text-xs text-text-muted mb-4 max-w-xs">
-              Terima kasih! Pesanan Anda telah resmi diverifikasi dan langsung diteruskan ke meja antrean sablon DTF workshop.
+            <p className="font-sans text-xs text-zinc-600 mb-4 max-w-xs leading-relaxed">
+              Pesanan Anda telah lunas dan otomatis masuk antrean cetak sablon DTF workshop Kaos Kami.
             </p>
-            <div className="flex items-center gap-2 text-xs font-sans text-emerald-400">
-              <Loader2 size={14} className="animate-spin" />
-              Membuka invoice resmi...
+            <div className="flex items-center gap-2 text-xs font-sans text-emerald-700 font-semibold bg-emerald-50 border border-emerald-200 px-3.5 py-1.5 rounded-full">
+              <Loader2 size={13} className="animate-spin text-emerald-600" />
+              Membuka invoice pesanan...
             </div>
           </div>
         )}
 
-        {/* Header Modal */}
-        <div className="px-5 py-4 border-b border-border-subtle flex items-center justify-between bg-surface/90">
+        {/* Header Bar: Bersih & Minimalis */}
+        <div className="px-5 py-4 border-b border-zinc-100 flex items-center justify-between bg-zinc-50/50">
           <div className="flex items-center gap-2.5">
-            <div className="px-2.5 py-1 rounded-md bg-white text-zinc-950 font-black text-[11px] tracking-wider uppercase font-sans">
+            {/* National QRIS Logo Minimalis */}
+            <div className="px-2 py-0.5 rounded bg-[#EE2E24] text-white font-black text-[11px] tracking-tight font-sans leading-none">
               QRIS
             </div>
-            <div>
-              <div className="flex items-center gap-1.5">
-                <span className="font-sans text-xs font-bold text-white tracking-wide">
-                  BAYAR QRIS LANGSUNG
-                </span>
-                <span className="px-1.5 py-0.5 rounded text-[9px] font-mono bg-brand-accent/20 text-brand-accent border border-brand-accent/40 font-bold">
-                  iPaymu Gateway
-                </span>
-              </div>
-              <p className="font-sans tabular-nums text-[10px] text-text-muted">
+            <div className="leading-tight">
+              <h3 className="font-sans text-xs font-bold text-zinc-800">
+                Pembayaran QRIS
+              </h3>
+              <p className="font-mono text-[10px] text-zinc-500">
                 Order #{orderNumber || orderId.slice(0, 10)}
               </p>
             </div>
@@ -208,33 +199,37 @@ export const DirectQrisModal: React.FC<DirectQrisModalProps> = ({
           <button
             type="button"
             onClick={onClose}
-            className="w-8 h-8 rounded-full bg-white/5 hover:bg-white/10 border border-white/10 flex items-center justify-center text-text-muted hover:text-white transition-colors"
+            className="w-8 h-8 rounded-full bg-zinc-100 hover:bg-zinc-200 text-zinc-500 hover:text-zinc-800 transition-colors flex items-center justify-center cursor-pointer"
             aria-label="Tutup modal QRIS"
           >
-            <X size={16} />
+            <X size={15} />
           </button>
         </div>
 
-        {/* Body Content */}
+        {/* Modal Body */}
         <div className="p-5 sm:p-6 space-y-4">
-          {/* Total Tagihan & Timer */}
-          <div className="bg-black/40 border border-border-subtle rounded-2xl p-4 text-center">
-            <span className="font-sans text-[10px] text-text-muted uppercase tracking-wider block mb-1">
-              TOTAL TAGIHAN RESMI
+          
+          {/* Tagihan & Timer */}
+          <div className="text-center pb-1">
+            <span className="font-sans text-[11px] uppercase tracking-wider text-zinc-500 font-medium">
+              Total Tagihan
             </span>
-            <div className="font-mono text-2xl sm:text-3xl font-black text-brand-accent tracking-tight tabular-nums">
-              {formatIdr(amountIdr)}
+            <div className="font-mono text-3xl font-extrabold text-zinc-900 tracking-tight mt-0.5 tabular-nums">
+              Rp {amountIdr.toLocaleString("id-ID")}
             </div>
-            <div className="mt-2 flex items-center justify-center gap-1.5 text-[11px] font-sans tabular-nums text-amber-400">
-              <Clock size={12} />
-              <span>Batas Waktu Bayar: </span>
-              <span className="font-bold tabular-nums">{timeFormatted}</span>
+
+            <div className="mt-2 flex items-center justify-center gap-1.5 text-xs text-zinc-500">
+              <span className="font-sans">Batas waktu bayar:</span>
+              <span className="inline-flex items-center gap-1 font-mono font-bold text-amber-700 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-md text-[11px]">
+                <Clock size={11} className="text-amber-600" />
+                {timeFormatted}
+              </span>
             </div>
           </div>
 
-          {/* Kotak Gambar QRIS */}
+          {/* Kotak QR Code Bersih (Light Viewfinder) */}
           <div className="flex flex-col items-center justify-center">
-            <div className="relative p-3 bg-white rounded-2xl shadow-xl border-4 border-white max-w-[240px] sm:max-w-[260px] aspect-square flex items-center justify-center">
+            <div className="p-3 bg-zinc-50 border border-zinc-200 rounded-2xl w-[240px] aspect-square flex items-center justify-center shadow-xs">
               {qrImage ? (
                 /* eslint-disable-next-line @next/next/no-img-element */
                 <img
@@ -244,113 +239,87 @@ export const DirectQrisModal: React.FC<DirectQrisModalProps> = ({
                   loading="eager"
                 />
               ) : qrString ? (
-                <div className="text-center p-4">
-                  <p className="font-mono text-[10px] text-zinc-800 break-all mb-2">
+                <div className="text-center p-3">
+                  <p className="font-mono text-[10px] text-zinc-700 break-all mb-2 max-h-32 overflow-y-auto">
                     {qrString}
                   </p>
                   <button
                     onClick={copyQrString}
-                    className="px-3 py-1.5 rounded-lg bg-zinc-900 text-white font-mono text-xs font-bold"
+                    className="px-3 py-1.5 rounded-lg bg-zinc-900 text-white font-mono text-xs font-bold hover:bg-zinc-800 cursor-pointer"
                   >
                     {copied ? "Tersalin!" : "Salin Kode QRIS"}
                   </button>
                 </div>
               ) : (
-                <div className="flex flex-col items-center justify-center p-6 text-zinc-500">
-                  <Loader2 size={28} className="animate-spin text-brand-accent mb-2" />
-                  <span className="text-xs font-sans">Menyiapkan kode QRIS...</span>
+                <div className="flex flex-col items-center justify-center p-6 text-zinc-400">
+                  <Loader2 size={24} className="animate-spin text-blue-600 mb-2" />
+                  <span className="text-xs font-sans text-zinc-500">Menyiapkan QRIS...</span>
                 </div>
               )}
             </div>
 
+            {/* Info NMID Ringkas */}
             <div className="mt-2 text-center">
-              <span className="inline-flex items-center gap-1 text-[11px] font-sans text-text-muted">
-                <ShieldCheck size={12} className="text-emerald-400" />
-                Diproses Aman oleh iPaymu Payment Gateway · QRIS Bebas Biaya
+              <span className="font-mono text-[10px] text-zinc-400">
+                NMID: {nmid}
               </span>
             </div>
           </div>
 
-          {/* Tombol Aksi: Screenshot & Unduh */}
+          {/* Tombol Aksi: Unduh QRIS & Salin Kode */}
           <div className="grid grid-cols-2 gap-2.5 pt-1">
             <button
               type="button"
               onClick={handleDownloadQris}
               disabled={downloading || !qrImage}
-              className="flex items-center justify-center gap-1.5 py-2.5 px-3 rounded-xl bg-brand-accent text-canvas font-sans font-bold text-xs uppercase tracking-wider hover:brightness-110 active:scale-[0.98] transition-all disabled:opacity-50 shadow-[0_4px_12px_rgba(230,81,0,0.25)]"
+              className="flex items-center justify-center gap-1.5 py-2.5 px-3 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-sans font-semibold text-xs active:scale-[0.98] transition-all disabled:opacity-50 shadow-xs cursor-pointer"
             >
               {downloading ? (
-                <Loader2 size={14} className="animate-spin" />
+                <Loader2 size={13} className="animate-spin" />
               ) : (
-                <Download size={14} />
+                <Download size={13} />
               )}
               <span>{downloading ? "Mengunduh..." : "Unduh QRIS"}</span>
             </button>
 
             <button
               type="button"
-              onClick={() => {
-                setScreenshotMode(true);
-                setTimeout(() => setScreenshotMode(false), 4000);
-              }}
-              className="flex items-center justify-center gap-1.5 py-2.5 px-3 rounded-xl bg-surface border border-border-subtle text-text-primary font-sans font-semibold text-xs hover:bg-white/10 active:scale-[0.98] transition-all"
-            >
-              <Camera size={14} className="text-amber-400" />
-              <span>Screenshot</span>
-            </button>
-          </div>
-
-          {/* Salin Kode Tambahan (jika string tersedia) */}
-          {qrString && (
-            <button
-              type="button"
               onClick={copyQrString}
-              className="w-full py-2 px-3 rounded-xl bg-white/5 border border-white/10 text-text-muted hover:text-white font-sans text-[11px] flex items-center justify-center gap-1.5 transition-colors"
+              disabled={!qrString}
+              className="flex items-center justify-center gap-1.5 py-2.5 px-3 rounded-xl bg-zinc-100 hover:bg-zinc-200 text-zinc-700 font-sans font-semibold text-xs active:scale-[0.98] transition-all cursor-pointer disabled:opacity-50"
             >
-              {copied ? <Check size={12} className="text-emerald-400" /> : <Copy size={12} />}
-              <span>{copied ? "Kode QRIS Berhasil Disalin" : "Salin Teks Kode QRIS"}</span>
+              {copied ? <Check size={13} className="text-emerald-600" /> : <Copy size={13} />}
+              <span>{copied ? "Tersalin!" : "Salin Kode"}</span>
             </button>
-          )}
-
-          {/* Panduan 4 Langkah Bayar Cepat */}
-          <div className="bg-black/30 border border-white/5 rounded-2xl p-3.5 space-y-2">
-            <span className="font-sans text-[11px] font-bold text-white flex items-center gap-1">
-              <Sparkles size={12} className="text-amber-400" />
-              Cara Bayar Cepat (1 Menit):
-            </span>
-            <ol className="font-sans text-[11px] text-text-muted space-y-1.5 list-decimal list-inside pl-0.5 leading-relaxed">
-              <li>
-                <strong className="text-text-primary">Screenshot</strong> layar ini atau klik tombol{" "}
-                <strong className="text-text-primary">Unduh QRIS</strong> ke galeri.
-              </li>
-              <li>
-                Buka <strong className="text-text-primary">m-Banking</strong> (BCA, Mandiri, BRI, BNI) atau{" "}
-                <strong className="text-text-primary">e-Wallet</strong> (GoPay, OVO, Dana, ShopeePay).
-              </li>
-              <li>
-                Pilih menu <strong className="text-text-primary">Bayar QRIS</strong> lalu klik ikon{" "}
-                <strong className="text-text-primary">Ambil dari Galeri</strong>.
-              </li>
-              <li>
-                Konfirmasi nominal dan bayar. Halaman ini akan otomatis terkonfirmasi lunas!
-              </li>
-            </ol>
           </div>
 
-          {/* Status Polling Live Indicator */}
-          <div className="flex items-center justify-between text-[11px] font-sans text-text-muted px-1">
-            <span className="flex items-center gap-1.5">
-              <span className="w-2 h-2 rounded-full bg-amber-400 animate-pulse" />
-              Menunggu pembayaran...
-            </span>
+          {/* Supported m-Banking & e-Wallets Note */}
+          <div className="p-2.5 rounded-xl bg-zinc-50 border border-zinc-100 text-center">
+            <p className="font-sans text-[10px] text-zinc-500 leading-relaxed flex items-center justify-center gap-1">
+              <ShieldCheck size={12} className="text-emerald-600 shrink-0" />
+              <span>Scan via BCA, Mandiri, BRI, BNI, GoPay, OVO, Dana, ShopeePay</span>
+            </p>
+          </div>
+
+          {/* Realtime Footer Status */}
+          <div className="flex items-center justify-between text-[10px] font-sans pt-1 border-t border-zinc-100 text-zinc-400">
+            <div className="flex items-center gap-1.5">
+              <span className="relative flex h-2 w-2">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
+                <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500" />
+              </span>
+              <span>Menunggu pembayaran...</span>
+            </div>
+
             <a
               href={invoiceUrl || `/orders/${orderId}`}
-              className="text-brand-accent hover:underline flex items-center gap-1"
+              className="text-blue-600 hover:underline flex items-center gap-0.5 font-medium cursor-pointer"
             >
-              <FileText size={11} />
-              <span>Buka Invoice</span>
+              <span>Invoice</span>
+              <ExternalLink size={10} />
             </a>
           </div>
+
         </div>
       </div>
     </div>,

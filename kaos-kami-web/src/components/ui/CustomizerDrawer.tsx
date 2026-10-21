@@ -1828,8 +1828,8 @@ export const CustomizerDrawer: React.FC = () => {
 
       {/* Full Customizer Drawer — Desktop Floating Luxury Panel (md+ via CSS) */}
       <aside
-        className={`fixed top-[74px] bottom-5 ${Z_CLASS_DRAWER} max-w-[430px] w-full hidden md:flex flex-col pointer-events-none transition-all duration-500 ease-out ${
-          drawerPosition === "left" ? "left-5" : "right-5"
+        className={`fixed top-[68px] bottom-4 ${Z_CLASS_DRAWER} max-w-[385px] w-full hidden md:flex flex-col pointer-events-none transition-all duration-500 ease-out ${
+          drawerPosition === "left" ? "left-4 sm:left-5" : "right-4 sm:right-5"
         } ${
           isDrawerHidden
             ? "opacity-0 translate-y-8 pointer-events-none invisible select-none"
@@ -1842,7 +1842,7 @@ export const CustomizerDrawer: React.FC = () => {
           {/* Top Header Bar - Ultra Clean, Minimal & Luxury */}
           <div className="px-5 py-3.5 border-b border-border-subtle flex items-center justify-between bg-surface/90 backdrop-blur-md shrink-0">
             <div className="flex items-center space-x-2.5 min-w-0">
-              <span className="w-2.5 h-2.5 rounded-full bg-brand-accent shrink-0 shadow-[0_0_8px_rgba(230,81,0,0.6)] animate-pulse" />
+              <span className="w-2.5 h-2.5 rounded-full bg-brand-accent shrink-0 shadow-[0_0_8px_rgba(37,99,235,0.6)] animate-pulse" />
               <h3 className="text-sm sm:text-base font-sans font-bold uppercase text-text-primary truncate tracking-tight">
                 {currentApparelInfo.name}
               </h3>
@@ -1880,6 +1880,7 @@ export const CustomizerDrawer: React.FC = () => {
             ].map(({ id, label, icon: Icon }) => (
               <button
                 key={id}
+                id={`studio-tab-${id}`}
                 role="tab"
                 aria-selected={activeTab === id}
                 onClick={() => handleTabChange(id as StudioTab)}
@@ -2109,13 +2110,14 @@ export const CustomizerDrawer: React.FC = () => {
         />
       )}
 
-      {/* Size Guide Modal Dialog */}
+      {/* Size Guide Modal / Companion Side Panel */}
       <SizeGuideModal
         isOpen={isSizeGuideOpen}
         onClose={() => setIsSizeGuideOpen(false)}
         activeApparel={activeApparel}
         selectedSize={selectedSize}
         onSelectSize={(sz) => setSelectedSize(sz)}
+        drawerPosition={drawerPosition}
       />
     </>
   );

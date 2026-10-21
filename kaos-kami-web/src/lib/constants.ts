@@ -308,7 +308,7 @@ export const PRODUCT_COLORS: ProductColor[] = [
   {
     id: "chalk",
     name: "Chalk White",
-    hex: "#FFFFFF",
+    hex: "#F0EFEB",
     isSpecialPigment: false,
     description: "Pure white combed cotton, high-contrast DTF sablon canvas.",
   },

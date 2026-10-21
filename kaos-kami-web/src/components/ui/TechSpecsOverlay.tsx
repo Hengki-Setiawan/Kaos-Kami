@@ -1,13 +1,13 @@
 "use client";
 
 import React from "react";
-import { Sparkles, Layers, Headphones, Truck } from "lucide-react";
+import { ShieldCheck, Layers, Headphones, Truck } from "lucide-react";
 import { useConfiguratorStore } from "@/store/useConfiguratorStore";
 import { useShallow } from "zustand/shallow";
 
 const HIGHLIGHT_SPECS = [
   {
-    icon: Sparkles,
+    icon: ShieldCheck,
     label: "BAHAN UTAMA",
     title: "Katun Combed Premium",
     desc: "100% serat alami sejuk, lembut & menyerap keringat",
@@ -20,9 +20,9 @@ const HIGHLIGHT_SPECS = [
   },
   {
     icon: Headphones,
-    label: "LAYANAN ADMIN",
-    title: "Layanan Cepat dari Admin",
-    desc: "Konsultasi sigap, panduan ramah & proses tepat waktu",
+    label: "BANTUAN RAMAH",
+    title: "Konsultasi Desain & Ukuran",
+    desc: "Butuh saran resolusi gambar atau ukuran? Tim kami siap bantu via chat",
   },
   {
     icon: Truck,
@@ -52,7 +52,7 @@ export const TechSpecsOverlay: React.FC = () => {
       <div className="max-w-md lg:max-w-lg space-y-5 z-20">
         <div>
           <span className="font-sans text-[10px] sm:text-xs text-brand-accent tracking-widest uppercase font-bold">
-            SPESIFIKASI // STANDAR DISTRO
+            SPESIFIKASI MATERIAL DISTRO
           </span>
           <h2 className="text-2xl sm:text-3xl md:text-[34px] font-sans font-extrabold uppercase leading-[1.08] tracking-tight text-text-primary mt-1.5">
             {cms.specsTitle || "KATUN COMBED NYAMAN"}

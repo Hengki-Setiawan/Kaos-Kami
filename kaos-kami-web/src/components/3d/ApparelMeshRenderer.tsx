@@ -97,7 +97,7 @@ export const ApparelMeshRenderer: React.FC = () => {
       const floatY = Math.sin(time * 1.8) * 0.025;
 
       if (activePhase === 1) {
-        const posX = isMobile ? 0 : 0.65;
+        const posX = isMobile ? 0 : 0.95;
         const posY = isMobile ? -0.02 : 0.08;
         const scale = isMobile ? 1.35 : 1.70;
         targetStoryPos.current.set(posX, posY + floatY, 0);

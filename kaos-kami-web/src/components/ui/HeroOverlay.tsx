@@ -2,7 +2,7 @@
 
 import React from "react";
 import Link from "next/link";
-import { ChevronDown, Sparkles } from "lucide-react";
+import { ChevronDown, Box, Sparkles } from "lucide-react";
 import { useConfiguratorStore } from "@/store/useConfiguratorStore";
 import { useShallow } from "zustand/shallow";
 import { APPAREL_CATALOG } from "@/lib/constants";
@@ -79,29 +79,31 @@ export const HeroOverlay: React.FC = () => {
   }, []);
 
   const isE2EText = (str: string | null) => !str || str.includes("E2E");
-  const cleanTitle = cmsTitle && !isE2EText(cmsTitle) ? cmsTitle : "SABLON DIGITAL PRESISI\n& APPAREL PREMIUM MAKASSAR";
+  const cleanTitle = cmsTitle && !isE2EText(cmsTitle) ? cmsTitle : "SABLON KAOS\nDESAIN SENDIRI";
   const titleLines = cleanTitle.split("\n");
-  const subtitle = cmsSubtitle && !isE2EText(cmsSubtitle) ? cmsSubtitle : "Kaos katun combed 24s & sablon digital presisi tanpa minimum order. Pesan satuan, pratinjau 360° akurat sebelum cetak.";
+  const subtitle = cmsSubtitle && !isE2EText(cmsSubtitle) ? cmsSubtitle : "Desain kustom langsung di simulator 3D 360°, atau pilih koleksi distro siap kirim. Cetak sablon DTF katun combed 24s tanpa minimal order.";
 
   return (
     <section
-      className={`h-screen w-full flex flex-col justify-between p-6 md:p-12 lg:p-16 pt-28 md:pt-36 relative pointer-events-none select-none transition-all duration-700 ease-out ${
+      className={`min-h-screen h-[100dvh] w-full flex flex-col justify-between p-6 md:p-12 lg:p-16 pt-20 sm:pt-22 md:pt-24 pb-8 relative pointer-events-none select-none transition-all duration-700 ease-out ${
         isVisible
           ? "opacity-100 translate-y-0"
           : "opacity-0 -translate-y-12 pointer-events-none"
       }`}
     >
-      {/* Top Clean Editorial Category */}
-      <div className="max-w-xs sm:max-w-md pt-2">
-        <span className="font-sans text-xs sm:text-sm font-semibold text-brand-accent block">
-          Kaos Kami // 3D Studio Makassar
-        </span>
-      </div>
+      {/* Spacer pengaman agar teks hero tidak pernah terpotong atau tertabrak navbar */}
+      <div className="h-1 sm:h-2 shrink-0" aria-hidden="true" />
 
-      {/* Main Editorial Title: Strict Left Column, perfectly balanced editorial typography */}
-      <div className="my-auto max-w-lg lg:max-w-xl space-y-3.5 z-20">
+      {/* Main Editorial Title: Strict Left Column, balanced modern typography */}
+      <div className="my-auto max-w-xl lg:max-w-2xl space-y-3 sm:space-y-3.5 z-20 pt-1 sm:pt-2">
+        {/* Kicker badge highlighting 3D Studio Mockup Capability */}
+        <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-brand-accent/10 border border-brand-accent/25 text-brand-accent text-[11px] font-sans font-bold tracking-wider uppercase">
+          <Box size={13} className="text-brand-accent" />
+          <span>STUDIO KUSTOM 3D &middot; SABLON DTF MAKASSAR</span>
+        </div>
+
         {/* CWV: min-h cadangkan slot judul agar swap teks CMS tak menggeser layout */}
-        <h1 suppressHydrationWarning className="text-3xl sm:text-4xl md:text-5xl lg:text-[52px] font-display font-black uppercase tracking-tight leading-[1.04] text-text-primary min-h-[5rem] sm:min-h-[6rem]">
+        <h1 suppressHydrationWarning className="text-3xl sm:text-4xl md:text-[42px] lg:text-[44px] font-sans font-extrabold uppercase tracking-tight leading-[1.08] text-text-primary min-h-[4rem] sm:min-h-[5rem]">
           {titleLines.map((line, i) => (
             <React.Fragment key={i}>
               {i > 0 && <br />}
@@ -109,17 +111,21 @@ export const HeroOverlay: React.FC = () => {
             </React.Fragment>
           ))}
         </h1>
-        <p className="font-sans tabular-nums text-xs sm:text-sm text-brand-accent tracking-wider uppercase font-bold">
-          {`KATUN COMBED 24S · BEBAS SATUAN · MULAI ${apparel.formattedPrice}`}
+        <p className="font-sans text-xs sm:text-sm text-text-muted leading-relaxed max-w-md pt-0.5">
+          {subtitle}
+        </p>
+        <p className="font-sans tabular-nums text-xs text-brand-accent tracking-wider uppercase font-bold pt-0.5">
+          {`KAOS PREMIUM · SIMULATOR 3D · BEBAS SATUAN · MULAI ${apparel.formattedPrice} · MAKASSAR`}
         </p>
 
         {/* Action Buttons: Clean, Confident, Zero Gimmick */}
-        <div className="pt-3 pointer-events-auto flex flex-wrap gap-3">
+        <div className="pt-2 pointer-events-auto flex flex-wrap gap-3">
           <Link
             href="/studio"
-            className="inline-flex items-center px-6 py-3 rounded-full bg-brand-accent text-canvas font-sans font-semibold text-sm hover:brightness-110 transition-all dark:shadow-[0_0_20px_rgba(230,81,0,0.35)] active:scale-95"
+            className="inline-flex items-center gap-2 px-6 py-3 rounded-full bg-brand-accent text-white font-sans font-bold text-sm hover:brightness-110 transition-all shadow-[0_4px_20px_rgba(37,99,235,0.35)] active:scale-95"
           >
-            <span>MULAI DESAIN 3D</span>
+            <Box size={16} />
+            <span>DESAIN MOCKUP 3D</span>
           </Link>
           <a
             href="#etalase"
@@ -130,15 +136,15 @@ export const HeroOverlay: React.FC = () => {
                 el.scrollIntoView({ behavior: "smooth" });
               }
             }}
-            className="inline-flex items-center px-6 py-3 rounded-full bg-surface border border-border-subtle text-text-primary font-sans font-semibold text-sm hover:border-brand-accent hover:text-brand-accent transition-all active:scale-95"
+            className="inline-flex items-center px-6 py-3 rounded-full bg-surface/80 backdrop-blur-xl border border-border-subtle hover:border-brand-accent text-text-primary hover:text-brand-accent font-sans font-semibold text-sm transition-all active:scale-95 shadow-sm"
           >
-            <span>BELANJA PRODUK SIAP PAKAI</span>
+            <span>BELANJA KATALOG</span>
           </a>
         </div>
       </div>
 
-      {/* Bottom Scroll Indicator: Siluet Elegan & Transparan, Kontras Terbaca */}
-      <div className="pb-4 sm:pb-6 flex items-center justify-end pointer-events-auto">
+      {/* Bottom Scroll Indicator: Aligned with left editorial flow */}
+      <div className="pb-2 sm:pb-4 flex items-center justify-start pointer-events-auto">
         <button
           type="button"
           onClick={() => {

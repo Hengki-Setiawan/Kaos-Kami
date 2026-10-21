@@ -44,7 +44,7 @@ export const SimpanOrderFooter: React.FC<SimpanOrderFooterProps> = ({
           className={`w-full min-h-[44px] py-2.5 rounded-xl font-sans font-bold text-xs uppercase tracking-wider shadow-md active:scale-98 transition-all flex items-center justify-center space-x-2 ${
             isCurrentVariantOut
               ? "bg-surface border border-border-subtle text-text-muted cursor-not-allowed opacity-60"
-              : "bg-brand-accent text-canvas"
+              : "bg-brand-accent text-white"
           }`}
         >
           <ShoppingCart size={14} />
@@ -96,42 +96,34 @@ export const SimpanOrderFooter: React.FC<SimpanOrderFooterProps> = ({
         </div>
       )}
 
-      <div className="flex items-center justify-between gap-4">
+      <div className="flex items-center justify-between gap-3">
         <div className="min-w-0">
           <div className="flex items-center space-x-1.5">
-            <span className="block text-[10px] font-sans text-text-muted tracking-wider uppercase font-bold">ESTIMASI TOTAL</span>
+            <span className="text-[11px] font-sans font-medium text-text-muted">Total:</span>
+            <span className="font-mono font-bold text-base text-text-primary">
+              {pricing.formattedTotal}
+            </span>
             <button
               onClick={() => setShowPriceBreakdown(!showPriceBreakdown)}
-              className="text-text-muted hover:text-brand-accent transition-colors cursor-pointer"
+              className="text-text-muted hover:text-brand-accent transition-colors cursor-pointer p-0.5"
               title="Lihat rincian kalkulasi harga"
               aria-label="Rincian harga"
             >
-              <Info size={11} />
+              <Info size={12} />
             </button>
-          </div>
-          <div className="flex items-baseline space-x-1.5 mt-0.5">
-            <span className="font-mono font-black text-lg sm:text-xl text-brand-accent tracking-tight">
-              {pricing.formattedTotal}
-            </span>
-          </div>
-          <div className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5 text-[9px] font-mono text-text-muted mt-0.5 leading-snug">
-            <span>Base Rp {(pricing.basePriceIdr / 1000)}k</span>
-            {pricing.fabricThicknessSurchargeIdr > 0 && <span>+Kain {(pricing.fabricThicknessSurchargeIdr / 1000)}k</span>}
-            {pricing.colorTreatmentSurchargeIdr > 0 && <span className="text-brand-accent font-bold">+Warna {(pricing.colorTreatmentSurchargeIdr / 1000)}k</span>}
-            {pricing.sizeSurchargeIdr > 0 && <span className="text-brand-accent font-bold">+Ukuran {(pricing.sizeSurchargeIdr / 1000)}k</span>}
-            {pricing.totalSablonCostIdr > 0 && <span className="text-brand-accent font-bold">+Sablon {(pricing.totalSablonCostIdr / 1000)}k</span>}
           </div>
         </div>
 
         <div className="shrink-0">
           <button
+            id="studio-btn-pesan"
             type="button"
             onClick={openCheckoutWithMasterGate}
             disabled={isCurrentVariantOut}
-            className={`py-3 px-5 rounded-2xl font-sans font-bold text-xs uppercase tracking-wider transition-all flex items-center justify-center space-x-2 whitespace-nowrap ${
+            className={`py-2.5 px-4 rounded-xl font-sans font-bold text-xs uppercase tracking-wider transition-all flex items-center justify-center space-x-2 whitespace-nowrap ${
               isCurrentVariantOut
                 ? "bg-surface border border-border-subtle text-text-muted cursor-not-allowed opacity-60"
-                : "bg-brand-accent hover:brightness-110 active:scale-95 text-canvas shadow-[0_4px_16px_rgba(230,81,0,0.35)] cursor-pointer"
+                : "bg-brand-accent hover:brightness-110 active:scale-95 text-white shadow-[0_4px_16px_rgba(37,99,235,0.35)] cursor-pointer"
             }`}
           >
             <ShoppingCart size={14} />

@@ -191,7 +191,7 @@ export default async function CustomerDashboardPage({
     <div className="min-h-screen bg-canvas text-text-primary flex flex-col justify-between">
       <Navbar />
 
-      <main className="flex-1 max-w-6xl w-full mx-auto px-4 py-8 sm:py-12">
+      <main className="flex-1 max-w-6xl w-full mx-auto px-4 pt-24 sm:pt-28 pb-12">
         <CustomerDashboardView
           orders={recentOrders as any}
           designs={savedDesigns as any}

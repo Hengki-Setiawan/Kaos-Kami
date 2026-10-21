@@ -26,6 +26,7 @@ import {
   Eye,
   X,
   FileText,
+  Bell,
 } from "lucide-react";
 import { useCartStore } from "@/store/useCartStore";
 import { ReorderButton } from "@/components/commerce/ReorderButton";
@@ -310,19 +311,20 @@ export function CustomerDashboardView({
   return (
     <div className="space-y-6 font-sans">
       {/* ============================================================== */}
-      {/* 1. HEADER IDENTITAS AKUN — BERSIH, SIMPEL & TENANG             */}
+      {/* 1. HEADER IDENTITAS AKUN — FRAMELESS LIQUID GLASS              */}
       {/* ============================================================== */}
       <section
         aria-label="Profil Pengguna"
-        className="p-6 rounded-2xl bg-surface border border-border-subtle shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-5"
+        className="p-6 sm:p-7 rounded-3xl bg-surface/70 dark:bg-black/40 backdrop-blur-2xl border border-border-subtle/80 dark:border-white/10 shadow-[0_12px_40px_rgba(0,0,0,0.25)] flex flex-col sm:flex-row sm:items-center justify-between gap-5 relative overflow-hidden"
       >
-        <div className="flex items-center space-x-4">
+        <div className="absolute -left-10 -top-10 w-40 h-40 bg-brand-accent/10 rounded-full blur-3xl pointer-events-none" />
+        <div className="flex items-center space-x-4 relative z-10">
           {/* Avatar Simpel */}
-          <div className="w-14 h-14 rounded-2xl bg-brand-accent/15 border border-brand-accent/30 text-brand-accent flex items-center justify-center font-bold text-2xl shrink-0">
+          <div className="w-14 h-14 rounded-2xl bg-brand-accent/15 border border-brand-accent/30 text-brand-accent flex items-center justify-center font-bold text-2xl shrink-0 shadow-inner">
             {(currentUser?.name || "K")[0]?.toUpperCase()}
           </div>
 
-          {/* Nama & Kontak — Tanpa badge hiasan yang ramai */}
+          {/* Nama & Kontak */}
           <div className="min-w-0">
             <h1 className="font-bold text-xl sm:text-2xl uppercase tracking-tight text-text-primary truncate">
               {currentUser?.name || "Pelanggan Kaos Kami"}
@@ -334,10 +336,10 @@ export function CustomerDashboardView({
         </div>
 
         {/* 1 Tombol Aksi Utama yang Jelas */}
-        <div className="shrink-0">
+        <div className="shrink-0 relative z-10">
           <Link
             href="/studio"
-            className="py-2.5 px-5 rounded-xl bg-brand-accent text-canvas font-bold text-xs uppercase tracking-wider hover:brightness-110 active:scale-95 transition-all shadow-sm flex items-center gap-2"
+            className="py-2.5 px-5 rounded-full bg-brand-accent text-canvas font-bold text-xs uppercase tracking-wider hover:brightness-110 active:scale-95 transition-all shadow-md flex items-center gap-2"
           >
             <Sparkles size={14} />
             <span>Buat Desain 3D</span>
@@ -355,7 +357,7 @@ export function CustomerDashboardView({
             setActiveTab("orders");
             setOrderFilter("ACTIVE");
           }}
-          className="p-5 rounded-2xl bg-surface border border-border-subtle hover:border-brand-accent/40 transition-all cursor-pointer shadow-sm group space-y-1"
+          className="p-5 rounded-3xl bg-surface/70 dark:bg-black/35 backdrop-blur-xl border border-border-subtle/60 dark:border-white/10 hover:border-brand-accent/40 transition-all duration-300 cursor-pointer shadow-sm hover:shadow-md hover:-translate-y-0.5 group space-y-1"
         >
           <div className="flex items-center justify-between">
             <span className="text-xs font-bold text-text-muted uppercase tracking-wider">
@@ -376,7 +378,7 @@ export function CustomerDashboardView({
         {/* Kartu 2: Wardrobe Desain 3D */}
         <div
           onClick={() => setActiveTab("designs")}
-          className="p-5 rounded-2xl bg-surface border border-border-subtle hover:border-brand-accent/40 transition-all cursor-pointer shadow-sm group space-y-1"
+          className="p-5 rounded-3xl bg-surface/70 dark:bg-black/35 backdrop-blur-xl border border-border-subtle/60 dark:border-white/10 hover:border-brand-accent/40 transition-all duration-300 cursor-pointer shadow-sm hover:shadow-md hover:-translate-y-0.5 group space-y-1"
         >
           <div className="flex items-center justify-between">
             <span className="text-xs font-bold text-text-muted uppercase tracking-wider">
@@ -400,7 +402,7 @@ export function CustomerDashboardView({
             setActiveTab("orders");
             setOrderFilter("COMPLETED");
           }}
-          className="p-5 rounded-2xl bg-surface border border-border-subtle hover:border-emerald-500/40 transition-all cursor-pointer shadow-sm group space-y-1"
+          className="p-5 rounded-3xl bg-surface/70 dark:bg-black/35 backdrop-blur-xl border border-border-subtle/60 dark:border-white/10 hover:border-emerald-500/40 transition-all duration-300 cursor-pointer shadow-sm hover:shadow-md hover:-translate-y-0.5 group space-y-1"
         >
           <div className="flex items-center justify-between">
             <span className="text-xs font-bold text-text-muted uppercase tracking-wider">
@@ -455,19 +457,19 @@ export function CustomerDashboardView({
       )}
 
       {/* ============================================================== */}
-      {/* 3. TABS NAVIGASI BERSIH & RAPI                                 */}
+      {/* 3. TABS NAVIGASI FRAMELESS SEGMENTED PILL                      */}
       {/* ============================================================== */}
       <nav
         aria-label="Navigasi Menu Dashboard"
-        className="flex border-b border-border-subtle gap-1 text-xs overflow-x-auto"
+        className="p-1 sm:p-1.5 rounded-full bg-surface-elevated/40 dark:bg-black/40 border border-border-subtle/60 dark:border-white/10 backdrop-blur-xl flex items-center gap-1 sm:gap-1.5 text-xs overflow-x-auto no-scrollbar shadow-inner max-w-full"
       >
         <button
           type="button"
           onClick={() => setActiveTab("orders")}
-          className={`pb-3 px-4 flex items-center gap-2 font-bold uppercase tracking-wider transition-all border-b-2 -mb-[1px] whitespace-nowrap cursor-pointer ${
+          className={`py-2 px-3.5 sm:px-4 rounded-full flex items-center gap-1.5 sm:gap-2 font-bold tracking-tight transition-all duration-200 whitespace-nowrap cursor-pointer ${
             activeTab === "orders"
-              ? "border-brand-accent text-brand-accent"
-              : "border-transparent text-text-muted hover:text-text-primary"
+              ? "bg-brand-accent text-white shadow-[0_2px_12px_rgba(37,99,235,0.35)]"
+              : "text-text-muted hover:text-text-primary hover:bg-white/5"
           }`}
         >
           <Package size={14} />
@@ -477,10 +479,10 @@ export function CustomerDashboardView({
         <button
           type="button"
           onClick={() => setActiveTab("designs")}
-          className={`pb-3 px-4 flex items-center gap-2 font-bold uppercase tracking-wider transition-all border-b-2 -mb-[1px] whitespace-nowrap cursor-pointer ${
+          className={`py-2 px-3.5 sm:px-4 rounded-full flex items-center gap-1.5 sm:gap-2 font-bold tracking-tight transition-all duration-200 whitespace-nowrap cursor-pointer ${
             activeTab === "designs"
-              ? "border-brand-accent text-brand-accent"
-              : "border-transparent text-text-muted hover:text-text-primary"
+              ? "bg-brand-accent text-white shadow-[0_2px_12px_rgba(37,99,235,0.35)]"
+              : "text-text-muted hover:text-text-primary hover:bg-white/5"
           }`}
         >
           <Layers size={14} />
@@ -490,10 +492,10 @@ export function CustomerDashboardView({
         <button
           type="button"
           onClick={() => setActiveTab("addresses")}
-          className={`pb-3 px-4 flex items-center gap-2 font-bold uppercase tracking-wider transition-all border-b-2 -mb-[1px] whitespace-nowrap cursor-pointer ${
+          className={`py-2 px-3.5 sm:px-4 rounded-full flex items-center gap-1.5 sm:gap-2 font-bold tracking-tight transition-all duration-200 whitespace-nowrap cursor-pointer ${
             activeTab === "addresses"
-              ? "border-brand-accent text-brand-accent"
-              : "border-transparent text-text-muted hover:text-text-primary"
+              ? "bg-brand-accent text-white shadow-[0_2px_12px_rgba(37,99,235,0.35)]"
+              : "text-text-muted hover:text-text-primary hover:bg-white/5"
           }`}
         >
           <MapPin size={14} />
@@ -503,22 +505,23 @@ export function CustomerDashboardView({
         <button
           type="button"
           onClick={() => setActiveTab("notifs")}
-          className={`pb-3 px-4 flex items-center gap-2 font-bold uppercase tracking-wider transition-all border-b-2 -mb-[1px] whitespace-nowrap cursor-pointer ${
+          className={`py-2 px-3.5 sm:px-4 rounded-full flex items-center gap-1.5 sm:gap-2 font-bold tracking-tight transition-all duration-200 whitespace-nowrap cursor-pointer ${
             activeTab === "notifs"
-              ? "border-brand-accent text-brand-accent"
-              : "border-transparent text-text-muted hover:text-text-primary"
+              ? "bg-brand-accent text-white shadow-[0_2px_12px_rgba(37,99,235,0.35)]"
+              : "text-text-muted hover:text-text-primary hover:bg-white/5"
           }`}
         >
+          <Bell size={14} />
           <span>Notifikasi</span>
         </button>
 
         <button
           type="button"
           onClick={() => setActiveTab("vouchers")}
-          className={`pb-3 px-4 flex items-center gap-2 font-bold uppercase tracking-wider transition-all border-b-2 -mb-[1px] whitespace-nowrap cursor-pointer ${
+          className={`py-2 px-3.5 sm:px-4 rounded-full flex items-center gap-1.5 sm:gap-2 font-bold tracking-tight transition-all duration-200 whitespace-nowrap cursor-pointer ${
             activeTab === "vouchers"
-              ? "border-brand-accent text-brand-accent"
-              : "border-transparent text-text-muted hover:text-text-primary"
+              ? "bg-brand-accent text-white shadow-[0_2px_12px_rgba(37,99,235,0.35)]"
+              : "text-text-muted hover:text-text-primary hover:bg-white/5"
           }`}
         >
           <Tag size={14} />
@@ -545,10 +548,10 @@ export function CustomerDashboardView({
                   key={tab.key}
                   type="button"
                   onClick={() => setOrderFilter(tab.key as any)}
-                  className={`py-1.5 px-3 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
+                  className={`py-1.5 px-3.5 rounded-full text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer backdrop-blur-md ${
                     orderFilter === tab.key
-                      ? "bg-brand-accent text-canvas shadow-xs"
-                      : "bg-surface border border-border-subtle text-text-muted hover:text-text-primary"
+                      ? "bg-brand-accent text-white shadow-[0_2px_12px_rgba(37,99,235,0.35)]"
+                      : "bg-surface/80 dark:bg-black/30 border border-border-subtle/80 dark:border-white/10 text-text-muted hover:text-text-primary hover:border-brand-accent/40"
                   }`}
                 >
                   <span>{tab.label}</span>
@@ -568,7 +571,7 @@ export function CustomerDashboardView({
 
           {/* Empty State */}
           {orders.length === 0 ? (
-            <div className="p-10 text-center rounded-2xl bg-surface border border-border-subtle text-text-muted space-y-3 shadow-xs">
+            <div className="p-8 sm:p-10 text-center rounded-3xl bg-surface/70 dark:bg-black/35 backdrop-blur-2xl border border-border-subtle/80 dark:border-white/10 text-text-muted space-y-3 shadow-[0_12px_40px_rgba(0,0,0,0.15)]">
               <Package size={32} className="mx-auto text-text-muted/60" />
               <p className="text-sm font-bold text-text-primary">Belum Ada Pesanan Aktif</p>
               <p className="text-xs max-w-sm mx-auto text-text-muted">
@@ -576,21 +579,21 @@ export function CustomerDashboardView({
               </p>
               <Link
                 href="/studio"
-                className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-brand-accent text-canvas text-xs font-bold uppercase hover:brightness-110 transition-all"
+                className="inline-flex items-center gap-1.5 px-5 py-2.5 rounded-full bg-brand-accent text-canvas text-xs font-bold uppercase hover:brightness-110 shadow-md transition-all"
               >
                 <Sparkles size={13} />
                 <span>Mulai Desain 3D</span>
               </Link>
             </div>
           ) : filteredOrders.length === 0 ? (
-            <div className="p-8 text-center rounded-2xl bg-surface border border-border-subtle text-text-muted space-y-2">
+            <div className="p-8 text-center rounded-3xl bg-surface/70 dark:bg-black/35 backdrop-blur-xl border border-border-subtle/80 dark:border-white/10 text-text-muted space-y-2">
               <p className="text-xs font-bold text-text-primary">
                 Tidak ada pesanan dengan filter status ini.
               </p>
               <button
                 type="button"
                 onClick={() => setOrderFilter("ALL")}
-                className="px-3 py-1 rounded-lg bg-surface border border-border-subtle hover:border-brand-accent text-brand-accent text-xs font-bold cursor-pointer"
+                className="px-4 py-1.5 rounded-full bg-surface/80 border border-border-subtle hover:border-brand-accent text-brand-accent text-xs font-bold cursor-pointer transition-all"
               >
                 Tampilkan Semua ({orders.length})
               </button>
@@ -612,7 +615,7 @@ export function CustomerDashboardView({
                     if (t?.closest?.("button, a, input, textarea, select")) return;
                     setSelectedOrderId(order.id);
                   }}
-                  className="rounded-2xl bg-surface border border-border-subtle p-5 space-y-4 shadow-xs hover:border-border-strong transition-all cursor-pointer"
+                  className="rounded-3xl bg-surface/75 dark:bg-black/40 backdrop-blur-2xl border border-border-subtle/80 dark:border-white/10 p-5 sm:p-6 space-y-4 shadow-[0_8px_30px_rgba(0,0,0,0.12)] hover:border-brand-accent/50 hover:shadow-[0_12px_36px_rgba(37,99,235,0.15)] transition-all cursor-pointer"
                   title="Klik untuk detail pesanan"
                 >
                   {/* Top Bar: Nomor Pesanan, Status & Total */}
@@ -757,7 +760,7 @@ export function CustomerDashboardView({
                       <button
                         type="button"
                         onClick={() => setSelectedOrderId(order.id)}
-                        className="px-3 py-1.5 rounded-lg bg-surface border border-border-subtle hover:border-brand-accent text-text-primary font-bold text-xs flex items-center gap-1 cursor-pointer"
+                        className="px-3.5 py-1.5 rounded-full bg-surface/90 dark:bg-white/5 border border-border-subtle/80 dark:border-white/10 hover:border-brand-accent text-text-primary font-bold text-xs flex items-center gap-1 cursor-pointer transition-all"
                       >
                         <span>Detail</span>
                         <ChevronRight size={12} />
@@ -772,7 +775,7 @@ export function CustomerDashboardView({
                             })
                           );
                         }}
-                        className="px-3 py-1.5 rounded-lg bg-surface border border-border-subtle hover:border-amber-500 text-text-primary font-bold text-xs flex items-center gap-1.5 cursor-pointer"
+                        className="px-3.5 py-1.5 rounded-full bg-surface/90 dark:bg-white/5 border border-border-subtle/80 dark:border-white/10 hover:border-amber-500 text-text-primary font-bold text-xs flex items-center gap-1.5 cursor-pointer transition-all"
                       >
                         <MessageSquare size={12} className="text-amber-500" />
                         <span>Tanya CS</span>
@@ -790,7 +793,7 @@ export function CustomerDashboardView({
 
                       <Link
                         href={`/orders/${order.id}`}
-                        className="px-3 py-1.5 rounded-lg bg-surface border border-border-subtle hover:border-brand-accent text-text-primary font-bold text-xs flex items-center gap-1"
+                        className="px-3.5 py-1.5 rounded-full bg-surface/90 dark:bg-white/5 border border-border-subtle/80 dark:border-white/10 hover:border-brand-accent text-text-primary font-bold text-xs flex items-center gap-1 transition-all"
                       >
                         <Printer size={12} className="text-brand-accent" />
                         <span>Invoice</span>
@@ -834,7 +837,7 @@ export function CustomerDashboardView({
       {/* ============================================================== */}
       {activeTab === "designs" && (
         <div className="space-y-4">
-          <div className="p-4 rounded-xl bg-surface border border-border-subtle flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs shadow-xs">
+          <div className="p-4 sm:p-5 rounded-2xl bg-surface/70 dark:bg-black/35 backdrop-blur-xl border border-border-subtle/80 dark:border-white/10 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs shadow-sm">
             <span className="font-bold text-text-primary">
               Kapasitas Wardrobe Cloud: {Math.min(designs.length, 5)} / 5 Slot Terpakai
             </span>
@@ -844,7 +847,7 @@ export function CustomerDashboardView({
           </div>
 
           {designs.length === 0 ? (
-            <div className="p-10 text-center rounded-2xl bg-surface border border-border-subtle text-text-muted space-y-3">
+            <div className="p-8 sm:p-10 text-center rounded-3xl bg-surface/70 dark:bg-black/35 backdrop-blur-2xl border border-border-subtle/80 dark:border-white/10 text-text-muted space-y-3 shadow-sm">
               <Layers size={32} className="mx-auto text-text-muted/60" />
               <p className="text-sm font-bold text-text-primary">Belum Ada Desain Tersimpan</p>
               <p className="text-xs max-w-sm mx-auto text-text-muted">
@@ -852,7 +855,7 @@ export function CustomerDashboardView({
               </p>
               <Link
                 href="/studio"
-                className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-brand-accent text-canvas text-xs font-bold uppercase hover:brightness-110 transition-all"
+                className="inline-flex items-center gap-1.5 px-5 py-2.5 rounded-full bg-brand-accent text-canvas text-xs font-bold uppercase hover:brightness-110 shadow-md transition-all"
               >
                 <Sparkles size={13} />
                 <span>Mulai Desain 3D</span>
@@ -863,7 +866,7 @@ export function CustomerDashboardView({
               {designs.map((design) => (
                 <div
                   key={design.id}
-                  className="rounded-2xl bg-surface border border-border-subtle overflow-hidden space-y-3 p-3.5 hover:border-brand-accent/40 transition-all shadow-xs flex flex-col justify-between"
+                  className="rounded-3xl bg-surface/75 dark:bg-black/40 backdrop-blur-2xl border border-border-subtle/80 dark:border-white/10 overflow-hidden space-y-3.5 p-4 hover:border-brand-accent/50 hover:shadow-[0_12px_36px_rgba(37,99,235,0.12)] transition-all shadow-sm flex flex-col justify-between"
                 >
                   <div className="space-y-2.5">
                     {/* Visual 3D Preview Image Thumbnail (Hero Proportion) */}
@@ -936,16 +939,16 @@ export function CustomerDashboardView({
                         setOrderDesignSize(design.size || "L");
                         setOrderDesignQty(1);
                       }}
-                      className="w-full py-2 px-3 rounded-lg bg-brand-accent hover:brightness-110 active:scale-98 text-canvas font-bold text-center flex items-center justify-center gap-1.5 transition-all text-xs uppercase shadow-xs cursor-pointer"
+                      className="w-full py-2.5 px-4 rounded-full bg-brand-accent hover:brightness-110 active:scale-98 text-canvas font-bold text-center flex items-center justify-center gap-1.5 transition-all text-xs uppercase shadow-md cursor-pointer"
                     >
                       <ShoppingBag size={13} className="shrink-0" />
                       <span>Pesan Sekarang</span>
                     </button>
 
-                    <div className="grid grid-cols-2 gap-1.5">
+                    <div className="grid grid-cols-2 gap-2">
                       <Link
                         href={`/studio?designId=${design.id}`}
-                        className="py-1.5 px-2 rounded-lg bg-surface border border-border-subtle hover:border-brand-accent text-text-primary font-bold text-center flex items-center justify-center gap-1 transition-all text-[11px] uppercase hover:text-brand-accent cursor-pointer"
+                        className="py-2 px-3 rounded-full bg-surface/90 dark:bg-white/5 border border-border-subtle/80 dark:border-white/10 hover:border-brand-accent text-text-primary font-bold text-center flex items-center justify-center gap-1.5 transition-all text-[11px] uppercase hover:text-brand-accent cursor-pointer"
                       >
                         <Sparkles size={11} className="text-brand-accent shrink-0" />
                         <span>Edit 3D</span>
@@ -957,7 +960,7 @@ export function CustomerDashboardView({
                           download={`${design.title.toLowerCase().replace(/\s+/g, "-")}-mockup.png`}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="py-1.5 px-2 rounded-lg bg-surface border border-border-subtle hover:border-brand-accent text-text-primary font-bold text-center flex items-center justify-center gap-1 transition-all text-[11px] uppercase hover:text-brand-accent cursor-pointer"
+                          className="py-2 px-3 rounded-full bg-surface/90 dark:bg-white/5 border border-border-subtle/80 dark:border-white/10 hover:border-brand-accent text-text-primary font-bold text-center flex items-center justify-center gap-1.5 transition-all text-[11px] uppercase hover:text-brand-accent cursor-pointer"
                         >
                           <Download size={11} className="text-brand-accent shrink-0" />
                           <span>Unduh</span>
@@ -966,7 +969,7 @@ export function CustomerDashboardView({
                         <button
                           type="button"
                           disabled
-                          className="py-1.5 px-2 rounded-lg bg-surface border border-border-subtle opacity-40 text-text-muted text-[11px] font-bold text-center flex items-center justify-center gap-1"
+                          className="py-2 px-3 rounded-full bg-surface/40 border border-border-subtle/40 opacity-40 text-text-muted text-[11px] font-bold text-center flex items-center justify-center gap-1.5"
                         >
                           <Download size={11} />
                           <span>Unduh</span>

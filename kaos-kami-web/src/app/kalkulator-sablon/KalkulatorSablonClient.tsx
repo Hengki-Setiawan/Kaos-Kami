@@ -8,6 +8,8 @@
 
 import React, { useMemo, useState } from "react";
 import Link from "next/link";
+import { Navbar } from "@/components/ui/Navbar";
+import { Footer } from "@/components/ui/Footer";
 import { APPAREL_CATALOG, type ApparelType } from "@/lib/constants";
 import {
   PRINT_TIER_COST_IDR,
@@ -100,56 +102,58 @@ export const KalkulatorSablonClient: React.FC = () => {
   const overLimit = hasil !== null && hasil.maks > 30;
 
   return (
-    <main className="min-h-screen bg-canvas text-text-primary px-5 sm:px-10 py-10 max-w-4xl mx-auto space-y-10">
-      <header className="space-y-2">
-        <p className="text-[11px] font-sans tracking-widest text-brand-accent font-bold uppercase">
-          Kaos Kami Makassar · Panduan Sablon DTF
-        </p>
-        <h1 className="font-sans font-bold text-2xl sm:text-3xl uppercase">
-          Kalkulator Sablon: Ukuran, GSM & Placement
-        </h1>
-        <p className="text-sm font-mono text-text-muted leading-relaxed">
-          Semua angka di halaman ini dihitung dari standar produksi yang sama dengan mesin
-          harga checkout: lebar cetak maks <strong className="text-text-primary">30 cm</strong> (batas
-          sablon DTF), tier A6–A3, dan berat kain GSM per apparel.
-        </p>
-      </header>
+    <div className="min-h-screen bg-canvas text-text-primary flex flex-col font-sans">
+      <Navbar />
+      <main className="flex-1 px-5 sm:px-10 pt-24 sm:pt-28 pb-16 max-w-4xl mx-auto space-y-10 w-full">
+        <header className="space-y-2">
+          <p className="text-[11px] font-sans tracking-widest text-brand-accent font-bold uppercase">
+            Kaos Kami Makassar · Panduan Sablon DTF
+          </p>
+          <h1 className="font-sans font-bold text-2xl sm:text-3xl uppercase">
+            Kalkulator Sablon: Ukuran, GSM & Placement
+          </h1>
+          <p className="text-sm font-mono text-text-muted leading-relaxed">
+            Semua angka di halaman ini dihitung dari standar produksi yang sama dengan mesin
+            harga checkout: lebar cetak maks <strong className="text-text-primary">30 cm</strong> (batas
+            sablon DTF), tier A6–A3, dan berat kain GSM per apparel.
+          </p>
+        </header>
 
-      {/* 1 — Kalkulator ukuran print */}
-      <section aria-label="Kalkulator ukuran print" className="p-5 rounded-2xl bg-surface/60 border border-border-subtle space-y-4">
-        {/* Quick Size Preset Pills (1-tap cepat di HP atau desktop) */}
-        <div>
-          <span className="text-[10px] font-sans text-text-muted font-bold uppercase tracking-wider block mb-1.5">
-            PILIH CEPAT PRESET UKURAN SABLON:
-          </span>
-          <div className="flex items-center gap-1.5 overflow-x-auto pb-1">
-            {[
-              { label: "A6 (10×10 cm)", w: "10", h: "10" },
-              { label: "A5 (15×20 cm)", w: "15", h: "20" },
-              { label: "A4 (21×29 cm)", w: "21", h: "29" },
-              { label: "A3 (30×30 cm)", w: "30", h: "30" },
-            ].map((p) => {
-              const active = lebar === p.w && tinggi === p.h;
-              return (
-                <button
-                  key={p.label}
-                  type="button"
-                  onClick={() => {
-                    setLebar(p.w);
-                    setTinggi(p.h);
-                  }}
-                  className={`px-3 py-1.5 rounded-xl text-xs font-mono font-medium whitespace-nowrap transition-all border shrink-0 ${
-                    active
-                      ? "bg-brand-accent text-canvas border-brand-accent shadow-xs font-bold"
-                      : "bg-surface border-border-subtle text-text-muted hover:text-text-primary hover:border-brand-accent/40"
-                  }`}
-                >
-                  {p.label}
-                </button>
-              );
-            })}
+        {/* 1 — Kalkulator ukuran print */}
+        <section aria-label="Kalkulator ukuran print" className="p-5 sm:p-6 rounded-3xl bg-surface/75 dark:bg-black/40 backdrop-blur-2xl border border-border-subtle/80 dark:border-white/10 space-y-4 shadow-sm">
+          {/* Quick Size Preset Pills (1-tap cepat di HP atau desktop) */}
+          <div>
+            <span className="text-[10px] font-sans text-text-muted font-bold uppercase tracking-wider block mb-1.5">
+              PILIH CEPAT PRESET UKURAN SABLON:
+            </span>
+            <div className="flex items-center gap-2 overflow-x-auto pb-1 no-scrollbar">
+              {[
+                { label: "A6 (10×10 cm)", w: "10", h: "10" },
+                { label: "A5 (15×20 cm)", w: "15", h: "20" },
+                { label: "A4 (21×29 cm)", w: "21", h: "29" },
+                { label: "A3 (30×30 cm)", w: "30", h: "30" },
+              ].map((p) => {
+                const active = lebar === p.w && tinggi === p.h;
+                return (
+                  <button
+                    key={p.label}
+                    type="button"
+                    onClick={() => {
+                      setLebar(p.w);
+                      setTinggi(p.h);
+                    }}
+                    className={`px-3.5 py-1.5 rounded-full text-xs font-mono font-medium whitespace-nowrap transition-all border shrink-0 cursor-pointer backdrop-blur-md ${
+                      active
+                        ? "bg-brand-accent text-canvas border-brand-accent shadow-[0_2px_12px_rgba(37,99,235,0.4)] font-bold"
+                        : "bg-surface/80 dark:bg-black/30 border-border-subtle/80 dark:border-white/10 text-text-muted hover:text-text-primary hover:border-brand-accent/40"
+                    }`}
+                  >
+                    {p.label}
+                  </button>
+                );
+              })}
+            </div>
           </div>
-        </div>
 
         <div className="grid grid-cols-2 gap-3">
           <label className="space-y-1 block">
@@ -511,20 +515,22 @@ export const KalkulatorSablonClient: React.FC = () => {
       </section>
 
 
-      <footer className="flex flex-col sm:flex-row gap-3">
+      <div className="flex flex-col sm:flex-row gap-3">
         <Link
           href="/studio"
-          className="flex-1 text-center py-3.5 rounded-xl bg-brand-accent text-canvas font-sans font-bold text-xs uppercase tracking-wider hover:brightness-110 active:scale-[0.98] transition-all"
+          className="flex-1 text-center py-3.5 rounded-full bg-brand-accent text-canvas font-sans font-bold text-xs uppercase tracking-wider hover:brightness-110 active:scale-[0.98] transition-all shadow-md"
         >
           Coba di Studio 3D
         </Link>
         <Link
           href="/catalog"
-          className="flex-1 text-center py-3.5 rounded-xl bg-surface border border-border-subtle font-sans font-bold text-xs uppercase tracking-wider hover:border-brand-accent active:scale-[0.98] transition-all"
+          className="flex-1 text-center py-3.5 rounded-full bg-surface/80 dark:bg-white/5 border border-border-subtle/80 dark:border-white/10 font-sans font-bold text-xs uppercase tracking-wider hover:border-brand-accent active:scale-[0.98] transition-all"
         >
           Lihat Katalog
         </Link>
-      </footer>
+      </div>
     </main>
+    <Footer />
+  </div>
   );
 };

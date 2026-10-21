@@ -13,7 +13,7 @@ import {
   APK_DOWNLOAD_URL,
 } from "@/lib/shop";
 import { useCmsContent } from "@/hooks/useCmsContent";
-import { ShieldCheck, Smartphone, Download } from "lucide-react";
+import { ShieldCheck, Smartphone, Download, ArrowUp, Globe } from "lucide-react";
 
 export const Footer: React.FC = () => {
   const cms = useCmsContent();
@@ -26,43 +26,48 @@ export const Footer: React.FC = () => {
   const workshopAddress = cms.workshopAddress || SHOP_WORKSHOP_ADDRESS;
   const workshopHours = cms.workshopHours || SHOP_HOURS;
   const phoneDisplay = cms.whatsappNumber || SHOP_PHONE_DISPLAY;
+
+  const scrollToTop = () => {
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+
   return (
-    <footer className="relative z-20 border-t border-border-subtle bg-canvas px-6 md:px-12 py-12 md:py-16 font-sans text-xs text-text-primary">
-      <div className="max-w-6xl mx-auto space-y-10">
-        {/* Main 4-Column Grid */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-12 gap-8 items-start">
-          {/* Kolom 1: Brand & Manifesto (4 cols) */}
-          <div className="lg:col-span-4 space-y-4">
+    <footer className="relative z-20 border-t border-border-subtle/80 bg-canvas text-xs text-text-primary font-sans overflow-hidden">
+      <div className="max-w-6xl mx-auto px-6 md:px-12 py-6 sm:py-7 space-y-4 sm:space-y-5">
+        {/* ─── 1. COMPACT 4-COLUMN EDITORIAL GRID ─── */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-12 gap-5 lg:gap-6 items-start">
+          {/* Kolom 1: Brand, Deskripsi Singkat & Sosial + APK (4 cols) */}
+          <div className="lg:col-span-4 space-y-2.5">
             <Link href="/" className="inline-block hover:opacity-85 transition-opacity">
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
                 src="/brand/logo-white-clean.png"
                 alt="Kaos Kami"
-                className="h-8 w-auto object-contain logo-dark-mode"
+                className="h-6 sm:h-7 w-auto object-contain logo-dark-mode"
               />
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
                 src="/brand/logo-black-clean.png"
                 alt="Kaos Kami"
-                className="h-8 w-auto object-contain logo-light-mode"
+                className="h-6 sm:h-7 w-auto object-contain logo-light-mode"
               />
             </Link>
 
-            <p className="text-text-muted text-xs leading-relaxed max-w-sm">
-              Platform kustomisasi 3D dan konveksi sablon DTF katun combed 24s premium Kota Makassar. Pesan satuan tanpa minimum order dengan pratinjau fisik 360° sebelum cetak.
+            <p className="text-text-muted text-[11px] leading-relaxed max-w-sm">
+              Platform kustomisasi 3D &amp; konveksi sablon DTF katun combed 24s premium Kota Makassar. Pesan satuan tanpa minimum order.
             </p>
 
-            {/* Social Icons Row: Clean, Compact, Branded */}
-            <div className="flex items-center gap-2 pt-1" aria-label="Media sosial Kaos Kami">
+            {/* Social Channels & APK Download Inline */}
+            <div className="flex flex-wrap items-center gap-1.5 pt-0.5" aria-label="Media sosial dan aplikasi Kaos Kami">
               {/* TikTok */}
               <a
                 href={tiktokUrl}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="w-9 h-9 rounded-xl bg-surface border border-border-subtle hover:border-text-primary hover:bg-black hover:text-white text-text-muted flex items-center justify-center transition-all cursor-pointer"
+                className="w-7 h-7 rounded-lg bg-surface border border-border-subtle hover:border-text-primary hover:bg-black hover:text-white text-text-muted flex items-center justify-center transition-all cursor-pointer shadow-2xs"
                 title="TikTok @kaoskami"
               >
-                <svg className="w-4 h-4 fill-current" viewBox="0 0 24 24">
+                <svg className="w-3 h-3 fill-current" viewBox="0 0 24 24">
                   <path d="M19.59 6.69a4.83 4.83 0 0 1-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 0 1-5.2 1.74 2.89 2.89 0 0 1 2.31-4.64c.298-.002.595.042.88.13V9.4a6.33 6.33 0 0 0-1-.08A6.34 6.34 0 0 0 3 15.66a6.34 6.34 0 0 0 10.82 4.49 6.27 6.27 0 0 0 1.84-4.48V8.71a8.21 8.21 0 0 0 4.93 1.63V6.89a4.83 4.83 0 0 1-1-.2z"/>
                 </svg>
               </a>
@@ -72,10 +77,10 @@ export const Footer: React.FC = () => {
                 href={instagramUrl}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="w-9 h-9 rounded-xl bg-surface border border-border-subtle hover:border-[#E4405F] hover:text-[#E4405F] text-text-muted flex items-center justify-center transition-all cursor-pointer"
+                className="w-7 h-7 rounded-lg bg-surface border border-border-subtle hover:border-[#E4405F] hover:text-[#E4405F] text-text-muted flex items-center justify-center transition-all cursor-pointer shadow-2xs"
                 title="Instagram @kaoskami.makassar"
               >
-                <svg className="w-4 h-4 fill-current" viewBox="0 0 24 24">
+                <svg className="w-3 h-3 fill-current" viewBox="0 0 24 24">
                   <path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zm0-2.163c-3.259 0-3.667.014-4.947.072-4.358.2-6.78 2.618-6.98 6.98-.059 1.281-.073 1.689-.073 4.948 0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98-1.281-.059-1.69-.073-4.949-.073zm0 5.838c-3.403 0-6.162 2.759-6.162 6.162s2.759 6.163 6.162 6.163 6.162-2.759 6.162-6.163c0-3.403-2.759-6.162-6.162-6.162zm0 10.162c-2.209 0-4-1.79-4-4 0-2.209 1.791-4 4-4s4 1.791 4 4c0 2.21-1.791 4-4 4zm6.406-11.845c-.796 0-1.441.645-1.441 1.44s.645 1.44 1.441 1.44c.795 0 1.439-.645 1.439-1.44s-.644-1.44-1.439-1.44z"/>
                 </svg>
               </a>
@@ -85,10 +90,10 @@ export const Footer: React.FC = () => {
                 href={waUrl}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="w-9 h-9 rounded-xl bg-surface border border-border-subtle hover:border-[#25D366] hover:text-[#25D366] text-text-muted flex items-center justify-center transition-all cursor-pointer"
+                className="w-7 h-7 rounded-lg bg-surface border border-border-subtle hover:border-[#25D366] hover:text-[#25D366] text-text-muted flex items-center justify-center transition-all cursor-pointer shadow-2xs"
                 title="WhatsApp CS Kaos Kami"
               >
-                <svg className="w-4 h-4 fill-current" viewBox="0 0 24 24">
+                <svg className="w-3 h-3 fill-current" viewBox="0 0 24 24">
                   <path d="M.057 24l1.687-6.163c-1.041-1.804-1.588-3.849-1.587-5.946.003-6.556 5.338-11.891 11.893-11.891 3.181.001 6.167 1.24 8.413 3.488 2.245 2.248 3.481 5.236 3.48 8.414-.003 6.557-5.338 11.892-11.893 11.892-1.99-.001-3.951-.5-5.688-1.448l-6.305 1.654zm6.597-3.807c1.676.995 3.276 1.591 5.392 1.592 5.448 0 9.886-4.434 9.889-9.885.002-5.462-4.415-9.89-9.881-9.892-5.452 0-9.887 4.434-9.889 9.884-.001 2.225.651 3.891 1.746 5.634l-.999 3.648 3.742-.981zm11.387-5.464c-.074-.124-.272-.198-.57-.347-.297-.149-1.758-.868-2.031-.967-.272-.099-.47-.149-.669.149-.198.297-.768.967-.941 1.165-.173.198-.347.223-.644.074-.297-.149-1.255-.462-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.297-.347.446-.521.151-.172.2-.296.3-.495.099-.198.05-.372-.025-.521-.075-.148-.669-1.611-.916-2.206-.242-.579-.487-.501-.669-.51l-.57-.01c-.198 0-.52.074-.792.372s-1.04 1.016-1.04 2.479 1.065 2.876 1.213 3.074c.149.198 2.095 3.2 5.076 4.487.709.306 1.263.489 1.694.626.712.226 1.36.194 1.872.118.571-.085 1.758-.719 2.006-1.413.248-.695.248-1.29.173-1.414z"/>
                 </svg>
               </a>
@@ -98,22 +103,38 @@ export const Footer: React.FC = () => {
                 href={fbUrl}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="w-9 h-9 rounded-xl bg-surface border border-border-subtle hover:border-[#1877F2] hover:text-[#1877F2] text-text-muted flex items-center justify-center transition-all cursor-pointer"
+                className="w-7 h-7 rounded-lg bg-surface border border-border-subtle hover:border-[#1877F2] hover:text-[#1877F2] text-text-muted flex items-center justify-center transition-all cursor-pointer shadow-2xs"
                 title="Komunitas Facebook Kaos Kami"
               >
-                <svg className="w-4 h-4 fill-current" viewBox="0 0 24 24">
+                <svg className="w-3 h-3 fill-current" viewBox="0 0 24 24">
                   <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/>
                 </svg>
+              </a>
+
+              {/* Seamless Android App Download Pill (Clean & Pipih) */}
+              <a
+                href={APK_DOWNLOAD_URL}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1.5 px-2 py-1 rounded-lg bg-surface hover:bg-surface/90 border border-border-subtle hover:border-brand-accent/50 text-[10px] text-text-muted hover:text-brand-accent transition-all cursor-pointer shadow-2xs ml-0.5"
+                title="Unduh paket instalasi APK Android Kaos Kami"
+              >
+                <Smartphone size={12} className="text-brand-accent shrink-0" />
+                <span className="font-semibold text-text-primary">APK Android</span>
+                <span className="text-[8px] font-mono font-bold px-1 py-0.2 rounded bg-brand-accent/10 text-brand-accent border border-brand-accent/20">
+                  BETA
+                </span>
+                <Download size={10} className="text-text-muted shrink-0" />
               </a>
             </div>
           </div>
 
-          {/* Kolom 2: Produk & Studio (2 cols) */}
-          <nav className="lg:col-span-2 space-y-3" aria-label="Navigasi Produk">
+          {/* Kolom 2: Produk & Fitur (2 cols) */}
+          <nav className="lg:col-span-2 space-y-2" aria-label="Navigasi Produk">
             <span className="block text-[11px] font-mono font-bold text-text-primary uppercase tracking-wider">
-              Produk &amp; Fitur
+              Koleksi &amp; Studio
             </span>
-            <ul className="space-y-2 text-xs">
+            <ul className="space-y-1.5 text-xs">
               <li>
                 <Link href="/catalog" className="text-text-muted hover:text-brand-accent transition-colors">
                   Katalog Pakaian Jadi
@@ -130,28 +151,19 @@ export const Footer: React.FC = () => {
                 </Link>
               </li>
               <li>
-                <a
-                  href={APK_DOWNLOAD_URL}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-text-muted hover:text-brand-accent transition-colors inline-flex items-center gap-1.5"
-                  title="Unduh file APK aplikasi Android Kaos Kami (Tahap Uji Coba Beta)"
-                >
-                  <span>Aplikasi Android</span>
-                  <span className="text-[9px] font-mono font-bold px-1.5 py-0.2 rounded bg-amber-500/15 text-amber-500 border border-amber-500/30">
-                    BETA
-                  </span>
-                </a>
+                <Link href="/catalog?cat=kaos" className="text-text-muted hover:text-brand-accent transition-colors">
+                  Kaos &amp; Hoodie
+                </Link>
               </li>
             </ul>
           </nav>
 
-          {/* Kolom 3: Bantuan & Legal (3 cols) */}
-          <nav className="lg:col-span-3 space-y-3" aria-label="Navigasi Bantuan">
+          {/* Kolom 3: Bantuan & Legalitas (3 cols) */}
+          <nav className="lg:col-span-3 space-y-2" aria-label="Navigasi Bantuan">
             <span className="block text-[11px] font-mono font-bold text-text-primary uppercase tracking-wider">
               Bantuan &amp; Legalitas
             </span>
-            <ul className="space-y-2 text-xs">
+            <ul className="space-y-1.5 text-xs">
               <li>
                 <Link href="/faq" className="text-text-muted hover:text-brand-accent transition-colors">
                   Pertanyaan Umum (FAQ)
@@ -164,12 +176,7 @@ export const Footer: React.FC = () => {
               </li>
               <li>
                 <Link href="/refund" className="text-text-muted hover:text-brand-accent transition-colors">
-                  Kebijakan Pengembalian (Refund)
-                </Link>
-              </li>
-              <li>
-                <Link href="/privacy" className="text-text-muted hover:text-brand-accent transition-colors">
-                  Kebijakan Privasi
+                  Garansi &amp; Retur
                 </Link>
               </li>
               <li>
@@ -180,107 +187,73 @@ export const Footer: React.FC = () => {
             </ul>
           </nav>
 
-          {/* Kolom 4: Workshop Info (3 cols) */}
-          <div className="lg:col-span-3 space-y-3">
+          {/* Kolom 4: Workshop Makassar (3 cols) */}
+          <div className="lg:col-span-3 space-y-2">
             <span className="block text-[11px] font-mono font-bold text-text-primary uppercase tracking-wider">
-              Workshop Makassar
+              Atelier Workshop
             </span>
             <p className="text-text-muted text-xs leading-relaxed">
               {workshopAddress}
             </p>
-            <p className="text-text-muted text-xs">
-              Buka: <strong className="text-text-primary font-medium">{workshopHours}</strong>
-            </p>
-            <p className="text-text-muted text-xs">
-              Customer Care: <strong className="text-text-primary font-medium">{phoneDisplay}</strong>
-            </p>
+            <div className="text-xs text-text-muted pt-0.5 leading-snug">
+              <span>Buka: <strong className="text-text-primary font-medium">{workshopHours}</strong></span>
+              <span className="block">Care: <strong className="text-text-primary font-medium">{phoneDisplay}</strong></span>
+            </div>
           </div>
         </div>
 
-        {/* Mobile Capacitor App Showcase Card (Beta) */}
-        <div className="p-4 sm:p-5 rounded-2xl bg-surface/80 border border-border-subtle flex flex-col md:flex-row items-start md:items-center justify-between gap-4 shadow-xs">
-          <div className="flex items-start sm:items-center gap-3.5">
-            <div className="w-10 h-10 rounded-xl bg-amber-500/10 border border-amber-500/25 flex items-center justify-center text-amber-500 shrink-0 mt-0.5 sm:mt-0">
-              <Smartphone size={20} />
-            </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <span className="text-xs font-bold text-text-primary">
-                  Aplikasi Mobile Android
+        {/* ─── 2. PIPih BOTTOM UTILITY BAR (MERGED: COPYRIGHT + PAYMENT + ATAS) ─── */}
+        <div className="pt-3.5 border-t border-border-subtle/60 flex flex-col sm:flex-row items-center justify-between gap-3 text-[11px] text-text-muted">
+          {/* Left: Copyright & Mitra Pembayaran */}
+          <div className="flex flex-wrap items-center justify-center sm:justify-start gap-2.5">
+            <span suppressHydrationWarning className="text-text-muted">
+              &copy; {new Date().getFullYear()} Kaos Kami Makassar.
+            </span>
+            <span className="hidden sm:inline text-border-subtle/80">&bull;</span>
+            <div className="flex items-center gap-1.5">
+              <a
+                href="https://ipaymu.com"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1.5 py-0.5 px-2 rounded-lg bg-white dark:bg-white/95 border border-border-subtle hover:border-brand-accent/60 shadow-2xs transition-all group"
+                title="Didukung Resmi oleh PT Inti Prima Mandiri Utama (iPaymu Payment Gateway)"
+              >
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src="/brand/ipaymu-color.png"
+                  alt="iPaymu Gateway"
+                  className="h-3.5 w-auto object-contain transition-transform group-hover:scale-105"
+                />
+                <span className="text-[9px] font-bold text-slate-800 border-l border-slate-200 pl-1.5">
+                  Verified
                 </span>
-                <span className="text-[9px] font-mono font-bold px-1.5 py-0.5 rounded-full bg-amber-500/15 text-amber-500 border border-amber-500/30">
-                  BETA • UJI COBA
-                </span>
-              </div>
-              <p className="text-[11px] text-text-muted mt-0.5 max-w-xl leading-relaxed">
-                Aplikasi Android (APK) kini tersedia dalam tahap uji coba (Beta). Desain pakaian 3D interaktif lebih responsif dengan akses hardware perangkat (haptic tactile feedback &amp; upload kamera langsung).
-              </p>
+              </a>
+              <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-black/5 dark:bg-white/5 border border-border-subtle/80 text-[10px] font-mono">
+                <ShieldCheck size={11} className="text-emerald-500 shrink-0" />
+                <span>QRIS 0%</span>
+              </span>
+              <span className="inline-flex items-center px-1.5 py-0.5 rounded-md bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border border-emerald-500/30 text-[9px] font-bold">
+                ✓ Berizin BI
+              </span>
             </div>
           </div>
-          <a
-            href={APK_DOWNLOAD_URL}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="px-4 py-2 rounded-xl bg-brand-accent hover:bg-brand-accent/90 text-canvas text-xs font-bold font-sans transition-all active:scale-95 shrink-0 inline-flex items-center gap-2 shadow-sm cursor-pointer"
-            title="Unduh paket instalasi APK Android Kaos Kami"
-          >
-            <Download size={14} />
-            <span>Unduh APK Beta</span>
-          </a>
-        </div>
 
-        {/* Payment Partner & Integrasi Resmi iPaymu */}
-        <div className="pt-6 pb-2 border-t border-border-subtle flex flex-col lg:flex-row items-center justify-between gap-4">
-          <div className="flex flex-wrap items-center gap-3.5">
-            <div className="text-left">
-              <span className="text-[10px] font-bold text-text-muted uppercase tracking-wider block">
-                Mitra Resmi Pembayaran Digital:
-              </span>
-              <span className="text-xs font-semibold text-text-primary">
-                iPaymu Payment Gateway
-              </span>
-            </div>
-            <a
-              href="https://ipaymu.com"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center gap-3 p-2 px-4 rounded-2xl bg-white dark:bg-white/95 border border-border-subtle hover:border-brand-accent/60 shadow-md transition-all group"
-              title="Didukung Resmi oleh PT Inti Prima Mandiri Utama (iPaymu Payment Gateway Indonesia)"
+          {/* Right: WITA & Back to top */}
+          <div className="flex items-center gap-3 text-[10px] font-mono shrink-0">
+            <span className="flex items-center gap-1 text-text-muted">
+              <Globe size={11} className="text-brand-accent" />
+              <span>WITA (UTC+8)</span>
+            </span>
+
+            <button
+              onClick={scrollToTop}
+              className="inline-flex items-center gap-1 text-text-primary hover:text-brand-accent transition-colors font-bold uppercase tracking-wider cursor-pointer"
+              title="Kembali ke atas halaman"
             >
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src="/brand/ipaymu-color.png"
-                alt="iPaymu Payment Gateway Indonesia"
-                className="h-8 sm:h-9 w-auto object-contain transition-transform group-hover:scale-105"
-              />
-              <span className="text-[11px] font-bold text-slate-800 border-l border-slate-200 pl-2.5 hidden sm:inline-block">
-                Verified Gateway
-              </span>
-            </a>
+              <span>Atas</span>
+              <ArrowUp size={11} />
+            </button>
           </div>
-
-          <div className="flex flex-wrap items-center gap-2 text-[11px] text-text-muted">
-            <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-black/5 dark:bg-white/5 border border-border-subtle font-medium shadow-xs">
-              <ShieldCheck size={14} className="text-emerald-500 shrink-0" />
-              <span>QRIS Bebas Biaya Admin</span>
-            </span>
-            <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-black/5 dark:bg-white/5 border border-border-subtle font-medium shadow-xs">
-              <span>Virtual Account Multi-Bank</span>
-            </span>
-            <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border border-emerald-500/30 font-bold text-[10px] shadow-xs">
-              ✓ Terlisensi Bank Indonesia
-            </span>
-          </div>
-        </div>
-
-        {/* Bottom Bar: Copyright */}
-        <div className="pt-4 border-t border-border-subtle/50 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-text-muted">
-          <p suppressHydrationWarning>
-            © {new Date().getFullYear()} Kaos Kami Makassar. Seluruh hak cipta dilindungi.
-          </p>
-          <p className="text-[11px] text-text-muted">
-            Platform 3D Interactive Apparel E-Commerce & DTF Sablon Platform · Kota Makassar
-          </p>
         </div>
       </div>
     </footer>

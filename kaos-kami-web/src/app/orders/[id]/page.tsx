@@ -167,7 +167,7 @@ export default async function OrderReceiptPage({ params, searchParams }: OrderRe
       </div>
 
       {/* Main Receipt Card */}
-      <div className="bg-surface border border-border-subtle rounded-2xl p-6 sm:p-8 dark:shadow-2xl space-y-6 print:border print:border-black print:bg-white print:p-4 print:shadow-none">
+      <div className="bg-surface/80 dark:bg-black/50 backdrop-blur-2xl border border-border-subtle/80 dark:border-white/10 rounded-3xl p-6 sm:p-8 shadow-[0_12px_40px_rgba(0,0,0,0.25)] space-y-6 print:border print:border-black print:bg-white print:p-4 print:shadow-none">
         {/* Status Header Banner */}
         <div className="text-center space-y-2 pb-6 border-b border-border-subtle print:border-black print:pb-3">
           <div className="w-16 h-16 rounded-full bg-brand-accent/20 border border-brand-accent/40 text-brand-accent flex items-center justify-center mx-auto mb-3 print:hidden">

@@ -155,7 +155,7 @@ export const Preloader: React.FC = () => {
             <div className="relative w-64 h-[4px] bg-border-subtle/80 overflow-hidden rounded-full shadow-inner">
               {/* Bar terisi proporsional */}
               <div
-                className="h-full bg-brand-accent transition-[width] duration-300 ease-out shadow-[0_0_14px_rgba(230,81,0,0.9)]"
+                className="h-full bg-brand-accent transition-[width] duration-300 ease-out shadow-[0_0_14px_rgba(37,99,235,0.9)]"
                 style={{ width: `${persen}%` }}
               />
               {/* Shimmer beam bergerak aktif (tidak pernah diam/beku) */}
@@ -180,7 +180,7 @@ export const Preloader: React.FC = () => {
                   <span
                     key={i}
                     className={`h-1.5 rounded-full transition-all duration-300 ${
-                      aktif ? "w-7 bg-brand-accent shadow-[0_0_8px_rgba(230,81,0,0.6)]" : "w-2 bg-border-subtle"
+                      aktif ? "w-7 bg-brand-accent shadow-[0_0_8px_rgba(37,99,235,0.6)]" : "w-2 bg-border-subtle"
                     }`}
                   />
                 );

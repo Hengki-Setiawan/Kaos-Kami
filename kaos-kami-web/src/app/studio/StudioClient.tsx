@@ -33,6 +33,7 @@ const CanvasStage = dynamic(
 );
 import { StudioHUD } from "@/components/studio/StudioHUD";
 import { CustomizerDrawer } from "@/components/ui/CustomizerDrawer";
+import { CartDrawer } from "@/components/ui/CartDrawer";
 import { StudioDesignLoader } from "@/components/studio/StudioDesignLoader";
 import { StudioTour, openStudioTour } from "@/components/studio/StudioTour";
 import { StudioPublishModal } from "@/components/studio/StudioPublishModal";
@@ -151,16 +152,17 @@ export function StudioClient() {
         </div>
       )}
 
-      {/* Studio Top Navigation Bar */}
+      {/* Studio Top Navigation Bar: Edge-to-Edge Sticky Top Header */}
       <header
-        className={`fixed top-0 left-0 right-0 z-50 px-4 sm:px-8 py-3.5 flex items-center justify-between pointer-events-auto backdrop-blur-xl border-b transition-all duration-500 ${
+        className={`fixed top-0 inset-x-0 w-full z-50 h-14 pointer-events-auto backdrop-blur-2xl border-b transition-all duration-300 ${
           isLight
-            ? "bg-[#F5F4F0]/80 border-black/10 text-neutral-900"
-            : "bg-surface/80 border-border-subtle text-text-primary"
+            ? "bg-surface/90 border-border-subtle text-text-primary shadow-sm"
+            : "bg-canvas/90 dark:bg-black/85 border-border-subtle text-text-primary shadow-sm"
         } ${isHideWebsiteUI ? "opacity-20 hover:opacity-100" : "opacity-100"}`}
       >
-        {/* Left: Back to Home / Admin & Brand & Autosave */}
-        <div className="flex items-center space-x-3">
+        <div className="w-full h-full px-4 sm:px-6 flex items-center justify-between">
+          {/* Left: Back to Home / Admin & Brand & Autosave */}
+          <div className="flex items-center space-x-3">
           {isGangsheetMode ? (
             <Link
               href="/admin/gang-sheet"
@@ -254,10 +256,11 @@ export function StudioClient() {
         <div className="flex items-center space-x-2">
           {/* Buka ulang tur panduan */}
           <button
+            id="studio-guide-btn"
             onClick={openStudioTour}
             className="hidden sm:flex p-2 rounded-full bg-surface border border-border-subtle text-text-muted hover:text-brand-accent transition-all cursor-pointer shadow-sm active:scale-95"
-            title="Panduan 3 langkah"
-            aria-label="Buka panduan studio 3 langkah"
+            title="Panduan Studio"
+            aria-label="Buka panduan studio interaktif"
           >
             <CircleHelp size={14} />
           </button>
@@ -308,6 +311,7 @@ export function StudioClient() {
 
           {/* Lab Kain 3D Modal Trigger */}
           <button
+            id="studio-btn-labkain"
             onClick={toggleClothLab}
             className="flex items-center space-x-1.5 px-3 py-1.5 rounded-full bg-surface border border-border-subtle text-text-muted hover:text-text-primary hover:border-brand-accent transition-all font-sans text-xs font-semibold cursor-pointer shadow-sm active:scale-95"
             title="Laboratorium Uji Kain 3D & Simulasi Fisika"
@@ -332,8 +336,9 @@ export function StudioClient() {
 
           {/* Ekspor Studio Modal Trigger */}
           <button
+            id="studio-btn-ekspor"
             onClick={toggleExportModal}
-            className="flex items-center space-x-1.5 px-3.5 py-1.5 rounded-full bg-brand-accent text-canvas hover:brightness-110 transition-all font-sans text-xs font-semibold cursor-pointer shadow-[0_0_12px_rgba(230,81,0,0.35)] active:scale-95"
+            className="flex items-center space-x-1.5 px-3.5 py-1.5 rounded-full bg-brand-accent text-canvas hover:brightness-110 transition-all font-sans text-xs font-semibold cursor-pointer shadow-[0_0_12px_rgba(37,99,235,0.35)] active:scale-95"
             title="Ekspor Mockup 2K & Kartu Medsos"
             aria-label="Buka Ekspor Mockup"
           >
@@ -366,6 +371,7 @@ export function StudioClient() {
             </button>
           )}
         </div>
+      </div>
       </header>
 
       {/* Fullscreen 3D WebGL Canvas Layer — dengan fallback non-WebGL (audit H5) */}
@@ -387,7 +393,9 @@ export function StudioClient() {
           </div>
         </div>
       ) : (
-        <CanvasStage />
+        <div id="studio-canvas-stage" className="contents">
+          <CanvasStage />
+        </div>
       )}
 
       {/* Deep-link desain tersimpan (?designId=) */}
@@ -403,6 +411,9 @@ export function StudioClient() {
 
       {/* Floating Customizer Drawer */}
       <CustomizerDrawer />
+
+      {/* Cart Drawer for Studio Order Checkout */}
+      <CartDrawer />
 
       {/* User Auth & Dashboard Modal */}
       <AuthModal isOpen={isAuthOpen} onClose={() => setIsAuthOpen(false)} />

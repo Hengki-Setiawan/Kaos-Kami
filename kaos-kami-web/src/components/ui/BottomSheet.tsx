@@ -60,7 +60,7 @@ export const BottomSheet: React.FC<{
       role="dialog"
       aria-modal="true"
       aria-label="Panel kustomisasi"
-      className={`fixed bottom-0 left-0 right-0 z-40 md:hidden bg-surface border-t border-border-subtle rounded-t-2xl pb-safe transition-transform duration-300 ${
+      className={`fixed bottom-0 left-0 right-0 z-40 md:hidden bg-surface/90 dark:bg-black/85 backdrop-blur-2xl border-t border-white/10 rounded-t-[28px] sm:rounded-t-[32px] shadow-[0_-12px_40px_rgba(0,0,0,0.45)] pb-safe transition-transform duration-300 ${
         snap === "peek" ? "translate-y-[70%]" : snap === "half" ? "translate-y-[30%]" : "translate-y-0"
       }`}
       style={{ maxHeight: "85dvh", transform: dragY !== null ? `translateY(${Math.max(-40, Math.min(200, dragY))}px)` : undefined }}
@@ -82,7 +82,7 @@ export const BottomSheet: React.FC<{
         onPointerCancel={() => setDragY(null)}
         className="mx-auto my-1 flex items-center justify-center min-h-[44px] min-w-[44px] cursor-grab active:cursor-grabbing touch-none select-none"
       >
-        <div className="w-12 h-1.5 bg-border-strong rounded-full" />
+        <div className="w-12 h-1.5 bg-text-muted/30 rounded-full" />
       </div>
       <div className="overflow-y-auto max-h-[75dvh] p-4 pb-6">{children}</div>
     </div>

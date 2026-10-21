@@ -7,14 +7,12 @@ import {
   Camera,
   Share2,
   Film,
-  Sparkles,
-  CheckCircle2,
-  Lock,
   Shirt,
   RotateCw,
   Layers,
-  Image as ImageIcon,
   Loader2,
+  Check,
+  Sparkles,
 } from "lucide-react";
 import { useConfiguratorStore } from "@/store/useConfiguratorStore";
 import { useShallow } from "zustand/shallow";
@@ -31,7 +29,6 @@ export const ExportStudioModal: React.FC = () => {
     activeColorName,
     decals,
     setCameraPreset,
-    cameraPreset,
     isRotating,
     toggleRotating,
     materialFinish,
@@ -45,7 +42,6 @@ export const ExportStudioModal: React.FC = () => {
       activeColorName: s.activeColorName,
       decals: s.decals,
       setCameraPreset: s.setCameraPreset,
-      cameraPreset: s.cameraPreset,
       isRotating: s.isRotating,
       toggleRotating: s.toggleRotating,
       materialFinish: s.materialFinish,
@@ -57,7 +53,7 @@ export const ExportStudioModal: React.FC = () => {
   const { data: session } = useSession();
 
   const [activeTab, setActiveTab] = useState<"photo" | "card" | "video">("photo");
-  const [photoAngle, setPhotoAngle] = useState<"front" | "back" | "current">("front");
+  const [photoAngle, setPhotoAngle] = useState<"front" | "back" | "left" | "right" | "current">("front");
   const [resolution, setResolution] = useState<"hd" | "2k">("2k");
   const [bgMode, setBgMode] = useState<"studio" | "transparent">("studio");
   const [isExporting, setIsExporting] = useState(false);
@@ -65,7 +61,11 @@ export const ExportStudioModal: React.FC = () => {
 
   // Video 360 recording states
   const [videoProgress, setVideoProgress] = useState(0);
-  const [videoFormat, setVideoFormat] = useState<"webm" | "mp4">("webm");
+  const [videoFormat, setVideoFormat] = useState<"webm" | "mp4">("mp4");
+  const [videoDuration, setVideoDuration] = useState<5 | 8>(5);
+
+  // Social card states
+  const [includePriceOnCard, setIncludePriceOnCard] = useState(true);
 
   // Escape listener
   useEffect(() => {
@@ -81,12 +81,12 @@ export const ExportStudioModal: React.FC = () => {
 
   if (!isExportModalOpen) return null;
 
-  // Tunggu pergerakan kamera preset jika user memilih tampak depan/belakang
-  const alignCameraAngle = async (angle: "front" | "back" | "current") => {
+  // Gerakkan kamera preset dengan transisi halus jika user memilih sudut tertentu
+  const alignCameraAngle = async (angle: "front" | "back" | "left" | "right" | "current") => {
     if (angle === "current") return;
     setCameraPreset(angle);
-    // Beri waktu 400ms untuk lerp animasi kamera
-    await new Promise((r) => setTimeout(r, 450));
+    // Beri waktu 500ms untuk lerp animasi kamera
+    await new Promise((r) => setTimeout(r, 500));
   };
 
   // 1. Ekspor Foto Mockup PNG (2K / HD) dengan Guest Watermark
@@ -105,9 +105,11 @@ export const ExportStudioModal: React.FC = () => {
 
       let rawDataUrl = "";
       if (typeof (canvas as any).exportMockup === "function") {
+        const sideParam = photoAngle === "front" || photoAngle === "back" ? photoAngle : undefined;
         rawDataUrl = await (canvas as any).exportMockup({
           resolution: resolution,
           transparent: bgMode === "transparent",
+          side: sideParam,
         });
       } else {
         rawDataUrl = canvas.toDataURL("image/png");
@@ -115,9 +117,9 @@ export const ExportStudioModal: React.FC = () => {
 
       let finalDataUrl = rawDataUrl;
 
-      // APPLIED RULE: Jika Guest (belum login), sematkan watermark ultra-low opacity resmi Kaos Kami
+      // Mode Tamu (belum login): sematkan watermark resmi Kaos Kami
       if (!session) {
-        setFeedbackMsg("Menyematkan watermark resmi Kaos Kami (Mode Tamu)…");
+        setFeedbackMsg("Menyematkan watermark preview (Mode Tamu)…");
         finalDataUrl = await applyGuestWatermarkToDataUrl(rawDataUrl);
       }
 
@@ -130,8 +132,8 @@ export const ExportStudioModal: React.FC = () => {
 
       setFeedbackMsg(
         !session
-          ? "Mockup berhasil diunduh (Mode Tamu dengan Watermark Halus)."
-          : "Mockup Ultra HD 2K Bersih berhasil diunduh!"
+          ? "Mockup berhasil diunduh (Mode Tamu dengan Watermark Preview)."
+          : "Mockup Ultra HD berhasil diunduh!"
       );
       setTimeout(() => setFeedbackMsg(null), 4000);
     } catch (err) {
@@ -174,7 +176,7 @@ export const ExportStudioModal: React.FC = () => {
       const ctx = cnv.getContext("2d");
       if (!ctx) throw new Error("Gagal membuat konteks kanvas 2D.");
 
-      // Background Gradien Obsidian Dark Streetwear
+      // Background Gradien Obsidian Streetwear
       const bg = ctx.createLinearGradient(0, 0, 0, H);
       bg.addColorStop(0, "#18181b");
       bg.addColorStop(0.5, "#0f0f11");
@@ -218,21 +220,27 @@ export const ExportStudioModal: React.FC = () => {
           ctx.font = "600 28px 'Plus Jakarta Sans', system-ui, sans-serif";
           ctx.fillText(`${activeColorName} · Size ${selectedSize || "L"}`, W / 2, 1105);
 
-          // Harga Kalkulasi
-          const finishPricing = materialFinishToPricing(materialFinish);
-          const pricing = calculate6VariablePrice({
-            apparelSlug: activeApparel,
-            fabricThicknessSlug: finishPricing.fabricThicknessSlug,
-            size: selectedSize || "L",
-            colorHex: selectedColor || "#18181b",
-            decals: decals,
-            quantity: 1,
-          });
-          const hargaFormatted = `IDR ${pricing.unitPriceIdr.toLocaleString("id-ID")}`;
+          // Harga Kalkulasi (jika diaktifkan)
+          if (includePriceOnCard) {
+            const finishPricing = materialFinishToPricing(materialFinish);
+            const pricing = calculate6VariablePrice({
+              apparelSlug: activeApparel,
+              fabricThicknessSlug: finishPricing.fabricThicknessSlug,
+              size: selectedSize || "L",
+              colorHex: selectedColor || "#18181b",
+              decals: decals,
+              quantity: 1,
+            });
+            const hargaFormatted = `IDR ${pricing.unitPriceIdr.toLocaleString("id-ID")}`;
 
-          ctx.fillStyle = "#F97316";
-          ctx.font = "800 52px 'Plus Jakarta Sans', system-ui, sans-serif";
-          ctx.fillText(hargaFormatted, W / 2, 1180);
+            ctx.fillStyle = "#F97316";
+            ctx.font = "800 50px 'Plus Jakarta Sans', system-ui, sans-serif";
+            ctx.fillText(hargaFormatted, W / 2, 1180);
+          } else {
+            ctx.fillStyle = "#60A5FA";
+            ctx.font = "700 32px 'Plus Jakarta Sans', system-ui, sans-serif";
+            ctx.fillText("PREMIUM DTF CUSTOM PRINTING", W / 2, 1180);
+          }
 
           // Watermark / Brand Footer
           ctx.fillStyle = "rgba(255,255,255,0.45)";
@@ -245,8 +253,7 @@ export const ExportStudioModal: React.FC = () => {
         img.src = rawDataUrl;
       });
 
-      // Watermark tamu (pola watermark.ts): diagonal berulang + tengah,
-      // ultra-low opacity agar desain tetap jelas. Member login = bersih.
+      // Watermark tamu jika belum login
       if (!session) {
         ctx.save();
         ctx.globalAlpha = 0.08;
@@ -284,8 +291,8 @@ export const ExportStudioModal: React.FC = () => {
 
       setFeedbackMsg(
         !session
-          ? "✅ Kartu Medsos 4:5 berhasil diunduh (Mode Tamu dengan Watermark Halus)."
-          : "✅ Kartu Medsos 4:5 berhasil diunduh."
+          ? "Kartu Medsos 4:5 berhasil diunduh (Mode Tamu)."
+          : "Kartu Medsos 4:5 berhasil diunduh!"
       );
       setTimeout(() => setFeedbackMsg(null), 4000);
     } catch (err) {
@@ -297,7 +304,7 @@ export const ExportStudioModal: React.FC = () => {
     }
   };
 
-  // 3. Ekspor Video 360° Turntable Loop (5 Detik)
+  // 3. Ekspor Video 360° Turntable Loop
   const handleExport360Video = async () => {
     const canvas = document.querySelector(".webgl-canvas-container canvas") as HTMLCanvasElement | null;
     if (!canvas) {
@@ -312,11 +319,11 @@ export const ExportStudioModal: React.FC = () => {
 
     setIsExporting(true);
     setVideoProgress(0);
-    setFeedbackMsg("Merekam video berputar 360° (5 detik)…");
+    const totalMs = videoDuration * 1000;
+    setFeedbackMsg(`Merekam perputaran 360° (${videoDuration} detik)…`);
 
     const wasRotating = isRotating;
     let stream: MediaStream | null = null;
-    const totalMs = 5000;
 
     const cleanup = () => {
       stream?.getTracks().forEach((t) => t.stop());
@@ -359,7 +366,7 @@ export const ExportStudioModal: React.FC = () => {
         link.href = url;
         link.click();
         URL.revokeObjectURL(url);
-        setFeedbackMsg("✅ Video 360° berhasil diunduh.");
+        setFeedbackMsg("Video 360° berhasil diunduh!");
         setTimeout(() => setFeedbackMsg(null), 4000);
         cleanup();
       };
@@ -388,28 +395,25 @@ export const ExportStudioModal: React.FC = () => {
       role="dialog"
       aria-modal="true"
       aria-labelledby="export-modal-title"
-      className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/75 backdrop-blur-md animate-fade-in"
+      className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/80 backdrop-blur-md animate-fade-in"
       onClick={() => setIsExportModalOpen(false)}
     >
       <div
         onClick={(e) => e.stopPropagation()}
-        className="relative w-full max-w-xl max-h-[90dvh] flex flex-col rounded-3xl bg-surface/95 border border-border-subtle shadow-2xl overflow-hidden backdrop-blur-2xl"
+        className="relative w-full max-w-xl max-h-[92dvh] flex flex-col rounded-3xl bg-neutral-900 border border-neutral-800 shadow-2xl overflow-hidden text-neutral-100"
       >
-        {/* Header */}
-        <div className="flex items-center justify-between px-5 py-4 border-b border-border-subtle bg-surface/80">
-          <div className="flex items-center space-x-3">
-            <div className="w-10 h-10 rounded-2xl bg-brand-accent/15 border border-brand-accent/30 flex items-center justify-center text-brand-accent shadow-[0_0_12px_rgba(230,81,0,0.25)]">
+        {/* Header - High Contrast & Clean */}
+        <div className="flex items-center justify-between px-6 py-4 border-b border-neutral-800 bg-neutral-900/90 shrink-0">
+          <div className="flex items-center space-x-3.5">
+            <div className="w-10 h-10 rounded-2xl bg-blue-500/10 border border-blue-500/20 flex items-center justify-center text-blue-400 shadow-sm">
               <Download size={20} />
             </div>
             <div>
-              <h3 id="export-modal-title" className="text-sm sm:text-base font-bold text-text-primary font-mono tracking-tight flex items-center gap-2">
-                <span>EKSPOR MOCKUP & KARTU MEDSOS</span>
-                <span className="px-2 py-0.5 rounded-full text-[9px] font-mono font-bold bg-brand-accent text-canvas">
-                  2K RETINA
-                </span>
+              <h3 id="export-modal-title" className="text-base sm:text-lg font-bold text-white tracking-tight flex items-center gap-2">
+                <span>Ekspor &amp; Publikasi Mockup</span>
               </h3>
-              <p className="text-[11px] text-text-muted font-mono mt-0.5">
-                Simpan gambar resolusi tinggi, kartu Instagram/TikTok, atau video berputar 360°.
+              <p className="text-xs text-neutral-400 mt-0.5">
+                Simpan render resolusi tinggi, kartu media sosial, atau video 360°.
               </p>
             </div>
           </div>
@@ -417,149 +421,147 @@ export const ExportStudioModal: React.FC = () => {
           <button
             type="button"
             onClick={() => setIsExportModalOpen(false)}
-            className="w-8 h-8 rounded-full bg-surface border border-border-subtle text-text-muted hover:text-text-primary hover:bg-surface/80 flex items-center justify-center transition-all cursor-pointer"
+            className="w-8 h-8 rounded-full bg-neutral-800 border border-neutral-700/60 text-neutral-400 hover:text-white hover:bg-neutral-700 flex items-center justify-center transition-all cursor-pointer"
             aria-label="Tutup Modal Ekspor"
           >
             <X size={16} />
           </button>
         </div>
 
-        {/* Member Status / Guest Watermark Banner */}
-        <div className="px-5 py-2.5 bg-gradient-to-r from-surface via-surface/80 to-surface border-b border-border-subtle/80 flex items-center justify-between">
-          <div className="flex items-center gap-2 text-xs font-mono">
-            {session ? (
-              <>
-                <span className="w-2 h-2 rounded-full bg-emerald-400 shrink-0 shadow-[0_0_6px_rgba(52,211,153,0.8)]" />
-                <span className="text-text-primary font-bold">
-                  ⭐ Member Terdaftar: Unduh 100% Bersih Ultra HD 2K Tanpa Watermark
-                </span>
-              </>
-            ) : (
-              <>
-                <span className="w-2 h-2 rounded-full bg-amber-400 shrink-0 shadow-[0_0_6px_rgba(251,191,36,0.8)]" />
-                <span className="text-text-muted text-[11px]">
-                  🏷️ Mode Tamu: Unduh Mockup Gratis (Watermark Halus). Masuk untuk versi bersih 2K!
-                </span>
-              </>
-            )}
-          </div>
-        </div>
-
-        {/* Tab Switcher */}
-        <div className="flex border-b border-border-subtle px-4 py-2 bg-surface/40 gap-1">
+        {/* Tab Switcher - Segmented Pills */}
+        <div className="flex border-b border-neutral-800 px-6 py-2.5 bg-neutral-950/60 gap-1.5 shrink-0">
           {[
-            { id: "photo", label: "FOTO MOCKUP (PNG)", icon: Camera },
-            { id: "card", label: "KARTU MEDSOS 4:5", icon: Share2 },
-            { id: "video", label: "VIDEO 360° LOOP", icon: Film },
+            { id: "photo", label: "Foto Mockup (PNG)", icon: Camera },
+            { id: "card", label: "Kartu Medsos 4:5", icon: Share2 },
+            { id: "video", label: "Video 360° Loop", icon: Film },
           ].map(({ id, label, icon: Icon }) => (
             <button
               key={id}
               type="button"
               onClick={() => setActiveTab(id as any)}
-              className={`flex-1 flex items-center justify-center gap-1.5 py-2 px-2 rounded-xl font-mono text-xs font-bold transition-all cursor-pointer ${
+              className={`flex-1 flex items-center justify-center gap-2 py-2 px-3 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
                 activeTab === id
-                  ? "bg-brand-accent text-canvas shadow-sm"
-                  : "text-text-muted hover:text-text-primary hover:bg-surface/60"
+                  ? "bg-blue-600 text-white shadow-sm font-bold"
+                  : "text-neutral-400 hover:text-white hover:bg-neutral-800/60"
               }`}
             >
-              <Icon size={13} />
+              <Icon size={14} />
               <span>{label}</span>
             </button>
           ))}
         </div>
 
         {/* Content Body */}
-        <div className="flex-1 overflow-y-auto p-5 space-y-4 min-h-0 text-text-primary">
+        <div className="flex-1 overflow-y-auto p-6 space-y-4 min-h-0 text-neutral-100">
           {/* TAB 1: FOTO MOCKUP PNG */}
           {activeTab === "photo" && (
             <div className="space-y-4">
-              {/* Pilihan Sudut Pandang */}
-              <div className="space-y-1.5">
-                <span className="block text-xs font-sans text-text-muted font-bold uppercase">SUDUT PANDANG KAMERA:</span>
-                <div className="grid grid-cols-3 gap-2">
+              {/* Pilihan Sudut Pandang Kamera (5 Presets) */}
+              <div className="space-y-2">
+                <label className="block text-xs font-semibold text-neutral-400 uppercase tracking-wider">
+                  Sudut Pandang Kamera
+                </label>
+                <div className="grid grid-cols-5 gap-2">
                   {[
-                    { id: "front", label: "TAMPAK DEPAN", icon: Shirt },
-                    { id: "back", label: "TAMPAK BELAKANG", icon: RotateCw },
-                    { id: "current", label: "SUDUT SAAT INI", icon: Camera },
+                    { id: "front", label: "Depan", icon: Shirt },
+                    { id: "back", label: "Belakang", icon: RotateCw },
+                    { id: "left", label: "Lengan Kiri", icon: Layers },
+                    { id: "right", label: "Lengan Kanan", icon: Layers },
+                    { id: "current", label: "Sudut Aktif", icon: Camera },
                   ].map(({ id, label, icon: Icon }) => (
                     <button
                       key={id}
                       type="button"
                       onClick={() => setPhotoAngle(id as any)}
-                      className={`p-3 rounded-2xl border text-center transition-all flex flex-col items-center justify-center gap-1.5 cursor-pointer ${
+                      className={`py-3 px-1.5 rounded-2xl border text-center transition-all flex flex-col items-center justify-center gap-1.5 cursor-pointer ${
                         photoAngle === id
-                          ? "bg-brand-accent/15 border-brand-accent text-brand-accent font-bold shadow-sm"
-                          : "bg-surface border-border-subtle text-text-muted hover:text-text-primary hover:bg-surface/80"
+                          ? "bg-blue-600/15 border-blue-500 text-blue-400 font-bold ring-1 ring-blue-500/30 shadow-sm"
+                          : "bg-neutral-950/60 border-neutral-800 text-neutral-300 hover:text-white hover:bg-neutral-800 hover:border-neutral-700"
                       }`}
                     >
                       <Icon size={16} />
-                      <span className="text-[10px] font-sans font-bold uppercase">{label}</span>
+                      <span className="text-[10px] sm:text-[11px] font-medium leading-tight">{label}</span>
                     </button>
                   ))}
                 </div>
               </div>
 
               {/* Pilihan Resolusi & Latar Belakang */}
-              <div className="grid grid-cols-2 gap-3 pt-2">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
                 <div className="space-y-1.5">
-                  <span className="block text-xs font-sans text-text-muted font-bold uppercase">RESOLUSI GAMBAR:</span>
-                  <div className="flex rounded-xl border border-border-subtle p-1 bg-surface/60 gap-1">
+                  <label className="block text-xs font-semibold text-neutral-400 uppercase tracking-wider">
+                    Resolusi Render
+                  </label>
+                  <div className="flex rounded-xl border border-neutral-800 p-1 bg-neutral-950/60 gap-1">
                     <button
                       type="button"
                       onClick={() => setResolution("hd")}
-                      className={`flex-1 py-1.5 rounded-lg text-xs font-mono font-bold transition-all cursor-pointer ${
-                        resolution === "hd" ? "bg-brand-accent text-canvas" : "text-text-muted hover:text-text-primary"
+                      className={`flex-1 py-1.5 px-2 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+                        resolution === "hd" ? "bg-blue-600 text-white shadow-sm" : "text-neutral-400 hover:text-white"
                       }`}
                     >
-                      FULL HD (1080p)
+                      Full HD (1080p)
                     </button>
                     <button
                       type="button"
                       onClick={() => setResolution("2k")}
-                      className={`flex-1 py-1.5 rounded-lg text-xs font-mono font-bold transition-all cursor-pointer ${
-                        resolution === "2k" ? "bg-brand-accent text-canvas" : "text-text-muted hover:text-text-primary"
+                      className={`flex-1 py-1.5 px-2 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+                        resolution === "2k" ? "bg-blue-600 text-white shadow-sm" : "text-neutral-400 hover:text-white"
                       }`}
                     >
-                      ULTRA HD (2K)
+                      Ultra HD (2K)
                     </button>
                   </div>
                 </div>
 
                 <div className="space-y-1.5">
-                  <span className="block text-xs font-sans text-text-muted font-bold uppercase">LATAR BELAKANG:</span>
-                  <div className="flex rounded-xl border border-border-subtle p-1 bg-surface/60 gap-1">
+                  <label className="block text-xs font-semibold text-neutral-400 uppercase tracking-wider">
+                    Latar Belakang
+                  </label>
+                  <div className="flex rounded-xl border border-neutral-800 p-1 bg-neutral-950/60 gap-1">
                     <button
                       type="button"
                       onClick={() => setBgMode("studio")}
-                      className={`flex-1 py-1.5 rounded-lg text-xs font-mono font-bold transition-all cursor-pointer ${
-                        bgMode === "studio" ? "bg-brand-accent text-canvas" : "text-text-muted hover:text-text-primary"
+                      className={`flex-1 py-1.5 px-2 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+                        bgMode === "studio" ? "bg-blue-600 text-white shadow-sm" : "text-neutral-400 hover:text-white"
                       }`}
                     >
-                      STUDIO
+                      Studio
                     </button>
                     <button
                       type="button"
                       onClick={() => setBgMode("transparent")}
-                      className={`flex-1 py-1.5 rounded-lg text-xs font-mono font-bold transition-all cursor-pointer ${
-                        bgMode === "transparent" ? "bg-brand-accent text-canvas" : "text-text-muted hover:text-text-primary"
+                      className={`flex-1 py-1.5 px-2 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+                        bgMode === "transparent" ? "bg-blue-600 text-white shadow-sm" : "text-neutral-400 hover:text-white"
                       }`}
                     >
-                      TRANSPARAN
+                      Transparan
                     </button>
                   </div>
                 </div>
               </div>
 
+              {/* Ringkasan Konfigurasi Render */}
+              <div className="p-3 rounded-2xl bg-neutral-950/40 border border-neutral-800/80 flex items-center justify-between text-xs text-neutral-400">
+                <div className="flex items-center gap-2">
+                  <span className="w-1.5 h-1.5 rounded-full bg-blue-400" />
+                  <span>{APPAREL_CATALOG[activeApparel]?.name ?? "Pakaian 3D"} · {activeColorName}</span>
+                </div>
+                <span className="font-mono text-[11px] text-neutral-400">
+                  {resolution === "2k" ? "2048 × 2048 px" : "1536 × 1536 px"} · PNG Lossless
+                </span>
+              </div>
+
               {/* Action Button */}
-              <div className="pt-3">
+              <div className="pt-2">
                 <button
                   type="button"
                   disabled={isExporting}
                   onClick={handleExportPhoto}
-                  className="w-full py-3.5 px-5 rounded-2xl bg-brand-accent hover:brightness-110 text-canvas font-sans font-bold text-xs uppercase tracking-wider transition-all shadow-lg active:scale-98 flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
+                  className="w-full py-3.5 px-5 rounded-2xl bg-blue-600 hover:bg-blue-500 text-white font-semibold text-xs uppercase tracking-wider transition-all shadow-lg shadow-blue-600/20 active:scale-[0.99] flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 disabled:pointer-events-none"
                 >
                   {isExporting ? <Loader2 size={16} className="animate-spin" /> : <Download size={16} />}
-                  <span>{isExporting ? "MEMPROSES GAMBAR…" : `UNDUH MOCKUP ${resolution.toUpperCase()} PNG`}</span>
+                  <span>{isExporting ? "Memproses Render 3D…" : `Unduh Mockup PNG (${resolution.toUpperCase()})`}</span>
                 </button>
               </div>
             </div>
@@ -568,35 +570,60 @@ export const ExportStudioModal: React.FC = () => {
           {/* TAB 2: KARTU MEDSOS 4:5 */}
           {activeTab === "card" && (
             <div className="space-y-4">
-              <div className="p-4 rounded-2xl bg-brand-accent/5 border border-brand-accent/20">
-                <p className="text-xs text-text-muted leading-relaxed">
-                  Menghasilkan kartu visual vertikal rasio 4:5 (1080×1350 piksel) berlatar streetwear modern, lengkap dengan detail nama pakaian, warna resmi, rincian bahan, dan badge Kaos Kami Makassar — siap unggah ke Instagram Feed / Story dan status WhatsApp!
-                </p>
-              </div>
-
-              <div className="p-4 rounded-2xl bg-surface border border-border-subtle flex items-center justify-between">
-                <div>
-                  <span className="text-xs font-mono font-bold text-text-primary block">
-                    {APPAREL_CATALOG[activeApparel]?.name ?? "Apparel Streetwear"}
-                  </span>
-                  <span className="text-[11px] text-text-muted block mt-0.5">
-                    Warna {activeColorName} · Ukuran {selectedSize || "L"} · Format 1080×1350
+              {/* Preview Box */}
+              <div className="p-4 rounded-2xl bg-neutral-950/60 border border-neutral-800 space-y-3">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <span className="text-xs font-bold text-white block">
+                      {APPAREL_CATALOG[activeApparel]?.name ?? "Custom Streetwear"}
+                    </span>
+                    <span className="text-[11px] text-neutral-400 block mt-0.5">
+                      Warna {activeColorName} · Ukuran {selectedSize || "L"} · Sablon DTF High-Craft
+                    </span>
+                  </div>
+                  <span className="text-xs font-mono font-bold text-blue-400 bg-blue-500/10 px-2.5 py-1 rounded-lg border border-blue-500/20">
+                    1080 × 1350 (4:5)
                   </span>
                 </div>
-                <span className="text-xs font-mono font-bold text-brand-accent bg-brand-accent/10 px-2.5 py-1 rounded-lg border border-brand-accent/30">
-                  RASIO 4:5
-                </span>
+
+                <div className="flex items-center justify-between pt-2 border-t border-neutral-800/80 text-xs">
+                  <span className="text-neutral-400">Format Visual:</span>
+                  <span className="font-medium text-neutral-300">
+                    Instagram Feed &amp; WhatsApp Story Ready
+                  </span>
+                </div>
               </div>
 
+              {/* Toggle Opsi Harga */}
+              <div className="flex items-center justify-between px-3 py-2.5 rounded-xl bg-neutral-950/40 border border-neutral-800/80">
+                <span className="text-xs text-neutral-300 font-medium">
+                  Sertakan Rincian Harga Produk (IDR)
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setIncludePriceOnCard(!includePriceOnCard)}
+                  className={`w-10 h-5 rounded-full transition-colors relative cursor-pointer ${
+                    includePriceOnCard ? "bg-blue-600" : "bg-neutral-800"
+                  }`}
+                >
+                  <span
+                    className={`block w-4 h-4 rounded-full bg-white transition-transform ${
+                      includePriceOnCard ? "translate-x-5" : "translate-x-0.5"
+                    }`}
+                  />
+                </button>
+              </div>
+
+              {/* Action Button */}
               <div className="pt-2">
                 <button
                   type="button"
                   disabled={isExporting}
                   onClick={handleExportCard}
-                  className="w-full py-3.5 px-5 rounded-2xl bg-brand-accent hover:brightness-110 text-canvas font-sans font-bold text-xs uppercase tracking-wider transition-all shadow-lg active:scale-98 flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
+                  className="w-full py-3.5 px-5 rounded-2xl bg-blue-600 hover:bg-blue-500 text-white font-semibold text-xs uppercase tracking-wider transition-all shadow-lg shadow-blue-600/20 active:scale-[0.99] flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 disabled:pointer-events-none"
                 >
                   {isExporting ? <Loader2 size={16} className="animate-spin" /> : <Share2 size={16} />}
-                  <span>{isExporting ? "MENYUSUN KARTU…" : "UNDUH KARTU MEDSOS 4:5 (PNG)"}</span>
+                  <span>{isExporting ? "Menyusun Kartu Medsos…" : "Unduh Kartu Medsos 4:5 (PNG)"}</span>
                 </button>
               </div>
             </div>
@@ -605,61 +632,91 @@ export const ExportStudioModal: React.FC = () => {
           {/* TAB 3: VIDEO 360° TURNTABLE */}
           {activeTab === "video" && (
             <div className="space-y-4">
-              <div className="p-4 rounded-2xl bg-brand-accent/5 border border-brand-accent/20">
-                <p className="text-xs text-text-muted leading-relaxed">
-                  Rekam perputaran 360 derajat pakaian secara mulus selama 5 detik. Video ini sangat menarik untuk dijadikan showcase produk di katalog toko atau konten media sosial.
-                </p>
-              </div>
+              <p className="text-xs text-neutral-400 leading-relaxed">
+                Merekam perputaran 360° mulus dari kanvas 3D langsung dari browser. Format ini ideal untuk showcase produk di katalog toko atau konten media sosial.
+              </p>
 
-              <div className="space-y-1.5">
-                <span className="block text-xs font-sans text-text-muted font-bold uppercase">FORMAT VIDEO:</span>
-                <div className="flex rounded-xl border border-border-subtle p-1 bg-surface/60 gap-1">
-                  <button
-                    type="button"
-                    onClick={() => setVideoFormat("webm")}
-                    className={`flex-1 py-1.5 rounded-lg text-xs font-mono font-bold transition-all cursor-pointer ${
-                      videoFormat === "webm" ? "bg-brand-accent text-canvas" : "text-text-muted hover:text-text-primary"
-                    }`}
-                  >
-                    WEBM (HD KANVAS)
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setVideoFormat("mp4")}
-                    className={`flex-1 py-1.5 rounded-lg text-xs font-mono font-bold transition-all cursor-pointer ${
-                      videoFormat === "mp4" ? "bg-brand-accent text-canvas" : "text-text-muted hover:text-text-primary"
-                    }`}
-                  >
-                    MP4 (UNIVERSAL)
-                  </button>
+              {/* Durasi & Format */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="space-y-1.5">
+                  <label className="block text-xs font-semibold text-neutral-400 uppercase tracking-wider">
+                    Durasi Putaran
+                  </label>
+                  <div className="flex rounded-xl border border-neutral-800 p-1 bg-neutral-950/60 gap-1">
+                    <button
+                      type="button"
+                      onClick={() => setVideoDuration(5)}
+                      className={`flex-1 py-1.5 px-2 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+                        videoDuration === 5 ? "bg-blue-600 text-white shadow-sm" : "text-neutral-400 hover:text-white"
+                      }`}
+                    >
+                      5 Detik (Normal)
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setVideoDuration(8)}
+                      className={`flex-1 py-1.5 px-2 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+                        videoDuration === 8 ? "bg-blue-600 text-white shadow-sm" : "text-neutral-400 hover:text-white"
+                      }`}
+                    >
+                      8 Detik (Sinematik)
+                    </button>
+                  </div>
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="block text-xs font-semibold text-neutral-400 uppercase tracking-wider">
+                    Format Kontainer
+                  </label>
+                  <div className="flex rounded-xl border border-neutral-800 p-1 bg-neutral-950/60 gap-1">
+                    <button
+                      type="button"
+                      onClick={() => setVideoFormat("mp4")}
+                      className={`flex-1 py-1.5 px-2 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+                        videoFormat === "mp4" ? "bg-blue-600 text-white shadow-sm" : "text-neutral-400 hover:text-white"
+                      }`}
+                    >
+                      MP4 (Universal)
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setVideoFormat("webm")}
+                      className={`flex-1 py-1.5 px-2 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+                        videoFormat === "webm" ? "bg-blue-600 text-white shadow-sm" : "text-neutral-400 hover:text-white"
+                      }`}
+                    >
+                      WebM (Kanvas HD)
+                    </button>
+                  </div>
                 </div>
               </div>
 
               {/* Progress Bar when recording */}
               {isExporting && videoProgress > 0 && (
-                <div className="space-y-1.5 pt-2">
-                  <div className="flex justify-between text-xs font-mono">
-                    <span className="text-text-muted">Proses Merekam 360°:</span>
-                    <span className="font-bold text-brand-accent">{videoProgress}%</span>
+                <div className="space-y-1.5 pt-1">
+                  <div className="flex justify-between text-xs">
+                    <span className="text-neutral-400">Proses Perekaman 360°:</span>
+                    <span className="font-bold text-blue-400">{videoProgress}%</span>
                   </div>
-                  <div className="w-full h-2 rounded-full bg-surface border border-border-subtle overflow-hidden">
+                  <div className="w-full h-2 rounded-full bg-neutral-950 border border-neutral-800 overflow-hidden">
                     <div
-                      className="h-full bg-brand-accent transition-all duration-100 ease-out"
+                      className="h-full bg-blue-500 transition-all duration-100 ease-out"
                       style={{ width: `${videoProgress}%` }}
                     />
                   </div>
                 </div>
               )}
 
+              {/* Action Button */}
               <div className="pt-2">
                 <button
                   type="button"
                   disabled={isExporting}
                   onClick={handleExport360Video}
-                  className="w-full py-3.5 px-5 rounded-2xl bg-brand-accent hover:brightness-110 text-canvas font-sans font-bold text-xs uppercase tracking-wider transition-all shadow-lg active:scale-98 flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
+                  className="w-full py-3.5 px-5 rounded-2xl bg-blue-600 hover:bg-blue-500 text-white font-semibold text-xs uppercase tracking-wider transition-all shadow-lg shadow-blue-600/20 active:scale-[0.99] flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 disabled:pointer-events-none"
                 >
                   {isExporting ? <Loader2 size={16} className="animate-spin" /> : <Film size={16} />}
-                  <span>{isExporting ? `MEREKAM (${videoProgress}%)…` : "REKAM VIDEO 360° (5 DETIK)"}</span>
+                  <span>{isExporting ? `Merekam (${videoProgress}%)…` : `Mulai Rekam Video 360° (${videoDuration} Detik)`}</span>
                 </button>
               </div>
             </div>
@@ -667,21 +724,37 @@ export const ExportStudioModal: React.FC = () => {
 
           {/* Feedback Toast Banner */}
           {feedbackMsg && (
-            <div className="p-3 rounded-xl bg-surface border border-brand-accent/40 text-xs font-mono text-center text-text-primary animate-fade-in shadow-md">
+            <div className="p-3 rounded-xl bg-neutral-950 border border-blue-500/40 text-xs font-medium text-center text-blue-300 animate-fade-in shadow-md">
               {feedbackMsg}
             </div>
           )}
         </div>
 
-        {/* Footer */}
-        <div className="px-5 py-3 border-t border-border-subtle bg-surface/80 flex justify-between items-center text-[11px] font-mono text-text-muted">
-          <span>Tekan ESC untuk menutup</span>
+        {/* Footer - Watermark Status & Close */}
+        <div className="px-6 py-3 border-t border-neutral-800 bg-neutral-950/80 flex justify-between items-center text-xs shrink-0">
+          <div className="flex items-center gap-2 text-neutral-400">
+            {session ? (
+              <>
+                <span className="w-2 h-2 rounded-full bg-emerald-400 shrink-0 shadow-[0_0_6px_rgba(52,211,153,0.8)]" />
+                <span className="text-neutral-300 font-medium">
+                  Akun Terverifikasi · Hasil ekspor bersih tanpa watermark
+                </span>
+              </>
+            ) : (
+              <>
+                <span className="w-2 h-2 rounded-full bg-amber-400 shrink-0" />
+                <span className="text-neutral-400 text-[11px]">
+                  Mode Tamu · Watermark preview otomatis disertakan
+                </span>
+              </>
+            )}
+          </div>
           <button
             type="button"
             onClick={() => setIsExportModalOpen(false)}
-            className="px-4 py-1.5 rounded-xl bg-surface border border-border-subtle hover:bg-surface/80 text-text-primary font-bold cursor-pointer transition-all"
+            className="px-4 py-1.5 rounded-xl bg-neutral-800 hover:bg-neutral-700 text-neutral-300 hover:text-white font-medium text-xs cursor-pointer transition-all border border-neutral-700/60"
           >
-            TUTUP
+            Tutup
           </button>
         </div>
       </div>

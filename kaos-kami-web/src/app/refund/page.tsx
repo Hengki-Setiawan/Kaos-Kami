@@ -25,7 +25,7 @@ export default function RefundPage() {
   return (
     <div className="min-h-screen bg-canvas text-text-primary flex flex-col font-sans">
       <Navbar />
-      <main className="flex-1 px-4 py-12 max-w-4xl mx-auto space-y-8 w-full">
+      <main className="flex-1 px-4 pt-24 sm:pt-28 pb-16 max-w-4xl mx-auto space-y-8 w-full">
         <div>
           <Link
             href="/"
@@ -42,7 +42,7 @@ export default function RefundPage() {
         </div>
 
         {/* Highlight Banner */}
-        <div className="p-4 rounded-xl bg-surface border border-border-strong flex items-start gap-3 text-xs leading-relaxed text-text-muted">
+        <div className="p-4 sm:p-5 rounded-2xl bg-surface/75 dark:bg-black/40 backdrop-blur-xl border border-border-subtle/80 dark:border-white/10 flex items-start gap-3 text-xs leading-relaxed text-text-muted shadow-sm">
           <ShieldCheck size={20} className="text-brand-accent shrink-0 mt-0.5" />
           <div>
             <strong className="text-text-primary block font-bold text-sm mb-1">

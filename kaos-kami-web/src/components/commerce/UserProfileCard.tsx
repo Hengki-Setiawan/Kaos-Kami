@@ -139,7 +139,7 @@ export function UserProfileCard({ user, onProfileUpdated }: UserProfileProps) {
   };
 
   return (
-    <div className="p-5 sm:p-6 rounded-2xl bg-surface border border-border-subtle shadow-sm transition-all font-sans">
+    <div className="p-5 sm:p-7 rounded-3xl bg-surface/75 dark:bg-black/40 backdrop-blur-2xl border border-border-subtle/80 dark:border-white/10 shadow-[0_12px_40px_rgba(0,0,0,0.15)] transition-all font-sans">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-border-subtle">
         <div className="flex items-center gap-3.5">
           <div className="w-12 h-12 rounded-xl bg-brand-accent/20 border border-brand-accent/40 text-brand-accent flex items-center justify-center font-sans font-bold text-lg shadow-inner shrink-0">
@@ -332,7 +332,7 @@ export function UserProfileCard({ user, onProfileUpdated }: UserProfileProps) {
             <button
               type="submit"
               disabled={loading}
-              className="py-2 px-4 rounded-xl bg-brand-accent text-canvas hover:brightness-110 active:scale-95 text-xs font-bold transition-all shadow-[0_0_12px_rgba(230,81,0,0.3)] flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+              className="py-2 px-4 rounded-xl bg-brand-accent text-white hover:brightness-110 active:scale-95 text-xs font-bold transition-all shadow-[0_0_12px_rgba(37,99,235,0.3)] flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
             >
               {loading ? (
                 <>

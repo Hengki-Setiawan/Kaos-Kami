@@ -24,7 +24,7 @@ export default function TermsPage() {
   return (
     <div className="min-h-screen bg-canvas text-text-primary flex flex-col font-sans">
       <Navbar />
-      <main className="flex-1 px-4 py-12 max-w-4xl mx-auto space-y-8 w-full">
+      <main className="flex-1 px-4 pt-24 sm:pt-28 pb-16 max-w-4xl mx-auto space-y-8 w-full">
         <div>
           <Link
             href="/"
@@ -40,13 +40,13 @@ export default function TermsPage() {
           </p>
         </div>
 
-        <div className="p-4 rounded-xl bg-surface border border-border-subtle text-xs text-text-muted leading-relaxed">
+        <div className="p-5 rounded-2xl bg-surface/75 dark:bg-black/40 backdrop-blur-xl border border-border-subtle/80 dark:border-white/10 text-xs text-text-muted leading-relaxed shadow-sm">
           Selamat datang di platform resmi <strong>Kaos Kami</strong> (kaoskami.biz.id). 
           Dengan mengakses situs, menggunakan 3D Customizer, atau melakukan pemesanan pakaian custom sablon DTF dan produk apparel kami, Anda dianggap telah membaca, memahami, dan menyetujui seluruh ketentuan yang tercantum di bawah ini.
         </div>
 
         {/* Daftar Isi sticky (CSS only — tanpa lib): anchor per seksi */}
-        <nav aria-label="Daftar isi Syarat & Ketentuan" className="lg:sticky lg:top-24 rounded-xl border border-border-subtle bg-surface/60 p-4 font-sans text-xs text-text-muted">
+        <nav aria-label="Daftar isi Syarat & Ketentuan" className="lg:sticky lg:top-24 rounded-2xl border border-border-subtle/80 dark:border-white/10 bg-surface/75 dark:bg-black/40 backdrop-blur-xl p-4 sm:p-5 font-sans text-xs text-text-muted shadow-sm">
           <p className="font-bold text-text-primary text-[11px] uppercase tracking-wider mb-2">Daftar Isi</p>
           <ol className="space-y-1.5 list-none">
             <li><a href="#definisi-layanan" className="hover:text-brand-accent hover:underline">1. Definisi &amp; Ruang Lingkup</a></li>

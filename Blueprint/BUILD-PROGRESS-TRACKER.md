@@ -337,21 +337,37 @@
   - Skala sablon otomatis di-clamp aman (`maxDecalScaleUnits`) saat menyeberang ke zona sempit untuk mencegah kesalahan visual.
   - Status indikator warna: Hijau Emerald jika aman di dalam area cetak maklon DTF, Merah Rose berkedip jika melampaui batas.
 
+### 16. Gelombang 10 (21 Okt 2026): Redesain Modal Direct QRIS Minimalis Fintech, Integrasi 3D Studio Cart, Riset Admin Dual-Channel, & Pembersihan Database Turso
+* **Redesain Total Modal Direct QRIS (`DirectQrisModal.tsx`)**:
+  - Mengubah tampilan kartu hitam pekat menjadi *clean white fintech sheet* (latar putih bersih, sudut membulat modern, bayangan halus).
+  - Mengeliminasi seluruh badge teknis internal (`Live Nobu`, `Bank Nobu`, grid 3-tahap rumit) yang membingungkan pelanggan.
+  - Memperbesar tipografi nominal tagihan Rupiah secara tegas dan kontras, mempertahankan barcode QRIS beresolusi tinggi, hitung mundur 30 menit, serta tombol *Unduh QRIS* dan *Salin Kode*.
+* **Perbaikan Integrasi Keranjang 3D Studio (`StudioClient.tsx`)**:
+  - Menghubungkan komponen `<CartDrawer />` ke dalam pohon DOM panggung 3D `/studio`.
+  - Tombol **PESAN SEKARANG** pada footer kalkulasi matematika 3D kini 100% membuka keranjang kustom sablon DTF dan mengarahkan ke form checkout dengan spesifikasi cetak lengkap.
+* **Verifikasi Fisik & Tangkapan Layar 4 Alur Checkout Real**:
+  - Menghasilkan bukti tangkapan layar Edge Playwright resolusi tinggi:
+    1. `form_checkout_ecommerce.png`: Form checkout katalog ready stock Makassar.
+    2. `modal_qris_ecommerce.png`: Modal Direct QRIS katalog ready stock (`Rp 120.000`).
+    3. `form_checkout_3d_studio.png`: Form checkout baju kustom 3D Studio DTF (`Rp 59.000`).
+    4. `modal_qris_3d_studio.png`: Modal Direct QRIS baju kustom di atas kanvas 3D Studio.
+* **Riset & Audit Integrasi Dual-Channel Admin Dashboard (`/admin`)**:
+  - Memverifikasi segregasi kueri SQL Turso: `channel=studio` (memiliki relasi `Design`) vs `channel=ecommerce` (produk jadi katalog).
+  - Memverifikasi otomatisasi `confirmOrderPaid()`: Pesanan kustom memicu pembuatan `ProductionTask` (dimensi fisik cm + master R2) ke Meja Sablon DTF (`/admin/production`) dan Auto-Nesting (`/admin/gang-sheet`), sedangkan pesanan katalog langsung memotong stok dan dialihkan ke `READY_TO_SHIP` (Siap Kemas).
+  - Mendokumentasikan modal rincian 2D/3D, Job Ticket SPK Bengkel, dan aksi cepat cetak resi thermal.
+* **Pencadangan Penuh & Pembersihan Database Turso (Database Sanitization)**:
+  - Membuat berkas *full snapshot backup* JSON 1,556 KB (`backup/backup_database_orders_users_*.json`) berisi seluruh tabel: `User`, `Account`, `Session`, `Order`, `OrderItem`, `OrderStatusEvent`, `Payment`, `ProductionTask`, `Address`, `Design`.
+  - Membersihkan 374 pesanan dummy, 42 akun dummy (kanban, extra, tester, e2e), 35 production tasks, 343 payments, dan 376 alamat dummy.
+  - Mempertahankan secara utuh 5 Akun Riil (3 Admin Workshop & 2 Customer Akun Owner) serta 234 desain milik akun asli dan 100% data master katalog (8 kategori, 331 varian produk).
+
 ---
 
 ## 🧪 STATUS VALIDASI SISTEM
-* **Status jujur (per AGENTS.md Pilar 1 — AI dilarang mengklaim selesai):** 🟡 KODE DIUBAH — entri 26/28/31/32 dan Gelombang 9 **MENUNGGU VERIFIKASI FISIK OWNER** (`http://localhost:3000` + uji sandbox iPaymu + live-run Wave7 + uji orbit 3D). Label "100% SELESAI PENUH" di revisi lama DICABUT 05 Okt 2026 karena kontradiktif dengan status entri-entri tersebut; hanya owner yang boleh menyatakan selesai dan mencentang.
+* **Status jujur (per AGENTS.md Pilar 1 — AI dilarang mengklaim selesai):** 🟡 KODE DIUBAH — entri 26/28/31/32, Gelombang 9, dan Gelombang 10 **MENUNGGU VERIFIKASI FISIK OWNER** (`http://localhost:3000` + uji sandbox iPaymu + live-run Wave7 + uji orbit 3D). Label "100% SELESAI PENUH" di revisi lama DICABUT 05 Okt 2026 karena kontradiktif dengan status entri-entri tersebut; hanya owner yang boleh menyatakan selesai dan mencentang.
 * **TypeScript Compiler (`tsc --noEmit`)**: 0 error (100% lolos pada `kaos-kami-web` dan `kaos-kami-mobile`).
-* **Vitest Test Suite (`npm test` di `kaos-kami-web/`)**: 30 file, 218 tests passed (100% lolos). Rumus: file = `*.test.ts` di `src/`; test = blok `it(...)` yang dieksekusi vitest. (Angka lama 24 file / 185 test = baseline Gelombang 12, sudah basi; angka per-gelombang di tabel log di atas adalah catatan historis saat gelombangnya berjalan dan TIDAK diubah.)
-* **Payment Gateway Production**: iPaymu Direct QRIS 100% In-App (Web & Mobile Capacitor), dynamic fallback dev, 0 redirect luar.
-* **Database Sensus Turso**: 13 tabel diverifikasi (0 foreign key error, 0 orphan payment, 0 kupon overuse, 0 stok negatif; native `reviewedBy`, `reviewNote`, `reviewedAt` aktif).
-* **Audit 3 Pilar Internal Toko**: 30 skenario lulus (Produksi, Logistik, Admin RBAC).
-* **Domain E (Live Chat Kamito)**: 12 skenario lulus (Presence, Auto-welcome, XSS sanitization, Admin reply, Unread badge).
-* **Domain K (Cron & Security)**: 20 skenario lulus (Sweep, R2 Backup SQL dump 1.39MB, CSP/HSTS/COOP).
-* **E2E Kasus Nyata 1 s/d 6**: 6/6 kasus lolos (Makassar Free Delivery, Pickup KM 10, DTF 30cm clamp, Gang sheet nesting, Penetration defense 7/7, Kanban 7-tahap).
-* **E2E Transaksi Nyata Wave 7**: 6/6 tahap lolos (Server 200 OK -> Verified User -> In-App Direct QRIS Checkout -> Webhook iPaymu Lunas -> Turso DB Order & Payment Settlement -> Kanban DTF Maklon 6-Tahap Workshop Makassar).
-* **Mobile Capacitor Suite**: TypeScript 0 error, Next.js static export build sukses (`out/`), `npx cap sync android` selesai (17 plugin terbarui), biner Android APK fisik `app-debug.apk` (136 MB) berhasil dikompilasi via Gradle.
+* **Database Turso Pasca-Pembersihan**: 0 order dummy (database siap produksi), 5 akun riil aktif, 234 desain asli tersimpan, 1.55 MB backup JSON terverifikasi.
 * **Dev Server**: Berjalan stabil di `http://127.0.0.1:3000`.
+
 
 
 

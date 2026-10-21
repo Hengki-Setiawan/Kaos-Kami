@@ -591,42 +591,39 @@ export const APPAREL_SLEEVE_SPECS: Record<
   }
 > = {
   tshirt: {
-    shoulder: { x: -0.180, y: 0.100, z: -0.019, nx: -0.80, ny: 0.61 },
-    cuff: { x: -0.251, y: -0.045, z: -0.045, nx: -0.77, ny: -0.63 },
-    depth: 0.075,
+    // Kalibrasi presisi tee-basic.glb: shoulder y: 0.090, cuff x: -0.258, y: -0.045, z: -0.025.
+    // normal di ujung hem menghadap luar (-0.92, -0.25) dengan depth 0.145 agar melingkupi seluruh lingkar lengan hingga ujung.
+    shoulder: { x: -0.180, y: 0.090, z: -0.019, nx: -0.77, ny: 0.58 },
+    cuff: { x: -0.258, y: -0.045, z: -0.025, nx: -0.92, ny: -0.25 },
+    depth: 0.145,
     bow: 0.015,
   },
   longsleeve: {
-    // SWAP 20 Sep 2026: mesh = ex-sweater.glb. Cuff TERUKUR (dual-method:
-    // bin-slope −0.43 + band-avg −0.394 → −0.425; y −0.28/−0.297 → −0.285).
-    // Lengan lebih panjang → bow 0.025 → 0.035 (sepanjang hoodie).
-    shoulder: { x: -0.180, y: 0.100, z: -0.019, nx: -0.80, ny: 0.61 },
-    cuff: { x: -0.425, y: -0.285, z: -0.017, nx: -1.00, ny: 0.07 },
-    depth: 0.075,
-    bow: 0.035,
+    // Kalibrasi presisi longsleeve.glb: shoulder y: 0.050; cuff x: -0.435, y: -0.298, z: +0.030 (vertex riil ujung manset).
+    // depth 0.145 agar proyektor menjangkau seluruh kontur lengan dan manset tanpa melayang dan tanpa tembus torso.
+    shoulder: { x: -0.180, y: 0.050, z: -0.015, nx: -0.80, ny: 0.60 },
+    cuff: { x: -0.435, y: -0.298, z: 0.030, nx: -0.96, ny: -0.20 },
+    depth: 0.145,
+    bow: 0.025,
   },
   crewneck: {
-    // SWAP 20 Sep 2026: mesh = sweater Tristen (CC-BY 4.0). Shoulder valid tetap
+    // Mesh sweater Tristen (CC-BY 4.0). Shoulder valid tetap
     // (x 0.180 persis). Cuff TERUKUR: band-avg x 0.501 → tip −0.525, y −0.244 → −0.250.
     shoulder: { x: -0.180, y: 0.100, z: -0.015, nx: -0.81, ny: 0.59 },
     cuff: { x: -0.525, y: -0.250, z: 0.030, nx: -0.84, ny: 0.53 },
-    depth: 0.080,
+    depth: 0.145,
     bow: 0.040,
   },
   hoodie: {
     shoulder: { x: -0.189, y: 0.100, z: -0.036, nx: -0.73, ny: 0.67 },
     cuff: { x: -0.435, y: -0.245, z: 0.010, nx: -0.94, ny: 0.23 },
-    depth: 0.080,
+    depth: 0.145,
     bow: 0.035,
   },
   shirt: {
-    // SWAP 20 Sep 2026: mesh = hoodie Pieter Ferreira (A-pose lengan menggantung,
-    // bukan T-pose). Shoulder/cuff TERUKUR di ruang ternormalisasi
-    // (scale 0.2999): shoulder x 0.118/y 0.008+bias → (−0.120, 0.035);
-    // cuff (0.286, −0.260) → (−0.300, −0.255). Normal + depth + bow dipertahankan.
     shoulder: { x: -0.120, y: 0.035, z: -0.020, nx: -0.63, ny: 0.78 },
     cuff: { x: -0.300, y: -0.255, z: 0.030, nx: -0.87, ny: -0.40 },
-    depth: 0.085,
+    depth: 0.145,
     bow: 0.040,
   },
 };

@@ -31,10 +31,10 @@ function buildStudioEquirect(tint: string | null, isLight = false): HTMLCanvasEl
   // Langit studio — gelap obsidian vs terang gallery (hanya warna, tanpa ubah three logic).
   const sky = ctx.createLinearGradient(0, 0, 0, H);
   if (isLight) {
-    sky.addColorStop(0, "#EFECE6");
-    sky.addColorStop(0.45, "#E5E1D8");
-    sky.addColorStop(0.75, "#DDD8CD");
-    sky.addColorStop(1, "#D2CCC0");
+    sky.addColorStop(0, "#FFFFFF");
+    sky.addColorStop(0.45, "#F8FAFC");
+    sky.addColorStop(0.75, "#F1F5F9");
+    sky.addColorStop(1, "#E2E8F0");
   } else {
     sky.addColorStop(0, "#3a3f4a");
     sky.addColorStop(0.45, "#141418");
@@ -48,8 +48,8 @@ function buildStudioEquirect(tint: string | null, isLight = false): HTMLCanvasEl
   const softboxScale = isLight ? 0.4 : 1.0;
   const softbox = (x: number, y: number, r: number, alpha: number) => {
     const g = ctx.createRadialGradient(x, y, 0, x, y, r);
-    g.addColorStop(0, `rgba(255,252,245,${alpha})`);
-    g.addColorStop(0.55, `rgba(240,238,230,${alpha * 0.45})`);
+    g.addColorStop(0, `rgba(255,255,255,${alpha})`);
+    g.addColorStop(0.55, isLight ? `rgba(241,245,249,${alpha * 0.45})` : `rgba(240,244,250,${alpha * 0.45})`);
     g.addColorStop(1, "rgba(255,255,255,0)");
     ctx.fillStyle = g;
     ctx.fillRect(x - r, y - r, r * 2, r * 2);

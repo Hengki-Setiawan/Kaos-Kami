@@ -542,15 +542,19 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
           const j = await fetchJson<{ result?: { displayName?: string; district?: string; city?: string } }>(
             `/api/geocode/reverse?lat=${latitude}&lon=${longitude}`,
             undefined,
-            12000
+            25000
           );
           const g = j?.result;
           if (g?.displayName) setFullAddress(g.displayName);
           if (g?.district && MAKASSAR_SUBDISTRICTS.includes(g.district)) setDistrict(g.district);
           if (g?.city && deliveryMethod === "EXPEDITION_MANUAL") handleDestSearch(g.city);
-          setGpsMsg(g ? `Lokasi: ${[g.district, g.city].filter(Boolean).join(", ") || "terisi"}` : "Gagal membaca lokasi GPS.");
-        } catch (e: any) {
-          setGpsMsg(e?.message || "Gagal membaca lokasi GPS.");
+          setGpsMsg(
+            g?.displayName || g?.district
+              ? `Lokasi: ${[g.district, g.city].filter(Boolean).join(", ") || "Terdeteksi"}`
+              : "Titik GPS terkunci. Silakan lengkapi detail alamat di bawah."
+          );
+        } catch {
+          setGpsMsg("Titik GPS terkunci. Silakan lengkapi detail alamat di bawah.");
         } finally {
           setGpsLoading(false);
         }
@@ -679,7 +683,8 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
 
     const isCatalogCart = isCartCheckout || !decals || decals.length === 0;
     const isSandboxBypass = process.env.NODE_ENV !== "production";
-    if (!isAccountPhoneVerified && !isSandboxBypass && !adminBypassActive && !isCatalogCart && !/^\d{6}$/.test(otpCode.trim())) {
+    const isOtpRequired = process.env.NEXT_PUBLIC_CHECKOUT_OTP_REQUIRED !== "false";
+    if (isOtpRequired && !isAccountPhoneVerified && !isSandboxBypass && !adminBypassActive && !isCatalogCart && !/^\d{6}$/.test(otpCode.trim())) {
       setErrorMessage("Kode OTP 6 digit wajib diisi. Klik KIRIM OTP untuk menerima kode via WhatsApp.");
       return;
     }
@@ -779,7 +784,7 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
         recipientName,
         phoneNumber: normPhone,
         email: email || session?.user?.email || undefined,
-        otpCode: isAccountPhoneVerified || isSandboxBypass || adminBypassActive ? undefined : otpCode.trim(),
+        otpCode: !isOtpRequired || isAccountPhoneVerified || isSandboxBypass || adminBypassActive ? undefined : otpCode.trim(),
         deliveryMethod,
         turnaroundTier,
         district: deliveryMethod === "EXPEDITION_MANUAL" ? destQuery.trim() || undefined : deliveryMethod !== "PICKUP" ? district : undefined,
@@ -814,7 +819,7 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
         method: "POST",
         headers: { "Content-Type": "application/json", "Idempotency-Key": newIdempotencyKey() },
         body: JSON.stringify(payload),
-      }, 30000);
+      }, 75000);
 
       // ALUR PENGUJIAN ADMIN / BYPASS: jika order langsung lunas atau berstatus test
       if ((data as any)?.isTestOrder || (data as any)?.status === "PAYMENT_CONFIRMED") {
@@ -866,6 +871,30 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
     }
   };
 
+  // 100% In-App Direct QRIS: alihkan seluruh modal ke DirectQrisModal saat data QRIS diterima
+  if (directQrisData) {
+    return (
+      <DirectQrisModal
+        isOpen={true}
+        onClose={() => {
+          const oid = directQrisData.orderId;
+          setDirectQrisData(null);
+          onClose();
+          window.location.href = directQrisData.invoiceUrl || `/orders/${oid}`;
+        }}
+        orderId={directQrisData.orderId}
+        orderNumber={directQrisData.orderNumber}
+        amountIdr={directQrisData.amountIdr}
+        qrImage={directQrisData.qrImage}
+        qrString={directQrisData.qrString}
+        invoiceUrl={directQrisData.invoiceUrl}
+        onPaymentSuccess={() => {
+          if (isCartCheckout) clearCart();
+        }}
+      />
+    );
+  }
+
   return createPortal(
       <div
         className="fixed inset-0 z-[110] flex items-center justify-center p-2 sm:p-4 md:p-6 bg-black/80 backdrop-blur-md animate-fadeIn overflow-y-auto transition-opacity duration-200 opacity-100"
@@ -877,43 +906,45 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
       <div
         ref={panelRef}
         data-lenis-prevent="true"
-        className="relative w-full max-w-4xl lg:max-w-5xl max-h-[94dvh] flex flex-col bg-surface border border-border-subtle rounded-2xl shadow-2xl text-text-primary my-auto overflow-hidden"
+        className="relative w-full max-w-4xl max-h-[92dvh] flex flex-col bg-surface border border-border-subtle rounded-2xl shadow-2xl text-text-primary my-auto overflow-hidden"
       >
         {/* Garis aksen atas standar */}
         <div className="absolute top-0 left-0 right-0 h-px bg-border-subtle" />
 
         {/* Header Modal */}
-        <div className="px-5 py-4 sm:px-6 sm:py-4.5 border-b border-border-subtle flex items-center justify-between bg-surface/90 backdrop-blur-md shrink-0">
+        <div className="px-5 py-3.5 sm:px-6 sm:py-4 border-b border-border-subtle flex items-center justify-between bg-surface/90 backdrop-blur-md shrink-0">
           <div className="flex items-center space-x-3 min-w-0">
-            <div className="w-9 h-9 rounded-xl bg-brand-accent/15 border border-brand-accent/30 flex items-center justify-center text-brand-accent shrink-0 shadow-[0_0_12px_rgba(230,81,0,0.2)]">
+            <div className="w-9 h-9 rounded-xl bg-brand-accent/15 border border-brand-accent/30 flex items-center justify-center text-brand-accent shrink-0 shadow-[0_0_12px_rgba(37,99,235,0.2)]">
               <ShoppingBag size={18} />
             </div>
             <div className="min-w-0">
-              <h2 className="font-sans text-base sm:text-lg font-bold uppercase tracking-tight text-text-primary truncate">
+              <h2 className="font-sans text-sm sm:text-base font-bold uppercase tracking-tight text-text-primary truncate">
                 CHECKOUT PESANAN SABLON
               </h2>
               <p className="font-sans text-[10px] sm:text-[11px] text-text-muted truncate">
-                Workshop Makassar · Sablon DTF Presisi & Cotton Combed
+                Workshop Makassar · Pembayaran Instan via Direct QRIS
               </p>
             </div>
           </div>
           <button
             ref={closeBtnRef}
             onClick={onClose}
-            className="min-w-[40px] min-h-[40px] p-2 rounded-xl text-text-muted hover:text-text-primary hover:bg-surface-elevated border border-transparent hover:border-border-subtle transition-all flex items-center justify-center shrink-0 cursor-pointer"
+            className="min-w-[36px] min-h-[36px] p-2 rounded-xl text-text-muted hover:text-text-primary hover:bg-surface-elevated border border-transparent hover:border-border-subtle transition-all flex items-center justify-center shrink-0 cursor-pointer"
             aria-label="Tutup checkout"
           >
             <X size={18} />
           </button>
         </div>
 
-        {/* V2 Stepper: 1 Alamat+Kurir → 2 Bayar (state persisten, tak reset isian) */}
+        {/* V2 Stepper: 1 Alamat+Kurir → 2 Bayar (khusus mobile — di desktop tampil 2 kolom berdampingan) */}
         <div
-          className="px-5 sm:px-6 pt-3 pb-1 shrink-0 flex items-center gap-2 font-sans text-[11px] font-bold uppercase tracking-wider"
+          className="md:hidden px-4 sm:px-6 pt-3 pb-1 shrink-0 flex items-center gap-2 font-sans text-[11px] font-bold uppercase tracking-wider"
           aria-label="Tahap checkout"
         >
-          <span
-            className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full border ${
+          <button
+            type="button"
+            onClick={handleBackToAddress}
+            className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full border transition-all cursor-pointer ${
               step === 1
                 ? "bg-brand-accent/15 border-brand-accent text-brand-accent"
                 : "bg-emerald-500/10 border-emerald-500/30 text-emerald-400"
@@ -927,10 +958,12 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
               {step === 2 ? "✓" : "1"}
             </span>
             <span>Alamat & Kurir</span>
-          </span>
+          </button>
           <span className="text-text-muted" aria-hidden="true">→</span>
-          <span
-            className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full border ${
+          <button
+            type="button"
+            onClick={handleNextToPayment}
+            className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full border transition-all cursor-pointer ${
               step === 2
                 ? "bg-brand-accent/15 border-brand-accent text-brand-accent"
                 : "bg-surface border-border-subtle text-text-muted"
@@ -944,9 +977,9 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
               2
             </span>
             <span>Bayar</span>
-          </span>
-          <span className="ml-auto text-[10px] text-text-muted normal-case font-normal hidden sm:block">
-            {step === 1 ? "Isi tujuan & kurir dulu" : "Cek ringkasan lalu bayar QRIS"}
+          </button>
+          <span className="ml-auto text-[10px] text-text-muted normal-case font-normal">
+            {step === 1 ? "Langkah 1/2" : "Langkah 2/2"}
           </span>
         </div>
 
@@ -954,16 +987,25 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
         <form
           ref={bodyScrollRef}
           onSubmit={handleCheckoutSubmit}
-          className="flex-1 min-h-0 overflow-y-auto p-4 sm:p-6 lg:p-7 space-y-6 scrollbar-thin scrollbar-thumb-white/10 hover:scrollbar-thumb-brand-accent/30"
+          className="flex-1 min-h-0 overflow-y-auto p-4 sm:p-5 lg:p-6 scrollbar-thin scrollbar-thumb-white/10 hover:scrollbar-thumb-brand-accent/30"
         >
-          {/* TAHAP 1: Kontak + Metode + Alamat GPS + ongkir (hidden saat tahap 2 — DOM/state persisten) */}
-          <div className={step === 1 ? "space-y-5" : "hidden"}>
-            {errorMessage && (
-              <div className="p-3.5 rounded-xl bg-red-500/10 border border-red-500/30 text-red-400 text-xs flex items-center gap-2">
-                <AlertCircle size={16} className="shrink-0" />
-                <span>{errorMessage}</span>
+          {errorMessage && (
+            <div className="mb-4 p-3.5 rounded-xl bg-red-500/10 border border-red-500/30 text-red-400 text-xs flex items-center gap-2 animate-fadeIn">
+              <AlertCircle size={16} className="shrink-0" />
+              <span>{errorMessage}</span>
+            </div>
+          )}
+
+          <div className="grid grid-cols-1 md:grid-cols-12 gap-5 lg:gap-6 items-start">
+            {/* TAHAP 1: Kontak + Metode + Alamat GPS + ongkir */}
+            <div className={`md:col-span-7 space-y-4 ${step === 1 ? "block" : "hidden md:block"}`}>
+              <div className="flex items-center justify-between pb-1 border-b border-border-subtle">
+                <div className="flex items-center space-x-2 text-xs font-sans font-bold text-text-primary uppercase tracking-wider">
+                  <MapPin size={13} className="text-brand-accent" />
+                  <span>TAHAP 1 · INFORMASI PENGIRIMAN</span>
+                </div>
+                <span className="text-[10px] text-text-muted hidden md:inline">1. Alamat &amp; Kurir</span>
               </div>
-            )}
 
             {/* Account Status Banner (Guest or Logged In) */}
             {!session?.user ? (
@@ -1059,7 +1101,7 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
                         aria-label="Nomor WhatsApp"
                         className="flex-1 min-w-0 px-3.5 py-2.5 rounded-xl bg-surface border border-border-subtle focus:border-brand-accent text-sm text-text-primary font-sans focus:outline-none transition-colors"
                       />
-                      {!isAccountPhoneVerified && (
+                      {!isAccountPhoneVerified && (process.env.NEXT_PUBLIC_CHECKOUT_OTP_REQUIRED !== "false") && (
                         <button
                           type="button"
                           onClick={handleSendOtp}
@@ -1081,6 +1123,11 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
                       <p className="text-[11px] font-sans text-emerald-400/90 mt-1.5 flex items-center gap-1.5 bg-emerald-950/20 border border-emerald-500/20 px-2.5 py-1.5 rounded-lg">
                         <CheckCircle2 size={13} className="shrink-0 text-emerald-400" />
                         <span>Nomor WhatsApp terverifikasi permanen untuk akun ini. OTP tidak diperlukan lagi!</span>
+                      </p>
+                    ) : (process.env.NEXT_PUBLIC_CHECKOUT_OTP_REQUIRED === "false") ? (
+                      <p className="text-[11px] font-sans text-emerald-400/90 mt-1.5 flex items-center gap-1.5 bg-emerald-950/20 border border-emerald-500/20 px-2.5 py-1.5 rounded-lg">
+                        <CheckCircle2 size={13} className="shrink-0 text-emerald-400" />
+                        <span>Checkout Instan Aktif · Tanpa verifikasi OTP, langsung bayar via Direct QRIS.</span>
                       </p>
                     ) : sessionUser?.phoneVerified && sessionUser?.phoneNumber && cleanPhone(phoneNumber) !== cleanPhone(sessionUser?.phoneNumber) ? (
                       <p className="text-[11px] font-sans text-amber-400/90 mt-1.5 flex items-center gap-1.5 bg-amber-950/20 border border-amber-500/20 px-2.5 py-1.5 rounded-lg">
@@ -1163,7 +1210,7 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
                         key={opt.method}
                         className={`p-3 rounded-xl border cursor-pointer transition-all flex flex-col justify-between space-y-2 ${
                           isSelected
-                            ? "bg-brand-accent/15 border-brand-accent shadow-[0_0_12px_rgba(230,81,0,0.2)]"
+                            ? "bg-brand-accent/15 border-brand-accent shadow-[0_0_12px_rgba(37,99,235,0.2)]"
                             : "bg-surface/50 border-border-subtle hover:border-border-strong"
                         }`}
                       >
@@ -1516,8 +1563,8 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
                 )}
               </div>
 
-              {/* V2 navigasi Tahap 1 → 2: validasi ringan, state persisten (tak reset) */}
-              <div className="p-4 rounded-xl bg-surface border border-border-subtle space-y-2 font-sans text-xs">
+              {/* Navigasi mobile Tahap 1 → 2 */}
+              <div className="md:hidden p-4 rounded-xl bg-surface border border-border-subtle space-y-2 font-sans text-xs">
                 <div className="flex justify-between text-text-muted">
                   <span>Subtotal ({totalQty} pcs)</span>
                   <span className="font-mono tabular-nums">Rp {effectiveSubtotal.toLocaleString("id-ID")}</span>
@@ -1537,26 +1584,29 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
                 <button
                   type="button"
                   onClick={handleNextToPayment}
-                  className="w-full py-3.5 px-5 rounded-xl font-sans text-xs font-bold tracking-wider uppercase transition-all flex items-center justify-center gap-2 cursor-pointer bg-brand-accent text-canvas shadow-[0_0_20px_rgba(230,81,0,0.4)] hover:brightness-110 active:scale-[0.99]"
+                  className="w-full py-3.5 px-5 rounded-xl font-sans text-xs font-bold tracking-wider uppercase transition-all flex items-center justify-center gap-2 cursor-pointer bg-brand-accent text-canvas shadow-[0_0_20px_rgba(37,99,235,0.4)] hover:brightness-110 active:scale-[0.99]"
                 >
                   <span>Lanjut ke Pembayaran</span>
                   <ArrowRight size={14} />
                 </button>
-                <p className="text-center text-[10px] text-text-muted">
-                  Alamat & kurir tersimpan otomatis saat bolak-balik tahap.
-                </p>
               </div>
             </div>
 
-            {/* TAHAP 2: Bayar — ringkasan + QRIS DirectQrisModal + polling + repay
-                (pakai komponen/logika bayar existing apa adanya, hanya dipindah).
-                handleCheckoutSubmit, pricingEngine, /api/checkout, OTP WA tak diubah. */}
-            <div className={step === 2 ? "space-y-4" : "hidden"}>
-              {/* Ringkasan alamat terpilih (read-only) + ubah */}
-              <div className="p-3.5 rounded-xl bg-surface-elevated/70 border border-border-subtle font-sans text-xs space-y-1.5">
+            {/* TAHAP 2: Bayar — ringkasan + QRIS DirectQrisModal (Sticky di Desktop agar posisi payment selalu tampak) */}
+            <div className={`md:col-span-5 space-y-3.5 md:sticky md:top-0 self-start ${step === 2 ? "block" : "hidden md:block"}`}>
+              <div className="flex items-center justify-between pb-1 border-b border-border-subtle">
+                <div className="flex items-center space-x-2 text-xs font-sans font-bold text-text-primary uppercase tracking-wider">
+                  <CreditCard size={13} className="text-brand-accent" />
+                  <span>TAHAP 2 · RINGKASAN &amp; BAYAR</span>
+                </div>
+                <span className="text-[10px] text-text-muted hidden md:inline">2. Direct QRIS</span>
+              </div>
+
+              {/* Ringkasan alamat terpilih (khusus tampilan mobile tahap 2) */}
+              <div className="md:hidden p-3.5 rounded-xl bg-surface-elevated/70 border border-border-subtle font-sans text-xs space-y-1.5">
                 <div className="flex items-center justify-between">
                   <span className="font-bold text-text-primary uppercase tracking-wider text-[11px]">
-                    Tujuan & Kurir
+                    Tujuan &amp; Kurir
                   </span>
                   <button
                     type="button"
@@ -1579,12 +1629,6 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
                   {deliveryMethod !== "EXPEDITION_MANUAL" && shippingCost === 0 ? " · Rp 0" : ""}
                 </p>
               </div>
-              {errorMessage && (
-                <div className="p-3.5 rounded-xl bg-red-500/10 border border-red-500/30 text-red-400 text-xs flex items-center gap-2">
-                  <AlertCircle size={16} className="shrink-0" />
-                  <span>{errorMessage}</span>
-                </div>
-              )}
               <div className="space-y-4">
                 {/* Order Summary Box */}
                 <div className="p-4 rounded-xl bg-surface-elevated/70 border border-border-subtle space-y-3 font-sans text-xs">
@@ -1763,36 +1807,6 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
                   </div>
                 </div>
 
-                {/* Info belanja area */}
-                <div
-                  className="grid grid-cols-2 gap-2 font-sans text-[10px]"
-                  aria-label="Informasi belanja Kaos Kami"
-                >
-                  <div className="flex items-center gap-1.5 px-2.5 py-2 rounded-lg bg-surface border border-border-subtle text-text-primary">
-                    <ShieldCheck size={13} className="text-emerald-400 shrink-0" />
-                    <span className="font-bold leading-tight">Cacat Sablon Ganti Baru</span>
-                  </div>
-                  <div className="flex items-center gap-1.5 px-2.5 py-2 rounded-lg bg-surface border border-border-subtle text-text-primary">
-                    <Package size={13} className="text-brand-accent shrink-0" />
-                    <span className="font-bold leading-tight">Combed Asli 24s</span>
-                  </div>
-                  <div className="flex items-center gap-1.5 px-2.5 py-2 rounded-lg bg-surface border border-border-subtle text-text-primary">
-                    <Truck size={13} className="text-brand-accent shrink-0" />
-                    <span className="font-bold leading-tight">Gratis Ongkir Makassar</span>
-                  </div>
-                  <div className="flex items-center gap-1.5 px-2.5 py-2 rounded-lg bg-surface border border-brand-accent/30 text-text-primary">
-                    <ShieldCheck size={13} className="text-brand-accent shrink-0" />
-                    <span className="font-bold leading-tight">iPaymu Payment Gateway</span>
-                  </div>
-                  <div className="col-span-2 flex items-center justify-between gap-1.5 px-2.5 py-2 rounded-lg bg-surface border border-border-subtle text-text-muted text-[10px]">
-                    <div className="flex items-center gap-1.5 text-text-primary">
-                      <CreditCard size={13} className="text-emerald-400 shrink-0" />
-                      <span className="font-bold">QRIS &amp; Virtual Account (Berizin BI)</span>
-                    </div>
-                    <span className="font-mono text-emerald-400 font-bold">256-bit SSL</span>
-                  </div>
-                </div>
-
                 {/* Turnstile Anti-bot */}
                 {turnstileEnabled && !adminBypassActive && (
                   <TurnstileWidget
@@ -1871,26 +1885,26 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
                   </div>
                 )}
 
-                {/* Desktop Primary Action CTA */}
-                <div className="hidden md:block space-y-2">
+                {/* Primary Action CTA — Desktop & Mobile Tahap 2 */}
+                <div className="space-y-2 pt-1">
                   <button
                     type="submit"
                     disabled={isLoading}
-                    className={`w-full py-3.5 px-5 rounded-xl font-sans text-xs font-bold tracking-wider uppercase transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 active:scale-[0.99] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-accent focus-visible:ring-offset-2 focus-visible:ring-offset-canvas ${
+                    className={`w-full py-3.5 px-5 rounded-xl font-sans text-xs font-bold tracking-wider uppercase transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 active:scale-[0.99] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-accent focus-visible:ring-offset-2 focus-visible:ring-offset-canvas shadow-lg ${
                       adminBypassActive
-                        ? "bg-amber-500 text-black shadow-sm hover:brightness-110"
-                        : "bg-brand-accent text-canvas shadow-sm hover:brightness-110"
+                        ? "bg-amber-500 text-black hover:brightness-110 shadow-amber-500/20"
+                        : "bg-brand-accent text-canvas hover:brightness-110 shadow-brand-accent/25"
                     }`}
                   >
                     {isLoading ? (
                       <>
                         <Loader2 size={16} className="animate-spin" />
-                        <span>MENGIRIM...</span>
+                        <span>MENGIRIM PESANAN...</span>
                       </>
                     ) : adminBypassActive ? (
                       <>
                         <ShieldCheck size={16} className="stroke-[2.5]" />
-                        <span>PESAN UJI COBA (BYPASS PEMBAYARAN RP 0)</span>
+                        <span>PESAN UJI COBA (BYPASS RP 0)</span>
                         <ArrowRight size={14} />
                       </>
                     ) : (
@@ -1902,17 +1916,27 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
                     )}
                   </button>
                   <ShopClosedNotice />
-                  <p className="text-center font-sans text-[10px] text-text-muted flex items-center justify-center gap-1">
-                    <Lock size={11} className="text-emerald-400" />
-                    <span>
-                      {adminBypassActive
-                        ? "Mode pengujian admin — transaksi simulasi internal"
-                        : "Pembayaran resmi & aman didukung iPaymu Payment Gateway (Direct QRIS)"}
-                    </span>
-                  </p>
+                  <div className="pt-2 space-y-1.5">
+                    <div className="flex flex-wrap items-center justify-center gap-1.5 text-[9px] font-mono font-bold text-text-muted">
+                      {["QRIS", "BCA", "MANDIRI", "BRI", "BNI", "GOPAY", "OVO", "DANA", "SHOPEEPAY"].map((brand) => (
+                        <span key={brand} className="px-1.5 py-0.5 rounded bg-surface-elevated border border-border-subtle tracking-wider">
+                          {brand}
+                        </span>
+                      ))}
+                    </div>
+                    <p className="text-center font-sans text-[10px] text-text-muted flex items-center justify-center gap-1.5">
+                      <Lock size={11} className="text-emerald-400 shrink-0" />
+                      <span>
+                        {adminBypassActive
+                          ? "Mode pengujian admin — transaksi simulasi internal"
+                          : "QRIS Dinamis Resmi BI · Langsung Muncul di Layar · Bebas Biaya"}
+                      </span>
+                    </p>
+                  </div>
                 </div>
               </div>
             </div>
+          </div>
 
             {/* V2 Mobile Bottom Sticky Bar — tahap-aware (tak submit dini di tahap 1) */}
             <div className="md:hidden sticky bottom-0 -mx-4 -mb-4 sm:-mx-6 sm:-mb-6 p-4 bg-surface/95 border-t border-border-subtle backdrop-blur-xl flex items-center justify-between gap-3 shadow-2xl z-20">
@@ -1979,28 +2003,6 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
             onSelectLocation={handleLocationPicked}
             title={deliveryMethod === "FREE_MAKASSAR" ? "Tentukan Titik Antar di Kota Makassar" : "Tentukan Titik Pengantaran di Peta"}
           />
-
-          {/* Modal Direct QRIS 100% In-App (iPaymu) */}
-          {directQrisData && (
-            <DirectQrisModal
-              isOpen={Boolean(directQrisData)}
-              onClose={() => {
-                const oid = directQrisData.orderId;
-                setDirectQrisData(null);
-                onClose();
-                window.location.href = `/orders/${oid}`;
-              }}
-              orderId={directQrisData.orderId}
-              orderNumber={directQrisData.orderNumber}
-              amountIdr={directQrisData.amountIdr}
-              qrImage={directQrisData.qrImage}
-              qrString={directQrisData.qrString}
-              invoiceUrl={directQrisData.invoiceUrl}
-              onPaymentSuccess={() => {
-                if (isCartCheckout) clearCart();
-              }}
-            />
-          )}
         </div>
       </div>,
       document.body

@@ -100,7 +100,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <script
           id="theme-init"
           dangerouslySetInnerHTML={{
-            __html: `(function(){try{var t=localStorage.getItem("kaos-studio-theme");if(t!=="gallery"&&t!=="obsidian"&&t!=="concrete")t="gallery";var d=document.documentElement;d.setAttribute("data-theme",t);d.style.colorScheme=t==="gallery"?"light":"dark";var c=t==="gallery"?"#EFECE6":"#121214";var m=document.querySelector('meta[name="theme-color"]');if(m){m.setAttribute("content",c);}else{var n=document.createElement("meta");n.name="theme-color";n.content=c;document.head.appendChild(n);}}catch(e){document.documentElement.setAttribute("data-theme","gallery");}})();`,
+            __html: `(function(){try{var t=localStorage.getItem("kaos-studio-theme");if(t!=="gallery"&&t!=="obsidian"&&t!=="concrete")t="gallery";var d=document.documentElement;d.setAttribute("data-theme",t);d.style.colorScheme=t==="gallery"?"light":"dark";var c=t==="gallery"?"#F8FAFC":"#0B0C10";var m=document.querySelector('meta[name="theme-color"]');if(m){m.setAttribute("content",c);}else{var n=document.createElement("meta");n.name="theme-color";n.content=c;document.head.appendChild(n);}}catch(e){document.documentElement.setAttribute("data-theme","gallery");}})();`,
           }}
         />
       </head>

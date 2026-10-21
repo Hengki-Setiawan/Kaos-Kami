@@ -481,7 +481,7 @@ export const CartDrawer: React.FC = () => {
                   closeCart();
                   setIsCheckoutModalOpen(true);
                 }}
-                className="w-full py-3.5 rounded-xl bg-brand-accent text-canvas font-sans font-semibold text-sm tracking-wide hover:brightness-110 active:scale-95 transition-all shadow-[0_0_20px_rgba(230,81,0,0.4)] flex items-center justify-center space-x-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-accent focus-visible:ring-offset-2 focus-visible:ring-offset-canvas"
+                className="w-full py-3.5 rounded-xl bg-brand-accent text-canvas font-sans font-semibold text-sm tracking-wide hover:brightness-110 active:scale-95 transition-all shadow-[0_0_20px_rgba(37,99,235,0.4)] flex items-center justify-center space-x-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-accent focus-visible:ring-offset-2 focus-visible:ring-offset-canvas"
               >
                 <span>Proses Checkout (Bayar QRIS)</span>
                 <ArrowRight size={15} />

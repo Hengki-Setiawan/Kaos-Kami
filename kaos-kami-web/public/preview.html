@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Kaos Kami — Lab Perbandingan Desain Visual</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@500;600;700;800&family=Syne:wght@700;800&display=swap" rel="stylesheet">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      background: #090A0F;
+      color: #FFFFFF;
+      overflow: hidden;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* TOP FLOATING SWITCHER DOCK */
+    .switcher-dock {
+      height: 64px;
+      background: rgba(15, 17, 23, 0.95);
+      backdrop-filter: blur(20px);
+      border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 24px;
+      z-index: 100;
+      flex-shrink: 0;
+    }
+
+    .brand-title {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .brand-tag {
+      font-family: 'Syne', sans-serif;
+      font-weight: 800;
+      font-size: 15px;
+      letter-spacing: -0.3px;
+      color: #FFFFFF;
+    }
+
+    .brand-pill {
+      font-size: 10px;
+      font-weight: 700;
+      padding: 3px 8px;
+      border-radius: 9999px;
+      background: rgba(59, 130, 246, 0.2);
+      border: 1px solid rgba(59, 130, 246, 0.4);
+      color: #60A5FA;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    /* TABS */
+    .tabs-container {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      background: rgba(0, 0, 0, 0.4);
+      padding: 4px;
+      border-radius: 9999px;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+    }
+
+    .tab-btn {
+      padding: 8px 18px;
+      border-radius: 9999px;
+      border: none;
+      background: transparent;
+      color: #94A3B8;
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      font-size: 12px;
+      font-weight: 700;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      transition: all 0.2s;
+    }
+
+    .tab-btn:hover {
+      color: #FFFFFF;
+    }
+
+    .tab-btn.active {
+      background: #FFFFFF;
+      color: #000000;
+      box-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
+    }
+
+    .tab-btn.active.sunset {
+      background: linear-gradient(135deg, #8B5CF6 0%, #EC4899 100%);
+      color: #FFFFFF;
+      box-shadow: 0 4px 16px rgba(236, 72, 153, 0.4);
+    }
+
+    .tab-btn.active.softblue {
+      background: #3B82F6;
+      color: #FFFFFF;
+      box-shadow: 0 4px 16px rgba(59, 130, 246, 0.4);
+    }
+
+    .dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+    }
+
+    .dot-mono { background: #000000; }
+    .tab-btn:not(.active) .dot-mono { background: #FFFFFF; }
+    .dot-sunset { background: #EC4899; }
+    .dot-blue { background: #3B82F6; }
+
+    .open-direct {
+      font-size: 11px;
+      color: #94A3B8;
+      text-decoration: none;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      transition: color 0.2s;
+    }
+
+    .open-direct:hover {
+      color: #FFFFFF;
+    }
+
+    /* IFRAME STAGE */
+    .preview-frame {
+      flex: 1;
+      width: 100%;
+      height: calc(100vh - 64px);
+      border: none;
+      background: #FFFFFF;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- SWITCHER DOCK -->
+  <div class="switcher-dock">
+    <div class="brand-title">
+      <div class="brand-tag">KAOS KAMI</div>
+      <div class="brand-pill">Lab Preview Desain</div>
+    </div>
+
+    <!-- TABS TO TOGGLE PREVIEWS -->
+    <div class="tabs-container">
+      <button class="tab-btn active" id="btn-mono" onclick="switchTheme('mono')">
+        <span class="dot dot-mono"></span>
+        <span>1. Editorial Monochrome</span>
+      </button>
+
+      <button class="tab-btn" id="btn-sunset" onclick="switchTheme('sunset')">
+        <span class="dot dot-sunset"></span>
+        <span>2. Sunset Gradient (Gen-Z)</span>
+      </button>
+
+      <button class="tab-btn" id="btn-softblue" onclick="switchTheme('softblue')">
+        <span class="dot dot-blue"></span>
+        <span>3. Biru Soft (Ice Slate)</span>
+      </button>
+    </div>
+
+    <div>
+      <a href="/preview-monochrome.html" target="_blank" id="direct-link" class="open-direct">
+        <span>Buka Layar Penuh</span>
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+      </a>
+    </div>
+  </div>
+
+  <!-- EMBEDDED IFRAME -->
+  <iframe id="preview-iframe" class="preview-frame" src="/preview-monochrome.html" title="Preview Tampilan"></iframe>
+
+  <script>
+    function switchTheme(type) {
+      const iframe = document.getElementById('preview-iframe');
+      const direct = document.getElementById('direct-link');
+      const btnMono = document.getElementById('btn-mono');
+      const btnSunset = document.getElementById('btn-sunset');
+      const btnSoftblue = document.getElementById('btn-softblue');
+
+      btnMono.className = 'tab-btn';
+      btnSunset.className = 'tab-btn';
+      btnSoftblue.className = 'tab-btn';
+
+      if (type === 'mono') {
+        iframe.src = '/preview-monochrome.html';
+        direct.href = '/preview-monochrome.html';
+        btnMono.className = 'tab-btn active';
+      } else if (type === 'sunset') {
+        iframe.src = '/preview-sunset.html';
+        direct.href = '/preview-sunset.html';
+        btnSunset.className = 'tab-btn active sunset';
+      } else if (type === 'softblue') {
+        iframe.src = '/preview-soft-blue.html';
+        direct.href = '/preview-soft-blue.html';
+        btnSoftblue.className = 'tab-btn active softblue';
+      }
+    }
+  </script>
+</body>
+</html>

@@ -483,7 +483,7 @@ export function AddressBook({
   return (
     <div className="space-y-4 font-sans">
       {/* Header & Tombol Tambah */}
-      <div className="p-4 sm:p-5 rounded-2xl bg-surface border border-border-subtle flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      <div className="p-5 sm:p-6 rounded-3xl bg-surface/75 dark:bg-black/40 backdrop-blur-2xl border border-border-subtle/80 dark:border-white/10 shadow-[0_12px_40px_rgba(0,0,0,0.15)] flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <div className="flex items-center gap-2">
             <MapPin size={16} className="text-brand-accent" />
@@ -499,7 +499,7 @@ export function AddressBook({
         <button
           type="button"
           onClick={openAddModal}
-          className="py-2.5 px-4 rounded-xl bg-brand-accent text-canvas font-bold text-xs uppercase tracking-wider hover:brightness-110 active:scale-95 transition-all shadow-[0_0_15px_rgba(230,81,0,0.25)] flex items-center justify-center gap-2 cursor-pointer shrink-0"
+          className="py-2.5 px-5 rounded-full bg-brand-accent text-canvas font-bold text-xs uppercase tracking-wider hover:brightness-110 active:scale-95 transition-all shadow-md flex items-center justify-center gap-2 cursor-pointer shrink-0"
         >
           <Plus size={14} />
           <span>TAMBAH ALAMAT BARU</span>
@@ -509,7 +509,7 @@ export function AddressBook({
       {/* Global Action Toast Notification */}
       {actionMsg && (
         <div
-          className={`p-3 rounded-xl text-xs font-sans flex items-center justify-between animate-fadeIn ${
+          className={`p-3.5 rounded-2xl text-xs font-sans flex items-center justify-between animate-fadeIn ${
             actionMsg.type === "success"
               ? "bg-emerald-500/10 border border-emerald-500/30 text-emerald-400"
               : "bg-red-500/10 border border-red-500/30 text-red-400"
@@ -524,7 +524,7 @@ export function AddressBook({
 
       {/* Daftar Kartu Alamat */}
       {addresses.length === 0 ? (
-        <div className="p-10 rounded-2xl bg-surface/50 border border-dashed border-border-subtle text-center space-y-3">
+        <div className="p-8 sm:p-10 rounded-3xl bg-surface/60 dark:bg-black/30 backdrop-blur-xl border border-dashed border-border-subtle/80 dark:border-white/10 text-center space-y-3">
           <div className="w-12 h-12 rounded-full bg-surface-elevated flex items-center justify-center mx-auto text-text-muted">
             <Compass size={24} />
           </div>
@@ -537,7 +537,7 @@ export function AddressBook({
           <button
             type="button"
             onClick={openAddModal}
-            className="mt-2 py-2 px-4 rounded-xl bg-surface-elevated hover:bg-brand-accent/20 border border-border-subtle hover:border-brand-accent/40 text-brand-accent text-xs font-bold transition-all inline-flex items-center gap-2 cursor-pointer"
+            className="mt-2 py-2 px-4 rounded-full bg-surface-elevated hover:bg-brand-accent/20 border border-border-subtle hover:border-brand-accent/40 text-brand-accent text-xs font-bold transition-all inline-flex items-center gap-2 cursor-pointer"
           >
             <Plus size={13} />
             <span>Pasang Alamat Sekarang</span>
@@ -548,10 +548,10 @@ export function AddressBook({
           {addresses.map((a) => (
             <div
               key={a.id}
-              className={`p-5 rounded-2xl bg-surface transition-all flex flex-col justify-between border ${
+              className={`p-5 rounded-3xl bg-surface/75 dark:bg-black/40 backdrop-blur-2xl transition-all flex flex-col justify-between border ${
                 a.isDefault
-                  ? "border-amber-500/50 dark:shadow-[0_0_20px_rgba(245,158,11,0.08)] bg-gradient-to-b from-amber-500/[0.03] to-transparent"
-                  : "border-border-subtle hover:border-brand-accent/30"
+                  ? "border-amber-500/50 shadow-[0_8px_30px_rgba(245,158,11,0.12)] bg-gradient-to-b from-amber-500/[0.04] to-transparent"
+                  : "border-border-subtle/80 dark:border-white/10 hover:border-brand-accent/40 shadow-sm"
               }`}
             >
               <div className="space-y-2.5">
@@ -948,7 +948,7 @@ export function AddressBook({
                 <button
                   type="submit"
                   disabled={isSaving}
-                  className="py-2.5 px-5 rounded-xl bg-brand-accent text-canvas font-bold text-xs uppercase tracking-wider hover:brightness-110 active:scale-95 transition-all shadow-[0_0_15px_rgba(230,81,0,0.3)] flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+                  className="py-2.5 px-5 rounded-xl bg-brand-accent text-white font-bold text-xs uppercase tracking-wider hover:brightness-110 active:scale-95 transition-all shadow-[0_0_15px_rgba(37,99,235,0.3)] flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
                 >
                   {isSaving ? (
                     <>
