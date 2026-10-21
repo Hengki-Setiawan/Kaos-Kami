@@ -1,10 +1,13 @@
 // URL situs kanonis. Fail-closed di production bila env hilang (jangan bocorkan
 // localhost ke invoice/WA pelanggan).
 export function siteUrl(): string {
-  const v = (process.env.NEXT_PUBLIC_SITE_URL || "").trim();
-  if (v) return v.replace(/\/+$/, "");
-  if (process.env.NODE_ENV === "production") {
-    throw new Error("NEXT_PUBLIC_SITE_URL belum di-set");
+  if (typeof window !== "undefined" && window.location.origin) {
+    return window.location.origin;
   }
-  return "http://localhost:3000";
+  const v = (process.env.NEXT_PUBLIC_SITE_URL || "").trim();
+  if (process.env.NODE_ENV === "production" || process.env.CF_PAGES || process.env.CLOUDFLARE_ACCOUNT_ID) {
+    if (v && !v.includes("localhost")) return v.replace(/\/+$/, "");
+    return "https://kaoskami.biz.id";
+  }
+  return v || "http://localhost:3000";
 }
