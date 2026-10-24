@@ -51,6 +51,7 @@ import { normalizePhoneId } from "@/lib/phone";
 import { getClosedQueueNotice } from "@/lib/shopHours";
 import { DirectQrisModal } from "@/components/ui/DirectQrisModal";
 import { LocationPickerModal, type PickedLocation } from "@/components/maps/LocationPickerModal";
+import { Z_CLASS_MODAL } from "@/lib/zIndex";
 
 /** Notice antrean saat workshop tutup (09.00–21.00 WITA) — tak blokir checkout. */
 const ShopClosedNotice: React.FC = () => {
@@ -76,13 +77,33 @@ interface CheckoutModalProps {
   checkoutMode?: "custom-3d" | "cart";
 }
 
-// P0-2: Idempotency-Key UNIK per klik BAYAR
+// P0-2: Idempotency-Key UNIK per NIAT checkout, BUKAN per fetch.
+// Key yang dibuat ulang tiap klik membuat double-click/timeout-retry menjadi
+// dua order berbeda. Key disimpan di sessionStorage agar retry setelah refresh
+// tetap memakai klaim yang sama; dibersihkan setelah order benar-benar selesai.
+const CHECKOUT_IDEM_STORAGE_KEY = "kk_checkout_idempotency_key";
 function newIdempotencyKey(): string {
   try {
     const u = globalThis?.crypto?.randomUUID?.();
     if (typeof u === "string" && u.length >= 8) return u;
   } catch {}
   return `web-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 12)}`;
+}
+function getCheckoutIdempotencyKey(): string {
+  try {
+    const existing = window.sessionStorage.getItem(CHECKOUT_IDEM_STORAGE_KEY);
+    if (existing && /^[A-Za-z0-9\-_.:]{8,128}$/.test(existing)) return existing;
+    const fresh = newIdempotencyKey();
+    window.sessionStorage.setItem(CHECKOUT_IDEM_STORAGE_KEY, fresh);
+    return fresh;
+  } catch {
+    return newIdempotencyKey();
+  }
+}
+function clearCheckoutIdempotencyKey(): void {
+  try {
+    window.sessionStorage.removeItem(CHECKOUT_IDEM_STORAGE_KEY);
+  } catch {}
 }
 
 export const CheckoutModal: React.FC<CheckoutModalProps> = ({
@@ -194,7 +215,8 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
     service: string;
     cost: number;
     etd: string;
-    source: "live" | "zone" | "master";
+    // #20=A: "live" dicabut — tarif hanya dari master 514 kota atau tabel zona.
+    source: "zone" | "master";
     zoneId?: string;
     courierCode?: string;
     serviceCode?: string;
@@ -204,7 +226,7 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
   const [locLoading, setLocLoading] = useState(false);
   const [selectedPostal, setSelectedPostal] = useState("");
   const [quotes, setQuotes] = useState<QuoteOption[]>([]);
-  const [quoteSource, setQuoteSource] = useState<"live" | "zone" | "master" | "">("");
+  const [quoteSource, setQuoteSource] = useState<"zone" | "master" | "">("");
   const [selectedQuoteKey, setSelectedQuoteKey] = useState("");
   const [quoteLoading, setQuoteLoading] = useState(false);
   const [quoteMsg, setQuoteMsg] = useState<string | null>(null);
@@ -502,16 +524,15 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
       });
       if (activePostal) params.set("postalCode", activePostal);
       const j = await fetchJson<any>(`/api/shipping/quote?${params.toString()}`, undefined, 20000);
-      if ((j.source === "live" || j.source === "master-tariff") && Array.isArray(j.rates)) {
-        const isMaster = j.source === "master-tariff";
-        setQuoteSource(isMaster ? "master" : "live");
+      if (j.source === "master-tariff" && Array.isArray(j.rates)) {
+        setQuoteSource("master");
         const opts: QuoteOption[] = j.rates.map((x: any) => ({
-          key: `${j.source}:${x.courierCode}:${x.serviceCode}`,
+          key: `master:${x.courierCode}:${x.serviceCode}`,
           courier: x.courierName,
           service: x.serviceName,
           cost: x.costIdr,
           etd: x.etdText,
-          source: isMaster ? "master" : "live",
+          source: "master" as const,
           courierCode: x.courierCode,
           serviceCode: x.serviceCode,
         }));
@@ -806,8 +827,8 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
         destinationCity: deliveryMethod === "EXPEDITION_MANUAL" ? destQuery.trim() || undefined : undefined,
         destinationPostalCode: deliveryMethod === "EXPEDITION_MANUAL" && selectedPostal ? selectedPostal : undefined,
         expeditionZoneId: selectedQuote?.source === "zone" ? selectedQuote.zoneId : undefined,
-        expeditionCourier: (selectedQuote?.source === "live" || selectedQuote?.source === "master") ? selectedQuote.courierCode : undefined,
-        expeditionService: (selectedQuote?.source === "live" || selectedQuote?.source === "master") ? selectedQuote.serviceCode : undefined,
+        expeditionCourier: selectedQuote?.source === "master" ? selectedQuote.courierCode : undefined,
+        expeditionService: selectedQuote?.source === "master" ? selectedQuote.serviceCode : undefined,
         fullAddress: deliveryMethod === "PICKUP" ? "Workshop Kaos Kami Makassar (Self Pick-up)" : fullAddress,
         courierNotes: gpsCoords
           ? [courierNotes || "", `[GPS:${gpsCoords.lat.toFixed(6)},${gpsCoords.lon.toFixed(6)}]`].filter(Boolean).join(" | ")
@@ -832,12 +853,13 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
         message?: string;
       }>("/api/checkout", {
         method: "POST",
-        headers: { "Content-Type": "application/json", "Idempotency-Key": newIdempotencyKey() },
+        headers: { "Content-Type": "application/json", "Idempotency-Key": getCheckoutIdempotencyKey() },
         body: JSON.stringify(payload),
       }, 75000);
 
       // ALUR PENGUJIAN ADMIN / BYPASS: jika order langsung lunas atau berstatus test
       if ((data as any)?.isTestOrder || (data as any)?.status === "PAYMENT_CONFIRMED") {
+        clearCheckoutIdempotencyKey();
         if (isCartCheckout) clearCart();
         window.location.href = (data as any)?.invoiceUrl || `/orders/${data.orderId}`;
         return;
@@ -906,6 +928,7 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
         qrString={directQrisData.qrString}
         invoiceUrl={directQrisData.invoiceUrl}
         onPaymentSuccess={() => {
+          clearCheckoutIdempotencyKey();
           if (isCartCheckout) clearCart();
         }}
       />
@@ -915,7 +938,7 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
   // Tampilan Sukses Pengajuan 3D Custom (Menunggu Review Workshop)
   if (submittedDesignReview) {
     return createPortal(
-      <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-fadeIn">
+      <div className={`fixed inset-0 ${Z_CLASS_MODAL} flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-fadeIn`}>
         <div className="w-full max-w-md bg-surface border border-border-subtle rounded-3xl p-6 sm:p-8 shadow-2xl text-center space-y-5">
           <div className="w-16 h-16 rounded-2xl bg-amber-500/15 border border-amber-500/30 text-amber-500 flex items-center justify-center mx-auto shadow-md">
             <Sparkles size={32} />
@@ -937,7 +960,10 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
           <div className="space-y-2 pt-2">
             <Link
               href="/dashboard/orders"
-              onClick={onClose}
+              onClick={() => {
+                clearCheckoutIdempotencyKey();
+                onClose();
+              }}
               className="w-full py-3 px-4 rounded-xl bg-brand-accent text-canvas font-sans font-bold text-xs uppercase tracking-wider hover:brightness-110 active:scale-95 transition-all shadow-md flex items-center justify-center gap-2"
             >
               <span>Pantau di Dashboard Pesanan</span>
@@ -946,6 +972,7 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
             <button
               type="button"
               onClick={() => {
+                clearCheckoutIdempotencyKey();
                 setSubmittedDesignReview(null);
                 onClose();
               }}
@@ -963,7 +990,7 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
   // Wajib Login untuk Pemesanan 3D Custom
   if (isCustomOrder && !session?.user) {
     return createPortal(
-      <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-fadeIn">
+      <div className={`fixed inset-0 ${Z_CLASS_MODAL} flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-fadeIn`}>
         <div className="w-full max-w-md bg-surface border border-border-subtle rounded-3xl p-6 sm:p-8 shadow-2xl text-center space-y-5">
           <div className="w-14 h-14 rounded-2xl bg-brand-accent/15 border border-brand-accent/30 text-brand-accent flex items-center justify-center mx-auto shadow-md">
             <User size={28} />
@@ -994,6 +1021,12 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
             </button>
           </div>
         </div>
+
+        {/* AuthModal terhubung langsung agar tombol Masuk / Buat Akun membuka login */}
+        <AuthModal
+          isOpen={isAuthModalOpen}
+          onClose={() => setIsAuthModalOpen(false)}
+        />
       </div>,
       document.body
     );
@@ -1001,7 +1034,7 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
 
   return createPortal(
       <div
-        className="fixed inset-0 z-[110] flex items-center justify-center p-2 sm:p-4 md:p-6 bg-black/80 backdrop-blur-md animate-fadeIn overflow-y-auto transition-opacity duration-200 opacity-100"
+        className={`fixed inset-0 ${Z_CLASS_MODAL} flex items-center justify-center p-2 sm:p-4 md:p-6 bg-black/80 backdrop-blur-md animate-fadeIn overflow-y-auto transition-opacity duration-200 opacity-100`}
       data-lenis-prevent="true"
       role="dialog"
       aria-modal="true"
@@ -2148,8 +2181,11 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
           </div>
         </form>
 
-          {/* Blueprint Bab 37.2 + 41: AuthModal eks-lusif di atas (early-return
-              tutup-dulu-baru-buka) — JANGAN render AuthModal bertumpuk di sini. */}
+          {/* AuthModal untuk tamu yang ingin masuk akun saat checkout */}
+          <AuthModal
+            isOpen={isAuthModalOpen}
+            onClose={() => setIsAuthModalOpen(false)}
+          />
 
           {/* Modal Pemilihan Titik Lokasi Peta (Leaflet + OpenStreetMap) */}
           <LocationPickerModal

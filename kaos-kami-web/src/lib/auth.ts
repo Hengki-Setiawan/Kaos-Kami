@@ -1,11 +1,38 @@
 import { betterAuth } from "better-auth";
+import { APIError } from "better-auth/api";
 import { drizzleAdapter } from "@better-auth/drizzle-adapter";
+import { and, eq } from "drizzle-orm";
 import { db } from "./db";
 import { Account, Session, User, Verification } from "./drizzle-schema";
+import { isDevOrTest } from "./envMode";
+
+/**
+ * Baca header dari context Better Auth. `ctx.headers` bisa berupa Headers,
+ * object, atau array; `ctx.request` adalah fallback yang paling stabil.
+ */
+function readRequestHeader(ctx: any, name: string): string {
+  try {
+    const fromHeaders = new Headers(ctx?.headers as HeadersInit | undefined);
+    const value = fromHeaders.get(name);
+    if (value) return value;
+  } catch {
+    // lanjut ke request
+  }
+  try {
+    return ctx?.request?.headers?.get?.(name) || "";
+  } catch {
+    return "";
+  }
+}
+
+function isEmailPasswordSignup(ctx: any): boolean {
+  const path = (String(ctx?.path || "").split("?")[0] ?? "").replace(/\/+$/, "");
+  return path === "/sign-up/email" || path.endsWith("/sign-up/email");
+}
 
 const authSecret = process.env.BETTER_AUTH_SECRET || "";
 // Secret default = semua session bisa ditempa. Wajib di-set di production.
-if (!authSecret && process.env.NODE_ENV === "production") {
+if (!authSecret && !isDevOrTest()) {
   throw new Error("BETTER_AUTH_SECRET belum di-set (wrangler secret put BETTER_AUTH_SECRET)");
 }
 
@@ -22,7 +49,7 @@ export const auth = betterAuth({
     },
   }),
   baseURL: (() => {
-    if (process.env.NODE_ENV !== "production") {
+    if (isDevOrTest()) {
       const url = process.env.BETTER_AUTH_URL || process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
       if (url.includes("workers.dev") || url.includes("kaoskami.biz.id")) {
         return "http://localhost:3000";
@@ -45,9 +72,86 @@ export const auth = betterAuth({
       .map((s) => s.trim())
       .filter((s) => s.length > 0 && !s.includes("workers.dev"));
     const origins = [...canonical, ...extra];
-    if (process.env.NODE_ENV !== "production") origins.push("http://localhost:3000");
+    if (isDevOrTest()) origins.push("http://localhost:3000");
     return [...new Set(origins)];
   })(),
+  // Rate limit bawaan Better Auth = 100/10 dtk (terlalu longgar untuk login).
+  // Perketat endpoint kredensial; server-side auth.api tidak terkena limit ini.
+  rateLimit: {
+    enabled: true,
+    window: 60,
+    max: 100,
+    customRules: {
+      "/sign-in/email": { window: 60, max: 5 },
+      "/sign-up/email": { window: 60, max: 5 },
+      "/forget-password": { window: 60, max: 3 },
+      "/reset-password": { window: 60, max: 5 },
+      "/send-verification-email": { window: 60, max: 3 },
+      "/two-factor/*": { window: 60, max: 5 },
+    },
+  },
+  /**
+   * Gerbang anti-bypass pendaftaran email/password.
+   *
+   * Alur resmi: /api/auth/verify-email-otp memverifikasi OTP lalu menerbitkan
+   * tiket `email-verified:<email>` (15 menit, sekali pakai). Client mengirim
+   * tiket itu sebagai header saat signUp.email. Tanpa tiket yang cocok,
+   * user TIDAK dibuat — jadi menembak /api/auth/sign-up/email langsung tidak
+   * lagi cukup untuk punya akun.
+   *
+   * OAuth Google (/callback/google) tetap boleh membuat user tanpa tiket:
+   * identitas email sudah diverifikasi provider.
+   */
+  databaseHooks: {
+    user: {
+      create: {
+        before: async (user, ctx) => {
+          if (!isEmailPasswordSignup(ctx)) return;
+          const email = String(user.email || "").trim().toLowerCase();
+          if (!email) {
+            throw new APIError("BAD_REQUEST", { message: "Email wajib diisi." });
+          }
+          const ticket = readRequestHeader(ctx, "x-email-verification-ticket").trim();
+          if (!ticket) {
+            throw new APIError("FORBIDDEN", {
+              message: "Email belum diverifikasi. Minta kode OTP lalu verifikasi sebelum mendaftar.",
+            });
+          }
+          const record = await db.query.Verification.findFirst({
+            where: (t, { and, eq }) =>
+              and(
+                eq(t.identifier, `email-verified:${email}`),
+                eq(t.value, ticket)
+              ),
+            columns: { id: true, expiresAt: true },
+          });
+          if (!record || new Date() > record.expiresAt) {
+            throw new APIError("FORBIDDEN", {
+              message: "Tiket verifikasi email salah atau kedaluwarsa. Minta kode OTP baru.",
+            });
+          }
+          // Jangan percaya body client: emailVerified ditetapkan server.
+          return { data: { ...user, emailVerified: true } };
+        },
+        after: async (user, ctx) => {
+          if (!isEmailPasswordSignup(ctx)) return;
+          const email = String(user.email || "").trim().toLowerCase();
+          const ticket = readRequestHeader(ctx, "x-email-verification-ticket").trim();
+          if (!email || !ticket) return;
+          // Sekali pakai: baru dihapus setelah user benar-benar dibuat.
+          await db
+            .delete(Verification)
+            .where(
+              and(
+                eq(Verification.identifier, `email-verified:${email}`),
+                eq(Verification.value, ticket)
+              )
+            )
+            .catch(() => {});
+        },
+      },
+    },
+  },
   emailAndPassword: {
     enabled: true,
     autoSignIn: true,
@@ -92,11 +196,13 @@ export type Session = typeof auth.$Infer.Session;
 export type User = typeof auth.$Infer.Session.user;
 
 // ============================================================================
-// DEV / PIN BYPASS SESSION INTERCEPTOR (Localhost & Testing)
-// Memastikan PIN 164164 (Super Admin) dan PIN 461461 (Customer) dikenali 100%
-// oleh seluruh server components, API routes, dan auth guard tanpa mental 401.
+// DEV ONLY: DEV-COOKIE SESSION INTERCEPTOR (Localhost & Testing)
+// CATATAN JUJUR (23 Okt 2026, keputusan owner): route /api/auth/pin-bypass yang
+// memicu cookie kaos_dev_role / kaos_dev_user_id SUDAH DIHAPUS permanen — cookie
+// ini kini hanya bisa diset manual di localhost untuk pengembangan.
+// Dilarang menambahkan kembali pemicu produksi untuk shim ini.
 // ============================================================================
-if (process.env.NODE_ENV !== "production") {
+if (isDevOrTest()) {
   const originalGetSession = auth.api.getSession.bind(auth.api);
 
   (auth.api as any).getSession = async (context?: any) => {

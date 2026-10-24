@@ -27,11 +27,14 @@ export function OrderAdminActions({
   currentTracking,
   orderStatus,
   deliveryMethod,
+  latePaymentRefundPending = false,
 }: {
   orderId: string;
   currentTracking?: string | null;
   orderStatus?: string;
   deliveryMethod?: string;
+  /** Order batal/ditolak yang tetap menerima uang (late payment). */
+  latePaymentRefundPending?: boolean;
 }) {
   const router = useRouter();
   const [tracking, setTracking] = useState(currentTracking || "");
@@ -44,7 +47,10 @@ export function OrderAdminActions({
   const isTerminal = TERMINAL.includes(orderStatus || "");
   const canCancel = orderStatus === "PENDING_PAYMENT" || orderStatus === "PAYMENT_CONFIRMED";
   const canSyncPayment = orderStatus === "PENDING_PAYMENT";
-  const canRefund = REFUNDABLE.includes(orderStatus || "");
+  const canRefund =
+    REFUNDABLE.includes(orderStatus || "") ||
+    (latePaymentRefundPending &&
+      ["CANCELLED", "REJECTED", "DESIGN_REVIEW"].includes(orderStatus || ""));
   const canComplete = COMPLETABLE.includes(orderStatus || "");
   const canReady = orderStatus === "PRINTING" || orderStatus === "QUALITY_CHECK";
   const canShip = orderStatus === "READY_TO_SHIP";
@@ -323,7 +329,11 @@ export function OrderAdminActions({
       <ConfirmDialog
         open={asking === "refund"}
         title="Tandai refund dana?"
-        message="Pastikan dana SUDAH ditransfer balik ke pembeli via transfer bank / QRIS iPaymu. Masukkan catatan refund:"
+        message={
+          latePaymentRefundPending
+            ? "Order ini batal/ditolak tetapi tetap menerima pembayaran (late payment). Pastikan dana SUDAH ditransfer balik ke pembeli. Stok TIDAK akan di-restore karena order tidak pernah memotong stok. Masukkan catatan refund:"
+            : "Pastikan dana SUDAH ditransfer balik ke pembeli via transfer bank / QRIS iPaymu. Masukkan catatan refund:"
+        }
         confirmLabel="YA, TANDAI REFUND"
         danger
         busy={busyAction === "refund"}

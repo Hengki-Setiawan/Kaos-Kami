@@ -63,10 +63,21 @@ export function UserNotificationBell({
 
     void loadNotifications();
     const interval = setInterval(() => {
+      if (typeof document !== "undefined" && document.visibilityState === "hidden") return;
       void loadNotifications();
     }, 45000);
 
-    return () => clearInterval(interval);
+    const handleVisibility = () => {
+      if (typeof document !== "undefined" && document.visibilityState === "visible") {
+        void loadNotifications();
+      }
+    };
+    document.addEventListener("visibilitychange", handleVisibility);
+
+    return () => {
+      clearInterval(interval);
+      document.removeEventListener("visibilitychange", handleVisibility);
+    };
   }, []);
 
   // Tutup popover bila klik di luar

@@ -53,9 +53,10 @@ export default async function OrderReceiptPage({ params, searchParams }: OrderRe
     where: (t, { eq }) => eq(t.id, id),
     with: {
       items: true,
-      user: true,
+      // Hanya kolom yang dirender; jangan muat passwordHash / raw webhook PII.
+      user: { columns: { id: true, name: true, phoneNumber: true, email: true } },
       shippingAddress: true,
-      payment: true,
+      payment: { columns: { status: true, method: true } },
       statusHistory: {
         orderBy: (t, { asc }) => asc(t.createdAt),
       },
@@ -377,7 +378,9 @@ export default async function OrderReceiptPage({ params, searchParams }: OrderRe
                 <div key={h.id} className="py-2 flex justify-between items-center gap-3">
                   <div>
                     <span className="font-bold text-text-primary block text-[11px]">{h.status.replace(/_/g, " ")}</span>
-                    {h.note && <span className="text-text-muted text-[10px]">{h.note}</span>}
+                    {canSeePII && h.note && (
+                      <span className="text-text-muted text-[10px]">{h.note}</span>
+                    )}
                   </div>
                   <span className="text-text-muted text-[10px] shrink-0">
                     {new Date(h.createdAt).toLocaleDateString("id-ID", { day: "numeric", month: "short" })}

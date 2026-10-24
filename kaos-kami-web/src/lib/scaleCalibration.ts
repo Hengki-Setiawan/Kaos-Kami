@@ -509,7 +509,7 @@ export interface PhysicalPrintDimension {
 
 /**
  * Konversi skala dan posisi 3D UV decal ke ukuran sentimeter fisik nyata garmen.
- * Rasio dikalibrasi 1:1 terhadap cetak sablon DTF (Maksimal 30.0 cm).
+ * Rasio dikalibrasi 1:1 terhadap cetak sablon DTF (Maksimal 35.0 cm).
  */
 export function computePhysicalPrintDimensions(
   apparelType: string = "tshirt",

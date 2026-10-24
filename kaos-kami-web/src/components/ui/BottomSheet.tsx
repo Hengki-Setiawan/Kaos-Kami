@@ -1,5 +1,6 @@
 "use client";
 import React, { useEffect, useRef, useState } from "react";
+import { Z_CLASS_DRAWER } from "@/lib/zIndex";
 
 /**
  * Bottom-sheet untuk CustomizerDrawer di <768px.
@@ -60,7 +61,7 @@ export const BottomSheet: React.FC<{
       role="dialog"
       aria-modal="true"
       aria-label="Panel kustomisasi"
-      className={`fixed bottom-0 left-0 right-0 z-40 md:hidden bg-surface/90 dark:bg-black/85 backdrop-blur-2xl border-t border-white/10 rounded-t-[28px] sm:rounded-t-[32px] shadow-[0_-12px_40px_rgba(0,0,0,0.45)] pb-safe transition-transform duration-300 ${
+      className={`fixed bottom-0 left-0 right-0 ${Z_CLASS_DRAWER} md:hidden bg-surface/90 dark:bg-black/85 backdrop-blur-2xl border-t border-white/10 rounded-t-[28px] sm:rounded-t-[32px] shadow-[0_-12px_40px_rgba(0,0,0,0.45)] pb-safe transition-transform duration-300 ${
         snap === "peek" ? "translate-y-[70%]" : snap === "half" ? "translate-y-[30%]" : "translate-y-0"
       }`}
       style={{ maxHeight: "85dvh", transform: dragY !== null ? `translateY(${Math.max(-40, Math.min(200, dragY))}px)` : undefined }}

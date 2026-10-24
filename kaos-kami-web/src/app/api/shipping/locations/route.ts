@@ -1,10 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
-import { awLocationsSearch } from "@/lib/shipping/agenwebsite";
 import { searchMasterCities } from "@/lib/shipping/masterShippingRates";
 import { checkRateLimitAsync, getClientIp, rateLimitHeaders } from "@/lib/security/rateLimiter";
 
 // Autocomplete kota/kabupaten → kode pos se-Indonesia.
-// Menggunakan AgenWebsite API jika tersedia, dan fallback otomatis ke master data 514 kota se-Indonesia.
+// Sumber: master data 514 kota (keputusan owner #20=A — API lokasi pihak ketiga dicabut).
 export async function GET(req: NextRequest) {
   const ip = getClientIp(req);
   const rl = await checkRateLimitAsync(`ship-loc:ip:${ip}`, 20, 60);
@@ -14,15 +13,11 @@ export async function GET(req: NextRequest) {
   const q = (new URL(req.url).searchParams.get("q") || "").trim();
   if (q.length < 2) return NextResponse.json({ locations: [] });
 
-  let list = await awLocationsSearch(q).catch(() => null);
-  if (!list || list.length === 0) {
-    const fallbackCities = searchMasterCities(q);
-    list = fallbackCities.map((c) => ({
-      subdistrictId: c.id,
-      postalCode: c.postalCode,
-      label: `${c.city}, ${c.province} (${c.postalCode})`,
-    }));
-  }
+  const list = searchMasterCities(q).map((c) => ({
+    subdistrictId: c.id,
+    postalCode: c.postalCode,
+    label: `${c.city}, ${c.province} (${c.postalCode})`,
+  }));
 
   return NextResponse.json({ locations: list });
 }

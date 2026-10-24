@@ -30,6 +30,15 @@ export async function uploadToR2(
 
   // B1-3: backup (PII) WAJIB ke bucket privat terpisah, JANGAN ke bucket aset publik.
   const bucket = bucketOverride || R2_BUCKET;
+  if (bucketOverride && R2_BUCKET && bucketOverride === R2_BUCKET) {
+    console.error("[r2] tolak upload: bucket backup sama dengan bucket aset publik");
+    return {
+      success: false,
+      url: "",
+      key,
+      error: "Konfigurasi bucket backup tidak aman (sama dengan bucket publik)",
+    };
+  }
   const cleanKey = key.replace(/^\/+/, "");
   const url = `https://api.cloudflare.com/client/v4/accounts/${CF_ACCOUNT_ID}/r2/buckets/${bucket}/objects/${encodeURIComponent(cleanKey).replace(/%2F/g, "/")}`;
 
@@ -42,6 +51,8 @@ export async function uploadToR2(
         "Content-Type": contentType,
       },
       body: buffer as any,
+      // Upload 4-10MB bisa lambat; batasi agar request tidak menggantung.
+      signal: AbortSignal.timeout(25000),
     });
 
     const data: any = await res.json().catch(() => ({}));
@@ -89,6 +100,7 @@ export async function deleteFromR2(key: string) {  if (!CF_TOKEN || !CF_ACCOUNT_
     const res = await fetch(url, {
       method: "DELETE",
       headers: { Authorization: `Bearer ${CF_TOKEN}` },
+      signal: AbortSignal.timeout(15000),
     });
     const data: any = await res.json().catch(() => ({}));
     return { success: res.ok && data.success !== false, error: data.errors?.[0]?.message };
@@ -98,7 +110,12 @@ export async function deleteFromR2(key: string) {  if (!CF_TOKEN || !CF_ACCOUNT_
 }
 
 /**
- * List objek R2 per prefix (dipakai CMS lookbook). Max 1000/entri pertama.
+ * List objek R2 per prefix (dipakai CMS lookbook + galeri publik).
+ *
+ * Cloudflare API mengembalikan `result` sebagai ARRAY (bukan
+ * `{ objects: [...] }`) dan memakai cursor di `result_info`. Bentuk lama di
+ * sini membuat daftar lookbook SELALU kosong walau bucket berisi file.
+ * Maks 5 halaman × 1000 objek agar tidak menahan Worker terlalu lama.
  */
 export async function listR2Objects(
   prefix: string
@@ -108,14 +125,34 @@ export async function listR2Objects(
     return { success: false, keys: [], error: "Layanan upload gangguan" };
   }
   try {
-    const url = `https://api.cloudflare.com/client/v4/accounts/${CF_ACCOUNT_ID}/r2/buckets/${R2_BUCKET}/objects?prefix=${encodeURIComponent(prefix)}&per_page=100`;
-    const res = await fetch(url, { headers: { Authorization: `Bearer ${CF_TOKEN}` } });
-    const data: any = await res.json().catch(() => ({}));
-    if (!res.ok || data.success === false) {
-      return { success: false, keys: [], error: data.errors?.[0]?.message || `R2 list failed ${res.status}` };
+    const keys: string[] = [];
+    let cursor: string | undefined;
+    for (let page = 0; page < 5; page++) {
+      const qs = new URLSearchParams({ prefix, per_page: "1000" });
+      if (cursor) qs.set("cursor", cursor);
+      const url = `https://api.cloudflare.com/client/v4/accounts/${CF_ACCOUNT_ID}/r2/buckets/${R2_BUCKET}/objects?${qs.toString()}`;
+      const res = await fetch(url, {
+        headers: { Authorization: `Bearer ${CF_TOKEN}` },
+        signal: AbortSignal.timeout(10000),
+      });
+      const data: any = await res.json().catch(() => ({}));
+      if (!res.ok || data.success === false) {
+        return { success: false, keys: [], error: data.errors?.[0]?.message || `R2 list failed ${res.status}` };
+      }
+      const objs = Array.isArray(data.result)
+        ? data.result
+        : Array.isArray(data.result?.objects)
+          ? data.result.objects
+          : [];
+      for (const o of objs) {
+        const key = String(o?.key || "");
+        if (key && !key.endsWith("/")) keys.push(key);
+      }
+      const next = data.result_info?.is_truncated ? data.result_info?.cursor : null;
+      if (!next) break;
+      cursor = String(next);
     }
-    const objs = data.result?.objects || [];
-    return { success: true, keys: objs.map((o: any) => String(o.key)).filter((k: string) => !k.endsWith("/")) };
+    return { success: true, keys };
   } catch (e: any) {
     return { success: false, keys: [], error: e?.message };
   }

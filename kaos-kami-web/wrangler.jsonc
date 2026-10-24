@@ -28,6 +28,13 @@
 			// You can change the bucket name if you want
 			// See https://developers.cloudflare.com/workers/wrangler/commands/#r2-bucket-create
 			"bucket_name": "kaos-kami-3d-opennext-cache"
+		},
+		{
+			// Backup PII: binding R2 TIDAK dihitung sebagai subrequest fetch.
+			// Tanpa binding, split backup 25 part bisa menembus limit 50
+			// subrequest Worker gratis. Bucket WAJIB privat.
+			"binding": "R2_BACKUPS",
+			"bucket_name": "kaos-kami-backups"
 		}
 	],
 	// Rate-limit lintas-isolate AKTIF (KV dibuat 07 Sep 2026).
@@ -70,7 +77,6 @@
 			"BETTER_AUTH_SECRET",
 			"FONNTE_TOKEN",
 	"CRON_SECRET",
-	"AGENWEBSITE_RATE_API_KEY",
 	"GOOGLE_CLIENT_SECRET"
 ]
 	// Catatan 21 Sep 2026: GOOGLE_CLIENT_ID (publik) pindah ke vars dgn nilai

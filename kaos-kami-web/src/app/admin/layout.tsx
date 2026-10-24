@@ -10,6 +10,7 @@ import { AdminHealthPill } from "@/components/admin/AdminHealthPill";
 import { AdminLogoClickable } from "@/components/admin/AdminLogoClickable";
 
 import { AdminCommandBar } from "@/components/admin/AdminCommandBar";
+import { isDevOrTest } from "@/lib/envMode";
 
 import {
   AdminMobileNavTrigger,
@@ -34,7 +35,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
 
     // DEV OVERRIDE: Di localhost dev mode, izinkan Super Admin jika sesi valid.
     // Jika user adalah CUSTOMER atau GUEST (belum login / session null), tolak akses admin.
-    if (process.env.NODE_ENV !== "production") {
+    if (isDevOrTest()) {
       if (role && role !== "CUSTOMER") {
         role = "SUPER_ADMIN";
       }
@@ -45,7 +46,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
     }
   } catch (e: any) {
     if (e?.digest?.startsWith?.("NEXT_REDIRECT") || e?.message === "NEXT_REDIRECT") throw e;
-    if (process.env.NODE_ENV !== "production") {
+    if (isDevOrTest()) {
       role = "SUPER_ADMIN";
     } else {
       console.error("AdminLayout auth check failed — akses ditolak:", (e as any)?.message);

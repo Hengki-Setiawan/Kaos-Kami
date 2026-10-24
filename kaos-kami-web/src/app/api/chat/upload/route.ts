@@ -7,6 +7,8 @@ export const dynamic = "force-dynamic";
 
 const ALLOWED_MIME = ["image/png", "image/jpeg", "image/webp"] as const;
 const MAX_BYTES = 3 * 1024 * 1024; // 3MB per screenshot kendala
+const MAX_REQUEST_BYTES = 8 * 1024 * 1024; // base64 + overhead multipart
+const GUEST_ID_RE = /^guest_[a-z0-9]{8,32}$/;
 
 function safeExt(mime: string): string {
   if (mime === "image/png") return "png";
@@ -21,6 +23,10 @@ export async function POST(req: NextRequest) {
     const ip = getClientIp(req);
 
     const contentType = req.headers.get("content-type") || "";
+    const contentLength = Number(req.headers.get("content-length") || 0);
+    if (Number.isFinite(contentLength) && contentLength > MAX_REQUEST_BYTES) {
+      return NextResponse.json({ error: "Berkas terlalu besar." }, { status: 413 });
+    }
 
     let guestId: string | null = null;
     let imageBase64: string | null = null;
@@ -49,6 +55,11 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ success: true, url: "/placeholder-shield.png" });
     }
 
+    if (guestId) {
+      const cleanGuest = guestId.trim().toLowerCase();
+      guestId = GUEST_ID_RE.test(cleanGuest) ? cleanGuest : null;
+    }
+
     const effectiveId = user?.id || guestId || `ip_${ip.replace(/[^a-zA-Z0-9]/g, "_")}`;
 
     // 2. Rate limiting ketat: maks 5 upload screenshot per menit
@@ -65,6 +76,9 @@ export async function POST(req: NextRequest) {
     let finalMime: string;
 
     if (imageBase64) {
+      if (imageBase64.length > 6_000_000) {
+        return NextResponse.json({ error: "Berkas terlalu besar." }, { status: 413 });
+      }
       if (!imageBase64.startsWith("data:")) {
         return NextResponse.json({ error: "Format gambar base64 tidak valid." }, { status: 400 });
       }
@@ -88,10 +102,13 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Ukuran gambar maksimal 3MB." }, { status: 400 });
     }
 
-    // Magic bytes verification
-    if (!sniffImageMime(finalBuffer.subarray(0, 32))) {
+    // Magic bytes verification: MIME final mengikuti isi berkas, bukan
+    // Content-Type kiriman klien (cegah mismatch ekstensi/tipe).
+    const sniffed = sniffImageMime(finalBuffer.subarray(0, 32));
+    if (!sniffed) {
       return NextResponse.json({ error: "Isi berkas bukan format gambar yang valid." }, { status: 400 });
     }
+    finalMime = sniffed;
 
     // 4. Upload ke Cloudflare R2
     const cleanId = effectiveId.replace(/[^a-zA-Z0-9_-]/g, "_");

@@ -126,9 +126,8 @@ Sumber kebenaran: `kaos-kami-web/wrangler.jsonc` → `secrets.required` (10 secr
 | 7 | `CLOUDFLARE_TURNSTILE_SECRET_KEY` | verifikasi Turnstile checkout | Secret captcha |
 | 8 | `CRON_SECRET` | `src/app/api/cron/sweep/route.ts`, `src/app/api/cron/backup/route.ts` | Bearer cron-job.org; tanpa secret = 503, salah = 401 |
 | 9 | `GOOGLE_CLIENT_SECRET` | `src/lib/auth.ts` (Google provider) | Secret OAuth (ID-nya publik, di vars) |
-| 10 | `AGENWEBSITE_RATE_API_KEY` | shipping AgenWebsite Rate API | Kunci tarif ekspedisi |
-| 11 | Keystore Android + `key.properties` | `kaos-kami-mobile/android/` | **Beta bocor di histori**; lokal ignored (benar) |
-| 12 | Password admin | `scripts/set-admin-password.ts` | **Plaintext di HEAD** — sanitasi + reset (§0d, §7) |
+| 10 | Keystore Android + `key.properties` | `kaos-kami-mobile/android/` | **Beta bocor di histori**; lokal ignored (benar) |
+| 11 | Password admin | `scripts/set-admin-password.ts` | **Plaintext di HEAD** — sanitasi + reset (§0d, §7) |
 
 Yang **BUKAN** secret (tetap di `vars`, jangan dipindah ke secrets): `DUITKU_ENV`,
 `GOOGLE_CLIENT_ID`, `NEXT_PUBLIC_*`, `TURSO_DATABASE_URL`, `CLOUDFLARE_ACCOUNT_ID`,
@@ -358,12 +357,11 @@ curl -sS -o NUL -w "%{http_code}\n" -H "Authorization: Bearer <CRON_SECRET_BARU>
 Urutan aman CRON_SECRET: pasang server (`put`) + deploy DULU, lalu update dashboard cron-job.org
 SEGERA (jeda = job gagal 401, bukan kebocoran). Siapkan tab dashboard sebelum `put`.
 
-### 4g. AGENWEBSITE_RATE_API_KEY + catatan CI
+### 4g. Catatan CI (AGENWEBSITE DICABUT)
 
-- `AGENWEBSITE_RATE_API_KEY`: buat baru di dashboard AgenWebsite → `wrangler secret put
-  AGENWEBSITE_RATE_API_KEY` → samakan dev lokal → `npm run deploy` → verifikasi cek tarif luar
-  kota (pilih termurah muncul) → nonaktifkan kunci lama. Fallback `ExpeditionZone` membuat risiko
-  rendah (ongkir tetap tampil bila API mati).
+- `AGENWEBSITE_RATE_API_KEY` **sudah DICABUT** dari kode (keputusan owner #20=A, 23 Okt 2026).
+  Ongkir = master 514 kota → `ExpeditionZone` → flat 25k. Tidak ada kunci yang perlu dirotasi;
+  bila kunci lama masih ada di dashboard penyedia, nonaktifkan/revoke di sana.
 - CI (`.github/workflows/ci.yml`): memakai `BETTER_AUTH_SECRET: "ci-only-dummy-…"` — dummy khusus
   CI, **tidak perlu** diganti saat rotasi prod. Tidak ada secret prod di GitHub Actions yang perlu
   disentuh kecuali bila suatu saat keystore CI ditambahkan (saat ini belum ada).
@@ -410,11 +408,10 @@ Eksekusi menunggu perintah owner. Urutan yang disarankan (risiko kecil dulu):
 
 1. [ ] `CLOUDFLARE_API_TOKEN` + Turnstile (§4d) — risiko rendah, jendela aman.
 2. [ ] `FONNTE_TOKEN` (§4b) — risiko rendah (fail-safe checkout).
-3. [ ] `AGENWEBSITE_RATE_API_KEY` (§4g) — risiko rendah (fallback tabel).
-4. [ ] `GOOGLE_CLIENT_SECRET` (§4e) — sedang (uji login).
-5. [ ] `CRON_SECRET` (§4f) — sedang (siapkan tab cron-job.org; jeda = 401 sementara).
-6. [ ] `BETTER_AUTH_SECRET` (§4a) — tinggi (semua sesi mati; umumkan dulu).
-7. [ ] `DUITKU_*` (§4c) — tinggi (uang; sandbox dulu, lalu production) + redaksi 9 file (§0c).
+3. [ ] `GOOGLE_CLIENT_SECRET` (§4e) — sedang (uji login).
+4. [ ] `CRON_SECRET` (§4f) — sedang (siapkan tab cron-job.org; jeda = 401 sementara).
+5. [ ] `BETTER_AUTH_SECRET` (§4a) — tinggi (semua sesi mati; umumkan dulu).
+6. [ ] `DUITKU_*` (§4c) — tinggi (uang; sandbox dulu, lalu production) + redaksi 9 file (§0c).
 8. [ ] `TURSO_AUTH_TOKEN` (§3) — tertinggi (downtime by-design; off-peak, owner standby).
 9. [ ] Password admin + sanitasi script (§6).
 10. [ ] Keystore produksi baru (§5) — terpisah (butuh akun Play/CI owner).

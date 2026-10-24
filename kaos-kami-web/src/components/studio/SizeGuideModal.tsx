@@ -52,7 +52,7 @@ const DTF_PRINT_TIERS = [
     tier: "A3 (MAKSIMAL DTF)",
     sizeCm: "29.7 × 42.0 cm",
     usage: "Grafis poster penuh punggung atau dada depan oversized.",
-    recommended: "Dibatasi batas DTF maksimal 30.0 cm untuk menjaga serat pakaian.",
+    recommended: "Dibatasi batas DTF maksimal 35.0 cm untuk menjaga serat pakaian.",
   },
 ];
 
@@ -1240,8 +1240,8 @@ export function SizeGuideModal({
                     Standar Kalibrasi DTF Kaos Kami (Presisi 1:1 Skala Centimeter)
                   </h4>
                   <p className="text-neutral-300 leading-relaxed font-sans">
-                    Seluruh desain yang Anda tempel di 3D Studio ditampilkan dalam ukuran fisik asli centimeter dunia nyata. 
-                    Lebar maksimum cetak dibatasi secara aman pada <strong>30.0 cm</strong> (batas DTF kami) 
+                    Seluruh desain yang Anda tempel di 3D Studio ditampilkan dalam ukuran fisik asli centimeter dunia nyata.
+                    Lebar maksimum cetak dibatasi secara aman pada <strong>35.0 cm</strong> (batas DTF kami)
                     agar sablon tidak terpotong jahitan samping dan tahan dicuci berulang kali.
                   </p>
                 </div>

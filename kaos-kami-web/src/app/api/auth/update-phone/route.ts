@@ -10,7 +10,7 @@ import { checkRateLimitAsync, getClientIp, rateLimitHeaders } from "@/lib/securi
 
 const Schema = z.object({
   phoneNumber: z.string().min(9).max(20),
-  otpCode: z.string().regex(/^\d{6}$/, "Kode OTP 6 digit wajib"),
+  otpCode: z.string().regex(/^\d{6}$/, "Kode OTP 6 digit wajib").optional(),
 });
 
 export async function POST(req: NextRequest) {
@@ -27,24 +27,47 @@ export async function POST(req: NextRequest) {
     }
 
     const clean = normalizePhoneId(parsed.data.phoneNumber);
-
-    // A3: ganti nomor WAJIB OTP milik nomor BARU (hash+expiry+owner-match+satu-pakai).
     const ip = getClientIp(req);
     const rl = await checkRateLimitAsync(`update-phone:ip:${ip}`, 10, 300);
     if (rl.isLimited) {
       return NextResponse.json({ error: "Terlalu sering. Tunggu sebentar." }, { status: 429, headers: rateLimitHeaders(rl, 10) });
     }
+
     const { canonicalPhone } = await import("@/lib/phone");
     const canonNew = canonicalPhone(clean);
-    const otpRecord = await db.query.Verification.findFirst({
-      where: (t, { and, eq }) =>
-        and(eq(t.identifier, `otp:${canonNew}`), eq(t.value, hashOtp(parsed.data.otpCode))),
-      orderBy: (t, { desc }) => desc(t.createdAt),
+
+    const current = await db.query.User.findFirst({
+      where: (t, { eq }) => eq(t.id, session.user.id),
+      columns: { id: true, phoneNumber: true, phoneVerified: true },
     });
-    if (!otpRecord || new Date() > otpRecord.expiresAt) {
-      return NextResponse.json({ error: "Kode OTP salah atau kadaluarsa. Minta kode ke nomor BARU dulu." }, { status: 401 });
+
+    const hasExistingPhone = Boolean(current?.phoneNumber && current.phoneNumber.trim().length > 0);
+    const canonOld = current?.phoneNumber ? canonicalPhone(current.phoneNumber) : "";
+    const isChangingNumber = hasExistingPhone && canonOld !== canonNew;
+
+    // A3: Jika akun SUDAH memiliki nomor dan nomor diganti, WAJIB menyertakan kode OTP milik nomor BARU.
+    // Jika akun BELUM memiliki nomor telepon (misal baru mendaftar email), simpan dengan phoneVerified: false.
+    if (isChangingNumber && !parsed.data.otpCode) {
+      return NextResponse.json(
+        { error: "Perubahan nomor WhatsApp terdaftar wajib diverifikasi dengan kode OTP ke nomor baru." },
+        { status: 401 }
+      );
     }
-    await db.delete(Verification).where(eq(Verification.identifier, `otp:${canonNew}`)).catch(() => {});
+
+    let isVerified = Boolean(current?.phoneVerified && !isChangingNumber);
+
+    if (parsed.data.otpCode) {
+      const otpRecord = await db.query.Verification.findFirst({
+        where: (t, { and, eq }) =>
+          and(eq(t.identifier, `otp:${canonNew}`), eq(t.value, hashOtp(parsed.data.otpCode!))),
+        orderBy: (t, { desc }) => desc(t.createdAt),
+      });
+      if (!otpRecord || new Date() > otpRecord.expiresAt) {
+        return NextResponse.json({ error: "Kode OTP salah atau kadaluarsa. Minta kode ke nomor BARU dulu." }, { status: 401 });
+      }
+      await db.delete(Verification).where(eq(Verification.identifier, `otp:${canonNew}`)).catch(() => {});
+      isVerified = true;
+    }
 
     // Cek apakah nomor sudah dipakai user lain
     const existing = await db.query.User.findFirst({
@@ -58,19 +81,11 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // KEBIJAKAN OTP SEKALI SEUMUR HIDUP (owner 20 Sep 2026): ganti nomor =
-    // verifikasi lama HANGUS. Nomor baru wajib OTP sekali sebelum bebas OTP.
-    const current = await db.query.User.findFirst({
-      where: (t, { eq }) => eq(t.id, session.user.id),
-      columns: { id: true, phoneNumber: true },
-    });
-    const changed =
-      (current?.phoneNumber || "").replace(/[^0-9]/g, "") !== clean.replace(/[^0-9]/g, "");
     await db
       .update(User)
       .set({
         phoneNumber: clean,
-        ...(changed ? { phoneVerified: false } : {}),
+        phoneVerified: isVerified,
         updatedAt: new Date(),
       })
       .where(eq(User.id, session.user.id));
@@ -78,10 +93,10 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({
       success: true,
       phoneNumber: clean,
-      needsOtp: changed,
-      message: changed
-        ? "Nomor diganti — verifikasi OTP sekali untuk nomor baru ini."
-        : "Nomor sama — status verifikasi dipertahankan.",
+      phoneVerified: isVerified,
+      message: isVerified
+        ? "Nomor WhatsApp berhasil diverifikasi dan disimpan."
+        : "Nomor WhatsApp disimpan (menunggu verifikasi OTP saat checkout).",
     });
   } catch (err: any) {
     return NextResponse.json({ error: err?.message || "Internal error" }, { status: 500 });

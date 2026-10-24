@@ -105,7 +105,7 @@ describe("pricingEngine batas R5 (U-031/U-027/U-029)", () => {
     expect(calculate6VariablePrice({ ...q, size: " xxxl " }).sizeSurchargeIdr).toBe(20000);
     expect(calculate6VariablePrice({ ...q, size: "xxl" }).sizeSurchargeIdr).toBe(10000);
   });
-  it("skala raksasa dijepit 30cm -> tier A3 35k", () => {
+  it("skala raksasa dijepit 35cm -> tier A3 30k", () => {
     const p = calculate6VariablePrice({
       ...base,
       quantity: 1,

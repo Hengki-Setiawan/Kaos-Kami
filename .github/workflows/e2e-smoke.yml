@@ -1,8 +1,11 @@
 name: E2E Smoke (per-PR)
 
-# R4 smoke per-PR — DRAF (belum proof-hijau; butuh push = blokir).
-# Acuan: Blueprint/e2e/E2E-MASTER-PLAN.md Bab 8 R4.1.
-# Scope: vitest + Playwright api + c-01-golden + S-033-044 + K-001, 1 shard.
+# R4 smoke per-PR — DIBEKUKAN (keputusan owner #9=B, 23 Okt 2026).
+# Alasan jujur: dokumen acuan SSOT test (Blueprint/e2e/E2E-MASTER-PLAN.md) TIDAK ADA
+# di repo dan workflow ini belum pernah terbukti hijau. Job diberi `if: false`
+# agar tidak memproduksi CI merah palsu / klaim cakupan palsu.
+# Aktifkan kembali HANYA setelah SSOT test dipulihkan + run pertama hijau.
+# Scope rencana (saat aktif): vitest + Playwright api + c-01-golden + S-033-044 + K-001, 1 shard.
 # TIDAK menyentuh workflow existing (ci.yml).
 
 on:
@@ -12,6 +15,8 @@ on:
 
 jobs:
   smoke:
+    # DIBEKUKAN — lihat komentar kepala file (keputusan owner #9=B).
+    if: false
     runs-on: ubuntu-latest
     timeout-minutes: 30
     env:

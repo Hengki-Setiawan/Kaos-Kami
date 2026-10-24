@@ -20,7 +20,8 @@ export async function GET(req: NextRequest) {
   if (!isCronAuthed) {
     try {
       const session = await auth.api.getSession({ headers: await headers() });
-      if (session?.user && (session.user as any).role === "ADMIN") {
+      const role = (session?.user as any)?.role;
+      if (session?.user && ["ADMIN", "SUPER_ADMIN"].includes(role)) {
         isAdminAuthed = true;
       }
     } catch {

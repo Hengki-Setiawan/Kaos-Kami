@@ -24,9 +24,6 @@ test.beforeEach(async ({ page }) => {
       localStorage.setItem("kk-app-banner-dismissed-v1", "1");
     } catch {}
   });
-  await page.route(/api\.agenwebsite\.com|api-sandbox\.agenwebsite\.com/, (r) =>
-    r.fulfill({ status: 200, body: JSON.stringify({ data: [] }) }),
-  );
   await page.route(/api\.fonnte\.com/, (r) => r.fulfill({ status: 200, body: "{}" }));
   await page.route(/google-analytics\.com|googletagmanager\.com/, (r) => r.abort());
 });

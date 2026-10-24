@@ -5,12 +5,41 @@
 import { and, eq, sql } from "drizzle-orm";
 import { nanoid } from "nanoid";
 import { db } from "@/lib/db";
-import { siteUrl } from "@/lib/siteUrl";
 import { Order, OrderStatusEvent, ProductionTask, ProductVariant } from "@/lib/drizzle-schema";
+import { formatStockMarker } from "@/lib/orders/stockMarker";
 import { computePhysicalPrintDimensions } from "@/lib/scaleCalibration";
+import { isPaidOrFulfilledStatus } from "@/lib/payments/webhookState";
+import { withBusyRetry } from "@/lib/dbRetry";
 // Kebijakan Fonnte owner 20 Sep 2026: HANYA OTP — import WA dihapus (oversell via kanban).
 
-export type ConfirmResult = "confirmed" | "already" | "not-pending";
+export type ConfirmResult = "confirmed" | "already" | "processing" | "not-pending";
+
+/**
+ * "processing" = order PAYMENT_CONFIRMED tetapi event batch belum ada.
+ * Ini adalah jendela antara race-guard dan commit batch; pemanggil WAJIB
+ * menunggu/retry, bukan menulis Payment SETTLEMENT.
+ */
+async function hasConfirmedEvent(orderId: string): Promise<boolean> {
+  const event = await db.query.OrderStatusEvent.findFirst({
+    where: (t, { and, eq }) =>
+      and(eq(t.orderId, orderId), eq(t.status, "PAYMENT_CONFIRMED")),
+    columns: { id: true },
+  });
+  return Boolean(event);
+}
+
+async function classifyExistingOrder(orderId: string): Promise<ConfirmResult> {
+  const fresh = await db.query.Order.findFirst({
+    where: (t, { eq }) => eq(t.id, orderId),
+    columns: { status: true },
+  });
+  if (!fresh) return "not-pending";
+  if (!isPaidOrFulfilledStatus(fresh.status)) return "not-pending";
+  if (fresh.status === "PAYMENT_CONFIRMED" && !(await hasConfirmedEvent(orderId))) {
+    return "processing";
+  }
+  return "already";
+}
 
 export async function confirmOrderPaid(
   orderId: string,
@@ -21,22 +50,23 @@ export async function confirmOrderPaid(
     with: { items: true, user: true },
   });
   if (!order) return "not-pending";
-  if (order.status !== "PENDING_PAYMENT") return "already";
+  if (order.status !== "PENDING_PAYMENT") return classifyExistingOrder(orderId);
 
-  const race = await db
-    .update(Order)
-    .set({ status: "PAYMENT_CONFIRMED" })
-    .where(and(eq(Order.id, order.id), eq(Order.status, "PENDING_PAYMENT")));
+  const race = await withBusyRetry(() =>
+    db
+      .update(Order)
+      .set({ status: "PAYMENT_CONFIRMED" })
+      .where(and(eq(Order.id, order.id), eq(Order.status, "PENDING_PAYMENT")))
+  );
   // Kalah race (sudah dikonfirmasi proses lain) → berhenti, tanpa efek ganda.
-  if ((race.rowsAffected ?? 0) === 0) return "already";
+  // Kalau status berubah ke CANCELLED/REJECTED, hasilnya "not-pending" agar
+  // pemanggil menangani refund, bukan menulis settlement.
+  if ((race.rowsAffected ?? 0) === 0) return classifyExistingOrder(orderId);
 
   const { paymentCode, reference, via } = opts;
-  await db.insert(OrderStatusEvent).values({
-    id: nanoid(),
-    orderId: order.id,
-    status: "PAYMENT_CONFIRMED",
-    note: `Pembayaran iPaymu lunas via ${paymentCode || "iPaymu"} (Ref: ${reference || "-"}, via ${via}).`,
-  });
+  // P0.5 B6: event PAYMENT_CONFIRMED TIDAK ditulis di sini — dimasukkan ke
+  // SATU `db.batch()` bersama task produksi + update stok di bawah, supaya
+  // order lunas tak pernah setengah jadi bila salah satu tulisan gagal.
 
   // Prioritas antrean dari tier TERSTRUKTUR (audit: substring "EXPRESS" di
   // notes bisa ditulis pembeli untuk nyerobot tanpa bayar surcharge).
@@ -48,8 +78,11 @@ export async function confirmOrderPaid(
   // sebelumnya hanya decal pertama yang masuk produksi, sablon lengan/hood
   // tak terlihat admin). Item katalog tanpa desain = 1 task default.
   let totalTasksSpawned = 0;
+  // Kumpulkan baris task dulu (murni in-memory); INSERT-nya dijalankan sekali
+  // dalam batch transaksional setelah loop — bukan N insert beruntun.
+  const taskRows: Array<typeof ProductionTask.$inferInsert> = [];
   for (const item of order.items) {
-    const spawnOne = async (opts: {
+    const spawnOne = (opts: {
       side: string;
       widthCm: number;
       heightCm: number;
@@ -57,7 +90,7 @@ export async function confirmOrderPaid(
       masterUrl: string | null;
       label: string;
     }) => {
-      await db.insert(ProductionTask).values({
+      taskRows.push({
         id: nanoid(),
         orderId: order.id,
         orderItemId: item.id,
@@ -147,7 +180,7 @@ export async function confirmOrderPaid(
                 bySide ||
                 previewUrl ||
                 null;
-              await spawnOne({
+              spawnOne({
                 side,
                 widthCm,
                 heightCm,
@@ -166,7 +199,7 @@ export async function confirmOrderPaid(
     const isReadyMadeCatalog = Boolean((item as any).productVariantId && !(item as any).designId);
     if (spawned === 0 && !isReadyMadeCatalog) {
       // Fallback lama: 1 task default (item katalog / desain tanpa decal).
-      await spawnOne({
+      spawnOne({
         side: "front",
         widthCm: 28.5,
         heightCm: 16.0,
@@ -181,74 +214,123 @@ export async function confirmOrderPaid(
 
   // Jalur Cepat E-Commerce: Jika semua item produk jadi tanpa sablon kustom (totalTasksSpawned === 0),
   // pesanan bypass Kanban Workshop dan langsung siap kemas / jemput kurir (READY_TO_SHIP).
-  if (totalTasksSpawned === 0 && order.items.length > 0) {
-    await db
-      .update(Order)
-      .set({ status: "READY_TO_SHIP" })
-      .where(eq(Order.id, order.id));
-    await db.insert(OrderStatusEvent).values({
+  //
+  // P0.5 B6 (audit 06-DATA-LAYER C2): SELURUH tulisan pasca-race dijalankan
+  // dalam SATU `db.batch()` — libsql mengeksekusinya sebagai satu transaksi.
+  // Sebelumnya event + N task + N update stok beruntun: gagal di tengah
+  // meninggalkan order lunas tanpa tiket / stok terpotong separuh.
+  const batchQueries: any[] = [
+    db.insert(OrderStatusEvent).values({
       id: nanoid(),
       orderId: order.id,
-      status: "READY_TO_SHIP",
-      note: "Pesanan Produk Jadi E-Commerce: Jalur cepat langsung Siap Kemas dan Kirim (tanpa antrean sablon DTF).",
-    });
+      status: "PAYMENT_CONFIRMED",
+      note: `Pembayaran iPaymu lunas via ${paymentCode || "iPaymu"} (Ref: ${reference || "-"}, via ${via}).`,
+    }),
+  ];
+  if (taskRows.length > 0) {
+    batchQueries.push(db.insert(ProductionTask).values(taskRows));
+  }
+  if (totalTasksSpawned === 0 && order.items.length > 0) {
+    batchQueries.push(
+      db.update(Order).set({ status: "READY_TO_SHIP" }).where(eq(Order.id, order.id))
+    );
+    batchQueries.push(
+      db.insert(OrderStatusEvent).values({
+        id: nanoid(),
+        orderId: order.id,
+        status: "READY_TO_SHIP",
+        note: "Pesanan Produk Jadi E-Commerce: Jalur cepat langsung Siap Kemas dan Kirim (tanpa antrean sablon DTF).",
+      })
+    );
   }
 
   // Kurangi stok varian katalog HANYA bila cukup (anti oversell diam-diam).
-  // Bila kurang → order SUDAH lunas: JANGAN diam-diam. Tulis REVIEW event
-  // (status existing PAYMENT_CONFIRMED + note REVIEW, tanpa enum baru) +
-  // WA admin + tandai courierNotes [REVIEW:OVERSELL] agar workshop triase.
-  const oversells: Array<{ variantId: string; qty: number; name: string }> = [];
+  // Update bersyarat ikut batch; rowsAffected per-statement dibaca sesudah
+  // commit untuk mendeteksi oversell TANPA menggagalkan transaksi.
+  const stockDecrements: Array<{ variantId: string; qty: number; name: string }> = [];
   for (const item of order.items) {
     const variantId = (item as any).productVariantId as string | null;
     const qty = (item as any).quantity as number;
     if (variantId && qty > 0) {
-      const res = await db
-        .update(ProductVariant)
-        .set({ stockQty: sql`${ProductVariant.stockQty} - ${qty}` })
-        .where(and(eq(ProductVariant.id, variantId), sql`${ProductVariant.stockQty} >= ${qty}`))
-        .catch((e) => {
-          console.warn("Stok decrement gagal:", variantId, e?.message);
-          return null;
-        });
-      if (res && (res.rowsAffected ?? 0) === 0) {
-        console.warn(`OVERSELL: stok ${variantId} kurang untuk qty ${qty} (order ${order.orderNumber}) — cek manual!`);
-        oversells.push({ variantId, qty, name: (item as any).snapshotName || variantId });
-      }
+      stockDecrements.push({ variantId, qty, name: (item as any).snapshotName || variantId });
+      batchQueries.push(
+        db
+          .update(ProductVariant)
+          .set({ stockQty: sql`${ProductVariant.stockQty} - ${qty}` })
+          .where(and(eq(ProductVariant.id, variantId), sql`${ProductVariant.stockQty} >= ${qty}`))
+      );
     }
   }
+
+  let batchResults: any[];
+  try {
+    batchResults = await withBusyRetry(() => db.batch(batchQueries as [any, ...any[]]));
+  } catch (e: any) {
+    // Batch atomik gagal total: kembalikan kunci status agar webhook/repay
+    // bisa mengulang (tanpa ini order "PAYMENT_CONFIRMED" tanpa task/stok).
+    await withBusyRetry(() =>
+      db
+        .update(Order)
+        .set({ status: "PENDING_PAYMENT" })
+        .where(and(eq(Order.id, order.id), eq(Order.status, "PAYMENT_CONFIRMED")))
+    ).catch(() => {});
+    throw e;
+  }
+
+  const stockBase = batchResults.length - stockDecrements.length;
+  const decremented: Array<{ variantId: string; qty: number }> = [];
+  const oversells: Array<{ variantId: string; qty: number; name: string }> = [];
+  stockDecrements.forEach((entry, i) => {
+    const res = batchResults[stockBase + i] as any;
+    if (res && (res.rowsAffected ?? 0) > 0) {
+      decremented.push({ variantId: entry.variantId, qty: entry.qty });
+    } else {
+      console.warn(
+        `OVERSELL: stok ${entry.variantId} kurang untuk qty ${entry.qty} (order ${order.orderNumber}) — cek manual!`
+      );
+      oversells.push(entry);
+    }
+  });
+
+  // Marker [STOCK_OK] = bukti varian BENAR-BENAR terpotong → satu-satunya
+  // dasar auto-restore stok saat REFUNDED (admin/orders/[id]/route.ts).
+  let nextNotes = order.courierNotes || "";
+  if (decremented.length > 0 && !nextNotes.includes("[STOCK_OK")) {
+    const marker = formatStockMarker(decremented);
+    if (marker) nextNotes = `${nextNotes} ${marker}`.trim();
+  }
+  if (oversells.length > 0 && !nextNotes.includes("[REVIEW:OVERSELL")) {
+    nextNotes = `${nextNotes} [REVIEW:OVERSELL ${oversells.map((o) => o.variantId).join(",")}]`.trim();
+  }
+
+  const followUps: any[] = [];
   if (oversells.length > 0) {
     const detail = oversells.map((o) => `${o.name} (qty ${o.qty})`).join(", ");
-    try {
-      await db.insert(OrderStatusEvent).values({
+    followUps.push(
+      db.insert(OrderStatusEvent).values({
         id: nanoid(),
         orderId: order.id,
         // Pakai status existing (tanpa enum baru) + note REVIEW eksplisit.
         status: "PAYMENT_CONFIRMED",
         note: `REVIEW:OVERSELL — stok kurang untuk ${detail}. Order lunas, perlu triase manual (restock/hubungi pelanggan).`,
-      });
-    } catch (e: any) {
-      console.warn("Gagal tulis event REVIEW oversell:", e?.message);
-    }
-    try {
-      const cur = order.courierNotes || "";
-      const marker = ` [REVIEW:OVERSELL ${oversells.map((o) => o.variantId).join(",")}]`;
-      if (!cur.includes("[REVIEW:OVERSELL")) {
-        await db.update(Order).set({ courierNotes: `${cur}${marker}`.trim() }).where(eq(Order.id, order.id));
-      }
-    } catch (e: any) {
-      console.warn("Gagal tandai order REVIEW oversell:", e?.message);
-    }
-    // KEBIJAKAN FONNTE (owner 20 Sep 2026): Fonnte HANYA untuk OTP.
-    // Alert oversell via WA DINONAKTIFKAN — flag [REVIEW:OVERSELL] di
-    // courierNotes + OrderStatusEvent tetap jadi sinyal triase di kanban.
-    // Kode lama dipertahankan di bawah (komentar) bila keputusan berubah.
-    // try {
-    //   const { SHOP_WHATSAPP } = await import("@/lib/shop");
-    //   const invoiceUrl = `${siteUrl()}/orders/${order.id}`;
-    //   await sendWhatsAppNotification(SHOP_WHATSAPP, [...].join("\n")).catch(...);
-    // } catch {}
+      })
+    );
   }
+  if (nextNotes !== (order.courierNotes || "")) {
+    followUps.push(
+      db.update(Order).set({ courierNotes: nextNotes }).where(eq(Order.id, order.id))
+    );
+  }
+  if (followUps.length > 0) {
+    try {
+      await db.batch(followUps as [any, ...any[]]);
+    } catch (e: any) {
+      console.warn("Gagal tulis penanda oversell/stok:", e?.message);
+    }
+  }
+  // KEBIJAKAN FONNTE (owner 20 Sep 2026): Fonnte HANYA untuk OTP.
+  // Alert oversell via WA DINONAKTIFKAN — flag [REVIEW:OVERSELL] di
+  // courierNotes + OrderStatusEvent tetap jadi sinyal triase di kanban.
 
   // PENGHEMATAN KUOTA FONNTE: Notifikasi status lunas otomatis via WhatsApp dinonaktifkan.
   // Status lunas langsung ter-update di invoice web, web notification, dan aplikasi Capacitor.

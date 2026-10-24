@@ -87,13 +87,11 @@ model Account {
 
 model Verification {
   id         String    @id @default(cuid())
-  identifier String
+  identifier String    @unique
   value      String
   expiresAt  DateTime
   createdAt  DateTime  @default(now())
   updatedAt  DateTime  @default(now()) @updatedAt
-
-  @@index([identifier])
 }
 
 enum DeliveryMethod {
@@ -224,7 +222,7 @@ model SablonMethod {
   priceA6Idr        Int?    // Saku kecil / pocket
   priceA5Idr        Int?    // Sedang
   priceA4Idr        Int?    // Dada standar
-  priceA3Idr        Int?    // Cetak besar A3 (Maks 30 cm roll width)
+  priceA3Idr        Int?    // Cetak besar A3 (Maks 35 cm roll width — SSOT REAL_WORLD_PRINT_LIMITS)
   flatPriceIdr      Int?
   minTurnaroundDays Int     @default(2)
   maxTurnaroundDays Int     @default(5)
@@ -462,7 +460,7 @@ model ProductionTask {
   notes              String?
 
   // --- Real-World Sablon Manufacturing Calibration ---
-  // Dikalibrasi dari geometri 3D (Batas maks lebar dijepit ke 30.0 cm / roll A3 DTF)
+  // Dikalibrasi dari geometri 3D (Batas maks lebar dijepit ke 35.0 cm — SSOT REAL_WORLD_PRINT_LIMITS)
   printWidthCm       Float?          // Dimensi fisik nyata (cm), misal: 28.5
   printHeightCm      Float?          // Dimensi fisik nyata (cm), misal: 14.2
   placementSide      String?         // "front" | "back"

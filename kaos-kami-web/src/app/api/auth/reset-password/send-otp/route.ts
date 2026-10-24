@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { nanoid } from "nanoid";
 import { z } from "zod";
-import { eq } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { User, Verification } from "@/lib/drizzle-schema";
 import { hashOtp, randomOtp6 } from "@/lib/otp";
@@ -75,14 +74,20 @@ export async function POST(req: NextRequest) {
     const code = randomOtp6();
     const expiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 menit
 
-    // Hanguskan kode lama untuk email ini & simpan OTP baru
-    await db.delete(Verification).where(eq(Verification.identifier, `pwd-reset-otp:${cleanEmail}`)).catch(() => {});
-    await db.insert(Verification).values({
-      id: nanoid(),
-      identifier: `pwd-reset-otp:${cleanEmail}`,
-      value: hashOtp(code),
-      expiresAt,
-    });
+    // Ganti kode lama untuk email ini & simpan OTP baru.
+    // Upsert: identifier UNIQUE; dua permintaan paralel tidak boleh 500.
+    await db
+      .insert(Verification)
+      .values({
+        id: nanoid(),
+        identifier: `pwd-reset-otp:${cleanEmail}`,
+        value: hashOtp(code),
+        expiresAt,
+      })
+      .onConflictDoUpdate({
+        target: Verification.identifier,
+        set: { value: hashOtp(code), expiresAt },
+      });
 
     // Kirim email OTP reset password
     const emailResult = await sendEmailPasswordResetOtp(cleanEmail, code, existingUser.name || undefined);

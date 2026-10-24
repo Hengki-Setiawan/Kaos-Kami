@@ -1,7 +1,8 @@
 "use client";
 
 import React, { useEffect, useRef, useState } from 'react';
-import { Download, Camera, CheckCircle2, Clock, Sparkles, ShieldCheck, Copy, Check, Loader2, FileText } from 'lucide-react';
+import QRCode from 'qrcode';
+import { Download, Camera, CheckCircle2, Clock, Sparkles, ShieldCheck, Copy, Check, Loader2, FileText, RefreshCw } from 'lucide-react';
 import { BottomSheet, HapticButton, Badge } from '@/components/ui';
 import { haptic } from '@/lib/bridge/haptics';
 import { saveQrisImageToDevice } from '@/lib/payments/ipaymuMobile';
@@ -33,10 +34,44 @@ export const DirectQrisSheet: React.FC<DirectQrisSheetProps> = ({
   const [downloading, setDownloading] = useState(false);
   const [copied, setCopied] = useState(false);
   const [isPaid, setIsPaid] = useState(false);
-  const [timeLeftSeconds, setTimeLeftSeconds] = useState(1800);
+  // P0.3 (23 Okt 2026): QR dirender LOKAL dari QrString resmi iPaymu.
+  const [localQrDataUrl, setLocalQrDataUrl] = useState<string | null>(null);
+  const [qrRenderFailed, setQrRenderFailed] = useState(false);
+  // Docs iPaymu: QRIS tidak bisa custom expired — default 5 MENIT.
+  const [timeLeftSeconds, setTimeLeftSeconds] = useState(300);
   const [toast, setToast] = useState<string | null>(null);
 
-  // Countdown timer 30 menit
+  // Regenerasi state QR setiap sheet dibuka
+  useEffect(() => {
+    if (!open) {
+      setLocalQrDataUrl(null);
+      setQrRenderFailed(false);
+      setTimeLeftSeconds(300);
+    }
+  }, [open]);
+
+  // Render QR lokal dari qrString (lib qrcode) — tanpa pihak ketiga
+  useEffect(() => {
+    if (!open || !qrString) return;
+    let active = true;
+    QRCode.toDataURL(qrString, {
+      width: 600,
+      margin: 1,
+      errorCorrectionLevel: 'M',
+      color: { dark: '#0e0e10', light: '#ffffff' },
+    })
+      .then((url) => {
+        if (active) setLocalQrDataUrl(url);
+      })
+      .catch(() => {
+        if (active) setQrRenderFailed(true);
+      });
+    return () => {
+      active = false;
+    };
+  }, [open, qrString]);
+
+  // Countdown timer 5 menit (standar QRIS docs iPaymu)
   useEffect(() => {
     if (!open || isPaid) return;
     const t = setInterval(() => {
@@ -86,14 +121,15 @@ export const DirectQrisSheet: React.FC<DirectQrisSheetProps> = ({
   }, [open, orderId, isPaid, onPaymentSuccess, onOpenChange]);
 
   const handleDownload = async () => {
-    if (!qrImage) {
+    const source = localQrDataUrl || qrImage;
+    if (!source) {
       handleCopy();
       return;
     }
     setDownloading(true);
     haptic.selection();
     try {
-      const res = await saveQrisImageToDevice(qrImage, orderNumber || orderId);
+      const res = await saveQrisImageToDevice(source, orderNumber || orderId);
       setToast(res.message);
       if (res.success) haptic.success();
       setTimeout(() => setToast(null), 3000);
@@ -156,7 +192,7 @@ export const DirectQrisSheet: React.FC<DirectQrisSheetProps> = ({
           </div>
           <div className="flex items-center justify-center gap-1.5 text-[11px] font-mono text-amber-400 pt-1">
             <Clock size={12} />
-            <span>Batas waktu bayar: </span>
+            <span>QRIS aktif 5 menit: </span>
             <span className="font-bold tabular-nums">{timeFormatted}</span>
           </div>
         </div>
@@ -164,15 +200,37 @@ export const DirectQrisSheet: React.FC<DirectQrisSheetProps> = ({
         {/* Gambar QRIS Resolusi Tinggi */}
         <div className="flex flex-col items-center justify-center pt-1">
           <div className="relative p-3 bg-white rounded-2xl shadow-xl border-4 border-white max-w-[220px] aspect-square flex items-center justify-center">
-            {qrImage ? (
+            {timeLeftSeconds === 0 && !isPaid ? (
+              <div className="text-center p-3">
+                <Clock size={26} className="text-amber-500 mx-auto mb-1.5" />
+                <p className="text-[11px] font-bold text-zinc-800 mb-1">QRIS kedaluwarsa</p>
+                <p className="text-[10px] text-zinc-600 leading-snug mb-2">
+                  Buka invoice lalu tekan <strong>Bayar Ulang</strong> untuk QR baru.
+                </p>
+                {invoiceUrl && (
+                  <a
+                    href={invoiceUrl}
+                    className="inline-flex items-center gap-1 px-2.5 py-1 rounded bg-zinc-900 text-white font-bold text-[10px]"
+                  >
+                    <RefreshCw size={10} />
+                    <span>Buka Invoice</span>
+                  </a>
+                )}
+              </div>
+            ) : localQrDataUrl || qrImage ? (
               /* eslint-disable-next-line @next/next/no-img-element */
               <img
-                src={qrImage}
+                src={localQrDataUrl || qrImage}
                 alt={`QRIS Order ${orderNumber}`}
                 className="w-full h-full object-contain rounded-lg"
                 loading="eager"
               />
-            ) : qrString ? (
+            ) : qrString && !qrRenderFailed ? (
+              <div className="flex flex-col items-center justify-center p-6 text-zinc-500">
+                <Loader2 size={24} className="animate-spin text-[#FF6B35] mb-2" />
+                <span className="text-xs">Merender QRIS lokal...</span>
+              </div>
+            ) : qrString && qrRenderFailed ? (
               <div className="text-center p-3">
                 <p className="font-mono text-[9px] text-zinc-800 break-all mb-2 leading-tight">
                   {qrString.slice(0, 80)}...
@@ -210,7 +268,7 @@ export const DirectQrisSheet: React.FC<DirectQrisSheetProps> = ({
         <div className="grid grid-cols-2 gap-2 pt-1">
           <HapticButton
             onClick={handleDownload}
-            disabled={downloading || !qrImage}
+            disabled={downloading || (!localQrDataUrl && !qrImage)}
             className="py-3 px-3 rounded-xl bg-[#FF6B35] text-white font-sans font-bold text-xs uppercase tracking-wider flex items-center justify-center gap-1.5 shadow-[0_4px_12px_rgba(255,107,53,0.3)] disabled:opacity-50"
           >
             {downloading ? <Loader2 size={14} className="animate-spin" /> : <Download size={14} />}

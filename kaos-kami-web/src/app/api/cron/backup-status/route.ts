@@ -11,9 +11,15 @@ interface ListedFile {
   uploaded: string | null;
 }
 
-/** Parse stamp nama file `kaos-kami-YYYYMMDDHHMM.sql` → ISO (fallback bila API tak beri `uploaded`). */
+interface R2ListResult {
+  success: boolean;
+  files: ListedFile[];
+  prefixes: string[];
+}
+
+/** Parse stamp path `kaos-kami-YYYYMMDDHHMM/...` → ISO (fallback bila API tak beri `last_modified`). */
 function parseStampAt(key: string): string | null {
-  const m = key.match(/(\d{12})\.sql$/);
+  const m = key.match(/(\d{12})/);
   if (!m) return null;
   const s = m[1]!;
   const dt = new Date(
@@ -29,65 +35,126 @@ function parseStampAt(key: string): string | null {
 }
 
 /**
- * List prefix `backups/` di bucket privat — pola tiru `listR2Objects`
- * (src/lib/r2.ts) + `bucketOverride` pola cron/backup/route.ts.
- * Tak ada helper list dengan bucketOverride di lib, jadi panggil API
- * Cloudflare langsung di sini (bucket backup, bukan bucket aset).
+ * List objek R2 di bucket privat. Cloudflare API mengembalikan `result`
+ * sebagai ARRAY (bukan `{ objects: [...] }`) dan waktu unggah di
+ * `last_modified` — dua bentuk lama di kode ini membuat endpoint selalu
+ * melaporkan "tidak ada backup" walau bucket berisi dump.
+ *
+ * `delimiter=/` dipakai untuk mengambil daftar folder backup (split) tanpa
+ * terpotong pagination 100 objek.
  */
-async function listBackupFiles(): Promise<{ success: boolean; files: ListedFile[] }> {
+async function r2List(prefix: string, delimiter?: string): Promise<R2ListResult> {
   const accountId = process.env.CLOUDFLARE_ACCOUNT_ID || "";
   const token = process.env.CLOUDFLARE_API_TOKEN || "";
-  if (!accountId || !token) return { success: false, files: [] };
+  if (!accountId || !token) return { success: false, files: [], prefixes: [] };
   try {
+    const qs = new URLSearchParams({ prefix, per_page: "1000" });
+    if (delimiter) qs.set("delimiter", delimiter);
     const url =
       `https://api.cloudflare.com/client/v4/accounts/${accountId}` +
-      `/r2/buckets/${BACKUP_BUCKET}/objects?prefix=${encodeURIComponent(BACKUP_PREFIX)}&per_page=100`;
-    const res = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
+      `/r2/buckets/${BACKUP_BUCKET}/objects?${qs.toString()}`;
+    const res = await fetch(url, {
+      headers: { Authorization: `Bearer ${token}` },
+      signal: AbortSignal.timeout(10000),
+    });
     const data: any = await res.json().catch(() => ({}));
-    if (!res.ok || data.success === false) return { success: false, files: [] };
-    const objs = data.result?.objects || [];
-    const files: ListedFile[] = (objs as any[])
+    if (!res.ok || data.success === false) return { success: false, files: [], prefixes: [] };
+
+    const raw = Array.isArray(data.result)
+      ? data.result
+      : Array.isArray(data.result?.objects)
+        ? data.result.objects
+        : [];
+    const files: ListedFile[] = (raw as any[])
       .map((o) => ({
         key: String(o.key || ""),
         uploaded:
-          typeof o.uploaded === "string"
-            ? o.uploaded
-            : typeof o.modified === "string"
-              ? o.modified
-              : null,
+          typeof o.last_modified === "string"
+            ? o.last_modified
+            : typeof o.uploaded === "string"
+              ? o.uploaded
+              : typeof o.modified === "string"
+                ? o.modified
+                : null,
       }))
-      .filter((f) => f.key.startsWith(BACKUP_PREFIX) && !f.key.endsWith("/"));
-    return { success: true, files };
+      .filter((f) => f.key.startsWith(prefix) && !f.key.endsWith("/"));
+
+    const prefixes = Array.isArray(data.result_info?.delimited)
+      ? (data.result_info.delimited as string[]).filter((p) => p.startsWith(prefix))
+      : [];
+
+    return { success: true, files, prefixes };
   } catch {
-    return { success: false, files: [] };
+    return { success: false, files: [], prefixes: [] };
   }
 }
 
 /**
  * GET /api/cron/backup-status — ringkasan backup PUBLIK (tanpa CRON_SECRET).
- * Non-sensitif: hanya nama file terbaru + umur + jumlah (TANPA isi dump/PII).
+ * Non-sensitif: hanya umur + jumlah + mode (TANPA key objek, isi dump, atau PII).
  */
 export async function GET(req: NextRequest) {
   // Rate-limit ringan 30/mnt (tiru pola admin-cms GET anti-scrape).
   const rl = await checkRateLimitAsync(`backup-status:ip:${getClientIp(req)}`, 30, 60);
   if (rl.isLimited)
     return NextResponse.json({ error: "Rate limited" }, { status: 429, headers: rateLimitHeaders(rl, 30) });
-  const empty = { success: true, latestFile: null, at: null, ageSec: null, count: 0 };
+  const empty = { success: true, at: null, ageSec: null, count: 0, mode: "none" as const };
   try {
-    const listed = await listBackupFiles();
-    if (!listed.success || listed.files.length === 0) {
-      return NextResponse.json(empty, { headers: { "Cache-Control": "public, max-age=60" } });
+    // Satu panggilan berdelimiter: file lama single-dump di root + folder split.
+    const root = await r2List(BACKUP_PREFIX, "/");
+    if (!root.success) return NextResponse.json(empty, { headers: { "Cache-Control": "public, max-age=60" } });
+
+    const folders = root.prefixes
+      .map((p) => p.replace(/\/+$/, "") + "/")
+      .filter((p) => p.startsWith(BACKUP_PREFIX))
+      .sort();
+    const latestFolder = folders.length > 0 ? folders[folders.length - 1]! : null;
+
+    let folderFiles: ListedFile[] = [];
+    if (latestFolder) {
+      const listed = await r2List(latestFolder);
+      if (listed.success) folderFiles = listed.files;
     }
-    const sorted = [...listed.files].sort((a, b) =>
+    const manifest = folderFiles.find((f) => f.key.endsWith("/manifest.json"));
+    const folderAt = latestFolder ? parseStampAt(latestFolder) : null;
+
+    // File single-dump lama (backup/kaos-kami-YYYY...sql) — tetap didukung.
+    const singleFiles = root.files.filter((f) => /\.(sql|json)$/i.test(f.key));
+    const latestSingle = [...singleFiles].sort((a, b) =>
       (b.uploaded || b.key).localeCompare(a.uploaded || a.key)
-    );
-    const latest = sorted[0]!;
-    const at = latest.uploaded || parseStampAt(latest.key);
-    const ageSec = at ? Math.max(0, Math.round((Date.now() - new Date(at).getTime()) / 1000)) : null;
-    return NextResponse.json(
-      { success: true, latestFile: latest.key, at, ageSec, count: listed.files.length },
-      { headers: { "Cache-Control": "public, max-age=60" } }
-    );
+    )[0];
+
+    if (manifest) {
+      const at = manifest.uploaded || folderAt;
+      const ageSec = at ? Math.max(0, Math.round((Date.now() - new Date(at).getTime()) / 1000)) : null;
+      return NextResponse.json(
+        { success: true, at, ageSec, count: folders.length, mode: "split" },
+        { headers: { "Cache-Control": "public, max-age=60" } }
+      );
+    }
+
+    if (latestSingle) {
+      const at = latestSingle.uploaded || parseStampAt(latestSingle.key);
+      const ageSec = at ? Math.max(0, Math.round((Date.now() - new Date(at).getTime()) / 1000)) : null;
+      return NextResponse.json(
+        { success: true, at, ageSec, count: singleFiles.length, mode: "single" },
+        { headers: { "Cache-Control": "public, max-age=60" } }
+      );
+    }
+
+    // Folder terbaru ada tapi manifest belum tertulis = backup terakhir gagal
+    // di tengah jalan. Laporkan jujur, jangan fallback ke backup lama seolah sehat.
+    if (latestFolder) {
+      const ageSec = folderAt
+        ? Math.max(0, Math.round((Date.now() - new Date(folderAt).getTime()) / 1000))
+        : null;
+      return NextResponse.json(
+        { success: true, at: folderAt, ageSec, count: folders.length, mode: "incomplete" },
+        { headers: { "Cache-Control": "public, max-age=60" } }
+      );
+    }
+
+    return NextResponse.json(empty, { headers: { "Cache-Control": "public, max-age=60" } });
   } catch {
     return NextResponse.json(empty, { headers: { "Cache-Control": "public, max-age=60" } });
   }

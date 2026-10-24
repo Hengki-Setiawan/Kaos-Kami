@@ -6,7 +6,7 @@
 // Run: E2E_L3_ORDER_ID=<id> E2E_L3_SHIPPED_ID=<id> npx playwright test --project=l3 l3-invoice
 // Aturan keras: user-facing locators, web-first assertions, LARANGAN waitForTimeout
 // (ganti waitForEvent/waitForURL/toBeVisible). Mock HANYA pihak ketiga
-// (AgenWebsite, Fonnte, GA); DILARANG mock /api/* milik sendiri + Duitku.
+// (AgenWebsite sudah dicabut #20=A; mock cukup Fonnte, GA); DILARANG mock /api/* milik sendiri + Duitku.
 import { test, expect } from "@playwright/test";
 
 const PENDING_ID = process.env.E2E_L3_ORDER_ID || "";
@@ -19,9 +19,6 @@ test.beforeEach(async ({ page }) => {
       localStorage.setItem("kk-app-banner-dismissed-v1", "1");
     } catch {}
   });
-  await page.route(/api\.agenwebsite\.com|api-sandbox\.agenwebsite\.com/, (r) =>
-    r.fulfill({ status: 200, body: JSON.stringify({ data: [] }) }),
-  );
   await page.route(/api\.fonnte\.com/, (r) => r.fulfill({ status: 200, body: "{}" }));
   await page.route(/google-analytics\.com|googletagmanager\.com/, (r) => r.abort());
 });

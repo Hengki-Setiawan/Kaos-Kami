@@ -28,7 +28,7 @@ import {
 /**
  * Hierarki z-index L0→L7 (SSOT: src/lib/zIndex.ts, Blueprint Bab 23/27/39).
  * Urutan mutlak: canvas(10) < bg(20) < hud(30) < chat(35) < nav/drawer(50)
- *   < cart/modal(60) < auth/confirm/popover(70) < qris/toast(80).
+ *   < cart/modal(60) < auth/confirm/popover(70) < qris(150) < toast(160).
  */
 
 // "z-50" -> 50, "z-[35]" -> 35
@@ -39,9 +39,9 @@ function classToNumber(cls: string): number {
 }
 
 describe("zIndexHierarchy: L0→L7 menaik ketat (Z_HIERARCHY)", () => {
-  it("8 lapis L0..L7 = [10,20,30,35,50,60,70,80] berurutan", () => {
+  it("8 lapis L0..L7 = [10,20,30,35,50,60,70,150] berurutan", () => {
     const vals = Object.values(Z_HIERARCHY);
-    expect(vals).toEqual([10, 20, 30, 35, 50, 60, 70, 80]);
+    expect(vals).toEqual([10, 20, 30, 35, 50, 60, 70, 150]);
     for (let i = 1; i < vals.length; i++) {
       expect(vals[i]).toBeGreaterThan(vals[i - 1]!);
     }
@@ -62,30 +62,31 @@ describe("zIndexHierarchy: L0→L7 menaik ketat (Z_HIERARCHY)", () => {
 });
 
 describe("zIndexHierarchy: rantai chat<drawer<cart<auth<qris (numerik)", () => {
-  it("chat(35) < drawer(50) < cart(60) < auth(70) < qris(80)", () => {
+  it("chat(35) < drawer(50) < cart(60) < auth(70) < qris(150)", () => {
     expect(Z_CHAT).toBe(35);
     expect(Z_DRAWER).toBe(50);
     expect(Z_CART).toBe(60);
     expect(Z_AUTH).toBe(70);
-    expect(Z_QRIS).toBe(80);
+    expect(Z_QRIS).toBe(150);
     expect(Z_CHAT).toBeLessThan(Z_DRAWER);
     expect(Z_DRAWER).toBeLessThan(Z_CART);
     expect(Z_CART).toBeLessThan(Z_AUTH);
     expect(Z_AUTH).toBeLessThan(Z_QRIS);
   });
 
-  it("pasangan selevel: NAV==DRAWER(50), CART==MODAL(60), AUTH==CONFIRM==POPOVER(70), QRIS==TOAST(80)", () => {
+  it("pasangan selevel: NAV==DRAWER(50), CART==MODAL(60), AUTH==CONFIRM==POPOVER(70), TOAST(160) > QRIS(150)", () => {
     expect(Z_NAV).toBe(Z_DRAWER);
     expect(Z_CART).toBe(Z_MODAL);
     expect(Z_AUTH).toBe(Z_CONFIRM);
     expect(Z_AUTH).toBe(Z_POPOVER);
-    expect(Z_QRIS).toBe(Z_TOAST);
+    expect(Z_TOAST).toBe(160);
+    expect(Z_TOAST).toBeGreaterThan(Z_QRIS);
   });
 
-  it("kanvas paling bawah, qris/toast paling atas", () => {
+  it("kanvas paling bawah, toast (160) paling atas", () => {
     const all = [Z_CANVAS, Z_BG, Z_HUD, Z_CHAT, Z_NAV, Z_DRAWER, Z_CART, Z_MODAL, Z_AUTH, Z_CONFIRM, Z_POPOVER, Z_QRIS, Z_TOAST];
     expect(Math.min(...all)).toBe(Z_CANVAS);
-    expect(Math.max(...all)).toBe(Z_QRIS);
+    expect(Math.max(...all)).toBe(Z_TOAST);
   });
 });
 

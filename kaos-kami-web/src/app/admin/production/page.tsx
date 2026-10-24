@@ -586,10 +586,10 @@ function TaskCardContent({
   const h3 = isH3Express(task);
   const telat = isTelat(task);
   const nmTim = teamNameOf(task);
-  // Clamp fisik DTF: lebar cetak maks 30.0 cm (heat press + anatomi dada A3).
+  // Clamp fisik DTF: lebar cetak maks 35.0 cm (SSOT REAL_WORLD_PRINT_LIMITS).
   // Tampilan saja — logika status/task TIDAK diubah.
-  const wClamped = task.printWidthCm != null ? Math.min(task.printWidthCm, 30.0) : null;
-  const wOver = task.printWidthCm != null && task.printWidthCm > 30.0;
+  const wClamped = task.printWidthCm != null ? Math.min(task.printWidthCm, 35.0) : null;
+  const wOver = task.printWidthCm != null && task.printWidthCm > 35.0;
   // ── WA kurir/pembeli + resi (client-only, tanpa API baru) ──
   const [resi, setResi] = useState("");
   const [waSent, setWaSent] = useState(false);
@@ -1536,7 +1536,7 @@ function MasterAttachForm({
       const url = printFileUrl.trim();
       if (url) payload.printFileUrl = url;
       const w = printWidthCm.trim() ? Number(printWidthCm) : undefined;
-      if (w !== undefined && Number.isFinite(w)) payload.printWidthCm = Math.min(w, 30.0);
+      if (w !== undefined && Number.isFinite(w)) payload.printWidthCm = Math.min(w, 35.0);
       if (placementSide.trim()) payload.placementSide = placementSide.trim().slice(0, 40);
       const off = offsetCm.trim() ? Number(offsetCm) : undefined;
       if (off !== undefined && Number.isFinite(off)) payload.offsetFromCollarCm = off;
@@ -1596,7 +1596,7 @@ function MasterAttachForm({
           />
           <div className="grid grid-cols-2 gap-2">
             <label className="space-y-1 text-[10px] text-text-muted font-bold">
-              <span>LEBAR (cm, maks 30.0)</span>
+              <span>LEBAR (cm, maks 35.0)</span>
               <input
                 value={printWidthCm}
                 onChange={(e) => setPrintWidthCm(e.target.value.slice(0, 8))}
@@ -2773,7 +2773,7 @@ export default function ProductionKanbanPage() {
                     <div className="mt-3 flex items-center justify-between w-full pt-3 border-t border-border-subtle font-mono text-[11px] text-text-muted">
                       <span>{previewTask.placementSide === "BACK" ? "Sisi Punggung Belakang" : "Sisi Dada Depan"}</span>
                       <span className="font-bold text-brand-accent">
-                        Maksimal Lebar 30.0 cm
+                        Maksimal Lebar 35.0 cm
                       </span>
                     </div>
                   </div>
@@ -3030,7 +3030,7 @@ export default function ProductionKanbanPage() {
                               {flatPlacement.printWidthCm.toFixed(1)} cm
                             </span>
                             <span className="text-[9px] text-text-muted block">
-                              Maksimal 30.0 cm
+                              Maksimal 35.0 cm
                             </span>
                           </div>
                           <div className="p-2.5 rounded-xl bg-black/5 dark:bg-white/5 border border-border-subtle">

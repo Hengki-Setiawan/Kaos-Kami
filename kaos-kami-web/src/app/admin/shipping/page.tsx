@@ -35,14 +35,6 @@ interface Zone {
   sortOrder: number;
 }
 
-interface Usage {
-  plan: string;
-  limit: number;
-  used: number;
-  remaining: number;
-  resetAt: string;
-}
-
 const EMPTY = { city: "", province: "", courier: "", service: "REG", costIdr: 25000, etdLabel: "2-3 hari", sortOrder: 0 };
 
 function statusMessage(status: number, fallback: string) {
@@ -69,8 +61,6 @@ export default function AdminShippingPage() {
 
   // Fallback Zones states
   const [zones, setZones] = useState<Zone[]>([]);
-  const [usage, setUsage] = useState<Usage | null>(null);
-  const [usageConfigured, setUsageConfigured] = useState<boolean | null>(null);
   const [loading, setLoading] = useState(true);
   const [msg, setMsg] = useState<string | null>(null);
   const [form, setForm] = useState(EMPTY);
@@ -122,16 +112,9 @@ export default function AdminShippingPage() {
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const [zr, ur] = await Promise.all([
-        fetch("/api/admin/zones").then(async (r) => ({ status: r.status, body: await r.json().catch(() => ({})) })),
-        fetch("/api/admin/shipping/usage").then((r) => r.json()),
-      ]);
+      const zr = await fetch("/api/admin/zones").then(async (r) => ({ status: r.status, body: await r.json().catch(() => ({})) }));
       if (Array.isArray(zr.body.zones)) setZones(zr.body.zones);
       else setMsg(statusMessage(zr.status, zr.body.error || "Gagal muat zona"));
-      if (ur.configured) {
-        setUsageConfigured(true);
-        setUsage(ur.usage);
-      } else setUsageConfigured(false);
     } catch {
       setMsg("Gagal koneksi server");
     } finally {
@@ -286,12 +269,6 @@ export default function AdminShippingPage() {
             </p>
           </div>
 
-          <div className="text-right sm:self-center shrink-0">
-            <span className="font-mono text-[10px] text-text-muted block">Status API Lama:</span>
-            <span className="px-2 py-0.5 rounded bg-surface-elevated text-text-muted border border-border-subtle font-mono text-[10px]">
-              AgenWebsite Dipensiunkan
-            </span>
-          </div>
         </div>
 
         {syncResult && (
@@ -355,7 +332,7 @@ export default function AdminShippingPage() {
                   <span>Peta Distribusi Logistik Makassar ke Nusantara</span>
                 </h3>
                 <p className="text-[11px] text-text-muted">
-                  Klik tombol <strong>"Lihat di Peta"</strong> pada kota di tabel atau simulator untuk melihat titik tujuan dan rute logistik.
+                  Klik tombol <strong>&quot;Lihat di Peta&quot;</strong> pada kota di tabel atau simulator untuk melihat titik tujuan dan rute logistik.
                 </p>
               </div>
             </div>
@@ -486,7 +463,7 @@ export default function AdminShippingPage() {
               </div>
             ) : simQuery.trim() ? (
               <p className="text-text-muted text-xs p-3 text-center bg-surface-elevated/30 rounded-xl">
-                Kota "{simQuery}" tidak ditemukan di database 514 kota. Coba masukkan nama kota tanpa kata "Kota" atau "Kabupaten".
+                Kota &quot;{simQuery}&quot; tidak ditemukan di database 514 kota. Coba masukkan nama kota tanpa kata &quot;Kota&quot; atau &quot;Kabupaten&quot;.
               </p>
             ) : null}
           </div>

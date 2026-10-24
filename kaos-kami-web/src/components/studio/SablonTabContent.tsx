@@ -144,7 +144,7 @@ export const SablonTabContent: React.FC<SablonTabContentProps> = ({
   const [smartZoneHint, setSmartZoneHint] = useState<string | null>(null);
   const smartZoneTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const flashSmartZone = () => {
-    setSmartZoneHint("Maksimal Lebar Sablon A3 (30 cm)");
+    setSmartZoneHint("Maksimal Lebar Sablon DTF (35 cm)");
     if (smartZoneTimer.current) clearTimeout(smartZoneTimer.current);
     smartZoneTimer.current = setTimeout(() => setSmartZoneHint(null), 2500);
   };

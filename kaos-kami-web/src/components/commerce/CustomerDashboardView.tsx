@@ -1,6 +1,7 @@
 "use client";
 
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect } from "react";
+import { createPortal } from "react-dom";
 import Link from "next/link";
 import {
   Package,
@@ -39,6 +40,7 @@ import { OrderDetailModal } from "@/components/commerce/OrderDetailModal";
 import { CancelOrderButton } from "@/components/commerce/CancelOrderButton";
 import { NotificationList } from "@/components/commerce/NotificationList";
 import { VoucherShelf } from "@/components/commerce/VoucherShelf";
+import { Z_CLASS_MODAL } from "@/lib/zIndex";
 
 interface OrderItemData {
   id: string;
@@ -226,6 +228,11 @@ export function CustomerDashboardView({
   const [activeTab, setActiveTab] = useState<"orders" | "designs" | "addresses" | "notifs" | "vouchers">("orders");
   const [orderFilter, setOrderFilter] = useState<"ALL" | "ACTIVE" | "SHIPPED" | "COMPLETED" | "CANCELLED">("ALL");
   const [copiedResi, setCopiedResi] = useState<string | null>(null);
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   // 1-Click Instant Add-to-Cart dari Wardrobe 3D
   const addItem = useCartStore((s) => s.addItem);
@@ -817,11 +824,15 @@ export function CustomerDashboardView({
 
                       <ReorderButton
                         userId={order.userId || user?.id || ""}
-                        items={order.items.map((it) => ({
+                        items={(order.items || []).map((it) => ({
                           productVariantId: it.productVariantId,
                           designId: it.designId,
                           quantity: it.quantity,
                           unitPriceIdr: it.unitPriceIdr,
+                          name: it.snapshotName,
+                          size: it.snapshotSize,
+                          colorName: it.snapshotColorName,
+                          image: it.snapshotImageUrl,
                         }))}
                       />
 
@@ -1075,9 +1086,9 @@ export function CustomerDashboardView({
       {/* ============================================================== */}
       {/* MODAL 1-CLICK INSTANT ORDER DARI WARDROBE                     */}
       {/* ============================================================== */}
-      {orderingDesign && (
+      {mounted && orderingDesign && createPortal(
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-xs animate-in fade-in duration-200"
+          className={`fixed inset-0 ${Z_CLASS_MODAL} flex items-center justify-center p-4 bg-black/80 backdrop-blur-xs animate-in fade-in duration-200`}
           onClick={() => setOrderingDesign(null)}
           role="dialog"
           aria-modal="true"
@@ -1211,15 +1222,16 @@ export function CustomerDashboardView({
               </button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* ============================================================== */}
       {/* MODAL PRATINJAU MOCKUP RINGAN                                  */}
       {/* ============================================================== */}
-      {previewDesign && (
+      {mounted && previewDesign && createPortal(
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-xs animate-in fade-in duration-200"
+          className={`fixed inset-0 ${Z_CLASS_MODAL} flex items-center justify-center p-4 bg-black/80 backdrop-blur-xs animate-in fade-in duration-200`}
           onClick={() => setPreviewDesign(null)}
           role="dialog"
           aria-modal="true"
@@ -1370,7 +1382,8 @@ export function CustomerDashboardView({
               </button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );

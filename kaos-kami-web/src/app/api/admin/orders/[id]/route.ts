@@ -1,12 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
-import { and, eq } from "drizzle-orm";
+import { and, eq, like, sql } from "drizzle-orm";
 import { nanoid } from "nanoid";
 import { db } from "@/lib/db";
-import { Order, OrderRefund, OrderStatusEvent, Payment } from "@/lib/drizzle-schema";
+import { Order, OrderItem, OrderRefund, OrderStatusEvent, Payment, ProductVariant } from "@/lib/drizzle-schema";
+import { hasOversellFlag, parseStockMarker } from "@/lib/orders/stockMarker";
 import { headers } from "next/headers";
 import { checkRateLimitAsync, getClientIp, rateLimitHeaders } from "@/lib/security/rateLimiter";
 import { assertTransition, type Role } from "@/lib/orders/machine";
+import { isIpaymuSuccessStatus } from "@/lib/payments/webhookState";
 
 // Resi Indonesia: alfanumerik + beberapa tanda, 5–64 karakter.
 // (disalin persis dari OrderAdminActions client agar validasi server == client)
@@ -87,6 +89,11 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   if ((cancel || refund) && !isAdmin) {
     return NextResponse.json({ error: "Forbidden: cancel/refund khusus ADMIN" }, { status: 403 });
   }
+  // Sinkronisasi pembayaran bisa menulis Payment SETTLEMENT (uang masuk) —
+  // jangan izinkan staf produksi/kurir memicunya.
+  if (syncPayment && !isAdmin) {
+    return NextResponse.json({ error: "Forbidden: sinkronisasi pembayaran khusus ADMIN" }, { status: 403 });
+  }
 
   // Tolak multi-aksi per permintaan: cegah status + cancel/refund tercampur
   // dalam satu request (hasil akhir tak tentu + riwayat ganda).
@@ -113,7 +120,19 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   const { id: orderId } = await params;
   const order = await db.query.Order.findFirst({
     where: (t, { eq }) => eq(t.id, orderId),
-    columns: { id: true, status: true, orderNumber: true, notes: true, discountIdr: true, deliveryMethod: true, totalIdr: true },
+    columns: {
+      id: true,
+      status: true,
+      orderNumber: true,
+      notes: true,
+      discountIdr: true,
+      deliveryMethod: true,
+      totalIdr: true,
+      courierNotes: true,
+      reviewNote: true,
+      reviewedBy: true,
+      reviewedAt: true,
+    },
   });
   if (!order) return NextResponse.json({ error: "Order tidak ditemukan" }, { status: 404 });
 
@@ -145,7 +164,11 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
       }
       const { ipaymuProvider } = await import("@/lib/payments/ipaymu");
       const remote = await ipaymuProvider.checkTransactionStatus(ref);
-      const ok = /^(berhasil|success|paid|settle)/i.test(`${remote.status} ${remote.statusDesc}`);
+      const ok = isIpaymuSuccessStatus({
+        status: remote.status,
+        statusDesc: remote.statusDesc,
+        paidStatus: remote.paidStatus,
+      });
       if (!ok) {
         return NextResponse.json({
           success: true,
@@ -157,7 +180,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
         remote.amount !== undefined &&
         remote.amount !== null &&
         String(remote.amount) !== "" &&
-        Number(remote.amount) !== order.totalIdr
+        Math.abs(Number(remote.amount) - order.totalIdr) > 1
       ) {
         return NextResponse.json({
           success: false,
@@ -165,16 +188,29 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
         }, { status: 400 });
       }
 
-        await db
-          .update(Payment)
-          .set({ status: "SETTLEMENT", paidAt: new Date() })
-          .where(eq(Payment.orderId, order.id));
-
+        // Konfirmasi order DULU; Payment SETTLEMENT hanya setelah batch
+        // task/stok sukses. Kalau gagal, baris Payment tetap PENDING dan admin
+        // bisa menekan sync lagi tanpa order nyangkut setengah jadi.
         const { confirmOrderPaid } = await import("@/lib/payments/confirmOrder");
-        await confirmOrderPaid(order.id, {
+        const { settlePaymentAfterConfirm } = await import("@/lib/payments/settlement");
+        const confirmResult = await confirmOrderPaid(order.id, {
           paymentCode: "IPAYMU",
           reference: ref,
           via: "admin-manual-sync",
+        });
+        if (confirmResult === "not-pending" || confirmResult === "processing") {
+          return NextResponse.json(
+            { success: false, error: "Status order berubah/sedang diproses saat sinkronisasi. Muat ulang lalu coba lagi." },
+            { status: 409 }
+          );
+        }
+        await settlePaymentAfterConfirm({
+          orderId: order.id,
+          orderNumber: order.orderNumber,
+          amountIdr: order.totalIdr,
+          provider: payRow.provider,
+          providerRef: ref,
+          rawWebhookPayload: JSON.stringify({ via: "admin-manual-sync", remote }),
         });
 
         return NextResponse.json({
@@ -262,9 +298,27 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     });
   }
   if (cancel) {
-    if (!["PENDING_PAYMENT", "PAYMENT_CONFIRMED"].includes(order.status)) {
+    // Order yang sudah dibayar WAJIB lewat refund (mengembalikan stok +
+    // menandai Payment REFUNDED). Cancel hanya untuk yang belum dibayar.
+    if (order.status !== "PENDING_PAYMENT") {
       return NextResponse.json(
-        { error: "Hanya order PENDING/PAYMENT_CONFIRMED yang bisa dibatalkan" },
+        {
+          error:
+            "Cancel hanya untuk order PENDING_PAYMENT. Order yang sudah dibayar harus lewat aksi refund.",
+        },
+        { status: 400 }
+      );
+    }
+    const cancelPay = await db.query.Payment.findFirst({
+      where: (t, { eq }) => eq(t.orderId, order.id),
+      columns: { status: true },
+    });
+    if (cancelPay?.status === "SETTLEMENT") {
+      return NextResponse.json(
+        {
+          error:
+            "Payment sudah SETTLEMENT. Jalankan sinkronisasi pembayaran dulu agar task/stok terbentuk, lalu refund — jangan cancel.",
+        },
         { status: 400 }
       );
     }
@@ -299,13 +353,51 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
       "READY_TO_SHIP",
       "SHIPPED",
     ];
-    if (!refundable.includes(order.status)) {
+    // Late payment: uang masuk SETELAH order dibatalkan/ditolak. Webhook
+    // membuat OrderRefund PENDING bertanda LATE_PAYMENT. Refund ini wajib
+    // bisa diselesaikan admin, tetapi stok TIDAK boleh di-restore karena
+    // order ini tidak pernah memotong stok.
+    const [pay, lateRefund] = await Promise.all([
+      db.query.Payment.findFirst({
+        where: (t, { eq }) => eq(t.orderId, order.id),
+        columns: { status: true, providerRef: true },
+      }),
+      db.query.OrderRefund.findFirst({
+        where: (t, { and, eq, like }) =>
+          and(
+            eq(t.orderId, order.id),
+            eq(t.status, "PENDING"),
+            like(t.reason, "LATE_PAYMENT%")
+          ),
+        columns: { id: true, reason: true },
+      }),
+    ]);
+    // Refund hanya untuk uang yang BENAR-BENAR sudah SETTLEMENT. Status order
+    // saja tidak cukup: order PAYMENT_CONFIRMED bisa saja Payment-nya PENDING
+    // (mis. bypass/sync gagal), dan me-refund-nya akan memulihkan stok tanpa
+    // dana masuk.
+    if (pay?.status !== "SETTLEMENT") {
+      return NextResponse.json(
+        {
+          error:
+            "Refund hanya bisa setelah Payment berstatus SETTLEMENT (dana benar-benar masuk).",
+        },
+        { status: 400 }
+      );
+    }
+    const isLatePaymentRefund =
+      ["CANCELLED", "REJECTED", "DESIGN_REVIEW"].includes(order.status) &&
+      Boolean(lateRefund);
+    if (!refundable.includes(order.status) && !isLatePaymentRefund) {
       return NextResponse.json(
         { error: "Refund hanya untuk order yang sudah dibayar & belum selesai" },
         { status: 400 }
       );
     }
-    const finalRefundReason = parsed.data.refundReason?.trim() || "Dana dikembalikan via transfer manual/QRIS oleh admin.";
+    const finalRefundReason =
+      parsed.data.refundReason?.trim() ||
+      lateRefund?.reason ||
+      "Dana dikembalikan via transfer manual/QRIS oleh admin.";
     const race = await db
       .update(Order)
       .set({ 
@@ -318,38 +410,146 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     if ((race.rowsAffected ?? 0) === 0) {
       return NextResponse.json({ error: "Status berubah, muat ulang dulu" }, { status: 409 });
     }
-    await db.update(Payment).set({ status: "REFUNDED" }).where(eq(Payment.orderId, order.id));
-    await db.insert(OrderRefund).values({
-      id: nanoid(),
-      orderId: order.id,
-      amountIdr: order.totalIdr,
-      reason: finalRefundReason,
-      status: "COMPLETED",
-      processedByUserId: actorUserId,
-      refundedAt: new Date(),
+    // P0.5 C3 (keputusan owner #4): stok varian katalog dikembalikan OTOMATIS
+    // saat REFUNDED. Sumber kebenaran = marker [STOCK_OK ...] yang ditulis
+    // confirmOrderPaid HANYA untuk varian yang BENAR-BENAR terpotong.
+    // Order lama tanpa marker: restore semua varian KECUALI order bertanda
+    // [REVIEW:OVERSELL] (decrement-nya memang gagal → jangan tambah stok).
+    const refundItems = await db.query.OrderItem.findMany({
+      where: (t, { eq }) => eq(t.orderId, order.id),
+      columns: { productVariantId: true, quantity: true },
     });
-    await db.insert(OrderStatusEvent).values({
-      id: nanoid(),
-      orderId: order.id,
-      status: "REFUNDED",
-      note: `Dana dikembalikan (Refund): ${finalRefundReason}`,
-      actorUserId,
+    const refundNotes = order.courierNotes || "";
+    const parsedMarker = parseStockMarker(refundNotes);
+    const oversellFlag = hasOversellFlag(refundNotes);
+    const restoreMap = new Map<string, number>(parsedMarker.map((e) => [e.variantId, e.qty]));
+    if (!isLatePaymentRefund && parsedMarker.length === 0 && !oversellFlag) {
+      for (const it of refundItems) {
+        const variantId = it.productVariantId;
+        const qty = Number(it.quantity) || 0;
+        if (variantId && qty > 0) {
+          restoreMap.set(variantId, (restoreMap.get(variantId) || 0) + qty);
+        }
+      }
+    }
+    const restoreNote = isLatePaymentRefund
+      ? "Stok TIDAK di-restore: order sudah batal sebelum stok dipotong (late payment)."
+      : restoreMap.size > 0
+        ? `Stok dikembalikan otomatis: ${[...restoreMap.entries()]
+            .map(([variantId, qty]) => `${variantId} +${qty}`)
+            .join(", ")}.`
+        : oversellFlag
+          ? "Stok TIDAK dikembalikan otomatis (order bertanda oversell; triase manual)."
+          : "Tidak ada varian katalog yang perlu di-restore.";
+
+    // Satu batch transaksional: Payment REFUNDED + OrderRefund + event +
+    // increment stok. Gagal di tengah tidak lagi meninggalkan refund setengah.
+    const refundWrites: any[] = [
+      db.update(Payment).set({ status: "REFUNDED" }).where(eq(Payment.orderId, order.id)),
+      lateRefund
+        ? db
+            .update(OrderRefund)
+            .set({
+              status: "COMPLETED",
+              processedByUserId: actorUserId,
+              refundedAt: new Date(),
+            })
+            .where(eq(OrderRefund.id, lateRefund.id))
+        : db.insert(OrderRefund).values({
+            id: nanoid(),
+            orderId: order.id,
+            amountIdr: order.totalIdr,
+            reason: finalRefundReason,
+            status: "COMPLETED",
+            processedByUserId: actorUserId,
+            refundedAt: new Date(),
+          }),
+      db.insert(OrderStatusEvent).values({
+        id: nanoid(),
+        orderId: order.id,
+        status: "REFUNDED",
+        note: `Dana dikembalikan (Refund): ${finalRefundReason}. ${restoreNote}`,
+        actorUserId,
+      }),
+      ...[...restoreMap.entries()].map(([variantId, qty]) =>
+        db
+          .update(ProductVariant)
+          .set({ stockQty: sql`${ProductVariant.stockQty} + ${qty}` })
+          .where(eq(ProductVariant.id, variantId))
+      ),
+    ];
+    let refundResults: any[];
+    try {
+      refundResults = await db.batch(refundWrites as [any, ...any[]]);
+    } catch (e: any) {
+      // Batch refund gagal total: kembalikan status order agar tidak ada
+      // order REFUNDED tanpa Payment REFUNDED / stok kembali.
+      await db
+        .update(Order)
+        .set({
+          status: order.status,
+          reviewNote: order.reviewNote ?? null,
+          reviewedBy: order.reviewedBy ?? null,
+          reviewedAt: order.reviewedAt ?? null,
+        })
+        .where(and(eq(Order.id, order.id), eq(Order.status, "REFUNDED")))
+        .catch(() => {});
+      console.error("[refund] Batch refund gagal, status order dikembalikan:", e?.message);
+      return NextResponse.json(
+        { error: "Refund gagal total; tidak ada perubahan stok/payment yang disimpan." },
+        { status: 500 }
+      );
+    }
+    const stockBase = refundResults.length - restoreMap.size;
+    [...restoreMap.entries()].forEach(([variantId, qty], i) => {
+      const res = refundResults[stockBase + i] as any;
+      if (!res || (res.rowsAffected ?? 0) === 0) {
+        console.warn(`[refund] Varian ${variantId} tidak ditemukan — stok +${qty} GAGAL dipulihkan (order ${order.orderNumber}).`);
+      }
     });
-    await restoreOrderCoupon();
+    // Kupon order late-payment sudah dikembalikan saat sweep membatalkan
+    // order; restore kedua kali akan menggandakan kuota.
+    if (!isLatePaymentRefund) await restoreOrderCoupon();
   }
 
   // Aksi Review Desain Workshop (APPROVE / REQUEST_REVISION / REJECT)
   if (parsed.data.reviewAction) {
+    // Kontrak review desain: HANYA ADMIN/SUPER_ADMIN. requireWorkshop juga
+    // mengizinkan PRODUCTION_STAFF/COURIER untuk aksi operasional lain.
+    if (!["ADMIN", "SUPER_ADMIN"].includes(actorRole)) {
+      return NextResponse.json(
+        { error: "Review desain hanya untuk ADMIN/SUPER_ADMIN." },
+        { status: 403 }
+      );
+    }
     const action = parsed.data.reviewAction;
     const noteText = parsed.data.reviewNote?.trim();
 
+    // DESIGN_REVIEW tidak pernah punya tagihan resmi (charge baru dibuat
+    // setelah APPROVE → PENDING_PAYMENT). Payment SETTLEMENT di status ini
+    // berarti late payment: jangan lanjutkan desain, selesaikan refund dulu.
+    const reviewPay = await db.query.Payment.findFirst({
+      where: (t, { eq }) => eq(t.orderId, order.id),
+      columns: { status: true },
+    });
+    if (reviewPay?.status === "SETTLEMENT") {
+      return NextResponse.json(
+        {
+          error:
+            "Pembayaran sudah masuk saat order masih DESIGN_REVIEW (late payment). Selesaikan refund PENDING terlebih dahulu; desain tidak boleh dilanjutkan.",
+        },
+        { status: 400 }
+      );
+    }
+    if (reviewPay?.status === "REFUNDED") {
+      return NextResponse.json(
+        { error: "Order sudah direfund — aksi review desain tidak berlaku." },
+        { status: 400 }
+      );
+    }
+
     if (action === "APPROVE") {
-      const pay = await db.query.Payment.findFirst({
-        where: (t, { eq }) => eq(t.orderId, order.id),
-        columns: { status: true },
-      });
-      const isPaid = pay?.status === "SETTLEMENT" || pay?.status === "SUCCESS";
-      const nextStatus = isPaid ? "PAYMENT_CONFIRMED" : "PENDING_PAYMENT";
+      const nextStatus = "PENDING_PAYMENT";
 
       const race = await db
         .update(Order)
@@ -431,7 +631,39 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     }
   }
 
+  // SHIPPED tanpa resi tidak boleh lewat jalur generik (dulu lolos karena
+  // kondisi hanya mengarahkan SHIPPED+resi ke blok validasi resi).
+  if (status === "SHIPPED" && trackingNumber === undefined) {
+    return NextResponse.json(
+      { error: "Status SHIPPED wajib disertai nomor resi yang valid." },
+      { status: 400 }
+    );
+  }
+
   if (status && !(status === "SHIPPED" && trackingNumber !== undefined)) {
+    // Status finansial/terminal TIDAK boleh diubah lewat jalur generik:
+    // PAYMENT_CONFIRMED wajib lewat webhook/sync (spawn task + stok),
+    // CANCELLED wajib lewat aksi cancel (restore kupon + alasan),
+    // REJECTED wajib lewat review (alasan penolakan).
+    if (order.status === "DESIGN_REVIEW" && status === "PENDING_PAYMENT") {
+      return NextResponse.json(
+        { error: "Gunakan aksi review desain (APPROVE) untuk membuka pembayaran." },
+        { status: 400 }
+      );
+    }
+    if (["PAYMENT_CONFIRMED", "CANCELLED", "REJECTED"].includes(status)) {
+      return NextResponse.json(
+        {
+          error:
+            status === "PAYMENT_CONFIRMED"
+              ? "PAYMENT_CONFIRMED tidak boleh di-set manual. Gunakan sinkronisasi pembayaran / bypass admin."
+              : status === "CANCELLED"
+                ? "Gunakan aksi cancel (bukan status generik) agar kupon & alasan tercatat."
+                : "Gunakan aksi review desain (bukan status generik) agar alasan penolakan tercatat.",
+        },
+        { status: 400 }
+      );
+    }
     // WAJIB lewat mesin transisi per peran (terminal tak bisa keluar).
     try {
       assertTransition(actorRole, order.status, status);

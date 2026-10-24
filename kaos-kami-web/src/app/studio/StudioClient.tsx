@@ -22,6 +22,7 @@ import { useSession } from "@/lib/auth-client";
 import { AuthModal } from "@/components/ui/AuthModal";
 import { ClothLabModal } from "@/components/studio/ClothLabModal";
 import { ExportStudioModal } from "@/components/studio/ExportStudioModal";
+import { CanvasErrorBoundary } from "@/components/ui/JsonLd";
 // P0 bundle: CanvasStage (three/fiber/drei) lazy client-only agar
 // chunk 3D tak masuk bundle awal.
 const CanvasStage = dynamic(
@@ -394,7 +395,27 @@ export function StudioClient() {
         </div>
       ) : (
         <div id="studio-canvas-stage" className="contents">
-          <CanvasStage />
+          <CanvasErrorBoundary
+            fallback={
+              <div className="absolute inset-0 z-10 flex flex-col items-center justify-center p-6 text-center bg-canvas">
+                <div className="max-w-md p-6 rounded-3xl bg-surface/80 border border-border-subtle shadow-xl backdrop-blur-md space-y-3">
+                  <p className="text-sm font-bold text-amber-400">Akselerasi Grafis 3D Mengalami Kendala</p>
+                  <p className="text-xs text-text-muted">
+                    WebGL driver browser sempat mereset kanvas 3D. Segarkan tampilan untuk melanjutkan kustomisasi desain Anda.
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => window.location.reload()}
+                    className="px-5 py-2.5 rounded-xl bg-brand-accent text-canvas font-bold text-xs hover:brightness-110 active:scale-95 transition-all shadow-md"
+                  >
+                    Segarkan Studio 3D (F5)
+                  </button>
+                </div>
+              </div>
+            }
+          >
+            <CanvasStage />
+          </CanvasErrorBoundary>
         </div>
       )}
 

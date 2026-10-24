@@ -1,9 +1,11 @@
 name: E2E Nightly (regresi penuh)
 
-# R4 regresi nightly — DRAF (belum proof-hijau; butuh push = blokir).
-# Acuan: Blueprint/e2e/E2E-MASTER-PLAN.md Bab 8 R4.2.
-# Jadwal: cron 0 19 * * 0 = Senin 02:00 WIB. Matrix 4 shard (pola Elio Navarrete).
-# Artefak: hasil-pengujian-e2e/<run-ts>/ + trace + LAPORAN.md.
+# R4 regresi nightly — DIBEKUKAN (keputusan owner #9=B, 23 Okt 2026).
+# Alasan jujur: dokumen acuan SSOT test TIDAK ADA di repo dan workflow ini belum
+# pernah terbukti hijau. Job diberi `if: false` agar tidak memproduksi CI merah
+# palsu / artefak "hijau" yang menyesatkan.
+# Rencana jadwal bila diaktifkan lagi: cron 0 19 * * 0 = Senin 02:00 WIB,
+# matrix 4 shard, artefak di folder hasil-pengujian-e2e/<run-ts>/ + trace + LAPORAN.md.
 
 on:
   schedule:
@@ -12,6 +14,8 @@ on:
 
 jobs:
   nightly:
+    # DIBEKUKAN — lihat komentar kepala file (keputusan owner #9=B).
+    if: false
     runs-on: ubuntu-latest
     timeout-minutes: 90
     strategy:

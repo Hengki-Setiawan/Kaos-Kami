@@ -75,23 +75,8 @@ export const Navbar: React.FC = () => {
   const isLight = studioTheme === "gallery";
 
   // 5x Klik Logo untuk memicu Secret PIN Bypass Modal (Super Admin & User)
-  const logoClickRef = React.useRef<{ count: number; lastTime: number }>({ count: 0, lastTime: 0 });
-  const handleLogoClick = (e: React.MouseEvent) => {
-    const now = Date.now();
-    if (now - logoClickRef.current.lastTime > 2500) {
-      logoClickRef.current = { count: 1, lastTime: now };
-    } else {
-      logoClickRef.current.count += 1;
-      logoClickRef.current.lastTime = now;
-    }
-
-    if (logoClickRef.current.count >= 5) {
-      e.preventDefault();
-      e.stopPropagation();
-      logoClickRef.current = { count: 0, lastTime: 0 };
-      window.dispatchEvent(new CustomEvent("open-secret-pin-modal"));
-    }
-  };
+  // P0.1 (23 Okt 2026): dispatcher 5-klik logo → modal PIN rahasia DIHAPUS permanen
+  // (keputusan owner: route /api/auth/pin-bypass dihapus; tidak ada pintu masuk tanpa kredensial).
 
   return (
     <>
@@ -110,7 +95,6 @@ export const Navbar: React.FC = () => {
           <div className="flex items-center gap-6 xl:gap-8 shrink-0">
         <Link
           href="/"
-          onClick={handleLogoClick}
           className="hover:opacity-85 transition-opacity flex items-center shrink-0 cursor-pointer select-none"
           title="Kaos Kami Studio"
         >
@@ -293,10 +277,10 @@ export const Navbar: React.FC = () => {
           {isMenuOpen ? <X size={16} /> : <Menu size={16} />}
         </button>
 
-        {/* Enter 3D Sandbox Dedicated Page (English: Create 3D) */}
+        {/* Enter 3D Sandbox Dedicated Page (English: Create 3D) — responsif: tablet/desktop inline, di mobile masuk menu dropdown */}
         <Link
           href="/studio"
-          className="inline-flex items-center justify-center h-10 px-5 rounded-full font-sans text-sm font-bold bg-brand-accent text-white shadow-[0_0_16px_rgba(37,99,235,0.4)] hover:brightness-110 active:scale-95 transition-all shrink-0"
+          className="hidden sm:inline-flex items-center justify-center h-10 px-4 sm:px-5 rounded-full font-sans text-sm font-bold bg-brand-accent text-white shadow-[0_0_16px_rgba(37,99,235,0.4)] hover:brightness-110 active:scale-95 transition-all shrink-0"
           aria-label="Open 3D Studio"
         >
           <span>Create 3D</span>
@@ -307,9 +291,19 @@ export const Navbar: React.FC = () => {
     {/* Mobile / Tablet dropdown menu */}
       {isMenuOpen && (
         <nav
-          className="lg:hidden absolute top-full left-0 right-0 bg-surface/95 backdrop-blur-xl border-b border-border-subtle px-4 py-3 flex flex-col gap-1 font-sans text-sm"
+          className="lg:hidden absolute top-full left-0 right-0 bg-surface/95 backdrop-blur-xl border-b border-border-subtle px-4 py-3 flex flex-col gap-1 font-sans text-sm shadow-2xl"
           aria-label="Mobile navigation"
         >
+          {/* Link Studio 3D primer di mobile menu agar mudah diakses di layar ponsel */}
+          <Link
+            href="/studio"
+            onClick={() => setIsMenuOpen(false)}
+            className="px-3.5 py-2.5 rounded-xl text-white bg-brand-accent font-sans font-bold text-sm transition-all flex items-center justify-between mb-1 shadow-sm"
+          >
+            <span>Studio 3D Mockup</span>
+            <span className="text-[10px] px-2 py-0.5 rounded-full bg-white/20 font-bold uppercase tracking-wider">3D</span>
+          </Link>
+
           {mounted && isAdmin && (
             <Link
               href="/admin"

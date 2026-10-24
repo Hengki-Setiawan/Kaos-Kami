@@ -183,7 +183,17 @@ export default async function AdminDashboardPage({
           design: true,
         },
       },
-      user: true,
+      // Jangan pernah kirim seluruh baris User ke client component:
+      // passwordHash/account metadata tidak dibutuhkan layar admin.
+      user: {
+        columns: {
+          id: true,
+          name: true,
+          phoneNumber: true,
+          role: true,
+          phoneVerified: true,
+        },
+      },
       shippingAddress: true,
       payment: true,
     },

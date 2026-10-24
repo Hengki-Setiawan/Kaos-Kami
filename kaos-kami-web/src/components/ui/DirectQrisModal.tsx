@@ -2,6 +2,7 @@
 
 import React, { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
+import QRCode from "qrcode";
 import {
   X,
   Download,
@@ -12,6 +13,7 @@ import {
   ShieldCheck,
   Clock,
   ExternalLink,
+  RefreshCw,
 } from "lucide-react";
 import { Z_CLASS_QRIS } from "@/lib/zIndex";
 
@@ -41,36 +43,50 @@ export const DirectQrisModal: React.FC<DirectQrisModalProps> = ({
   const [copied, setCopied] = useState(false);
   const [downloading, setDownloading] = useState(false);
   const [isPaid, setIsPaid] = useState(false);
-  const [screenshotMode, setScreenshotMode] = useState(false);
   const [showQuickInvoice, setShowQuickInvoice] = useState(false);
-  const [timeLeftSeconds, setTimeLeftSeconds] = useState(1800); // 30 menit
+  // P0.3 (23 Okt 2026): QR dirender LOKAL dari QrString resmi iPaymu (lib qrcode) —
+  // tidak lagi melewati pihak ketiga. DataURL dihasilkan di klien.
+  const [localQrDataUrl, setLocalQrDataUrl] = useState<string | null>(null);
+  const [qrRenderFailed, setQrRenderFailed] = useState(false);
+  // Docs resmi iPaymu: QRIS TIDAK BISA di-custom expired — default 5 MENIT.
+  const [timeLeftSeconds, setTimeLeftSeconds] = useState(300); // 5 menit
   const pollTimerRef = useRef<NodeJS.Timeout | null>(null);
 
-  // Simpan state tagihan aktif ke sessionStorage agar saat refresh atau kembali, QR tidak hilang
+  // Bersihkan state QR saat modal ditutup/dibuka ulang (QR baru = regenerasi)
   useEffect(() => {
-    if (isOpen && orderId) {
-      try {
-        sessionStorage.setItem(
-          "kaoskami_pending_qris",
-          JSON.stringify({
-            orderId,
-            orderNumber,
-            amountIdr,
-            qrImage,
-            qrString,
-            invoiceUrl,
-            timestamp: Date.now(),
-          })
-        );
-      } catch {}
+    if (!isOpen) {
+      setLocalQrDataUrl(null);
+      setQrRenderFailed(false);
+      setTimeLeftSeconds(300);
     }
-  }, [isOpen, orderId, orderNumber, amountIdr, qrImage, qrString, invoiceUrl]);
+  }, [isOpen]);
 
-  // Ekstrak NMID dari QR string jika ada (standar ASPI QRIS)
+  // Generasi QR lokal dari QrString resmi (P0.3)
+  useEffect(() => {
+    if (!isOpen || !qrString) return;
+    let active = true;
+    QRCode.toDataURL(qrString, {
+      width: 600,
+      margin: 1,
+      errorCorrectionLevel: "M",
+      color: { dark: "#0e0e10", light: "#ffffff" },
+    })
+      .then((url) => {
+        if (active) setLocalQrDataUrl(url);
+      })
+      .catch(() => {
+        if (active) setQrRenderFailed(true);
+      });
+    return () => {
+      active = false;
+    };
+  }, [isOpen, qrString]);
+
+  // Ekstrak NMID dari QR string jika ada (standar ASPI QRIS). NMID TIDAK lagi di-fabricate bila QR tak memuat.
   const nmidMatch = qrString?.match(/0215(ID[0-9A-Z]+)/);
-  const nmid = nmidMatch ? nmidMatch[1] : "ID2022173022171";
+  const nmid = nmidMatch ? nmidMatch[1] : null;
 
-  // Countdown timer 30 menit
+  // Countdown timer 5 menit (standar expired QRIS docs iPaymu)
   useEffect(() => {
     if (!isOpen || isPaid) return;
     const t = setInterval(() => {
@@ -124,15 +140,27 @@ export const DirectQrisModal: React.FC<DirectQrisModalProps> = ({
     };
   }, [isOpen, orderId, isPaid, invoiceUrl, onPaymentSuccess]);
 
-  // Unduh gambar QRIS langsung ke HP / PC
+  // Unduh gambar QRIS langsung ke HP / PC — dari dataURL lokal ATAU qrImage (bila ada)
   const handleDownloadQris = async () => {
-    if (!qrImage) {
+    const source = localQrDataUrl || qrImage;
+    if (!source) {
       if (qrString) copyQrString();
       return;
     }
     setDownloading(true);
+    // dataURL lokal: bisa diunduh langsung tanpa fetch blob
+    if (source.startsWith("data:image/")) {
+      const a = document.createElement("a");
+      a.href = source;
+      a.download = `QRIS-KAOSKAMI-${orderNumber || orderId}.png`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      setDownloading(false);
+      return;
+    }
     try {
-      const response = await fetch(qrImage, { mode: "cors" });
+      const response = await fetch(source, { mode: "cors" });
       const blob = await response.blob();
       const blobUrl = URL.createObjectURL(blob);
       const a = document.createElement("a");
@@ -144,7 +172,7 @@ export const DirectQrisModal: React.FC<DirectQrisModalProps> = ({
       URL.revokeObjectURL(blobUrl);
     } catch {
       const a = document.createElement("a");
-      a.href = qrImage;
+      a.href = source;
       a.target = "_blank";
       a.download = `QRIS-KAOSKAMI-${orderNumber || orderId}.png`;
       document.body.appendChild(a);
@@ -305,7 +333,7 @@ export const DirectQrisModal: React.FC<DirectQrisModalProps> = ({
               </div>
 
               <div className="mt-2 flex items-center justify-center gap-1.5 text-xs text-zinc-500">
-                <span className="font-sans">Batas waktu bayar:</span>
+                <span className="font-sans">QRIS aktif 5 menit (standar QRIS):</span>
                 <span className="inline-flex items-center gap-1 font-mono font-bold text-amber-700 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-md text-[11px]">
                   <Clock size={11} className="text-amber-600" />
                   {timeFormatted}
@@ -316,15 +344,38 @@ export const DirectQrisModal: React.FC<DirectQrisModalProps> = ({
             {/* Kotak QR Code Bersih (Light Viewfinder) */}
             <div className="flex flex-col items-center justify-center">
               <div className="p-3 bg-zinc-50 border border-zinc-200 rounded-2xl w-[240px] aspect-square flex items-center justify-center shadow-xs">
-                {qrImage ? (
+                {timeLeftSeconds === 0 && !isPaid ? (
+                  /* P0.3: QRIS kedaluwarsa (5 menit, docs iPaymu) — QR lama mati otomatis */
+                  <div className="flex flex-col items-center justify-center p-5 text-center">
+                    <Clock size={26} className="text-amber-500 mb-2" />
+                    <span className="text-xs font-semibold text-zinc-700 mb-1">QRIS kedaluwarsa</span>
+                    <span className="text-[11px] text-zinc-500 leading-relaxed">
+                      Buka invoice lalu gunakan tombol <strong className="text-zinc-700">Bayar Ulang</strong> untuk mengeluarkan
+                      kode QRIS yang baru.
+                    </span>
+                    <a
+                      href={invoiceUrl || `/orders/${orderId}`}
+                      className="mt-3 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-zinc-900 text-white text-[11px] font-bold hover:bg-zinc-800 cursor-pointer"
+                    >
+                      <RefreshCw size={11} />
+                      <span>Buka Invoice / Bayar Ulang</span>
+                    </a>
+                  </div>
+                ) : localQrDataUrl || qrImage ? (
                   /* eslint-disable-next-line @next/next/no-img-element */
                   <img
-                    src={qrImage}
+                    src={localQrDataUrl || qrImage}
                     alt={`QRIS Kaos Kami Order ${orderNumber}`}
                     className="w-full h-full object-contain rounded-lg"
                     loading="eager"
                   />
-                ) : qrString ? (
+                ) : qrString && !qrRenderFailed ? (
+                  /* Render lokal sedang berjalan */
+                  <div className="flex flex-col items-center justify-center p-6 text-zinc-400">
+                    <Loader2 size={24} className="animate-spin text-blue-600 mb-2" />
+                    <span className="text-xs font-sans text-zinc-500">Merender QRIS lokal...</span>
+                  </div>
+                ) : qrString && qrRenderFailed ? (
                   <div className="text-center p-3">
                     <p className="font-mono text-[10px] text-zinc-700 break-all mb-2 max-h-32 overflow-y-auto">
                       {qrString}
@@ -344,12 +395,14 @@ export const DirectQrisModal: React.FC<DirectQrisModalProps> = ({
                 )}
               </div>
 
-              {/* Info NMID Ringkas */}
-              <div className="mt-2 text-center">
-                <span className="font-mono text-[10px] text-zinc-400">
-                  NMID: {nmid}
-                </span>
-              </div>
+              {/* Info NMID Ringkas — hanya bila QR memuat NMID (tidak difabricate) */}
+              {nmid && (
+                <div className="mt-2 text-center">
+                  <span className="font-mono text-[10px] text-zinc-400">
+                    NMID: {nmid}
+                  </span>
+                </div>
+              )}
             </div>
 
             {/* Tombol Aksi: Unduh QRIS & Salin Kode */}
@@ -357,7 +410,7 @@ export const DirectQrisModal: React.FC<DirectQrisModalProps> = ({
               <button
                 type="button"
                 onClick={handleDownloadQris}
-                disabled={downloading || !qrImage}
+                disabled={downloading || (!localQrDataUrl && !qrImage)}
                 className="flex items-center justify-center gap-1.5 py-2.5 px-3 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-sans font-semibold text-xs active:scale-[0.98] transition-all disabled:opacity-50 shadow-xs cursor-pointer"
               >
                 {downloading ? (

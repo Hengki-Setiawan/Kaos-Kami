@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { nanoid } from "nanoid";
-import { eq, inArray } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { siteUrl } from "@/lib/siteUrl";
 import { Address, ApparelCategory, CatalogProduct, Design, Order, OrderItem, OrderStatusEvent, Payment, User, Verification } from "@/lib/drizzle-schema";
@@ -16,6 +16,9 @@ import { DecalLayerSchema, ApparelSlugSchema, CheckoutMasterMapSchema } from "@/
 import { checkRateLimitAsync, getClientIp, rateLimitHeaders } from "@/lib/security/rateLimiter";
 import { verifyTurnstileToken } from "@/lib/turnstile";
 import { uploadBase64ToR2 } from "@/lib/r2";
+import { maskEmail, maskPhone } from "@/lib/mask";
+import { isDevOrTest } from "@/lib/envMode";
+import { withBusyRetry } from "@/lib/dbRetry";
 
 /**
  * Arsip checkout: hosting-kan decal base64 ke R2 server-side (paritas
@@ -83,7 +86,7 @@ const CheckoutPayloadSchema = z.object({
   // server via zones.resolveExpeditionCost — client tak dipercaya).
   destinationCity: z.string().max(80).optional(),
   expeditionZoneId: z.string().max(64).optional(),
-  // AgenWebsite live: kode pos tujuan + kurir/layanan terpilih dari quote.
+  // Kode pos tujuan + kurir/layanan terpilih dari quote (master 514 kota/zona).
   // Harga FINAL tetap di-resolve server (client tak dipercaya).
   destinationPostalCode: z.string().regex(/^\d{5}$/).optional(),
   expeditionCourier: z.string().max(32).optional(),
@@ -132,25 +135,17 @@ export async function POST(req: NextRequest) {
       }
     } catch {}
 
+    // Role dari DB adalah satu-satunya sumber otorisasi. Email hardcoded lama
+    // adalah backdoor: akun CUSTOMER dengan email tersebut bisa membuat order
+    // "lunas" tanpa pembayaran.
     const isAdminUser =
-      sessionUser?.role === "ADMIN" ||
-      sessionUser?.role === "SUPER_ADMIN" ||
-      sessionUser?.email === "hengkishadow@gmail.com" ||
-      sessionUser?.email === "admin@kaoskami.biz.id";
+      sessionUser?.role === "ADMIN" || sessionUser?.role === "SUPER_ADMIN";
 
-    // P0-2 IDEMPOTENCY TANPA MIGRASI: dedupe via header Idempotency-Key di atas
-    // tabel Verification yang SUDAH ADA (identifier `idem:checkout:<key>` →
-    // value orderId, expiry 24 jam). TANPA kolom/tabel baru: JANGAN edit
-    // prisma/schema.prisma, JANGAN db push/migrate untuk ini.
-    // Batasan jujur: Verification.identifier HANYA index (non-unique) → dua
-    // request bersamaan persis masih bisa lolos ganda (best-effort untuk
-    // retry/double-tap sequential, BUKAN lock konkuren ketat). Bila butuh
-    // guarantee konkuren:
-    //   1) prisma/schema.prisma → Verification.identifier tambah @unique,
-    //   2) npx prisma db push (atau: npx prisma migrate dev --name unique-verification-identifier),
-    //   3) di sini ganti pola check-then-claim jadi insert klaim + tangkap
-    //      P2002 → 409.
-    //   (PROSEDUR SAJA — JANGAN dieksekusi tanpa perintah eksplisit owner.)
+    // P0-2 IDEMPOTENCY: dedupe via header Idempotency-Key di tabel
+    // Verification (identifier `idem:checkout:<key>` → value orderId, expiry
+    // 24 jam). Verification.identifier SUDAH unique (schema + index produksi
+    // `Verification_identifier_key`), jadi klaim di bawah memakai INSERT-first:
+    // dua request paralel tidak bisa sama-sama menang.
     const rawIdemKey = (req.headers.get("idempotency-key") || "").trim();
     if (/^[A-Za-z0-9\-_.:]{8,128}$/.test(rawIdemKey)) {
       idemKey = `idem:checkout:${rawIdemKey}`;
@@ -264,11 +259,11 @@ export async function POST(req: NextRequest) {
     // fail-open buta); dev tanpa secret = lewati + warn (DX lokal).
     // Secret ada = token wajib lolos verifikasi (403 bila gagal).
     if (isAdminBypassActive) {
-      console.log(`[checkout] Mode pengujian Admin (${sessionUser?.email}) — verifikasi anti-bot dilewati`);
+      console.log(`[checkout] Mode pengujian Admin (${maskEmail(sessionUser?.email)}) — verifikasi anti-bot dilewati`);
     } else if (process.env.TURNSTILE_ENFORCE === "false") {
       console.warn("[checkout] TURNSTILE_ENFORCE=false — verifikasi anti-bot DILEWATI (mode darurat)");
     } else if (!process.env.CLOUDFLARE_TURNSTILE_SECRET_KEY) {
-      if (process.env.NODE_ENV === "production") {
+      if (!isDevOrTest()) {
         return NextResponse.json(
           { error: "Verifikasi anti-bot belum dikonfigurasi. Coba lagi nanti / hubungi admin." },
           { status: 503 }
@@ -394,71 +389,44 @@ export async function POST(req: NextRequest) {
     // Ekspedisi luar kota: ongkir dari tabel zona (server-side, bukan flat).
     let expeditionLabel = "";
     if (deliveryMethod === "EXPEDITION_MANUAL") {
-      // PRIMER: tarif live AgenWebsite (kode pos + berat real order).
+      // Ongkir (keputusan owner #20=A, 23 Okt 2026): TANPA live API pihak ketiga.
+      // Urutan: Master Database 514 kota/kabupaten → tabel zona → flat 25k.
       // Berat: ±250g per pcs (kaos + packing).
       const totalQty = validatedItems.reduce((a, it) => a + (it.quantity || 0), 0);
       const weightGrams = Math.max(250, totalQty * 250);
-      let liveResolved = false;
+      let resolved = false;
       const wantCourier = (expeditionCourier || "").trim();
       const wantService = (expeditionService || "").trim();
       const wantSpecific = !!(wantCourier || wantService);
 
-      if (destinationPostalCode) {
-        try {
-          const { awRatesCached, isAgenWebsiteConfigured } = await import("@/lib/shipping/agenwebsite");
-          if (isAgenWebsiteConfigured()) {
-            const live = await awRatesCached(destinationPostalCode, weightGrams);
-            if (live && live.length > 0) {
-              const pick = wantSpecific
-                ? live.find(
-                    (r) =>
-                      (!wantCourier || r.courierCode === wantCourier) &&
-                      (!wantService || r.serviceCode === wantService)
-                  )
-                : live.find((r) => r.cheapest) || live[0]!;
-              if (pick) {
-                shippingCostIdr = pick.costIdr;
-                expeditionLabel = `${pick.courierName} ${pick.serviceName} (live, est. ${pick.etdText})`;
-                liveResolved = true;
-              }
-            }
-          }
-        } catch (e: any) {
-          console.warn("Live ongkir gagal:", e?.message);
-        }
+      const { calculateMasterCourierRates } = await import("@/lib/shipping/masterShippingRates");
+      const masterQuote = calculateMasterCourierRates(
+        destinationCity || district || destinationPostalCode || "",
+        weightGrams
+      );
+      if (masterQuote && masterQuote.rates.length > 0) {
+        const pick = wantSpecific
+          ? masterQuote.rates.find(
+              (r) =>
+                (!wantCourier || r.courierCode === wantCourier) &&
+                (!wantService || r.serviceCode === wantService)
+            ) || masterQuote.rates[0]!
+          : masterQuote.rates[0]!;
+        shippingCostIdr = pick.costIdr;
+        expeditionLabel = `${pick.courierName} ${pick.serviceName} ke ${masterQuote.city.city} (est. ${pick.etdText})`;
+        resolved = true;
       }
 
-      // Bila belum resolved (AgenWebsite off/limit/tidak ada match), gunakan Master Database 514 Kota & Kabupaten
-      if (!liveResolved) {
-        const { calculateMasterCourierRates } = await import("@/lib/shipping/masterShippingRates");
-        const masterQuote = calculateMasterCourierRates(
-          destinationCity || district || destinationPostalCode || "",
-          weightGrams
-        );
-        if (masterQuote && masterQuote.rates.length > 0) {
-          const pick = wantSpecific
-            ? masterQuote.rates.find(
-                (r) =>
-                  (!wantCourier || r.courierCode === wantCourier) &&
-                  (!wantService || r.serviceCode === wantService)
-              ) || masterQuote.rates[0]!
-            : masterQuote.rates[0]!;
-          shippingCostIdr = pick.costIdr;
-          expeditionLabel = `${pick.courierName} ${pick.serviceName} ke ${masterQuote.city.city} (est. ${pick.etdText})`;
-          liveResolved = true;
-        }
-      }
-
-      // Bila master database juga tidak cocok, gunakan fallback tabel zona
-      if (!liveResolved) {
+      // Bila master database tidak cocok, gunakan fallback tabel zona.
+      if (!resolved) {
         const { resolveExpeditionCost } = await import("@/lib/shipping/zones");
-        const resolved = await resolveExpeditionCost({
+        const resolvedZone = await resolveExpeditionCost({
           zoneId: expeditionZoneId,
           city: destinationCity || district,
         });
-        shippingCostIdr = resolved.costIdr;
-        if (resolved.zone) {
-          expeditionLabel = `Ekspedisi ${resolved.zone.courier} ${resolved.zone.service} ke ${resolved.zone.city} (est. ${resolved.zone.etdLabel})`;
+        shippingCostIdr = resolvedZone.costIdr;
+        if (resolvedZone.zone) {
+          expeditionLabel = `Ekspedisi ${resolvedZone.zone.courier} ${resolvedZone.zone.service} ke ${resolvedZone.zone.city} (est. ${resolvedZone.zone.etdLabel})`;
         }
       }
     }
@@ -518,11 +486,11 @@ export async function POST(req: NextRequest) {
       isAdminBypassActive
     ) {
       if (isAdminBypassActive) {
-        console.log(`[checkout] Mode pengujian Admin (${sessionUser?.email}) — gerbang OTP dilewati.`);
+        console.log(`[checkout] Mode pengujian Admin (${maskEmail(sessionUser?.email)}) — gerbang OTP dilewati.`);
       } else if (isAlreadyVerified) {
-        console.log(`[checkout] Akun ${sessionUser?.id} (${cleanOrderPhone}) sudah phoneVerified — gerbang OTP dilewati.`);
+        console.log(`[checkout] Akun ${sessionUser?.id} (${maskPhone(cleanOrderPhone)}) sudah phoneVerified — gerbang OTP dilewati.`);
       } else if (isAllCatalogReadyStock) {
-        console.log(`[checkout] Pembelian produk jadi e-commerce katalog (${cleanOrderPhone}) — gerbang OTP dilewati.`);
+        console.log(`[checkout] Pembelian produk jadi e-commerce katalog (${maskPhone(cleanOrderPhone)}) — gerbang OTP dilewati.`);
       } else {
         console.warn(`[checkout] Gerbang OTP DILEWATI (${isSandboxMode ? "mode sandbox audit" : "CHECKOUT_OTP_REQUIRED=false"})`);
       }
@@ -578,16 +546,48 @@ export async function POST(req: NextRequest) {
     // orderId + 24 jam setelah order terbuat (lihat seal di bawah).
     if (idemKey) {
       const claimId: string = idemKey;
-      await db.delete(Verification).where(eq(Verification.identifier, claimId)).catch(() => {});
-      await db
-        .insert(Verification)
-        .values({
+      try {
+        // INSERT-first: unique index Verification.identifier adalah gerbang
+        // atomik. Dua request paralel dengan key sama: satu menang, satu
+        // kena unique constraint dan berhenti 409 (tidak ada delete-then-insert
+        // yang bisa saling menimpa).
+        await db.insert(Verification).values({
           id: nanoid(),
           identifier: claimId,
           value: `claim:${ip}:${Date.now()}`,
           expiresAt: new Date(Date.now() + 10 * 60 * 1000),
-        })
-        .catch(() => {});
+        });
+      } catch (claimErr: any) {
+        const prior = await db.query.Verification.findFirst({
+          where: (t, { eq }) => eq(t.identifier, claimId),
+        });
+        if (prior) {
+          if (prior.value.startsWith("claim:")) {
+            return NextResponse.json(
+              { error: "Permintaan checkout sama sedang diproses. Tunggu sebentar lalu coba lagi." },
+              { status: 409 }
+            );
+          }
+          const priorOrder = await db.query.Order.findFirst({
+            where: (t, { eq }) => eq(t.id, prior.value),
+          });
+          return NextResponse.json(
+            {
+              error: "Checkout ini sudah diproses (Idempotency-Key sama) — tidak dibuat order ganda.",
+              orderId: prior.value,
+              orderNumber: priorOrder?.orderNumber,
+              invoiceUrl: `${siteUrl()}/orders/${prior.value}`,
+            },
+            { status: 409 }
+          );
+        }
+        // Bukan konflik klaim (DB error). Jangan lanjut tanpa klaim.
+        console.error("[checkout] Gagal klaim idempotensi:", claimErr);
+        return NextResponse.json(
+          { error: "Gagal mengunci checkout. Coba lagi sebentar." },
+          { status: 503 }
+        );
+      }
     }
 
     // 2b. Kupon: reservasi kuota atomik SESUDAH klaim (B3 — validasi READ-ONLY
@@ -695,37 +695,39 @@ export async function POST(req: NextRequest) {
 
     for (let attempt = 0; attempt < 5 && !orderBase; attempt++) {
       try {
-        const [row] = await db
-          .insert(Order)
-          .values({
-            id: nanoid(),
-            orderNumber: nextOrderNumber(),
-            userId: user.id,
-            // Katalog ready-stock atau audit sandbox: langsung PENDING_PAYMENT
-            status: initialStatus,
-            reviewedBy: (isAdminBypassActive && adminDirectConfirm)
-              ? "ADMIN_TEST_BYPASS"
-              : (isImmediatePayment ? (isCustomDesign ? "AUDIT_SANDBOX" : "SYSTEM_CATALOG") : null),
-            deliveryMethod,
-            subtotalIdr: computedSubtotalIdr,
-            shippingCostIdr,
-            discountIdr,
-            totalIdr: computedTotalIdr,
-            shippingAddressId: address?.id,
-            // Marker kupon untuk restore kuota saat batal/refund + marker test order
-            notes: combinedNotes,
-            // Marker tier SERVER-ONLY: notes user dibersihkan dari pola [TIER:*]
-            // agar tak bisa klaim prioritas gratis (audit: substring EXPRESS).
-            courierNotes: [
-              (courierNotes || "").replace(/\[TIER:[^\]]*\]/g, "").trim(),
-              expeditionLabel,
-              turnaroundTier === "EXPRESS_24H" ? "EXPRESS 24H [TIER:EXPRESS_24H]" : "",
-              testCourierTag,
-            ]
-              .filter(Boolean)
-              .join(" | "),
-          })
-          .returning();
+        const [row] = await withBusyRetry(() =>
+          db
+            .insert(Order)
+            .values({
+              id: nanoid(),
+              orderNumber: nextOrderNumber(),
+              userId: user.id,
+              // Katalog ready-stock atau audit sandbox: langsung PENDING_PAYMENT
+              status: initialStatus,
+              reviewedBy: (isAdminBypassActive && adminDirectConfirm)
+                ? "ADMIN_TEST_BYPASS"
+                : (isImmediatePayment ? (isCustomDesign ? "AUDIT_SANDBOX" : "SYSTEM_CATALOG") : null),
+              deliveryMethod,
+              subtotalIdr: computedSubtotalIdr,
+              shippingCostIdr,
+              discountIdr,
+              totalIdr: computedTotalIdr,
+              shippingAddressId: address?.id,
+              // Marker kupon untuk restore kuota saat batal/refund + marker test order
+              notes: combinedNotes,
+              // Marker tier SERVER-ONLY: notes user dibersihkan dari pola [TIER:*]
+              // agar tak bisa klaim prioritas gratis (audit: substring EXPRESS).
+              courierNotes: [
+                (courierNotes || "").replace(/\[TIER:[^\]]*\]/g, "").trim(),
+                expeditionLabel,
+                turnaroundTier === "EXPRESS_24H" ? "EXPRESS 24H [TIER:EXPRESS_24H]" : "",
+                testCourierTag,
+              ]
+                .filter(Boolean)
+                .join(" | "),
+            })
+            .returning()
+        );
         orderBase = row!;
       } catch (e: any) {
         lastErr = e;
@@ -747,92 +749,44 @@ export async function POST(req: NextRequest) {
     }
     // Kompensasi order yatim: jika tulis items/riwayat gagal setelah order
     // terbuat (libsql/web tanpa transaksi interaktif), hapus order-nya agar
-    // tidak ada order tanpa item di admin. P0-2: perluas ke Address + Design
-    // arsip (keduanya fresh-id request ini, aman dihapus) agar tak ada arsip
-    // yatim. Kegagalan kompensasi di-log saja.
-    const createdDesignIds: string[] = [];
+    // tidak ada order tanpa item di admin. Address fresh-id request ini ikut
+    // dihapus. Kegagalan kompensasi di-log saja.
+    // P0.5 B6 (audit 06-DATA-LAYER C2): OrderItem + event riwayat awal ditulis
+    // SATU `db.batch()` (transaksi libsql) dibungkus withBusyRetry. ID item dibuat di muka agar arsip
+    // desain best-effort SETELAH batch bisa menautkan designId.
+    // Kompensasi order yatim tetap dipertahankan untuk kegagalan batch.
+    const itemRows = validatedItems.map((item) => ({
+      id: nanoid(),
+      orderId: orderRow.id,
+      productVariantId: item.pricingSnapshot?.source === "variant" ? item.productVariantId : null,
+      designId: item.designId || null,
+      quantity: item.quantity,
+      unitPriceIdr: item.unitPriceIdr,
+      lineTotalIdr: item.lineTotalIdr,
+      snapshotName: item.title || `${item.apparelSlug.toUpperCase()} Custom DTF Sablon`,
+      snapshotSize: item.size,
+      snapshotColorName: item.colorName,
+    }));
+    if (itemRows.length === 0) throw new Error("Checkout tanpa item");
     try {
-      const insertedItems = await db.insert(OrderItem).values(
-        validatedItems.map((item) => ({
-          id: nanoid(),
-          orderId: orderRow.id,
-          productVariantId: item.pricingSnapshot?.source === "variant" ? item.productVariantId : null,
-          designId: item.designId || null,
-          quantity: item.quantity,
-          unitPriceIdr: item.unitPriceIdr,
-          lineTotalIdr: item.lineTotalIdr,
-          snapshotName: item.title || `${item.apparelSlug.toUpperCase()} Custom DTF Sablon`,
-          snapshotSize: item.size,
-          snapshotColorName: item.colorName,
-        })),
-      ).returning({ id: OrderItem.id });
-      // Arsipkan desain kustom ke tabel Design + tautkan item (audit E2E:
-      // sebelumnya custom-decals TAK PERNAH sampai produksi — task selalu
-      // fallback 28.5×16 front tanpa master).
-      const rowIds = (insertedItems as any[]).map((r: any) => r.id);
-      await Promise.all(
-        validatedItems.map(async (item, idx) => {
-          if (item.designId || item.productVariantId || item.pricingSnapshot?.source === "catalog") return;
-          if (!Array.isArray(item.decals) || item.decals.length === 0) return;
-          try {
-            const cat = await db.query.ApparelCategory.findFirst({
-              where: (t, { eq }) => eq(t.slug, item.apparelSlug),
-              columns: { id: true },
-            });
-            if (!cat) return;
-            // Hosting-kan decal base64 ke R2 dulu (jangan simpan TEXT
-            // 500k×10 mentah ke DB — paritas POST /api/designs).
-            const decalsForArchive = await archiveDecalsToR2(item.decals, orderRow.orderNumber);
-            const [design] = await db
-              .insert(Design)
-              .values({
-                id: nanoid(),
-                userId: user.id,
-                categoryId: cat.id,
-                title: item.title || `Custom ${item.apparelSlug.toUpperCase()} ${orderRow.orderNumber}`,
-                colorHex: item.colorHex,
-                colorName: item.colorName,
-                size: item.size,
-                decals: JSON.stringify(decalsForArchive),
-                calculatedPriceIdr: item.lineTotalIdr,
-                priceBreakdown: JSON.stringify(item.pricingSnapshot || {}),
-                // K2: arsip master produksi dari checkout (map side→https +
-                // decal:<id>→https). Null bila client tak kirim (drawer tanpa
-                // ekspor) — confirmOrder fallback ke preview, jangan null diam.
-                masterAssetUrl:
-                  item.masterAssetUrl && typeof item.masterAssetUrl === "object"
-                    ? JSON.stringify(item.masterAssetUrl)
-                    : null,
-                status: "ORDERED",
-              })
-              .returning({ id: Design.id });
-            if (design && rowIds[idx]) {
-              createdDesignIds.push((design as any).id);
-              await db.update(OrderItem).set({ designId: (design as any).id }).where(eq(OrderItem.id, rowIds[idx]));
-            }
-          } catch (e: any) {
-            // Arsip best-effort: checkout TETAP sukses (produksi fallback lama).
-            console.warn("Arsip desain order gagal:", orderRow.id, e?.message);
-          }
-        })
+      await withBusyRetry(() =>
+        db.batch([
+          db.insert(OrderItem).values(itemRows),
+          db.insert(OrderStatusEvent).values({
+            id: nanoid(),
+            orderId: orderRow.id,
+            status: initialStatus,
+            note: isImmediatePayment
+              ? `Pesanan dibuat (${recipientName}) — siap pembayaran via iPaymu Payment Gateway (Direct QRIS).`
+              : `Pesanan dibuat oleh pelanggan (${recipientName}) — menunggu review desain admin (tanpa charge).`,
+          }),
+        ])
       );
-      await db.insert(OrderStatusEvent).values({
-        id: nanoid(),
-        orderId: orderRow.id,
-        status: initialStatus,
-        note: isImmediatePayment
-          ? `Pesanan dibuat (${recipientName}) — siap pembayaran via iPaymu Payment Gateway (Direct QRIS).`
-          : `Pesanan dibuat oleh pelanggan (${recipientName}) — menunggu review desain admin (tanpa charge).`,
-      });
     } catch (itemsErr: any) {
       console.error("Checkout items gagal, kompensasi hapus order:", orderRow.id, itemsErr?.message);
       try {
         await db.delete(OrderStatusEvent).where(eq(OrderStatusEvent.orderId, orderRow.id));
         await db.delete(OrderItem).where(eq(OrderItem.orderId, orderRow.id));
-        // P0-2: arsip Design yatim (fresh-id request ini) + Address pengiriman.
-        if (createdDesignIds.length > 0) {
-          await db.delete(Design).where(inArray(Design.id, createdDesignIds)).catch(() => {});
-        }
         if (address?.id) {
           await db.delete(Address).where(eq(Address.id, address.id)).catch(() => {});
         }
@@ -862,28 +816,87 @@ export async function POST(req: NextRequest) {
       }
       throw itemsErr;
     }
+    // Arsipkan desain kustom ke tabel Design + tautkan item (audit E2E:
+    // sebelumnya custom-decals TAK PERNAH sampai produksi — task selalu
+    // fallback 28.5×16 front tanpa master). Best-effort: order sudah sah
+    // secara transaksional, kegagalan arsip tidak membatalkannya.
+    await Promise.all(
+      validatedItems.map(async (item, idx) => {
+        if (item.designId || item.productVariantId || item.pricingSnapshot?.source === "catalog") return;
+        if (!Array.isArray(item.decals) || item.decals.length === 0) return;
+        try {
+          const cat = await db.query.ApparelCategory.findFirst({
+            where: (t, { eq }) => eq(t.slug, item.apparelSlug),
+            columns: { id: true },
+          });
+          if (!cat) return;
+          // Hosting-kan decal base64 ke R2 dulu (jangan simpan TEXT
+          // 500k×10 mentah ke DB — paritas POST /api/designs).
+          const decalsForArchive = await archiveDecalsToR2(item.decals, orderRow.orderNumber);
+          const [design] = await db
+            .insert(Design)
+            .values({
+              id: nanoid(),
+              userId: user.id,
+              categoryId: cat.id,
+              title: item.title || `Custom ${item.apparelSlug.toUpperCase()} ${orderRow.orderNumber}`,
+              colorHex: item.colorHex,
+              colorName: item.colorName,
+              size: item.size,
+              decals: JSON.stringify(decalsForArchive),
+              calculatedPriceIdr: item.lineTotalIdr,
+              priceBreakdown: JSON.stringify(item.pricingSnapshot || {}),
+              // K2: arsip master produksi dari checkout (map side→https +
+              // decal:<id>→https). Null bila client tak kirim (drawer tanpa
+              // ekspor) — confirmOrder fallback ke preview, jangan null diam.
+              masterAssetUrl:
+                item.masterAssetUrl && typeof item.masterAssetUrl === "object"
+                  ? JSON.stringify(item.masterAssetUrl)
+                  : null,
+              status: "ORDERED",
+            })
+            .returning({ id: Design.id });
+          if (design && itemRows[idx]) {
+            await db.update(OrderItem).set({ designId: (design as any).id }).where(eq(OrderItem.id, itemRows[idx].id));
+          }
+        } catch (e: any) {
+          // Arsip best-effort: checkout TETAP sukses (produksi fallback lama).
+          console.warn("Arsip desain order gagal:", orderRow.id, e?.message);
+        }
+      })
+    );
     const order = { ...orderRow, items: validatedItems };
 
     // ALUR PENGUJIAN ADMIN (BYPASS PEMBAYARAN LANGSUNG)
     if (isAdminBypassActive) {
       if (adminDirectConfirm) {
-        // 1. Catat Payment lunas bypass
-        await db.insert(Payment).values({
-          id: nanoid(),
-          orderId: order.id,
-          provider: "ADMIN_BYPASS",
-          providerRef: `TEST-BYPASS-${nanoid(8).toUpperCase()}`,
-          amountIdr: computedTotalIdr,
-          status: "SETTLED",
-        });
+        const bypassRef = `TEST-BYPASS-${nanoid(8).toUpperCase()}`;
 
-        // 2. Panggil confirmOrderPaid untuk set status PAYMENT_CONFIRMED & spawn tiket produksi DTF di Kanban
+        // 1. Konfirmasi order DULU (spawn tiket produksi + stok).
         const { confirmOrderPaid } = await import("@/lib/payments/confirmOrder");
-        await confirmOrderPaid(order.id, {
+        const confirmResult = await confirmOrderPaid(order.id, {
           via: `ADMIN_BYPASS (${sessionUser?.name || sessionUser?.email})`,
           paymentCode: "ADMIN_BYPASS",
           reference: `TEST-ORDER-${order.orderNumber}`,
           express: turnaroundTier === "EXPRESS_24H",
+        });
+        if (confirmResult === "not-pending" || confirmResult === "processing") {
+          return NextResponse.json(
+            { error: "Status order berubah/sedang diproses saat bypass. Muat ulang lalu coba lagi." },
+            { status: 409 }
+          );
+        }
+
+        // 2. Baru catat Payment lunas bypass (status enum yang valid).
+        const { settlePaymentAfterConfirm } = await import("@/lib/payments/settlement");
+        await settlePaymentAfterConfirm({
+          orderId: order.id,
+          orderNumber: order.orderNumber,
+          amountIdr: computedTotalIdr,
+          provider: "ADMIN_BYPASS",
+          providerRef: bypassRef,
+          method: "ADMIN_BYPASS",
+          rawWebhookPayload: JSON.stringify({ via: "checkout-admin-bypass" }),
         });
 
         return NextResponse.json({
@@ -938,14 +951,16 @@ export async function POST(req: NextRequest) {
               paymentMethod: "qris",
             });
 
-            await db.insert(Payment).values({
-              id: nanoid(),
-              orderId: order.id,
-              provider: "IPAYMU",
-              providerRef: chargeResult.reference,
-              amountIdr: computedTotalIdr,
-              status: "PENDING",
-            });
+            await withBusyRetry(() =>
+              db.insert(Payment).values({
+                id: nanoid(),
+                orderId: order.id,
+                provider: "IPAYMU",
+                providerRef: chargeResult.reference,
+                amountIdr: computedTotalIdr,
+                status: "PENDING",
+              })
+            );
           }
         } else {
           // Cabang pembayaran alternatif: iPaymu Direct QRIS dengan pola yang
@@ -964,14 +979,16 @@ export async function POST(req: NextRequest) {
               paymentMethod: "qris",
             });
 
-            await db.insert(Payment).values({
-              id: nanoid(),
-              orderId: order.id,
-              provider: "IPAYMU",
-              providerRef: chargeResult.reference,
-              amountIdr: computedTotalIdr,
-              status: "PENDING",
-            });
+            await withBusyRetry(() =>
+              db.insert(Payment).values({
+                id: nanoid(),
+                orderId: order.id,
+                provider: "IPAYMU",
+                providerRef: chargeResult.reference,
+                amountIdr: computedTotalIdr,
+                status: "PENDING",
+              })
+            );
           }
         }
       } catch (chargeErr: any) {
@@ -982,14 +999,16 @@ export async function POST(req: NextRequest) {
     if (!chargeResult) {
       const pendingRef = `pending-${order.id}`;
       const defaultProvider = (process.env.PAYMENT_GATEWAY_PROVIDER || "IPAYMU").toUpperCase();
-      await db.insert(Payment).values({
-        id: nanoid(),
-        orderId: order.id,
-        provider: defaultProvider,
-        providerRef: pendingRef,
-        amountIdr: computedTotalIdr,
-        status: "PENDING",
-      });
+      await withBusyRetry(() =>
+        db.insert(Payment).values({
+          id: nanoid(),
+          orderId: order.id,
+          provider: defaultProvider,
+          providerRef: pendingRef,
+          amountIdr: computedTotalIdr,
+          status: "PENDING",
+        })
+      );
     }
 
     const invoiceUrl = `${siteUrl()}/orders/${order.id}`;

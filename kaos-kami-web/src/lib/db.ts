@@ -9,8 +9,9 @@
 // Drizzle = SQL builder TypeScript murni + @libsql/client (fetch) →
 // 100% workerd-safe. Bentuk nilai dipertahankan (Date, boolean).
 //
-// Prisma tetap dipakai untuk: skema source-of-truth, `db push`,
-// typegen (import TYPE dari @/generated/prisma/*), seed (Node), Studio.
+// Prisma tetap dipakai untuk: skema source-of-truth, `db push` (SQLite lokal
+// `file:` saja — libsql:// P1013), typegen (import TYPE dari @/generated/prisma/*),
+// seed (Node), Studio.
 import { drizzle, type LibSQLDatabase } from "drizzle-orm/libsql";
 import { createClient } from "@libsql/client/web";
 import { schema, type DbSchema } from "./drizzle-schema";

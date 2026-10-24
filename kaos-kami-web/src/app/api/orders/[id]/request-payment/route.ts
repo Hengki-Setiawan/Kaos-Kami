@@ -7,6 +7,15 @@ import { Payment } from "@/lib/drizzle-schema";
 import { assertResourceOwnerOrAdmin } from "@/lib/security/authGuard";
 import { PRODUCTION_TURNAROUND_OPTIONS } from "@/lib/shipping/deliveryOptions";
 import { checkRateLimitAsync, getClientIp, rateLimitHeaders } from "@/lib/security/rateLimiter";
+import { siteUrl } from "@/lib/siteUrl";
+
+// Cegah open redirect/phishing lewat returnUrlOverride: hanya origin situs
+// sendiri (kanonis + www) atau deep-link APK. Prefix SELALU diakhiri "/"
+// agar `https://kaoskami.biz.id.evil.com` tidak lolos.
+const RETURN_URL_PREFIXES = (() => {
+  const canonical = siteUrl().replace(/\/+$/, "");
+  return [`${canonical}/`, "https://www.kaoskami.biz.id/", "kaoskami://"];
+})();
 
 /**
  * POST /api/orders/[id]/request-payment — User/owner buat charge gateway VIA
@@ -31,11 +40,15 @@ import { checkRateLimitAsync, getClientIp, rateLimitHeaders } from "@/lib/securi
 
 const RequestPaymentSchema = z.object({
   // Opsional: override returnUrl charge (mobile deep-link APK). Default =
-  // halaman invoice web. Skema kustom http(s):// atau kaoskami:// wajib.
+  // halaman invoice web. HANYA origin Kaos Kami / deep-link APK — bukan URL
+  // bebas, agar gateway tidak bisa dipakai sebagai open redirect.
   returnUrlOverride: z
     .string()
     .max(512)
-    .refine((v) => /^(https?:\/\/|kaoskami:\/\/)/.test(v), "returnUrlOverride tidak valid")
+    .refine(
+      (v) => RETURN_URL_PREFIXES.some((prefix) => v.startsWith(prefix)),
+      "returnUrlOverride tidak valid"
+    )
     .optional(),
 });
 

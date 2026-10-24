@@ -3,22 +3,9 @@ import { headers } from "next/headers";
 import { nanoid } from "nanoid";
 import { eq } from "drizzle-orm";
 import { db } from "@/lib/db";
-import { Order, OrderStatusEvent, Payment } from "@/lib/drizzle-schema";
+import { Order, OrderStatusEvent } from "@/lib/drizzle-schema";
 import { confirmOrderPaid } from "@/lib/payments/confirmOrder";
 import { checkRateLimitAsync, getClientIp, rateLimitHeaders } from "@/lib/security/rateLimiter";
-
-// Allowlist email admin darurat untuk bypass (tanpa ubah logika bisnis/DB):
-// - Prod: set BYPASS_PAYMENT_ADMIN_EMAILS="a@x.id,b@y.id" via env/wrangler secret.
-// - Fallback = 2 email bawaan lama agar perilaku tak berubah bila env unset.
-// - Perbandingan case-insensitive; nilai kosong diabaikan.
-const BYPASS_FALLBACK_EMAILS = ["hengkishadow@gmail.com", "admin@kaoskami.biz.id"];
-function getBypassEmailAllowlist(): string[] {
-  const fromEnv = (process.env.BYPASS_PAYMENT_ADMIN_EMAILS || "")
-    .split(",")
-    .map((s) => s.trim().toLowerCase())
-    .filter(Boolean);
-  return fromEnv.length > 0 ? fromEnv : BYPASS_FALLBACK_EMAILS;
-}
 
 /**
  * POST /api/orders/[id]/bypass-payment
@@ -46,11 +33,10 @@ export async function POST(
     const hdrs = await headers();
     const session = await auth.api.getSession({ headers: hdrs as any });
 
+    // HANYA role dari sesi yang dipercaya. Allowlist email lama adalah backdoor:
+    // akun CUSTOMER dengan email tertentu bisa melunasi order tanpa bayar.
     const userRole = (session?.user as any)?.role;
-    const userEmail = session?.user?.email;
-    const isAdmin =
-      ["ADMIN", "SUPER_ADMIN"].includes(userRole) ||
-      getBypassEmailAllowlist().includes((userEmail || "").toLowerCase());
+    const isAdmin = ["ADMIN", "SUPER_ADMIN"].includes(userRole);
 
     if (!session?.user || !isAdmin) {
       return NextResponse.json(
@@ -92,29 +78,20 @@ export async function POST(
         id: nanoid(),
         orderId: order.id,
         status: "PENDING_PAYMENT",
-        note: `Desain disetujui via Admin Test Bypass (${session.user.name || userEmail}). Siap konfirmasi lunas.`,
+        note: `Desain disetujui via Admin Test Bypass (${session.user.name || "ADMIN"}). Siap konfirmasi lunas.`,
       });
     }
 
-    // 4. Catat Payment jika belum ada
-    if (!order.payment) {
-      await db.insert(Payment).values({
-        id: nanoid(),
-        orderId: order.id,
-        provider: "ADMIN_BYPASS",
-        providerRef: `TEST-BYPASS-${nanoid(8).toUpperCase()}`,
-        amountIdr: order.totalIdr,
-        status: "SETTLED",
-      });
-    } else {
-      await db
-        .update(Payment)
-        .set({
-          status: "SETTLED",
-          provider: "ADMIN_BYPASS",
-          providerRef: `TEST-BYPASS-${nanoid(8).toUpperCase()}`,
-        })
-        .where(eq(Payment.orderId, order.id));
+    // 4. Hanya order yang memang bisa dibayar yang boleh di-bypass. Jangan
+    //    pernah menulis Payment SETTLEMENT untuk order CANCELLED/REFUNDED.
+    if (!["DESIGN_REVIEW", "PENDING_PAYMENT"].includes(order.status)) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: `Order berstatus ${order.status} tidak bisa di-bypass. Hanya DESIGN_REVIEW/PENDING_PAYMENT.`,
+        },
+        { status: 409 }
+      );
     }
 
     // Tag note order agar tidak mencemari omzet
@@ -125,13 +102,32 @@ export async function POST(
       await db.update(Order).set({ notes: updatedNotes }).where(eq(Order.id, order.id));
     }
 
-    // 5. Konfirmasi lunas & terbitkan tiket produksi
+    // 5. Konfirmasi lunas & terbitkan tiket produksi DULU.
     const isExpress = order.courierNotes?.includes("[TIER:EXPRESS_24H]") === true;
+    const bypassRef = `TEST-BYPASS-${nanoid(8).toUpperCase()}`;
     const confirmResult = await confirmOrderPaid(order.id, {
-      via: `ADMIN_BYPASS (${session.user.name || userEmail})`,
+      via: `ADMIN_BYPASS (${session.user.name || "ADMIN"})`,
       paymentCode: "ADMIN_BYPASS",
       reference: `BYPASS-${order.orderNumber}`,
       express: isExpress,
+    });
+    if (confirmResult === "not-pending" || confirmResult === "processing") {
+      return NextResponse.json(
+        { success: false, error: "Status order berubah/sedang diproses saat bypass. Muat ulang lalu coba lagi." },
+        { status: 409 }
+      );
+    }
+
+    // 6. Payment SETTLEMENT hanya setelah batch task/stok sukses.
+    const { settlePaymentAfterConfirm } = await import("@/lib/payments/settlement");
+    await settlePaymentAfterConfirm({
+      orderId: order.id,
+      orderNumber: order.orderNumber,
+      amountIdr: order.totalIdr,
+      provider: "ADMIN_BYPASS",
+      providerRef: bypassRef,
+      method: "ADMIN_BYPASS",
+      rawWebhookPayload: JSON.stringify({ via: "admin-bypass" }),
     });
 
     return NextResponse.json({

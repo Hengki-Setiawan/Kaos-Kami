@@ -1,13 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { nanoid } from "nanoid";
 import { z } from "zod";
-import { eq } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { User, Verification } from "@/lib/drizzle-schema";
 import { hashOtp, randomOtp6 } from "@/lib/otp";
 import { sendEmailOtp } from "@/lib/notifications/email";
 import { verifyTurnstileToken } from "@/lib/turnstile";
 import { checkRateLimitAsync, getClientIp, rateLimitHeaders } from "@/lib/security/rateLimiter";
+import { isDevOrTest } from "@/lib/envMode";
 
 const SendEmailOtpSchema = z.object({
   email: z.string().email("Format email tidak valid"),
@@ -49,8 +49,18 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Verifikasi Cloudflare Turnstile Captcha jika token dikirim atau secret aktif
-    if (process.env.CLOUDFLARE_TURNSTILE_SECRET_KEY && turnstileToken) {
+    // P0.4 (23 Okt 2026, keputusan owner): Turnstile WAJIB — token kosong = 400.
+    // Diablehkan hanya di DEV tanpa secret (localhost nyaman). Di production,
+    // token selalu diverifikasi via verifyTurnstileToken (fail-closed bila secret kosong).
+    const turnstileOptional =
+      isDevOrTest() && !process.env.CLOUDFLARE_TURNSTILE_SECRET_KEY;
+    if (!turnstileOptional) {
+      if (!turnstileToken) {
+        return NextResponse.json(
+          { error: "Verifikasi keamanan (Turnstile) wajib dilewati. Silakan muat ulang halaman dan coba lagi." },
+          { status: 400 }
+        );
+      }
       const turnstileRes = await verifyTurnstileToken(turnstileToken, ip);
       if (!turnstileRes.success) {
         return NextResponse.json(
@@ -76,14 +86,20 @@ export async function POST(req: NextRequest) {
     const code = randomOtp6();
     const expiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 menit
 
-    // Simpan ke tabel Verification (hanguskan kode lama untuk email ini)
-    await db.delete(Verification).where(eq(Verification.identifier, `email-otp:${cleanEmail}`)).catch(() => {});
-    await db.insert(Verification).values({
-      id: nanoid(),
-      identifier: `email-otp:${cleanEmail}`,
-      value: hashOtp(code),
-      expiresAt,
-    });
+    // Simpan ke tabel Verification (ganti kode lama untuk email ini).
+    // Upsert: identifier UNIQUE; dua permintaan paralel tidak boleh 500.
+    await db
+      .insert(Verification)
+      .values({
+        id: nanoid(),
+        identifier: `email-otp:${cleanEmail}`,
+        value: hashOtp(code),
+        expiresAt,
+      })
+      .onConflictDoUpdate({
+        target: Verification.identifier,
+        set: { value: hashOtp(code), expiresAt },
+      });
 
     // Kirim email OTP
     const emailResult = await sendEmailOtp(cleanEmail, code, name);

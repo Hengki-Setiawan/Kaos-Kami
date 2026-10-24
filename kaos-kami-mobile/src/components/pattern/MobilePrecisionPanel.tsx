@@ -24,7 +24,7 @@ import { haptic } from '@/lib/bridge/haptics';
  * P2 — Mode presisi-cm mobile (TANPA kanvas 2D penuh), multi-decal.
  * Panel angka per-sisi: lebar cm, tinggi cm, offset kerah → tulis langsung
  * ke decal store (updateDecal skala + setDecalTransform DPI + offset) +
- * validasi batas 30cm + estimasi DPI dari piksel upload + fondasi
+ * validasi batas 35cm + estimasi DPI dari piksel upload + fondasi
  * master-registry (simpan master https per decal id).
  * Cermin pola web: PatternStudio (magnet-snap, master-registry, gate DPI,
  * tiled A3) — di sini disederhanakan jadi angka dulu. Skala dikunci uniform

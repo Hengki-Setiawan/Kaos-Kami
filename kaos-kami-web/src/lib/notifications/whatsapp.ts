@@ -4,6 +4,8 @@
  * Even if Fonnte is offline, checkout always succeeds 100%.
  */
 
+import { maskPhone } from "@/lib/mask";
+
 export interface SendWhatsAppResult {
   success: boolean;
   messageId?: string;
@@ -49,7 +51,9 @@ export async function sendWhatsAppNotification(
   // SAFETY GUARD: Never dispatch real WhatsApp messages to dummy/test numbers.
   // Return success:false agar caller TAHU pesan tidak terkirim (jangan success palsu).
   if (isDummyPhoneNumber(cleanPhone) || process.env.WHATSAPP_FORCE_MOCK === "true") {
-    console.log(`🛡️ [Fonnte Guard: Test/Dummy Number Blocked] Target: ${cleanPhone}\n${message}`);
+    console.log(
+      `🛡️ [Fonnte Guard: Test/Dummy Number Blocked] Target: ${maskPhone(cleanPhone)} (pesan ${message.length} karakter, isi tidak dicetak)`
+    );
     return {
       success: false,
       error: "mock-guard: nomor dummy/test, WA tidak dikirim",
@@ -57,7 +61,9 @@ export async function sendWhatsAppNotification(
   }
 
   if (!token) {
-    console.log(`[Fonnte Mock Log] To: ${cleanPhone}\n${message}`);
+    console.log(
+      `[Fonnte Mock Log] To: ${maskPhone(cleanPhone)} (pesan ${message.length} karakter, isi tidak dicetak)`
+    );
     return { success: false, error: "mock-wa: FONNTE_TOKEN kosong, WA tidak dikirim" };
   }
 
@@ -73,6 +79,8 @@ export async function sendWhatsAppNotification(
         message,
         countryCode: "62",
       }),
+      // Jangan biarkan gateway yang menggantung menahan request checkout.
+      signal: AbortSignal.timeout(8000),
     });
 
     const data = await res.json();

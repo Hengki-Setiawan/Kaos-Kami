@@ -32,7 +32,7 @@ export const ADMIN_SUBMODULE_ACTIONS: PaletteAction[] = [
   { id: "sub-gang-sheet", label: "Gang Sheet DTF 100x58", hint: "/admin/gang-sheet", href: "/admin/gang-sheet", keywords: "gang sheet dtf cetak film layout", pillar: "admin" },
   { id: "sub-catalog", label: "Katalog & Stok Bahan", hint: "/admin/catalog", href: "/admin/catalog", keywords: "katalog stok bahan kaos hoodie inventaris", pillar: "admin" },
   { id: "sub-coupons", label: "Kupon & Promo Diskon", hint: "/admin/coupons", href: "/admin/coupons", keywords: "kupon promo diskon voucher pemasaran", pillar: "admin" },
-  { id: "sub-shipping", label: "Tarif & Zona Ongkir", hint: "/admin/shipping", href: "/admin/shipping", keywords: "tarif zona ongkir ekspedisi logistik agenwebsite", pillar: "admin" },
+  { id: "sub-shipping", label: "Tarif & Zona Ongkir", hint: "/admin/shipping", href: "/admin/shipping", keywords: "tarif zona ongkir ekspedisi logistik master 514 kota", pillar: "admin" },
   { id: "sub-cms", label: "Konten Website (CMS)", hint: "/admin/cms", href: "/admin/cms", keywords: "cms konten banner lookbook tampilan", pillar: "admin" },
   { id: "sub-customers", label: "Database Pelanggan", hint: "/admin/customers", href: "/admin/customers", keywords: "pelanggan customer akun database", pillar: "admin" },
   { id: "sub-laporan", label: "Laporan Finansial & Defect QC", hint: "/admin/laporan", href: "/admin/laporan", keywords: "laporan finansial omzet defect qc analitik", pillar: "admin" },

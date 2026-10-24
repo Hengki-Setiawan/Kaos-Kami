@@ -49,6 +49,6 @@ npx playwright test --project=l3 l3-admin
 
 - Header `// @ts-nocheck`, TANPA `waitForTimeout`, web-first assertions.
 - SKIP-jujur bila fixture/sesi tak ada (klaim merah palsu dilarang).
-- Mock hanya pihak ketiga (AgenWebsite, Fonnte, GA); DILARANG mock `/api/*` sendiri + Duitku.
+- Mock hanya pihak ketiga (Fonnte, GA); DILARANG mock `/api/*` sendiri + Duitku.
 - Aksi destruktif tidak dieksekusi: tombol bayar/cetak tidak diklik, dialog batal
   ditutup via BATAL, print diuji via `emulateMedia({ media: "print" })`.

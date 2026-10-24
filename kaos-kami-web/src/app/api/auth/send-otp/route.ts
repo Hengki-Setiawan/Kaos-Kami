@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { nanoid } from "nanoid";
 import { z } from "zod";
-import { eq } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { Verification } from "@/lib/drizzle-schema";
 import { hashOtp, randomOtp6 } from "@/lib/otp";
@@ -88,15 +87,21 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // WA terkirim → baru simpan kode (hanguskan kode lama nomor ini).
+    // WA terkirim → baru simpan kode (ganti kode lama nomor ini).
+    // Upsert: identifier UNIQUE; dua permintaan paralel tidak boleh 500.
     const expiresAt = new Date(Date.now() + 5 * 60 * 1000); // 5 menit
-    await db.delete(Verification).where(eq(Verification.identifier, `otp:${clean}`));
-    await db.insert(Verification).values({
-      id: nanoid(),
-      identifier: `otp:${clean}`,
-      value: hashOtp(code),
-      expiresAt,
-    });
+    await db
+      .insert(Verification)
+      .values({
+        id: nanoid(),
+        identifier: `otp:${clean}`,
+        value: hashOtp(code),
+        expiresAt,
+      })
+      .onConflictDoUpdate({
+        target: Verification.identifier,
+        set: { value: hashOtp(code), expiresAt },
+      });
 
     return NextResponse.json({ success: true, message: "OTP terkirim ke WhatsApp" });
   } catch (e: any) {

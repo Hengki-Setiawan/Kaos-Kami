@@ -5,7 +5,6 @@ import { and, desc, eq, lt, or, sql, type SQLWrapper } from "drizzle-orm";
 import { Order } from "@/lib/drizzle-schema";
 import { checkRateLimitAsync, getClientIp, rateLimitHeaders } from "@/lib/security/rateLimiter";
 import { ORDER_STATUSES } from "@/lib/orders/machine";
-import { maskPhone } from "@/lib/mask";
 
 async function requireStaff(req: NextRequest) {
   const ip = getClientIp(req);
@@ -29,7 +28,8 @@ async function requireStaff(req: NextRequest) {
 /**
  * GET /api/admin/orders?status=&q=&cursor=&limit=
  * List order untuk antrean review & admin (cursor createdAt+id, bawaan terbaru).
- * PII dimask (WA), cocok untuk role staff.
+ * Hanya kolom operasional: passwordHash/account metadata TIDAK pernah ikut.
+ * Nomor WA tetap dikirim karena dipakai tombol chat/WA staff terautentikasi.
  */
 export async function GET(req: NextRequest) {
   const gate = await requireStaff(req);
@@ -81,7 +81,7 @@ export async function GET(req: NextRequest) {
         reviewNote: true, reviewedAt: true, courierNotes: true,
       },
       with: {
-        user: { columns: { id: true, name: true, phoneNumber: true, email: true } },
+        user: { columns: { id: true, name: true, phoneNumber: true } },
         shippingAddress: true,
         items: {
           with: {

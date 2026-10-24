@@ -7,7 +7,8 @@ const STATIC_ROUTES: Array<{ path: string; changeFrequency: "daily" | "weekly" |
   { path: "", changeFrequency: "weekly", priority: 1.0 },
   { path: "/catalog", changeFrequency: "daily", priority: 0.9 },
   { path: "/studio", changeFrequency: "weekly", priority: 0.9 },
-  { path: "/track", changeFrequency: "weekly", priority: 0.6 },
+  // /track sengaja TIDAK masuk sitemap: robots.ts melarang crawl (halaman
+  // pelacakan pesanan berisi alur OTP, bukan konten publik).
   { path: "/kalkulator-sablon", changeFrequency: "monthly", priority: 0.7 },
   { path: "/kontak", changeFrequency: "monthly", priority: 0.8 },
   { path: "/faq", changeFrequency: "monthly", priority: 0.7 },

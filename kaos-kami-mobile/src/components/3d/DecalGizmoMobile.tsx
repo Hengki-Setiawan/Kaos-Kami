@@ -29,7 +29,7 @@ const MIN_SCALE = MOBILE_MIN_DECAL_SCALE;
 /**
  * M3.3 — Direct on-mesh decal gizmo (mobile).
  * 1 jari: geser logo di permukaan kaos (snap tengah x=0 + haptic).
- * 2 jari: cubit untuk skala (clamp 30cm + warning), putar untuk rotasi.
+ * 2 jari: cubit untuk skala (clamp 35cm + warning), putar untuk rotasi.
  * Selama drag, orbit dikunci via store.isGizmoDragging.
  * P-gizmo: visual box + 4 handle sudut + handle resize oranye + tangkai/bola
  * putar + guideline tengah (terang saat snap). Visual = raycast-null

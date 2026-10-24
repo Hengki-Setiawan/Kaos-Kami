@@ -1790,7 +1790,7 @@ export const CustomizerDrawer: React.FC = () => {
       {/* Collapsed Floating Recovery Pill - Hanya aktif saat di Studio Mode, tidak pernah di Story Mode */}
       {isDrawerCollapsed && !isHideWebsiteUI && !isClothLabOpen && viewMode === "studio" && (
         <div
-          className={`fixed z-40 pointer-events-auto transition-all ${
+          className={`fixed ${Z_CLASS_DRAWER} pointer-events-auto transition-all ${
             drawerPosition === "left"
               ? "left-4 sm:left-6 right-auto bottom-20 md:bottom-22"
               : "right-4 sm:right-6 left-auto bottom-20 md:bottom-22"

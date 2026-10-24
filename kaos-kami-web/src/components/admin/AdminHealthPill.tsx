@@ -47,8 +47,22 @@ export function AdminHealthPill() {
 
   useEffect(() => {
     void load();
-    const iv = setInterval(() => void load(), 60000);
-    return () => clearInterval(iv);
+    const iv = setInterval(() => {
+      if (typeof document !== "undefined" && document.visibilityState === "hidden") return;
+      void load();
+    }, 60000);
+
+    const handleVisibility = () => {
+      if (typeof document !== "undefined" && document.visibilityState === "visible") {
+        void load();
+      }
+    };
+    document.addEventListener("visibilitychange", handleVisibility);
+
+    return () => {
+      clearInterval(iv);
+      document.removeEventListener("visibilitychange", handleVisibility);
+    };
   }, [load]);
 
   const dbLabel =

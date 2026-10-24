@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { Navbar } from "@/components/ui/Navbar";
 import { Footer } from "@/components/ui/Footer";
+import { SHOP_WHATSAPP } from "@/lib/shop";
 
 export const metadata = {
   title: "Kebijakan Privasi · Kaos Kami Makassar",
@@ -66,8 +67,13 @@ export default function PrivacyPage() {
         <section id="hak-anda" className="space-y-1.5 scroll-mt-24">
           <h2 className="font-bold text-text-primary text-sm">4. Hak Anda</h2>
           <p>
-            Anda dapat meminta salinan, perbaikan, atau penghapusan data melalui WhatsApp{" "}
-            <span className="text-text-primary">6281244002026</span> (Workshop Kaos Kami, Makassar).
+            Anda dapat meminta salinan atau perbaikan data melalui WhatsApp{" "}
+            <span className="text-text-primary">{SHOP_WHATSAPP}</span> (Workshop Kaos Kami, Makassar).
+            Penghapusan akun bisa dilakukan sendiri di <strong>Dasbor → Profil → Hapus Akun</strong>{" "}
+            (konfirmasi ketik HAPUS). Sistem mencabut semua sesi dan menganonimkan nama, email,
+            telepon, alamat lengkap, catatan pesanan, chat, keluhan, ulasan, serta data rekening
+            refund. Riwayat transaksi tetap disimpan tanpa identitas untuk kewajiban pembukuan dan
+            pajak.
           </p>
         </section>
       </div>

@@ -73,8 +73,16 @@ export async function PATCH(req: NextRequest) {
       columns: { role: true },
     });
     if (!target) return NextResponse.json({ error: "User tidak ditemukan" }, { status: 404 });
-    if ((role === "SUPER_ADMIN" || target.role === "SUPER_ADMIN") && myRole !== "SUPER_ADMIN") {
-      return NextResponse.json({ error: "Hanya SUPER_ADMIN yang boleh kelola SUPER_ADMIN" }, { status: 403 });
+    // Hanya SUPER_ADMIN yang boleh memberi/mencabut peran admin. Tanpa ini,
+    // ADMIN bisa membuat ADMIN baru (eskalasi lateral) atau menurunkan admin lain.
+    const touchesAdminRole =
+      ["ADMIN", "SUPER_ADMIN"].includes(role) ||
+      ["ADMIN", "SUPER_ADMIN"].includes(target.role);
+    if (touchesAdminRole && myRole !== "SUPER_ADMIN") {
+      return NextResponse.json(
+        { error: "Hanya SUPER_ADMIN yang boleh mengelola akun ADMIN/SUPER_ADMIN" },
+        { status: 403 }
+      );
     }
     await db.update(User).set({ role }).where(eq(User.id, userId));
     return NextResponse.json({ success: true });

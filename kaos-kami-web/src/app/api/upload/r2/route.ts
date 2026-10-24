@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { nanoid } from "nanoid";
 import { sniffImageMime, uploadToR2, uploadBase64ToR2 } from "@/lib/r2";
 import { getAuthenticatedUser } from "@/lib/security/authGuard";
 import { checkRateLimitAsync, getClientIp, rateLimitHeaders } from "@/lib/security/rateLimiter";
@@ -50,12 +51,19 @@ export async function POST(req: NextRequest) {
     }
 
     const contentType = req.headers.get("content-type") || "";
+    const contentLength = Number(req.headers.get("content-length") || 0);
+    if (Number.isFinite(contentLength) && contentLength > 20 * 1024 * 1024) {
+      return NextResponse.json({ error: "File terlalu besar" }, { status: 413 });
+    }
 
     // JSON base64 mode — validasi sama ketatnya dengan multipart.
     if (contentType.includes("application/json")) {
       const { imageBase64, kind } = await req.json();
       if (typeof imageBase64 !== "string" || !imageBase64.startsWith("data:")) {
         return NextResponse.json({ error: "Missing imageBase64" }, { status: 400 });
+      }
+      if (imageBase64.length > 14_000_000) {
+        return NextResponse.json({ error: "File >10MB" }, { status: 413 });
       }
       const mime = imageBase64.slice(5, imageBase64.indexOf(";"));
       if (!(ALLOWED_IMAGE as readonly string[]).includes(mime)) {
@@ -79,7 +87,7 @@ export async function POST(req: NextRequest) {
       // downgrade, bukan 403 — upload tetap jalan, aset tak masuk area master).
       const canWriteMaster = ["ADMIN", "SUPER_ADMIN", "PRODUCTION_STAFF"].includes(user.role);
       const prefix = kind === "master" && canWriteMaster ? `masters/${user.id}` : `uploads/${user.id}`;
-      const r2Key = `${prefix}/${Date.now()}-${Math.random().toString(36).slice(2, 6)}.${safeExt(mime)}`;
+      const r2Key = `${prefix}/${Date.now()}-${nanoid(8)}.${safeExt(mime)}`;
       const result = await uploadBase64ToR2(imageBase64, r2Key);
       if (!result.success) {
         return NextResponse.json({ error: result.error }, { status: 500 });
@@ -102,7 +110,7 @@ export async function POST(req: NextRequest) {
     if (file.size > MAX_BYTES) {
       return NextResponse.json({ error: "File >10MB" }, { status: 400 });
     }
-    const key = `uploads/${user.id}/${Date.now()}-${Math.random().toString(36).slice(2, 6)}.${safeExt(file.type)}`;
+    const key = `uploads/${user.id}/${Date.now()}-${nanoid(8)}.${safeExt(file.type)}`;
 
     const buffer = Buffer.from(await file.arrayBuffer());
     if (!sniffImageMime(buffer.subarray(0, 32))) {

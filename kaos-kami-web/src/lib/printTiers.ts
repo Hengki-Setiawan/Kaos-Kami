@@ -1,10 +1,11 @@
 /**
- * SSOT tier area sablon DTF (Blueprint 01 §10 + kalibrasi 30cm).
+ * SSOT tier area sablon DTF (Blueprint 01 §10 + kalibrasi 35cm).
  * Satu-satunya definisi tier — SEMUA jalur klasifikasi via cm fisik.
  *
- * Tier: A6 +10k (≤10cm), A5 +15k (≤15cm), A4 +25k (≤25cm), A3 +35k (>25cm, maks 30cm roll DTF).
- * Catatan: `computePhysicalPrintDimensions` meng-clamp lebar ke 30cm, jadi klasifikasi
- * HARUS memakai batas ≤30 yang reachable (bukan `else >30` yang dead-code).
+ * Tier: A6 +10k (≤10cm), A5 +15k (≤20cm), A4 +25k (≤25cm), A3 +30k (>25cm, s.d. 35cm = batas cetak DTF).
+ * Catatan: `computePhysicalPrintDimensions` meng-clamp lebar ke 35cm (SSOT
+ * REAL_WORLD_PRINT_LIMITS), jadi klasifikasi HARUS memakai batas ≤35 yang reachable
+ * (bukan `else >35` yang dead-code).
  */
 
 import { APPAREL_PHYSICAL_SPECS } from "./scaleCalibration";
@@ -26,12 +27,12 @@ export const PRINT_TIER_LABEL: Record<PrintTier, "A6 Pocket" | "A5 Sedang" | "A4
 };
 
 /**
- * Klasifikasi utama: dari dimensi fisik cm (sudah dikalibrasi 30cm).
+ * Klasifikasi utama: dari dimensi fisik cm (sudah dikalibrasi 35cm).
  * Standar workshop: per 10 cm = Rp 10.000 per gambar:
  * - ≤ 10 cm: A6 (Rp 10.000, pocket/lengan/label)
  * - 10.1 - 20 cm: A5 (Rp 20.000)
  * - 20.1 - 25 cm: A4 (Rp 30.000)
- * - > 25 cm (maks 30 cm roll DTF): A3 (Rp 30.000)
+ * - > 25 cm (s.d. 35 cm batas cetak DTF): A3 (Rp 30.000)
  */
 export function classifyPrintTierByCm(maxDimensionCm: number): PrintTier {
   if (maxDimensionCm <= 10) return "A6";

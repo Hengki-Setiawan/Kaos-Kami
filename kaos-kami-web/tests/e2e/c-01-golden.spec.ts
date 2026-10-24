@@ -2,15 +2,12 @@
 // DRAFT R1 — C-01 rantai emas L3 (user->admin->user). BUTUH @playwright/test.
 // Aturan keras: user-facing locators, web-first assertions, LARANGAN
 // waitForTimeout (ganti waitForResponse/waitForURL/toBeVisible).
-// Mock batas pihak ketiga via page.route (AgenWebsite, Fonnte, GA, Turnstile);
+// Mock batas pihak ketiga via page.route (Fonnte, GA, Turnstile);
 // DILARANG mock /api/* milik sendiri + Duitku di run sandbox R3.
 import { test, expect } from "@playwright/test";
 
 test.beforeEach(async ({ page }) => {
   // Mock deterministik pihak ketiga (KECUALI spec Turnstile S-015).
-  await page.route(/api\.agenwebsite\.com|api-sandbox\.agenwebsite\.com/, (r) =>
-    r.fulfill({ status: 200, body: JSON.stringify({ data: [] }) }),
-  );
   await page.route(/api\.fonnte\.com/, (r) => r.fulfill({ status: 200, body: "{}" }));
   await page.route(/google-analytics\.com|googletagmanager\.com/, (r) => r.abort());
 });

@@ -93,11 +93,14 @@ export function AdminNav({ role }: { role?: string | null }) {
     setAskingLogout(false);
     setBusy(true);
     try {
-      await fetch("/api/auth/pin-bypass", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "logout" }),
-      });
+      // P0.1 (23 Okt 2026): route /api/auth/pin-bypass DIHAPUS (keputusan owner).
+      // Pembersihan cookie dev shim (kaos_dev_role / kaos_dev_user_id) kini dilakukan di sisi klien;
+      // sesi resmi better-auth tetap via signOut().
+      if (typeof document !== "undefined") {
+        for (const devCookie of ["kaos_dev_role", "kaos_dev_user_id"]) {
+          document.cookie = `${devCookie}=; Path=/; Max-Age=0; SameSite=Lax`;
+        }
+      }
       const { clearCachedSession } = await import("@/lib/auth-client");
       clearCachedSession();
       await signOut();

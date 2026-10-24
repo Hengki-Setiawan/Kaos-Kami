@@ -117,8 +117,9 @@ export function validateExpeditionSelection(opts: {
 // PROVIDER EKSPEDISI MASA DEPAN (v2): colok API ongkir real-time
 // (mis. api.co.id Rp5/hit, Biteship, dsb) bila volume order justify.
 // Kontrak: terima kota tujuan (+berat gram), kembalikan daftar tarif.
-// Selama getExpeditionProvider() null → pakai tabel ExpeditionZone (v1).
-// Lihat RUNBOOK §10 + .env AGENWEBSITE_RATE_API_KEY.
+// v1 AKTIF (keputusan owner #20=A): master 514 kota → tabel ExpeditionZone.
+// TIDAK ada provider pihak ketiga terdaftar (AgenWebsite dicabut total).
+// Lihat RUNBOOK §10.
 // ------------------------------------------------------------------
 export interface ExpeditionRate {
   courier: string;

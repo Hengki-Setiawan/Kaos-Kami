@@ -1,8 +1,11 @@
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { IpaymuPaymentProvider } from "@/lib/payments/ipaymu";
 
-// R5: Guard webhook iPaymu — signature / idempotency / status check
-// tanpa hit gateway asli (hit asli tetap milik run sandbox).
+/**
+ * R5/P0.2 (23 Okt 2026): Guard webhook iPaymu — signature VA-based (docs resmi),
+ * idempotency via renderer test, dan tamper-check. Tanpa hit gateway asli
+ * (hit asli tetap milik run sandbox).
+ */
 const TEST_VA = "0000001234567890";
 const TEST_API_KEY = "test-ipaymu-api-key-32-chars-xxxx";
 let oldVa: string | undefined;
@@ -22,28 +25,43 @@ afterEach(() => {
   else process.env.IPAYMU_API_KEY = oldKey;
 });
 
-describe("webhookGuards: iPaymu signature verification", () => {
-  it("signature cocok dengan body mentah dan secret", () => {
+describe("webhookGuards: iPaymu callback signature (VA key, docs resmi)", () => {
+  it("signature cocok dengan payload dan secret = Nomor VA", () => {
     const p = new IpaymuPaymentProvider();
-    const rawBody = JSON.stringify({ trx_id: 12345, status: "berhasil", sid: "ORDER-01" });
-    const expectedSig = p.generateSignature("POST", rawBody);
+    const payload = { trx_id: 12345, status: "berhasil", reference_id: "KK-01", total: "100000" };
+    const expectedSig = p.computeCallbackSignature(payload);
 
-    expect(p.verifyCallbackSignature(rawBody, expectedSig)).toBe(true);
+    expect(expectedSig).toMatch(/^[a-f0-9]{64}$/);
+    expect(p.verifyCallbackSignature(payload, expectedSig)).toBe(true);
   });
 
   it("signature salah DITOLAK", () => {
     const p = new IpaymuPaymentProvider();
-    const rawBody = JSON.stringify({ trx_id: 12345, status: "berhasil" });
-    expect(p.verifyCallbackSignature(rawBody, "signature_palsu_123456")).toBe(false);
+    const payload = { trx_id: 12345, status: "berhasil" };
+    expect(p.verifyCallbackSignature(payload, "signature_palsu_123456")).toBe(false);
   });
 
-  it("body berbeda DITOLAK (tamper-proofing)", () => {
+  it("payload berbeda DITOLAK (tamper-proofing)", () => {
     const p = new IpaymuPaymentProvider();
-    const rawBodyA = JSON.stringify({ trx_id: 12345, amount: 100000 });
-    const rawBodyB = JSON.stringify({ trx_id: 12345, amount: 50000 });
-    const sigA = p.generateSignature("POST", rawBodyA);
+    const payloadA = { trx_id: 12345, total: "100000" };
+    const payloadB = { trx_id: 12345, total: "50000" };
+    const sigA = p.computeCallbackSignature(payloadA);
 
-    expect(p.verifyCallbackSignature(rawBodyB, sigA)).toBe(false);
+    expect(p.verifyCallbackSignature(payloadB, sigA)).toBe(false);
+  });
+
+  it("normalisasi tipe docs: '12345' (form) === 12345 (json) untuk trx_id", () => {
+    const p = new IpaymuPaymentProvider();
+    const fromForm = p.computeCallbackSignature({ trx_id: "12345", status: "berhasil" });
+    const fromJson = p.computeCallbackSignature({ trx_id: 12345, status: "berhasil" });
+    expect(fromForm).toBe(fromJson);
+  });
+
+  it("field hilang paperwork: tanpa additional_info → disisipkan array kosong (docs step 3)", () => {
+    const p = new IpaymuPaymentProvider();
+    const withEmptyAdded = p.computeCallbackSignature({ foo: "bar", additional_info: [] });
+    const without = p.computeCallbackSignature({ foo: "bar" });
+    expect(withEmptyAdded).toBe(without);
   });
 
   it("secret kosong fail-closed (tanpa konfigurasi = tolak)", () => {
@@ -51,12 +69,12 @@ describe("webhookGuards: iPaymu signature verification", () => {
     process.env.IPAYMU_API_KEY = "";
     const p = new IpaymuPaymentProvider();
     expect(p.isConfigured()).toBe(false);
-    expect(p.verifyCallbackSignature("{}", "apapun")).toBe(false);
-    expect(() => p.assertConfigured()).toThrow();
+    expect(p.verifyCallbackSignature({}, "apapun")).toBe(false);
+    expect(() => p.computeCallbackSignature({})).toThrow();
   });
 });
 
-describe("webhookGuards: generateSignature deterministik", () => {
+describe("webhookGuards: generateSignature (REQUEST) tetap deterministik", () => {
   it("input sama menghasilkan signature hex konsisten", () => {
     const p = new IpaymuPaymentProvider();
     const body = '{"test":true}';

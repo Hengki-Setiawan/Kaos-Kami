@@ -12,6 +12,7 @@ import {
   User,
 } from "@/lib/drizzle-schema";
 import { assertTransition, isTerminalStatus, type Role } from "@/lib/orders/machine";
+import { isDevOrTest } from "@/lib/envMode";
 // Kebijakan Fonnte owner 20 Sep 2026: HANYA OTP — route ini tak kirim WA.
 import { headers } from "next/headers";
 import { checkRateLimitAsync, getClientIp, rateLimitHeaders } from "@/lib/security/rateLimiter";
@@ -97,7 +98,7 @@ export async function GET(req: NextRequest) {
       let role = (session?.user as any)?.role;
 
       // Dev override: di localhost selalu berikan akses SUPER_ADMIN utama
-      if (process.env.NODE_ENV !== "production") {
+      if (isDevOrTest()) {
         role = "SUPER_ADMIN";
         staffUserId = "dev-admin-id";
       }
@@ -111,7 +112,7 @@ export async function GET(req: NextRequest) {
       staffUserId = staffUserId || (session?.user as any)?.id || "dev-admin-id";
       isStaff = role === "PRODUCTION_STAFF";
     } catch {
-      if (process.env.NODE_ENV !== "production") {
+      if (isDevOrTest()) {
         staffUserId = "dev-admin-id";
         isStaff = false;
       } else {
@@ -221,7 +222,7 @@ export async function PATCH(req: NextRequest) {
       let role = (session?.user as any)?.role;
 
       // Dev override: di localhost selalu berikan akses SUPER_ADMIN utama
-      if (process.env.NODE_ENV !== "production") {
+      if (isDevOrTest()) {
         role = "SUPER_ADMIN";
         actorUserId = "dev-admin-id";
         isAdmin = true;
@@ -237,7 +238,7 @@ export async function PATCH(req: NextRequest) {
       isAdmin = role === "ADMIN" || role === "SUPER_ADMIN";
       actorRole = (role as Role) ?? "SUPER_ADMIN";
     } catch {
-      if (process.env.NODE_ENV !== "production") {
+      if (isDevOrTest()) {
         actorUserId = "dev-admin-id";
         isAdmin = true;
         actorRole = "SUPER_ADMIN";

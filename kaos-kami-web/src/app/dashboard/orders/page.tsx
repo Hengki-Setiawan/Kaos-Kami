@@ -6,6 +6,7 @@ import { db } from "@/lib/db";
 import { Navbar } from "@/components/ui/Navbar";
 import { Footer } from "@/components/ui/Footer";
 import { CustomerDashboardView } from "@/components/commerce/CustomerDashboardView";
+import { isDevOrTest } from "@/lib/envMode";
 
 export const revalidate = 0;
 export const dynamic = "force-dynamic";
@@ -60,7 +61,7 @@ export default async function CustomerDashboardPage({
   } catch {}
 
   // DEV BYPASS: Khusus di localhost dev mode agar pengujian tidak redirect
-  if (!sessionUserId && process.env.NODE_ENV !== "production") {
+  if (!sessionUserId && isDevOrTest()) {
     const cookieStore = await cookies();
     const devCookie = cookieStore.get("kaos_dev_role")?.value;
     const devUserId = cookieStore.get("kaos_dev_user_id")?.value;

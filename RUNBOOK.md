@@ -20,8 +20,8 @@
 - Berlaku di `src/app/api/checkout/route.ts` + `src/app/api/mobile/orders/checkout/route.ts`. Set via `.env.local` (dev) / `wrangler secret put` (prod); JANGAN commit nilainya. Matikan lagi segera setelah darurat selesai.
 - **Vars opsional fail-closed (W3, 21 Sep 2026 — set sebagai `vars` di `wrangler.jsonc`, BUKAN secrets; default bila unset = mode produksi aman):**
   - `WHATSAPP_FORCE_MOCK="true"` → paksa mock WA, pesan tidak dikirim (dev/QA saja; `whatsapp.ts:51`). Default unset = kirim live via Fonnte (nomor dummy/test selalu diblokir walau live).
-  - `AGENWEBSITE_SANDBOX="true"` → ongkir live hit base sandbox (key `awk_test_...`; `agenwebsite.ts:14`). Default unset = base LIVE produksi. Tanpa `AGENWEBSITE_RATE_API_KEY` → fallback tabel `ExpeditionZone` (fail-soft, checkout tidak mati).
-  - Lihat default + komentar di `.env.example` (§ AgenWebsite, Notifications, Kill-switch).
+  - Ongkir luar kota TANPA API pihak ketiga (keputusan owner #20=A, 23 Okt 2026): master 514 kota → `ExpeditionZone` → flat 25k. Env `AGENWEBSITE_*` sudah dicabut dari kode.
+  - Lihat default + komentar di `.env.example` (§ Ongkir, Notifications, Kill-switch).
 
 ## 3. R2 upload gagal
 - **Gejala:** `r2.ts` `Missing token` atau `R2 upload failed 401`.
@@ -33,9 +33,10 @@
 
 ## 5. Ubah skema DB prod (Prisma `migrate` & `db push` DITOLAK P1013 — jalur SQL via Node saja)
 - **Fakta (Sep 2026, Prisma 7.10.0):** `prisma migrate deploy/resolve` menolak `libsql://` (`P1013 scheme not recognized`).
-- **KOREKSI 21 Sep 2026 (terverifikasi 2x, berlaku sampai toolchain diganti):** `npx prisma db push` dari `kaos-kami-web/` JUGA gagal `P1013` pada toolchain ini (engine schema tak kenal skema `libsql://`, walau `DATABASE_URL` benar). JANGAN jalankan `db push` maupun `migrate deploy` terhadap URL `libsql://` apa pun — keduanya mati di toolchain ini. Prisma dipertahankan HANYA untuk: skema source-of-truth, typegen, seed (Node-only), Studio (lihat §6).
-- **Prosedur aman aktual (satu-satunya jalur tulis skema prod):** (1) backup via `GET /api/cron/backup` (header `Authorization: Bearer <CRON_SECRET>`) → dump `kaos-kami-*.sql` di bucket R2 privat (BUKAN folder repo `backups/` — folder itu sudah dihapus dari worktree, lihat §10); (2) tulis migrasi SQL berversi, eksekusi via script Node `@libsql/client` (idempoten: cek `PRAGMA table_info` dulu; `ADD COLUMN` / `CREATE TABLE IF NOT EXISTS` aman; **hindari rebuild tabel ber-FK** — `DROP TABLE` induk gagal `SQLITE_CONSTRAINT` karena batch autocommit per-statement); (3) verifikasi `PRAGMA table_info` + row count + `PRAGMA foreign_key_check` + `GET /api/health`. Kolom yang tak bisa ALTER (mis. default `Order.status`) biarkan drift selama SEMUA insert app set eksplisit — catat drift di sini.
-- **File migrasi** `prisma/migrations/0001_init/` = referensi baseline yang cocok dengan skema prod saat ini; JANGAN fake `_prisma_migrations` manual.
+- **KOREKSI 21 Sep 2026 (terverifikasi 2x, berlaku sampai toolchain diganti):** `npx prisma db push` dari `kaos-kami-web/` JUGA gagal `P1013` pada toolchain ini (engine schema tak kenal skema `libsql://`, walau `DATABASE_URL` benar). JANGAN jalankan `db push` maupun `migrate deploy` terhadap URL `libsql://` apa pun — keduanya mati di toolchain ini. Prisma dipertahankan HANYA untuk: skema source-of-truth, typegen, seed (Node-only), Studio (lihat §6). `db push` hanya relevan untuk SQLite lokal `file:` (bukan Turso).
+- **Prosedur aman aktual (satu-satunya jalur tulis skema prod):** (1) backup via `GET /api/cron/backup` (header `Authorization: Bearer <CRON_SECRET>`) → dump `kaos-kami-*.sql` di bucket R2 privat (BUKAN folder repo `backups/` — folder itu sudah dihapus dari worktree, lihat §10); (2) tulis migrasi SQL berversi, eksekusi via script Node `@libsql/client` (idempoten: cek `PRAGMA table_info` dulu; `ADD COLUMN` / `CREATE TABLE IF NOT EXISTS` aman; **hindari rebuild tabel ber-FK** — `DROP TABLE` induk gagal `SQLITE_CONSTRAINT` karena batch autocommit per-statement); (3) verifikasi `PRAGMA table_info` + row count + `PRAGMA foreign_key_check` + `GET /api/health`. Kolom yang tak bisa ALTER (mis. default `Order.status` — DB `PENDING_PAYMENT` vs schema.prisma `DESIGN_REVIEW`) biarkan drift selama SEMUA insert app set eksplisit; drift ini DIDOKUMENTASIKAN di sini, bukan diperbaiki dengan rebuild tabel.
+- **Baseline (keputusan owner #8=A, 23 Okt 2026):** `prisma/baseline-schema.sql` = snapshot DDL **UTF-8** dari DB aktual via introspeksi READ-ONLY `sqlite_master` (`scripts/export-schema-sql.mjs`, hanya SELECT). Isi: 29 tabel + 37 index. Regenerate kapan pun dengan `npm run db:baseline` (butuh `TURSO_DATABASE_URL`/`TURSO_AUTH_TOKEN`); fallback tanpa DB: `npm run db:baseline:from-prisma` (menulis `prisma/baseline-from-schema.sql`).
+- **Folder `prisma/migrations/` DIBERSIHKAN 23 Okt 2026** (0001_init UTF-16LE + stale/drift, 0002 belum tentu terapply). Salinan arsip di luar repo: `Backup-Kaos-Kami/arsip/prisma-migrations-2026-10-23/`. JANGAN fake `_prisma_migrations` manual. Untuk DB baru: eksekusi `baseline-schema.sql` berurutan (CREATE TABLE lalu CREATE INDEX) via `@libsql/client`.
 - **DILARANG untuk Turso:** `prisma migrate deploy` (P1013) dan `prisma db push` (P1013 pada toolchain ini). (Catatan: baris "Prosedur aman via Turso branch + `db push`" di revisi runbook lama DICABUT 05 Okt 2026 karena kontradiktif dengan koreksi P1013 di atas.)
 
 ## 6. Runtime DB = Drizzle, BUKAN Prisma Client (arsitektur Sep 2026)
@@ -75,8 +76,12 @@ px wrangler deploy langsung = bundle .open-next BASI (rute baru 404, terbukti 08
 - **Endpoint (format generik, tanpa secret):**
   - Sweep: `GET <APP_URL>/api/cron/sweep` — PENDING_PAYMENT basi (>24 jam) → CANCELLED + kupon dikembalikan (`src/app/api/cron/sweep/route.ts`, `STALE_MS=24h`, `BATCH=100`).
   - Sweep + fase rekonsiliasi yatim: order PENDING_PAYMENT umur >30 mnt tanpa baris Payment (batch 20, `RECONCILE_MS=30m`, `RECONCILE_BATCH=20`) dicek server-to-server via `checkTransactionStatus` → sukses = buat baris Payment SETTLEMENT + `confirmOrderPaid`; respons `{success:true, checked, cancelled, reconciled, created}`.
-  - Backup: `GET <APP_URL>/api/cron/backup` — fotokopi logis Turso → R2 `backups/kaos-kami-YYYYMMDDHHMM.sql` (`src/app/api/cron/backup/route.ts`).
-  - Backup-status: `GET <APP_URL>/api/cron/backup-status` — ringkasan backup publik tanpa CRON_SECRET (rate-limit IP, `src/app/api/cron/backup-status/route.ts`) — cek cepat umur backup tanpa secret.
+  - Backup: `GET <APP_URL>/api/cron/backup` — fotokopi logis Turso → R2 privat `backups/kaos-kami-YYYYMMDDHHMMSS/schema.sql` + `<tabel>.part-NNN.sql` + `manifest.json` (`src/app/api/cron/backup/route.ts`). Split per part <4 MB; manifest ditulis TERAKHIR (ada manifest = backup lengkap). Seluruh schema + data dibaca dalam **satu transaksi baca** (`raw.transaction("read")`) agar INSERT/DELETE live tidak menggeser `LIMIT/OFFSET`. Upload memakai binding `R2_BACKUPS` (bukan REST) supaya 20+ PUT tidak menembus limit 50 subrequest Worker gratis; binding wajib ada di `wrangler.jsonc` dan bucket `kaos-kami-backups` wajib privat.
+  - Restore drill: unduh backup dari bucket privat, lalu:
+    - Split (format baru): `npm run backup:restore -- --dir <folder> --out <target.db>`
+    - Single dump lama: `npm run backup:restore -- --file <kaos-kami-YYYY....sql> --out <target.db>`
+    Script `kaos-kami-web/scripts/restore-backup.mjs` mendukung dua format. FK DIMATIKAN **sebelum** schema/dump dijalankan (tabel di-backup urut alfabet, bukan urutan dependensi; kalau FK ON, INSERT `Account` gagal `no such table: main.User`), lalu FK dinyalakan lagi dan divalidasi dengan `PRAGMA integrity_check` + `PRAGMA foreign_key_check` (gagal = exit non-zero). Split juga memverifikasi jumlah baris vs `manifest.json`.
+  - Backup-status: `GET <APP_URL>/api/cron/backup-status` — ringkasan backup publik tanpa CRON_SECRET (rate-limit IP, `src/app/api/cron/backup-status/route.ts`) — cek cepat umur backup tanpa secret. Membaca `result` array Cloudflare R2 + `last_modified`, memakai `delimiter=/` agar folder split tidak terpotong pagination; `mode:"incomplete"` = folder terbaru ada tapi `manifest.json` belum tertulis (backup gagal di tengah).
   - Marker hidup (health.cron): sweep menulis `cron-state/sweep.json` + backup menulis `cron-state/backup.json` ke R2 — dibaca `/api/health` sebagai bukti cron hidup.
   - Prod `<APP_URL>` = `https://kaoskami.biz.id` (lihat `wrangler.jsonc` `NEXT_PUBLIC_SITE_URL`).
   - Auth: header `Authorization: Bearer <CRON_SECRET>` (env server `CRON_SECRET`; tanpa secret = 503, salah = 401, compare timing-safe). **JANGAN tulis nilai secret di file/repo** — set via `.env.local` (dev) + `wrangler secret put CRON_SECRET` (prod).
@@ -86,5 +91,35 @@ px wrangler deploy langsung = bundle .open-next BASI (rute baru 404, terbukti 08
   - Aktifkan notifikasi gagal cron-job.org (alert bila respons non-2xx / `success:false`).
 - **Monitor umur (tanda job mati):**
   - Sweep: respons normal `{success:true, checked, cancelled, reconciled, created}`. Waspada bila order `PENDING_PAYMENT` berumur >24 jam menumpuk (query Turso) = sweep tidak jalan >1 hari. `cancelled` melonjak tiba-tiba = cek anomali trafik/bayar.
-  - Backup: berisi PII → bucket PRIVAT `kaos-kami-backups` (bukan prefix publik). File terbaru berumur >8 hari = job mati. `bytes` anjlok vs baseline = backup kosong/rusak — jangan hapus backup lama sebelum verifikasi isi.
+  - Backup: berisi PII → bucket PRIVAT `kaos-kami-backups` (bukan prefix publik). Manifest terbaru berumur >8 hari = job mati. `bytes`/`parts`/`rows` anjlok vs baseline = backup kosong/rusak — jangan hapus backup lama sebelum restore drill lolos.
   - Jejak lokal: folder repo `backups/` (termasuk `backups/draco-archive/`) SUDAH DIHAPUS dari worktree — terverifikasi tidak ada 05 Okt 2026; arsip manual direlokasi eksternal ke `D:\Vibe coding Semester 7\Backup-Kaos-Kami\` (lihat tracker entri 17). JANGAN referensikan path `backups/` untuk backup baru. Arsip manual BUKAN pengganti cron backup cloud (jangan andalkan umurnya).
+
+## 11. Security hardening & residual risks (Okt 2026)
+
+### Otorisasi admin (role-only, tanpa backdoor email)
+- `ADMIN`/`SUPER_ADMIN` adalah satu-satunya sumber izin. Allowlist email hardcoded (`hengkishadow@gmail.com`, `admin@kaoskami.biz.id`) SUDAH DIHAPUS dari checkout dan `bypass-payment`; jangan tambahkan kembali. Untuk memberi akses admin, ubah `User.role` di DB.
+- Hanya `SUPER_ADMIN` yang boleh memberi/mencabut `ADMIN`/`SUPER_ADMIN` (`/api/admin/customers`). `ADMIN` hanya boleh mengelola `CUSTOMER`/`PRODUCTION_STAFF`/`COURIER`.
+- `syncPayment`, cancel, refund, dan review desain = `ADMIN`/`SUPER_ADMIN`. Staf produksi/kurir hanya aksi operasional (resi/status pengiriman). `SHIPPED` wajib resi valid.
+- `PAYMENT_CONFIRMED`, `CANCELLED`, `REJECTED` tidak bisa diset lewat aksi status generik. Order lunas wajib lewat refund, bukan cancel.
+
+### Auth & anti-abuse
+- Better Auth rate limit: login/signup 5/menit, forgot-password 3/menit, reset-password 5/menit, send-verification 3/menit, two-factor 5/menit (per isolate; KV rate-limit aplikasi tetap lapis kedua).
+- `BETTER_AUTH_SECRET` fail-closed di luar `NODE_ENV=development|test`. Jangan pernah deploy dengan secret kosong.
+- OTP checkout/Turnstile default fail-closed. `CHECKOUT_OTP_REQUIRED=false` dan `TURNSTILE_ENFORCE=false` HANYA untuk darurat; unset/kosong = wajib verifikasi. Hanya string persis `"false"` yang mematikan gerbang.
+- Email/password signup wajib tiket OTP (`x-email-verification-ticket`); Google OAuth dikecualikan.
+
+### SSRF / open redirect / PII
+- `/api/proxy-image` hanya mengambil dari host `R2_PUBLIC_URL` atau `NEXT_PUBLIC_SITE_URL` (dev: localhost), hanya PNG/JPEG/WebP/GIF/AVIF, maks 8 MB, timeout 10 dtk, 60/menit/IP. SVG ditolak.
+- `returnUrlOverride` pembayaran hanya boleh origin kanonis/www Kaos Kami atau deep-link `kaoskami://`; URL bebas ditolak.
+- Endpoint publik order/invoice hanya memuat kolom kontak yang dirender; `providerRef`, `passwordHash`, email admin, dan raw webhook tidak pernah dikirim ke publik. Catatan status internal `[REVIEW:...]` tidak ditampilkan ke pengunjung anonim.
+- Backup PII hanya ke bucket privat; `uploadToR2` menolak `bucketOverride` yang sama dengan bucket aset publik.
+
+### Residual risks yang BELUM ditutup (jangan klaim 100%)
+- **Admin 2FA belum ada.** Mitigasi sementara: password admin unik + panjang, jumlah akun admin minimal, pantau sesi/aktivitas, segera cabut role jika mencurigakan. Rencana: TOTP/passkey Better Auth + migrasi tabel 2FA.
+- **`/api/auth/resolve-identifier` masih mengembalikan email kanonis** saat lookup nomor WA/nama (dibutuhkan login multi-identifier). Mitigasi: Turnstile di AuthModal + rate limit 30/menit/IP dan 10/5menit/identifier; endpoint tidak membocorkan password/sesi. Risiko enumerasi email tetap ada; rencana jangka menengah: login proxy server-side (resolve + `signInEmail` + forward cookie) atau plugin username Better Auth.
+- **Belum ada load test** (checkout/OTP/webhook) dan belum ada uji banjir trafik nyata.
+- **Restore nyata SUDAH lolos 24 Okt 2026:** (a) single-dump `backups/kaos-kami-202610240703.sql` — 29 tabel, 747 baris, `integrity_check=ok`, `foreign_key_check=0`; (b) split `backups/kaos-kami-20261024071217/` — 29 tabel, 747 baris, 37 index (16 unique, termasuk `Verification_identifier_key`, `User_email_key`, `Order_orderNumber_key`), `integrity_check=ok`, `foreign_key_check=0`. Restore split sintetis + uji orphan yang ditolak juga lolos. **Cron backup split sudah dijalankan manual end-to-end** (bukan bukti jadwal cron eksternal). Backup fresh 24 Okt dibuat lewat trigger manual, BUKAN bukti cron-job.org hidup. Marker backup terakhir sebelum trigger masih 27 Sep 2026 dan sweep 06 Okt 2026 — OWNER wajib cek cron-job.org setelah deploy.
+- **Belum ada satu transaksi QRIS nyata** end-to-end (callback 200 → PAID → tiket produksi/stok; replay tidak menggandakan; refund mengembalikan stok hanya bila stok sempat dikurangi).
+- **Signature callback iPaymu belum diuji dengan callback asli**; normalisasi `additional_info` mengikuti dokumen resmi tetapi belum diverifikasi lapangan.
+- **Webhook produksi lama masih fail-open** sampai deploy kode baru; probe unsigned harus 401 setelah deploy.
+- Verifikasi fisik UI di browser dan uji refund nyata tetap milik OWNER.

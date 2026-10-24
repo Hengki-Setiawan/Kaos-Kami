@@ -4,6 +4,7 @@ import { db } from "@/lib/db";
 import { OrderComplaint } from "@/lib/drizzle-schema";
 import { eq, desc } from "drizzle-orm";
 import { auth } from "@/lib/auth";
+import { isDevOrTest } from "@/lib/envMode";
 
 export const dynamic = "force-dynamic";
 
@@ -17,7 +18,7 @@ export async function GET(req: NextRequest) {
     const session = await auth.api.getSession({ headers: hdrs as any });
     let role = (session?.user as any)?.role;
 
-    if (process.env.NODE_ENV !== "production") {
+    if (isDevOrTest()) {
       role = "SUPER_ADMIN";
     }
 
@@ -68,7 +69,7 @@ export async function PATCH(req: NextRequest) {
     let role = (session?.user as any)?.role;
     let userId = (session?.user as any)?.id || "admin-dev";
 
-    if (process.env.NODE_ENV !== "production") {
+    if (isDevOrTest()) {
       role = "SUPER_ADMIN";
     }
 

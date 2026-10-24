@@ -8,7 +8,7 @@ import type { DecalTargetSide } from "@/lib/constants";
  * Smart Zone trigger (Bab 52/53 (4)) — TEST SAJA.
  *
  * Sumber kebenaran: src/components/studio/SablonTabContent.tsx
- *  - flashSmartZone(): set hint "Maksimal Lebar Sablon A3 (30 cm)", auto-hilang
+ *  - flashSmartZone(): set hint "Maksimal Lebar Sablon DTF (35 cm)", auto-hilang
  *    2500ms (:143-147) — state React + timer, tak testable di node-env 🟡.
  *  - trigger X (:655-662): jepit=clamp(rawX); bila sisi front/back DAN
  *    jepit.x !== rawX → flash.
@@ -34,8 +34,8 @@ const sablonSrc: string = fs.readFileSync(
 );
 
 describe("smartZoneTrigger: kontrak statis SablonTabContent", () => {
-  it('pesan hint = "Maksimal Lebar Sablon A3 (30 cm)"', () => {
-    expect(sablonSrc).toContain("Maksimal Lebar Sablon A3 (30 cm)");
+  it('pesan hint = "Maksimal Lebar Sablon DTF (35 cm)"', () => {
+    expect(sablonSrc).toContain("Maksimal Lebar Sablon DTF (35 cm)");
   });
 
   it("hint auto-hilang 2500ms", () => {

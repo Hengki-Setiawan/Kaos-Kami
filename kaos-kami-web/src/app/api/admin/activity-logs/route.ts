@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { OrderStatusEvent } from "@/lib/drizzle-schema";
 import { headers } from "next/headers";
+import { isDevOrTest } from "@/lib/envMode";
 
 export const dynamic = "force-dynamic";
 
@@ -15,7 +16,7 @@ export async function GET(req: NextRequest) {
       role = (session?.user as any)?.role || "GUEST";
     } catch {}
 
-    if (process.env.NODE_ENV !== "production") {
+    if (isDevOrTest()) {
       role = "SUPER_ADMIN";
     }
 

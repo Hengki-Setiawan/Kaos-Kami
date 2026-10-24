@@ -99,7 +99,7 @@ export const KalkulatorSablonClient: React.FC = () => {
     };
   }, [bulkQty, bulkApparel, bulkTier]);
 
-  const overLimit = hasil !== null && hasil.maks > 30;
+  const overLimit = hasil !== null && hasil.maks > 35;
 
   return (
     <div className="min-h-screen bg-canvas text-text-primary flex flex-col font-sans">
@@ -114,7 +114,7 @@ export const KalkulatorSablonClient: React.FC = () => {
           </h1>
           <p className="text-sm font-mono text-text-muted leading-relaxed">
             Semua angka di halaman ini dihitung dari standar produksi yang sama dengan mesin
-            harga checkout: lebar cetak maks <strong className="text-text-primary">30 cm</strong> (batas
+            harga checkout: lebar cetak maks <strong className="text-text-primary">35 cm</strong> (batas
             sablon DTF), tier A6–A3, dan berat kain GSM per apparel.
           </p>
         </header>
@@ -175,7 +175,7 @@ export const KalkulatorSablonClient: React.FC = () => {
             />
           </label>
         </div>
-        {/* Slider ukuran sablon interaktif (0–30 cm, sinkron dgn input angka) */}
+        {/* Slider ukuran sablon interaktif (0–35 cm, sinkron dgn input angka) */}
         <div className="space-y-3 pt-1">
           {(
             [
@@ -195,9 +195,9 @@ export const KalkulatorSablonClient: React.FC = () => {
                 <input
                   type="range"
                   min={1}
-                  max={30}
+                  max={35}
                   step={0.5}
-                  value={Number.isFinite(num) ? Math.min(30, Math.max(1, num)) : 21}
+                  value={Number.isFinite(num) ? Math.min(35, Math.max(1, num)) : 21}
                   onChange={(e) => s.set(e.target.value)}
                   aria-label={s.label}
                   className="w-full accent-orange-600"
@@ -206,7 +206,7 @@ export const KalkulatorSablonClient: React.FC = () => {
             );
           })}
           <p className="text-[11px] font-mono text-text-muted">
-            Batas rel geser 30 cm = batas fisik cetak DTF (maks heat press).
+            Batas rel geser 35 cm = batas fisik cetak DTF (maks heat press).
           </p>
         </div>
         {hasil ? (
@@ -219,7 +219,7 @@ export const KalkulatorSablonClient: React.FC = () => {
             {overLimit ? (
               <span>
                 Sisi terpanjang <strong>{hasil.maks} cm</strong> melebihi batas cetak DTF{" "}
-                <strong>30 cm</strong>. Kecilkan desain atau bagi jadi dua sisi (depan + punggung).
+                <strong>35 cm</strong>. Kecilkan desain atau bagi jadi dua sisi (depan + punggung).
               </span>
             ) : (
               <span>
@@ -247,7 +247,7 @@ export const KalkulatorSablonClient: React.FC = () => {
               {(Object.keys(PRINT_TIER_COST_IDR) as PrintTier[]).map((t) => (
                 <tr key={t} className={`border-b border-border-subtle ${hasil?.tier === t ? "text-brand-accent font-bold" : ""}`}>
                   <td className="py-2 pr-3">{t}</td>
-                  <td className="py-2 pr-3">{t === "A6" ? "≤ 10 cm" : t === "A5" ? "≤ 20 cm" : t === "A4" ? "≤ 25 cm" : "≤ 30 cm"}</td>
+                  <td className="py-2 pr-3">{t === "A6" ? "≤ 10 cm" : t === "A5" ? "≤ 20 cm" : t === "A4" ? "≤ 25 cm" : "≤ 35 cm"}</td>
                   <td className="py-2 pr-3">{PRINT_TIER_LABEL[t]}</td>
                   <td className="py-2 text-right tabular-nums">{fmtRp(PRINT_TIER_COST_IDR[t])}</td>
                 </tr>
@@ -300,7 +300,7 @@ export const KalkulatorSablonClient: React.FC = () => {
               (kain) = <strong className="text-brand-accent">{fmtRp(hasil.biaya + (FABRIC_SURCHARGE_IDR[selFabric] ?? 0))}</strong>.
             </span>
           ) : (
-            <span>isi ukuran valid (≤ 30 cm) di bagian 1 untuk melihat total.</span>
+            <span>isi ukuran valid (≤ 35 cm) di bagian 1 untuk melihat total.</span>
           )}{" "}
           <span className="text-text-muted">Angka estimasi tampilan. Harga final tetap dari mesin checkout.</span>
         </div>

@@ -1,11 +1,14 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import Link from "next/link";
 import { X, ExternalLink, CreditCard, MessageCircleWarning, ShieldCheck, MapPin, Truck, Navigation } from "lucide-react";
+import { Z_CLASS_POPOVER } from "@/lib/zIndex";
 import { RepayButton } from "@/components/commerce/RepayButton";
 import { ComplaintForm } from "@/components/commerce/ComplaintForm";
 import { OrderMiniLeafletMap } from "@/components/maps/OrderMiniLeafletMap";
+import { shopWaLink } from "@/lib/shop";
 
 /**
  * OrderDetailModal — jendela detail order (klik kartu di CustomerDashboardView).
@@ -148,6 +151,11 @@ export function OrderDetailModal({
   const [payRef, setPayRef] = useState<string | null>(null);
   const [payMsg, setPayMsg] = useState<string | null>(null);
   const [payFallback, setPayFallback] = useState(false);
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   // Ambil note review dari /api/notifications (existing) — filter order ini.
   useEffect(() => {
@@ -211,9 +219,11 @@ export function OrderDetailModal({
     }
   };
 
-  return (
+  if (!mounted) return null;
+
+  return createPortal(
     <div
-      className="fixed inset-0 z-[70] flex items-end sm:items-center justify-center p-0 sm:p-6"
+      className={`fixed inset-0 ${Z_CLASS_POPOVER} flex items-end sm:items-center justify-center p-0 sm:p-6`}
       role="dialog"
       aria-modal="true"
       aria-label={`Detail pesanan ${order.orderNumber}`}
@@ -441,7 +451,7 @@ export function OrderDetailModal({
             <span>LIHAT INVOICE</span>
           </Link>
           <a
-            href={`https://wa.me/6281244002026?text=${encodeURIComponent(`Halo Admin Kaos Kami! Saya ingin menanyakan pesanan ${order.orderNumber}.`)}`}
+            href={shopWaLink(`Halo Admin Kaos Kami! Saya ingin menanyakan pesanan ${order.orderNumber}.`)}
             target="_blank"
             rel="noopener noreferrer"
             className="flex-1 min-w-[140px] px-3.5 py-2 rounded-xl bg-canvas border border-border-subtle hover:border-emerald-500 text-text-primary font-bold hover:text-emerald-400 transition-all flex items-center justify-center gap-1.5 text-xs"
@@ -456,6 +466,7 @@ export function OrderDetailModal({
           Alasan penolakan di atas adalah teks admin (fallback string-match OrderStatusEvent — lihat komentar kode).
         </p>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }

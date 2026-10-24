@@ -23,6 +23,7 @@ import {
 } from "lucide-react";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { LocationPickerModal, type PickedLocation } from "@/components/maps/LocationPickerModal";
+import { Z_CLASS_MODAL } from "@/lib/zIndex";
 
 export interface AddressRow {
   id: string;
@@ -682,7 +683,7 @@ export function AddressBook({
       {/* ======================================================= */}
       {isModalOpen && (
         <div
-          className="fixed inset-0 z-[130] flex items-center justify-center p-3 sm:p-4 md:p-6 bg-canvas/75 dark:bg-black/85 backdrop-blur-md animate-fadeIn overflow-y-auto"
+          className={`fixed inset-0 ${Z_CLASS_MODAL} flex items-center justify-center p-3 sm:p-4 md:p-6 bg-canvas/75 dark:bg-black/85 backdrop-blur-md animate-fadeIn overflow-y-auto`}
           onClick={(e) => {
             if (e.target === e.currentTarget) setIsModalOpen(false);
           }}

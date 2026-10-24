@@ -289,7 +289,7 @@ async function stepCheckoutMethods() {
   created.orders.push({ testId: "U-027", orderId: r.data.orderId, orderNumber: r.data.orderNumber, statusAwal: "DESIGN_REVIEW", designIds: [] });
 }
 async function stepCouponClampBulk() {
-  if (DRY) return ["POST /api/checkout kupon + clamp30cm + hoodie5sisi + bulk12 + varian"];
+  if (DRY) return ["POST /api/checkout kupon + clamp35cm + hoodie5sisi + bulk12 + varian"];
   const code = OTP_FLAG || (!OTP_LIFETIME && !OTP_KILL ? await otpCode(USER_PHONE) : null);
   let r = await doCheckout({ ...baseCheckout({ recipientName: T("028"), couponCode: `E2E-${STAMP}-001`, courierNotes: `[E2E:${STAMP}:U-028]` }), ...(code ? { otpCode: code } : {}) }, `${T("028")}-${Date.now()}`);
   if (r.status === 200) created.orders.push({ testId: "U-028", orderId: r.data.orderId, orderNumber: r.data.orderNumber, statusAwal: "DESIGN_REVIEW", coupon: `E2E-${STAMP}-001`, designIds: [] });

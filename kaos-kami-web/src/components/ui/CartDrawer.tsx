@@ -8,12 +8,9 @@ import { X, ShoppingBag, Trash2, Plus, Minus, ArrowRight, ShieldCheck, Sparkles 
 import { useCartStore } from "@/store/useCartStore";
 import { useShallow } from "zustand/shallow";
 import { CheckoutModal } from "./CheckoutModal";
-import { CheckoutModalLegacy } from "./CheckoutModalLegacy";
 
-// Amandemen Bab 56 A2: flag rollback 1-env. Default true (V2 2-tahap).
-// Rollback darurat: set NEXT_PUBLIC_CHECKOUT_V2=false lalu restart/redeploy.
-const USE_CHECKOUT_V2 = process.env.NEXT_PUBLIC_CHECKOUT_V2 !== "false";
-const ActiveCheckoutModal = USE_CHECKOUT_V2 ? CheckoutModal : CheckoutModalLegacy;
+// P0 keputusan owner #16 (23 Okt 2026): modal checkout satu-langkah + flag rollback
+// (env publik) DIHAPUS. Checkout V2 (2 tahap) adalah satu-satunya modal.
 import { isSafeImageUrl } from "@/lib/safeUrl";
 import { fetchServerPriceMap, formatIdr } from "@/lib/cartPriceRefresh";
 import { Z_CLASS_CART } from "@/lib/zIndex";
@@ -182,7 +179,7 @@ export const CartDrawer: React.FC = () => {
     <>
       {/* Modal checkout DI ATAS early-return (audit #35): closeCart() saat
           klik checkout tidak boleh meng-unmount modal ini. */}
-      <ActiveCheckoutModal
+      <CheckoutModal
         isOpen={isCheckoutModalOpen}
         onClose={() => setIsCheckoutModalOpen(false)}
         checkoutMode="cart"

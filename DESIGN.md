@@ -86,7 +86,7 @@
 
 ---
 
-## 🗂️ 6. HIERARKI Z-INDEX GLOBAL 8 TINGKAT (L0–L7)
+## 🗂️ 6. HIERARKI Z-INDEX GLOBAL (L0–L7 + TOAST)
 > SSOT nilai = `kaos-kami-web/src/lib/zIndex.ts` (`Z_HIERARCHY`, dikunci test `zIndexHierarchy.test.ts`). Import konstanta `Z_CLASS_*` di komponen — JANGAN hardcode `z-40` / `z-[110]` lagi. Nilai class ditulis literal agar Tailwind JIT (v3) tetap men-generate CSS.
 
 | Level | Token | Nilai | Class Tailwind | Penghuni |
@@ -97,7 +97,8 @@
 | **L3** | CHAT | `35` | `z-[35]` | KamitoChatWidget — HARUS < DRAWER agar drawer customizer tak tertutup bubble chat |
 | **L4** | NAV / DRAWER | `50` | `z-50` | Navbar (fixed top) + CustomizerDrawer (panel + recovery pill) |
 | **L5** | MODAL / CART | `60` | `z-[60]` | CartDrawer, CheckoutModal, modal generik |
-| **L6** | AUTH / CONFIRM / POPOVER | `70` | `z-[70]` (`Z_CLASS_POPOVER` tertulis `z-50` di file — MISMATCH, perlu putusan owner) | AuthModal, ConfirmDialog, dropdown, popover, UserNotificationBell |
-| **L7** | QRIS / TOAST | `80` | `z-[80]` | DirectQrisModal (pembayaran = prioritas tertinggi), toast/notifikasi |
+| **L6** | AUTH / CONFIRM / POPOVER | `70` | `z-[70]` | AuthModal, ConfirmDialog, dropdown, popover, UserNotificationBell |
+| **L7** | QRIS | `150` | `z-[150]` | DirectQrisModal (pembayaran = prioritas tertinggi) |
+| **L7+** | TOAST | `160` | `z-[160]` | Toast/notifikasi global — HARUS di atas QRIS agar status bayar tetap terlihat |
 
 > Catatan koreksi: Blueprint Bab 23 (§23) menulis Level 40 untuk chat — itu angka spec pra-implementasi; nilai aktual pasca-perbaikan tabrakan Bab 23 adalah **35** (chat) vs **50** (drawer). Kode + test adalah kebenaran.

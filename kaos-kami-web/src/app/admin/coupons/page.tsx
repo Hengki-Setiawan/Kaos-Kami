@@ -7,6 +7,7 @@ import { auth } from "@/lib/auth";
 import { Coupon } from "@/lib/drizzle-schema";
 import { CouponRowActions } from "@/components/admin/CouponAdminPanel";
 import { CouponCreateModal } from "@/components/admin/CouponCreateModal";
+import { isDevOrTest } from "@/lib/envMode";
 
 export const dynamic = "force-dynamic";
 
@@ -27,7 +28,7 @@ export default async function AdminCouponsPage({
     myRole = null;
   }
 
-  if (process.env.NODE_ENV !== "production" && myRole !== "CUSTOMER") {
+  if (isDevOrTest() && myRole !== "CUSTOMER") {
     myRole = "SUPER_ADMIN";
   }
 

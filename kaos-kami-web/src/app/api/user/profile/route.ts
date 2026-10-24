@@ -1,8 +1,25 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
-import { and, eq, ne } from "drizzle-orm";
+import { and, eq, inArray, ne } from "drizzle-orm";
 import { db } from "@/lib/db";
-import { Account, Address, Session, User, Verification } from "@/lib/drizzle-schema";
+import {
+  Account,
+  Address,
+  Cart,
+  CartItem,
+  ChatMessage,
+  Design,
+  Order,
+  OrderComplaint,
+  OrderRefund,
+  Payment,
+  ProductReview,
+  Session,
+  User,
+  UserDevice,
+  UserPresence,
+  Verification,
+} from "@/lib/drizzle-schema";
 import { getAuthenticatedUser } from "@/lib/security/authGuard";
 import { normalizePhoneId } from "@/lib/phone";
 import { hashOtp } from "@/lib/otp";
@@ -163,19 +180,136 @@ export async function DELETE(req: NextRequest) {
       return NextResponse.json({ error: 'Ketik konfirmasi "HAPUS" untuk menghapus akun.' }, { status: 400 });
     }
     const tag = `deleted-${viewer.id.slice(0, 8)}`;
-    await db.update(User).set({
-      name: "Pengguna Dihapus",
-      email: `${tag}@deleted.local`,
-      phoneNumber: null,
-      phoneVerified: false,
-      passwordHash: null,
-      image: null,
-      updatedAt: new Date(),
-    }).where(eq(User.id, viewer.id)).catch(() => {});
-    await db.update(Address).set({ recipientName: "Dihapus", phoneNumber: "-" }).where(eq(Address.userId, viewer.id)).catch(() => {});
+    const cart = await db.query.Cart.findFirst({
+      where: (t, { eq }) => eq(t.userId, viewer.id),
+      columns: { id: true },
+    });
+    const oldEmail = String((viewer as any).email || "").trim().toLowerCase();
+    const oldPhone = String((viewer as any).phoneNumber || "").trim();
+    const userOrders = await db.query.Order.findMany({
+      where: (t, { eq }) => eq(t.userId, viewer.id),
+      columns: { id: true },
+    });
+    const orderIds = userOrders.map((o) => o.id);
+    // Verification.identifier menyimpan email/nomor (mis. email-otp:...,
+    // pwd-reset-otp:..., otp:...). Hapus SEMUA jejak itu, bukan cuma `del:<id>`.
+    const verifications = await db.query.Verification.findMany({
+      columns: { id: true, identifier: true },
+    });
+    const verifIds = verifications
+      .filter(
+        (v) =>
+          (oldEmail && v.identifier.includes(oldEmail)) ||
+          (oldPhone && v.identifier.includes(oldPhone)) ||
+          v.identifier === `del:${viewer.id}`
+      )
+      .map((v) => v.id);
+
+    // Satu batch atomik: kalau salah satu gagal, JANGAN klaim akun sudah
+    // dihapus. PII yang wajib hilang bukan cuma nama/telepon — alamat lengkap,
+    // catatan order, chat, keluhan, dan ulasan juga bisa memuat identitas.
+    const ops: any[] = [
+      db
+        .update(User)
+        .set({
+          name: "Pengguna Dihapus",
+          email: `${tag}@deleted.local`,
+          phoneNumber: null,
+          phoneVerified: false,
+          passwordHash: null,
+          image: null,
+          updatedAt: new Date(),
+        })
+        .where(eq(User.id, viewer.id)),
+      db
+        .update(Address)
+        .set({
+          label: "Alamat Dihapus",
+          recipientName: "Dihapus",
+          phoneNumber: "-",
+          district: null,
+          postalCode: null,
+          fullAddress: "-",
+          notes: null,
+          isDefault: false,
+        })
+        .where(eq(Address.userId, viewer.id)),
+      db
+        .update(Order)
+        .set({ notes: null, courierNotes: null })
+        .where(eq(Order.userId, viewer.id)),
+      db
+        .update(OrderComplaint)
+        .set({
+          message: "[Dihapus atas permintaan pengguna]",
+          photoUrls: null,
+          resolutionNote: null,
+        })
+        .where(eq(OrderComplaint.userId, viewer.id)),
+      db
+        .update(ProductReview)
+        .set({
+          customerName: "Pengguna Dihapus",
+          reviewText: "[Dihapus atas permintaan pengguna]",
+          photoUrls: null,
+          isPublished: false,
+        })
+        .where(eq(ProductReview.userId, viewer.id)),
+      db
+        .update(Design)
+        .set({
+          title: "Desain Dihapus",
+          previewImageFrontUrl: null,
+          previewImageBackUrl: null,
+          previewImage360Url: null,
+        })
+        .where(eq(Design.userId, viewer.id)),
+      db.delete(ChatMessage).where(eq(ChatMessage.senderId, viewer.id)),
+      db.delete(UserPresence).where(eq(UserPresence.userId, viewer.id)),
+      db.delete(UserDevice).where(eq(UserDevice.userId, viewer.id)),
+    ];
+    if (orderIds.length > 0) {
+      // Payload webhook iPaymu bisa memuat nama/email/telepon pelanggan.
+      ops.push(
+        db
+          .update(Payment)
+          .set({ rawWebhookPayload: null })
+          .where(inArray(Payment.orderId, orderIds))
+      );
+      // Rekening refund adalah data bank pribadi — wajib ikut dihapus.
+      ops.push(
+        db
+          .update(OrderRefund)
+          .set({
+            bankName: null,
+            accountNumber: null,
+            accountHolder: null,
+            proofPhotoUrl: null,
+          })
+          .where(inArray(OrderRefund.orderId, orderIds))
+      );
+    }
+    if (verifIds.length > 0) {
+      ops.push(db.delete(Verification).where(inArray(Verification.id, verifIds)));
+    }
+    // Anak dulu, induk belakangan (aman bila ada FK).
+    if (cart?.id) {
+      ops.push(db.delete(CartItem).where(eq(CartItem.cartId, cart.id)));
+    }
+    ops.push(db.delete(Cart).where(eq(Cart.userId, viewer.id)));
+
+    try {
+      await db.batch(ops as [any, ...any[]]);
+    } catch (e: any) {
+      console.error("[profile] Anonimisasi akun gagal:", e?.message);
+      return NextResponse.json(
+        { error: "Penghapusan akun gagal total; tidak ada data yang diubah. Coba lagi." },
+        { status: 500 }
+      );
+    }
+
     await db.delete(Session).where(eq(Session.userId, viewer.id)).catch(() => {});
     await db.delete(Account).where(eq(Account.userId, viewer.id)).catch(() => {});
-    await db.delete(Verification).where(eq(Verification.identifier, `del:${viewer.id}`)).catch(() => {});
     return NextResponse.json({ success: true, message: "Akun dihapus dan identitas dianonimkan." });
   } catch (e: any) {
     return NextResponse.json({ error: e?.message || "Gagal" }, { status: 500 });

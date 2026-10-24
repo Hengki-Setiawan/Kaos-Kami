@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { CmsPageTabs } from "@/components/admin/CmsPageTabs";
 import { FileText } from "lucide-react";
+import { isDevOrTest } from "@/lib/envMode";
 
 export const dynamic = "force-dynamic";
 
@@ -16,7 +17,7 @@ export default async function AdminCMSPage() {
     myRole = null;
   }
 
-  if (process.env.NODE_ENV !== "production" && myRole !== "CUSTOMER") {
+  if (isDevOrTest() && myRole !== "CUSTOMER") {
     myRole = "SUPER_ADMIN";
   }
 

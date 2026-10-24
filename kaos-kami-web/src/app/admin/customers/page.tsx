@@ -5,6 +5,7 @@ import { db } from "@/lib/db";
 import { Design, Order, User } from "@/lib/drizzle-schema";
 import { CustomerTableClient } from "@/components/admin/CustomerTableClient";
 import { Users, Lock } from "lucide-react";
+import { isDevOrTest } from "@/lib/envMode";
 
 export const dynamic = "force-dynamic";
 
@@ -28,7 +29,7 @@ export default async function AdminCustomersPage({
     myRole = null;
   }
 
-  if (process.env.NODE_ENV !== "production" && myRole !== "CUSTOMER") {
+  if (isDevOrTest() && myRole !== "CUSTOMER") {
     myRole = "SUPER_ADMIN";
   }
 

@@ -3,7 +3,7 @@ import { z } from "zod";
 import { and, eq } from "drizzle-orm";
 import { nanoid } from "nanoid";
 import { db } from "@/lib/db";
-import { Order, OrderStatusEvent } from "@/lib/drizzle-schema";
+import { Order, OrderStatusEvent, Payment } from "@/lib/drizzle-schema";
 import { assertRole } from "@/lib/security/authGuard";
 import { checkRateLimitAsync, getClientIp, rateLimitHeaders } from "@/lib/security/rateLimiter";
 import { assertTransition, type Role } from "@/lib/orders/machine";
@@ -69,6 +69,29 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   if (order.status !== "DESIGN_REVIEW") {
     return NextResponse.json(
       { error: `Hanya order DESIGN_REVIEW yang bisa direview (status saat ini: ${order.status}).` },
+      { status: 400 }
+    );
+  }
+
+  // DESIGN_REVIEW belum punya tagihan resmi. Payment SETTLEMENT di sini =
+  // late payment; refund PENDING harus diselesaikan dulu, jangan buka
+  // pembayaran lagi (risiko double charge).
+  const reviewPay = await db.query.Payment.findFirst({
+    where: (t, { eq }) => eq(t.orderId, order.id),
+    columns: { status: true },
+  });
+  if (reviewPay?.status === "SETTLEMENT") {
+    return NextResponse.json(
+      {
+        error:
+          "Pembayaran sudah masuk saat order masih DESIGN_REVIEW (late payment). Selesaikan refund PENDING terlebih dahulu.",
+      },
+      { status: 400 }
+    );
+  }
+  if (reviewPay?.status === "REFUNDED") {
+    return NextResponse.json(
+      { error: "Order sudah direfund — review desain tidak berlaku." },
       { status: 400 }
     );
   }

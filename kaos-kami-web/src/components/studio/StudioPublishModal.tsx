@@ -11,6 +11,7 @@ import { useSession } from "@/lib/auth-client";
 import { APPAREL_CATALOG } from "@/lib/constants";
 import { calculate6VariablePrice, materialFinishToPricing } from "@/lib/pricingEngine";
 import { PRODUCT_COLORS } from "@/lib/constants";
+import { Z_CLASS_CONFIRM } from "@/lib/zIndex";
 
 export function StudioPublishModal() {
   const searchParams = useSearchParams();
@@ -298,7 +299,7 @@ export function StudioPublishModal() {
 
       {isOpen && isAdmin && mounted && createPortal(
         <div
-          className="fixed inset-0 z-[9999] overflow-y-auto bg-black/80 backdrop-blur-md p-3 sm:p-6 flex min-h-full items-start sm:items-center justify-center animate-in fade-in duration-200"
+          className={`fixed inset-0 ${Z_CLASS_CONFIRM} overflow-y-auto bg-black/80 backdrop-blur-md p-3 sm:p-6 flex min-h-full items-start sm:items-center justify-center animate-in fade-in duration-200`}
           onClick={() => {
             if (!busy) {
               setAutoCloseSeconds(null);

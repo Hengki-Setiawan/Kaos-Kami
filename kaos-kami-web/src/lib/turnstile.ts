@@ -1,3 +1,5 @@
+import { isDevOrTest } from "./envMode";
+
 export interface TurnstileVerificationResult {
   success: boolean;
   errorCodes?: string[];
@@ -17,14 +19,22 @@ export async function verifyTurnstileToken(
   // secret asli = verifikasi tidak berarti → tolak.
   const secretKey = process.env.CLOUDFLARE_TURNSTILE_SECRET_KEY || "";
   
-  // Deteksi token dummy resmi Cloudflare (dihasilkan oleh test key 1x00000000000000000000AA di dev/localhost)
-  const isDummyToken = typeof token === "string" && (token.startsWith("XXXX.DUMMY.") || token === "dummy-token");
+  // P0.4 (23 Okt 2026, keputusan owner): token dummy resmi Cloudflare (test key
+  // 1x00000000000000000000AA) HANYA boleh dipakai di NON-production. Di production,
+  // token apa pun — termasuk "XXXX.DUMMY.*" — diverifikasi via secret asli → dummy
+  // otomatis GAGAL (fail-closed, pintu anti-bot tidak bisa dilubangi).
+  const isDev = isDevOrTest();
+  const isDummyToken =
+    isDev &&
+    typeof token === "string" &&
+    (token.startsWith("XXXX.DUMMY.") || token === "dummy-token");
   const effectiveSecret = isDummyToken
     ? "1x0000000000000000000000000000000AA"
     : secretKey;
 
   if (!effectiveSecret) {
-    if (process.env.NODE_ENV === "production") {
+    // Fail-closed untuk semua mode selain development/test eksplisit.
+    if (!isDev) {
       return { success: false, errorCodes: ["missing-secret"] };
     }
     return { success: true };
@@ -54,6 +64,8 @@ export async function verifyTurnstileToken(
           "Content-Type": "application/x-www-form-urlencoded",
         },
         body: formData.toString(),
+        // Jangan biarkan verifikasi anti-bot menggantung checkout.
+        signal: AbortSignal.timeout(8000),
       }
     );
 

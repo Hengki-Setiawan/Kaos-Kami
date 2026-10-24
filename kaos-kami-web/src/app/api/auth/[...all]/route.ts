@@ -1,12 +1,13 @@
 import { auth } from "@/lib/auth";
 import { toNextJsHandler } from "better-auth/next-js";
 import { NextRequest, NextResponse } from "next/server";
+import { isDevOrTest } from "@/lib/envMode";
 
 const handler = toNextJsHandler(auth.handler);
 
 export async function GET(req: NextRequest) {
   const res = await handler.GET(req);
-  if (process.env.NODE_ENV !== "production" && req.nextUrl.pathname.endsWith("/get-session")) {
+  if (isDevOrTest() && req.nextUrl.pathname.endsWith("/get-session")) {
     const roleCookie = req.cookies.get("kaos_dev_role")?.value;
     const userIdCookie = req.cookies.get("kaos_dev_user_id")?.value;
 

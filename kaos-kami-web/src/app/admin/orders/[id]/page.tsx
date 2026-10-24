@@ -2,6 +2,7 @@ import React from "react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { db } from "@/lib/db";
+import { OrderRefund } from "@/lib/drizzle-schema";
 import {
   Printer,
   Download,
@@ -37,7 +38,16 @@ export default async function AdminOrderDetailPage({ params }: AdminOrderDetailP
     with: {
       items: { with: { design: { with: { category: true } } } },
       productionTasks: true,
-      user: true,
+      // Jangan kirim seluruh baris User (passwordHash dkk) ke client.
+      user: {
+        columns: {
+          id: true,
+          name: true,
+          phoneNumber: true,
+          role: true,
+          phoneVerified: true,
+        },
+      },
       shippingAddress: true,
       payment: true,
       statusHistory: {
@@ -49,6 +59,19 @@ export default async function AdminOrderDetailPage({ params }: AdminOrderDetailP
   if (!order) {
     notFound();
   }
+
+  // Late payment: order sudah CANCELLED/REJECTED/DESIGN_REVIEW tetapi
+  // webhook mencatat uang masuk + OrderRefund PENDING. Admin harus bisa
+  // menyelesaikan refund ini tanpa restore stok.
+  const latePaymentRefund = await db.query.OrderRefund.findFirst({
+    where: (t, { and, eq, like }) =>
+      and(
+        eq(t.orderId, order.id),
+        eq(t.status, "PENDING"),
+        like(t.reason, "LATE_PAYMENT%")
+      ),
+    columns: { id: true },
+  });
 
   // Seed inspector: desain asli item pertama (decals + warna + ukuran).
   // Parse defensif: JSON rusak = inspector generik, bukan crash.
@@ -181,6 +204,7 @@ export default async function AdminOrderDetailPage({ params }: AdminOrderDetailP
           currentTracking={order.trackingNumber}
           orderStatus={order.status}
           deliveryMethod={order.deliveryMethod}
+          latePaymentRefundPending={Boolean(latePaymentRefund)}
         />
       </div>
 
@@ -284,14 +308,14 @@ export default async function AdminOrderDetailPage({ params }: AdminOrderDetailP
                                   <Ruler size={11} className="text-brand-accent shrink-0" />
                                   <span>{task.printWidthCm.toFixed(1)} cm</span>
                                 </span>
-                                {task.printWidthCm <= 30.0 ? (
+                                {task.printWidthCm <= 35.0 ? (
                                   <span className="px-1.5 py-0.2 text-[9px] rounded bg-emerald-500/20 text-emerald-300 font-bold">
                                     Aman DTF
                                   </span>
                                 ) : (
                                   <span className="px-1.5 py-0.2 text-[9px] rounded bg-rose-500/20 text-rose-300 font-bold flex items-center gap-1">
                                     <AlertTriangle size={9} />
-                                    <span>Over 30cm</span>
+                                    <span>Over 35cm</span>
                                   </span>
                                 )}
                               </div>

@@ -2,10 +2,17 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { ChatMessage, UserPresence } from "@/lib/drizzle-schema";
-import { eq, or, and, asc, desc } from "drizzle-orm";
-import { checkRateLimitAsync, rateLimitHeaders } from "@/lib/security/rateLimiter";
+import { eq, or, and, asc, desc, inArray } from "drizzle-orm";
+import { checkRateLimitAsync, getClientIp, rateLimitHeaders } from "@/lib/security/rateLimiter";
+import { safeJsonArray } from "@/lib/json";
 
 export const dynamic = "force-dynamic";
+
+// Guest chat memakai ID acak `guest_<8-32 alfanumerik>` yang dibuat klien.
+// Validasi format ini mencegah IDOR: tanpa validasi, siapa pun bisa mengirim
+// `guestId=<userId korban>` atau `senderId=<userId>` dan membaca/menulis chat
+// milik akun lain.
+const GUEST_ID_RE = /^guest_[a-z0-9]{8,32}$/;
 
 function sanitizeText(str: string): string {
   return str
@@ -14,12 +21,36 @@ function sanitizeText(str: string): string {
     .trim();
 }
 
+/**
+ * Lampiran chat hanya boleh dari storage sendiri atau data-URI gambar raster.
+ * Tanpa allow-list, pelanggan bisa menempel URL pelacak pihak ketiga yang
+ * dimuat browser admin (kebocoran IP admin).
+ */
+function isAllowedAttachment(url: string): boolean {
+  if (/^data:image\/(png|jpeg|webp);base64,/i.test(url)) return true;
+  if (!/^https:\/\//i.test(url)) return false;
+  const bases = [
+    (process.env.R2_PUBLIC_URL || "").replace(/\/+$/, ""),
+    (process.env.NEXT_PUBLIC_SITE_URL || "").replace(/\/+$/, ""),
+  ].filter(Boolean);
+  return bases.some((base) => url.startsWith(`${base}/`));
+}
+
 export async function GET(req: NextRequest) {
   try {
+    const rl = await checkRateLimitAsync(`chat:read:ip:${getClientIp(req)}`, 120, 60);
+    if (rl.isLimited) {
+      return NextResponse.json(
+        { error: "Terlalu banyak permintaan." },
+        { status: 429, headers: rateLimitHeaders(rl, 120) }
+      );
+    }
+
     const session = await auth.api.getSession({ headers: req.headers }).catch(() => null);
     const user = session?.user;
     const url = new URL(req.url);
-    const guestId = url.searchParams.get("guestId");
+    const rawGuestId = (url.searchParams.get("guestId") || "").trim().toLowerCase();
+    const guestId = GUEST_ID_RE.test(rawGuestId) ? rawGuestId : null;
     const targetUserId = url.searchParams.get("userId");
 
     if (!user?.id && !guestId) {
@@ -50,12 +81,10 @@ export async function GET(req: NextRequest) {
         .map((m: any) => m.id);
 
       if (unreadIds.length > 0) {
-        for (const mid of unreadIds) {
-          await db
-            .update(ChatMessage)
-            .set({ isRead: true })
-            .where(eq(ChatMessage.id, mid));
-        }
+        await db
+          .update(ChatMessage)
+          .set({ isRead: true })
+          .where(inArray(ChatMessage.id, unreadIds));
       }
     } else {
       // Pelanggan atau Tamu membaca percakapan pribadinya
@@ -76,12 +105,10 @@ export async function GET(req: NextRequest) {
         .map((m: any) => m.id);
 
       if (unreadIds.length > 0) {
-        for (const mid of unreadIds) {
-          await db
-            .update(ChatMessage)
-            .set({ isRead: true })
-            .where(eq(ChatMessage.id, mid));
-        }
+        await db
+          .update(ChatMessage)
+          .set({ isRead: true })
+          .where(inArray(ChatMessage.id, unreadIds));
       }
     }
 
@@ -95,7 +122,7 @@ export async function GET(req: NextRequest) {
         receiverId: m.receiverId,
         orderId: m.orderId,
         content: m.content,
-        attachments: m.attachments ? JSON.parse(m.attachments) : [],
+        attachments: safeJsonArray<string>(m.attachments),
         isRead: Boolean(m.isRead),
         createdAt: m.createdAt,
       })),
@@ -110,12 +137,8 @@ export async function POST(req: NextRequest) {
     const session = await auth.api.getSession({ headers: req.headers }).catch(() => null);
     const user = session?.user;
     const body = await req.json().catch(() => null);
-    const guestId =
-      typeof body?.guestId === "string" && body.guestId.trim().length > 0
-        ? body.guestId.trim()
-        : typeof body?.senderId === "string" && body.senderId.trim().length > 0
-        ? body.senderId.trim()
-        : null;
+    const rawGuestId = typeof body?.guestId === "string" ? body.guestId.trim().toLowerCase() : "";
+    const guestId = GUEST_ID_RE.test(rawGuestId) ? rawGuestId : null;
 
     if (!user?.id && !guestId) {
       return NextResponse.json({ error: "Identitas pengirim (user atau guestId) wajib disertakan." }, { status: 401 });
@@ -183,8 +206,14 @@ export async function POST(req: NextRequest) {
     let sanitizedAttachments: string[] | null = null;
     if (Array.isArray(body?.attachments)) {
       const filtered = body.attachments
-        .filter((u: any) => typeof u === "string" && (u.startsWith("http://") || u.startsWith("https://") || u.startsWith("data:image/")))
+        .filter((u: any) => typeof u === "string" && isAllowedAttachment(u))
         .slice(0, 5);
+      if (filtered.reduce((n: number, u: string) => n + u.length, 0) > 3_000_000) {
+        return NextResponse.json(
+          { error: "Total lampiran terlalu besar (maks 3MB)." },
+          { status: 413 }
+        );
+      }
       if (filtered.length > 0) {
         sanitizedAttachments = filtered;
       }

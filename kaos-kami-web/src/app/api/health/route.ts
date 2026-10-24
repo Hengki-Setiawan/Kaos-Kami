@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { sql } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { checkRateLimitAsync, getClientIp } from "@/lib/security/rateLimiter";
+import { isDevOrTest } from "@/lib/envMode";
 
 // Health jujur (audit N13): DB baca saja + latensi + status KV/R2,
 // no-store anti-cache, tanpa bocor rahasia (hanya ok/gagal + ms).
@@ -23,7 +24,11 @@ export async function GET(req: Request) {
     await db.query.ApparelCategory.findFirst({ columns: { id: true } });
     checks.db = { ok: true, ms: Date.now() - t0 };
   } catch (e: any) {
-    checks.db = { ok: false, note: e?.message?.slice(0, 80) || "db error" };
+    // Jangan bocorkan nama tabel/host DB ke endpoint publik di produksi.
+    checks.db = {
+      ok: false,
+      note: isDevOrTest() ? e?.message?.slice(0, 80) || "db error" : "db error",
+    };
   }
 
   // KV rate-limit (best-effort, tanpa bocor isi). `note` memuat backend

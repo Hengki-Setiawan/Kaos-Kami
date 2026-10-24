@@ -1,11 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { quoteZones, validateExpeditionSelection } from "@/lib/shipping/zones";
-import { awRatesCached, isAgenWebsiteConfigured } from "@/lib/shipping/agenwebsite";
 import { checkRateLimitAsync, getClientIp, rateLimitHeaders } from "@/lib/security/rateLimiter";
 
-// Quote ekspedisi: PRIMER = AgenWebsite real-time (bila key terpasang +
-// kode pos tujuan ada), FALLBACK = tabel zona milik sendiri.
+// Quote ekspedisi (keputusan owner #20=A, 23 Okt 2026): TANPA live API pihak ketiga.
+// Urutan tarif: master 514 kota/kabupaten → tabel zona → flat 25k (di checkout).
 // Harga FINAL tetap di-resolve server saat checkout (bukan dari sini).
 const QuerySchema = z.object({
   city: z.string().max(80).default(""),
@@ -14,7 +13,7 @@ const QuerySchema = z.object({
   // Samakan bucket berat dengan checkout (Math.max(250, totalQty*250)):
   // kirim ?qty=N (jumlah pcs) agar quote memakai berat yang SAMA persis
   // dengan yang dipakai checkout — tanpa ini quote 1000g vs checkout
-  // 250g×qty = tarif live beda bucket. Bila qty ada, ia menang atas weightGrams.
+  // 250g×qty = tarif master beda bucket. Bila qty ada, ia menang atas weightGrams.
   qty: z.coerce.number().int().min(1).max(120).optional(),
   deliveryMethod: z.enum(["PICKUP", "FREE_MAKASSAR", "EXPEDITION_MANUAL"]).optional(),
   zoneId: z.string().max(64).optional(),
@@ -51,19 +50,8 @@ export async function GET(req: NextRequest) {
     if (!sel.ok) return NextResponse.json({ error: sel.error }, { status: 400 });
   }
 
-  // Primer: tarif real-time (dengan cache hemat kuota 30 mnt di lib).
-  if (postalCode && isAgenWebsiteConfigured()) {
-    const live = await awRatesCached(postalCode, weightGrams);
-    if (live && live.length > 0) {
-      return NextResponse.json({
-        source: "live",
-        rates: live,
-        note: "Tarif real-time. Final dihitung server saat checkout.",
-      });
-    }
-  }
-
-  // Sekunder / Offline SSOT: Master Database 514 Kota & Kabupaten (JNE, J&T, Lion Parcel origin Makassar)
+  // Master Database 514 Kota & Kabupaten (JNE, J&T, Lion Parcel origin Makassar)
+  // — sumber tarif pertama setelah pencabutan live API (#20=A).
   const { calculateMasterCourierRates } = await import("@/lib/shipping/masterShippingRates");
   const masterQuote = calculateMasterCourierRates(city || postalCode || "", weightGrams);
   if (masterQuote && masterQuote.rates.length > 0) {
@@ -76,10 +64,10 @@ export async function GET(req: NextRequest) {
     });
   }
 
-  // Fallback tersier: tabel zona (atau satu-satunya sumber bila key belum ada).
+  // Fallback terakhir: tabel zona.
   const zones = await quoteZones(city);
   return NextResponse.json({
-    source: isAgenWebsiteConfigured() ? "zone-fallback" : "zone",
+    source: "zone",
     zones,
     note: "Tarif estimasi tabel. Final dihitung server saat checkout.",
   });

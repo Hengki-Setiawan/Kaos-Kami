@@ -678,7 +678,7 @@ function ModalImporEcommerce({
       orderId: itemTerpilih.orderRef.toLowerCase().replace(/[^a-z0-9]/g, "-") || `offline-${Date.now()}`,
       orderItemId: `item-${Date.now().toString(36)}`,
       stage: "SCREEN_PRINT_SETUP", // Langsung masuk roll tanpa melalui Kanban!
-      printWidthCm: Math.min(30.0, Math.max(2, lebarCm)), // DTF sablon clamp 30 cm
+      printWidthCm: Math.min(35.0, Math.max(2, lebarCm)), // DTF sablon clamp 35 cm (SSOT)
       printHeightCm: Math.max(2, tinggiCm),
       printFileUrl: itemTerpilih.imageUrl || null,
       rawAssetUrl: itemTerpilih.imageUrl || null,
@@ -1442,7 +1442,7 @@ function ModalImporEcommerce({
                     </span>
                   </div>
                   <p className="text-[10px] text-text-muted">
-                    ✓ DTF sablon clamp lebar maks 30.0 cm menjaga margin heatpress workshop Makassar
+                    ✓ DTF sablon clamp lebar maks 35.0 cm menjaga margin heatpress workshop Makassar
                   </p>
                 </div>
 

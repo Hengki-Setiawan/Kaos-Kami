@@ -10,30 +10,37 @@
 Every AI assistant working in this repository MUST strictly follow the architecture, guidelines, and execution tracker established in this codebase.
 
 ### 1. The Blueprint & Progress System
-All design decisions, schemas, and API contracts are formally documented in the `Blueprint/` directory (+ ringkasan utama `Blueprint/RINGKASAN-LENGKAP.md` **[HILANG — perlu dipulihkan/dicabut]**):
-- **`Blueprint/RINGKASAN-LENGKAP.md`** **[HILANG — perlu dipulihkan/dicabut]**: ringkasan 1-file seluruh progres (arsitektur, alur, build, validasi, risiko, sisa).
-- **`Blueprint/TODO-SISA-KERJA-MAXIMAL.md`** **[HILANG — perlu dipulihkan/dicabut]**: MASTER EXECUTION CHECKLIST.
-- **`Blueprint/TODO-TESTLAB-ADMIN/USER/ENV/MOBILE-MAXIMAL.md`** **[HILANG — perlu dipulihkan/dicabut]** (catatan: hanya varian `TODO-TESTLAB-3D-MAXIMAL.md` yang ada) + **`Blueprint/CRON-JOB-SPEC.md`** **[HILANG — perlu dipulihkan/dicabut]** + **`Blueprint/ALUR-LENGKAP-USER-ADMIN-PROGRAM.md`** **[HILANG — perlu dipulihkan/dicabut]**: tracker aktif per area.
-- **`Blueprint/TODO-MOCKUP-5PER5.md`** **[HILANG — perlu dipulihkan/dicabut]**: Mockup 5/5 Fase M0–M5 (RENCANA 09 Sep 2026; KTX2 DITUNDA keputusan owner).
-- **`Blueprint/ASSET-WAVE1-CHECKLIST.md`** **[HILANG — perlu dipulihkan/dicabut]**: Checklist unduh Wave-1 (bukti lisensi, dirujuk `ASSET_CREDITS.md` — JANGAN pindah).
-- **`Blueprint/mobile/BLUEPRINT-M1-…-M10-*.md`** **[HILANG — perlu dipulihkan/dicabut]** + **`Blueprint/BUILD-PROGRESS-TRACKER-MOBILE.md`** **[HILANG — perlu dipulihkan/dicabut]** (catatan: file aktual yang ada adalah `Blueprint/BUILD-PROGRESS-TRACKER.md`): spek + tracker mobile.
-- **`Blueprint/e2e/E2E-MASTER-PLAN.md`** **[HILANG — perlu dipulihkan/dicabut]**: SSOT testing Bab 0–17 (±350 test + 60 go-live G + 10 rantai C + roadmap R1–R7). WAJIB dibaca sebelum tulis/jalankan test apa pun; notasi `TEST-<STAMP>-*` + akun factory + bukti 3 lapis (Bab 0, 7).
-- **`Blueprint/e2e/hasil-pengujian-e2e/`**: SATU-SATUNYA folder output test (`README` **[HILANG — perlu dipulihkan/dicabut]** + `index.md` register + `BAB-COVERAGE.md` **[HILANG — perlu dipulihkan/dicabut]** + `_template/` **[HILANG — perlu dipulihkan/dicabut]** + `<run-ts>/` artefak). Klaim tanpa file di sini = BELUM terjadi. JANGAN buat folder hasil lain!
-- **`Blueprint/e2e/` (dokumen operasional, dibaca sesuai kebutuhan)**: `TODO-MASTER.md` **[HILANG — perlu dipulihkan/dicabut]** (checklist urutan Fase 0–5 BERTUAN — baca DULU sebelum kerjakan apa pun!) · `DUITKU-SANDBOX.md` **[HILANG — perlu dipulihkan/dicabut]** (D-01) · `SOP-REFUND.md` **[HILANG — perlu dipulihkan/dicabut]** · `SOP-REKONSILIASI.md` **[HILANG — perlu dipulihkan/dicabut]** · `KEBIJAKAN-RETENSI.md` **[HILANG — perlu dipulihkan/dicabut]** · `PLAYBOOK-CS.md` **[HILANG — perlu dipulihkan/dicabut]** (10 template WA + koms insiden) · `PANDUAN-RUNNER.md` **[HILANG — perlu dipulihkan/dicabut]** (spesifikasi 9 script eksekusi + aturan keras — WAJIB dibaca sebelum tulis/jalankan runner apa pun!).
-- Arsip basi (di luar repo): `Backup-Kaos-Kami/arsip/` = `TODO-UPGRADE-3D-MAXIMAL.md` (SELESAI 09 Sep 2026) + `hasil-pengujian-e2e/` (artefak 267MB). Whenever you complete a task, you MUST check off `[x]` the corresponding item in this tracker and update the daily worklog table!
+Semua keputusan desain, skema, dan kontrak API DIDOKUMENTASIKAN pada file yang BENAR-BENAR ADA di `Blueprint/`.
+
+**File aktif (ada di repo — boleh jadi acuan):**
+- `Blueprint/BUILD-PROGRESS-TRACKER.md` — tracker progres build. Hanya OWNER yang boleh mencentang `[x]`.
+- `Blueprint/BLUEPRINT-E2E-ADMIN-USER-LENGKAP.md` — skenario E2E admin/user yang ada.
+- `Blueprint/BLUEPRINT-AUDIT-UIUX-REDESIGN-DASHBOARD.md` — audit & arah desain UI/UX.
+- `Blueprint/BLUEPRINT-LIVECHAT-KAMITO-NOTIFIKASI.md` — spesifikasi livechat/notifikasi.
+- `Blueprint/TODO-TESTLAB-3D-MAXIMAL.md` — checklist testlab 3D.
+- `Blueprint/AUDIT-MAKSIMAL-2026-10-23/` — audit 23 Okt 2026; `11-KEPUTUSAN-OWNER-2026-10-23.md` = SSOT 20 keputusan owner.
+- `Blueprint/e2e/hasil-pengujian-e2e/` — SATU-SATUNYA folder output test. Klaim tanpa file di sini = BELUM terjadi. JANGAN buat folder hasil lain.
+
+**DICABUT / TIDAK ADA di repo — JANGAN dirujuk sebagai acuan (keputusan owner #9=B, 23 Okt 2026):**
+- `RINGKASAN-LENGKAP.md`, `TODO-SISA-KERJA-MAXIMAL.md`, `TODO-TESTLAB-ADMIN/USER/ENV/MOBILE-MAXIMAL.md`, `CRON-JOB-SPEC.md`, `ALUR-LENGKAP-USER-ADMIN-PROGRAM.md`, `TODO-MOCKUP-5PER5.md`, `ASSET-WAVE1-CHECKLIST.md`, `Blueprint/mobile/*`, `BUILD-PROGRESS-TRACKER-MOBILE.md`.
+- `Blueprint/e2e/E2E-MASTER-PLAN.md` (SSOT test ±350 kasus) serta `TODO-MASTER.md`, `DUITKU-SANDBOX.md`, `SOP-REFUND.md`, `SOP-REKONSILIASI.md`, `KEBIJAKAN-RETENSI.md`, `PLAYBOOK-CS.md`, `PANDUAN-RUNNER.md`.
+- Konsekuensi: `.github/workflows/e2e-smoke.yml` & `e2e-nightly.yml` DIBEKUKAN (`if: false`) sampai SSOT test dipulihkan dan run pertama terbukti hijau.
+- Arsip basi ada di luar repo: `Backup-Kaos-Kami/arsip/` (TODO-UPGRADE-3D-MAXIMAL.md selesai 09 Sep 2026 + artefak e2e 267MB) — bukan acuan aktif.
+
+**Aturan status:** AI DILARANG mencentang `[x]` tracker atau mengklaim tugas selesai. Status maksimum AI: `🟡 KODE DIUBAH — MENUNGGU VERIFIKASI FISIK OWNER`. Hanya OWNER yang mencentang setelah uji layar.
 
 ---
 
 ## 🏛️ NON-NEGOTIABLE ARCHITECTURAL RULES
 
-1. **Database:** Always use **Turso (libSQL Edge SQLite)**. RUNTIME access MUST go through **Drizzle ORM + `@libsql/client/web`** (`src/lib/db.ts`, schema in `src/lib/drizzle-schema.ts`) — Prisma Client v6/v7 CANNOT run on Cloudflare Workers (eval/WASM blocked by workerd, see RUNBOOK §6). Prisma is kept ONLY for: schema source-of-truth, `db push`, typegen, seed (Node), Studio. NEVER switch to regular Supabase (to prevent 7-day inactivity pause issues).
+1. **Database:** Always use **Turso (libSQL Edge SQLite)**. RUNTIME access MUST go through **Drizzle ORM + `@libsql/client/web`** (`src/lib/db.ts`, schema in `src/lib/drizzle-schema.ts`) — Prisma Client v6/v7 CANNOT run on Cloudflare Workers (eval/WASM blocked by workerd, see RUNBOOK §6). Prisma is kept ONLY for: schema source-of-truth, typegen, seed (Node), Studio. `prisma db push` / `migrate deploy` TIDAK bisa konek ke `libsql://` (P1013) — baseline UTF-8 ada di `kaos-kami-web/prisma/baseline-schema.sql` dan tulis skema prod lewat SQL berversi via `@libsql/client` (RUNBOOK §5). NEVER switch to regular Supabase (to prevent 7-day inactivity pause issues).
 2. **Object Storage:** Always use **Cloudflare R2** for user-uploaded decals, master assets, and 3D models. Zero egress fees protect the project margin.
 3. **Physical Scale Calibration (DTF Sablon Standard):**
-   - Maximum printable width is strictly clamped to **30.0 cm** (matching physical heat press and A3 chest anatomy limits for maklon DTF printing).
+   - Maximum printable width is strictly clamped to **35.0 cm** (SSOT `REAL_WORLD_PRINT_LIMITS.maxPrintWidthCm` di `kaos-kami-web/src/lib/scaleCalibration.ts`; sesuai heat press workshop + anatomi dada untuk maklon DTF). Klaim lama "30 cm" di dokumen/copy SUDAH KEDALUWARSA (keputusan owner #1=B, 23 Okt 2026).
    - Real-world dimensions (`printWidthCm`, `printHeightCm`, `offsetFromCollarCm`) must always be calculated and displayed to users and stored in `ProductionTask`.
 4. **Fulfillment (Makassar Hyperlocal + Ekspedisi Nasional):**
-    - PICKUP (alamat workshop di invoice) • FREE_MAKASSAR antar tim Rp 0 • Luar kota = AgenWebsite Rate API live (user pilih termurah), fallback tabel `ExpeditionZone` → flat. Detail: `RUNBOOK.md` (§ cron + shipping) dan kode `kaos-kami-web/src/lib/shipping/` + `kaos-kami-web/src/app/api/shipping/` + `kaos-kami-web/src/app/api/cron/` (pengganti `Blueprint/PENGIRIMAN.md` yang sudah tidak ada).
-    - Key `AGENWEBSITE_RATE_API_KEY` hanya via secret/env, tidak pernah di-commit.
+    - PICKUP (alamat workshop di invoice) • FREE_MAKASSAR antar tim Rp 0 • Luar kota = **master 514 kota/kabupaten → tabel `ExpeditionZone` → flat Rp 25.000** (keputusan owner #20=A, 23 Okt 2026: AgenWebsite Rate API DICABUT TOTAL — tidak ada env `AGENWEBSITE_*`). Detail: `RUNBOOK.md` (§ cron + shipping) dan kode `kaos-kami-web/src/lib/shipping/` + `kaos-kami-web/src/app/api/shipping/` + `kaos-kami-web/src/app/api/cron/` (pengganti `Blueprint/PENGIRIMAN.md` yang sudah tidak ada).
+    - Tarif FINAL selalu di-resolve server saat checkout (client tidak dipercaya).
 5. **WhatsApp Notifications:**
    - Automated via Fonnte with **Fail-Safe / Graceful Fallback**: wrapped in try/catch so checkout 100% succeeds, with web invoice + direct `wa.me` manual button.
 6. **Cloudflare 3MB Worker Limit:**

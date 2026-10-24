@@ -41,9 +41,10 @@ export default async function CanonicalInvoicePage({ params }: CanonicalInvoiceP
     where: (t, { eq }) => eq(t.id, id),
     with: {
       items: true,
-      user: true,
+      // Least privilege: invoice hanya butuh kontak + status/metode bayar.
+      user: { columns: { id: true, name: true, phoneNumber: true, email: true } },
       shippingAddress: true,
-      payment: true,
+      payment: { columns: { status: true, method: true } },
     },
   });
 

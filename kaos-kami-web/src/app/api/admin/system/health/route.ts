@@ -3,6 +3,7 @@ import { headers } from "next/headers";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { sql } from "drizzle-orm";
+import { isDevOrTest } from "@/lib/envMode";
 
 export const dynamic = "force-dynamic";
 
@@ -20,7 +21,7 @@ export async function GET(req: NextRequest) {
     const session = await auth.api.getSession({ headers: (await headers()) as any });
     const role = (session?.user as any)?.role;
     if (
-      process.env.NODE_ENV === "production" &&
+      !isDevOrTest() &&
       (!session?.user || !["ADMIN", "SUPER_ADMIN"].includes(role))
     ) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });

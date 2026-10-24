@@ -1,6 +1,10 @@
 import type { Config } from "tailwindcss";
 
 const config: Config = {
+  // Keputusan owner #15=A (23 Okt 2026): dark: HARUS mengikuti tema aplikasi
+  // ([data-theme=obsidian]), BUKAN prefers-color-scheme OS. Sebelumnya varian
+  // dark: menyala di OS gelap walau tema situs terang (kontras rusak).
+  darkMode: ["selector", "[data-theme=obsidian]"],
   content: [
     "./src/components/**/*.{js,ts,jsx,tsx,mdx}",
     "./src/app/**/*.{js,ts,jsx,tsx,mdx}",

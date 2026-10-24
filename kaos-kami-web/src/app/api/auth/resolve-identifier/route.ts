@@ -106,7 +106,8 @@ export async function POST(req: NextRequest) {
       email: raw,
       type: "unknown",
     });
-  } catch (err: any) {
-    return NextResponse.json({ error: err?.message || "Internal server error" }, { status: 500 });
+  } catch {
+    // Jangan bocorkan detail DB/ORM ke endpoint publik.
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 }

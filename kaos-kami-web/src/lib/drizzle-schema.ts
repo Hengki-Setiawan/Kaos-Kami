@@ -109,7 +109,7 @@ export const Verification = sqliteTable(
       .$defaultFn(() => new Date())
       .$onUpdate(() => new Date()),
   },
-  (t) => [index("Verification_identifier_idx").on(t.identifier)],
+  (t) => [uniqueIndex("Verification_identifier_key").on(t.identifier)],
 );
 
 export const Address = sqliteTable("Address", {

@@ -1,4 +1,4 @@
-// scripts/e2e-kasus-2.mjs — Eksekusi Nyata Kasus 2: Hoodie Fleece Workshop Pickup KM 10 & DTF 30cm Clamping
+// scripts/e2e-kasus-2.mjs — Eksekusi Nyata Kasus 2: Hoodie Fleece Workshop Pickup KM 10 & DTF 35cm Clamping
 // SSOT: Blueprint/BLUEPRINT-E2E-ADMIN-USER-LENGKAP.md Domain L (C-01/C-02) & Domain B (PROD-09)
 // Pembayaran: iPaymu Direct QRIS (Bab 55) — webhook Duitku 410 Gone, JANGAN dipakai.
 import fs from "fs";
@@ -24,7 +24,7 @@ const c = createClient({
 async function runKasus2() {
   console.log("=================================================================");
   console.log("MEMULAI EKSEKUSI NYATA KASUS 2: HOODIE FLEECE WORKSHOP PICKUP");
-  console.log("   (Uji Kritis Batas Printhead DTF Clamped Maksimal 30.0 cm)");
+  console.log("   (Uji Kritis Batas Printhead DTF Clamped Maksimal 35.0 cm)");
   console.log("=================================================================\n");
 
   // 1. Ambil Sesi Pelanggan (hengkivibecoding@gmail.com)
@@ -40,7 +40,7 @@ async function runKasus2() {
   console.log(`   - Nama: ${custUser.name}`);
   console.log(`   - No. WhatsApp: ${custUser.phoneNumber} (phoneVerified: ${custUser.phoneVerified})`);
 
-  // 2. Siapkan Payload Hoodie dengan Desain Jumbo (Uji Clamping 30.0 cm)
+  // 2. Siapkan Payload Hoodie dengan Desain Jumbo (Uji Clamping 35.0 cm)
   const itemsPayload = [
     {
       apparelSlug: "hoodie",
@@ -166,13 +166,13 @@ async function runKasus2() {
   }
   console.log(`   - Status Order Pasca Bayar: PAYMENT_CONFIRMED (asersi lunas LULUS)`);
 
-  // 5. Verifikasi Pembuatan ProductionTask & Uji Batas Printhead 30.0 cm
+  // 5. Verifikasi Pembuatan ProductionTask & Uji Batas Printhead 35.0 cm
   const taskRes = await c.execute({
     sql: "SELECT id, orderId, stage, printWidthCm, printHeightCm, placementSide FROM ProductionTask WHERE orderId = ?",
     args: [orderId],
   });
   const taskRows = taskRes.rows;
-  console.log(`\n5. Evaluasi Kepatuhan Skala Sablon DTF (Batas 30.0 cm):`);
+  console.log(`\n5. Evaluasi Kepatuhan Skala Sablon DTF (Batas 35.0 cm):`);
   console.log(`   - Diterbitkan: ${taskRows.length} tugas produksi`);
   if (taskRows.length === 0) {
     throw new Error("Asersi ProductionTask GAGAL: 0 task terbit untuk order lunas");
@@ -182,10 +182,10 @@ async function runKasus2() {
   taskRows.forEach((t, i) => {
     const w = Number(t.printWidthCm);
     console.log(`     [Task ${i + 1}] Area: ${t.placementSide}, Lebar: ${w} cm x Tinggi: ${t.printHeightCm} cm`);
-    if (w <= 30.0) {
-      console.log(`     [LULUS] Lebar ${w} cm terkunci dalam batas aman printhead DTF (<= 30.0 cm).`);
+    if (w <= 35.0) {
+      console.log(`     [LULUS] Lebar ${w} cm terkunci dalam batas aman printhead DTF (<= 35.0 cm).`);
     } else {
-      console.error(`     [GAGAL] Lebar ${w} cm melebihi batas printhead 30.0 cm!`);
+      console.error(`     [GAGAL] Lebar ${w} cm melebihi batas printhead 35.0 cm!`);
       clampingVerified = false;
     }
   });
@@ -199,12 +199,12 @@ async function runKasus2() {
       {
         kasus: "KASUS 2: HOODIE FLEECE WORKSHOP PICKUP",
         clampingAudit: {
-          isClampedTo30cm: clampingVerified,
+          isClampedTo35cm: clampingVerified,
           tasks: taskRows.map((t) => ({
             printWidthCm: t.printWidthCm,
             printHeightCm: t.printHeightCm,
             placementSide: t.placementSide,
-            isCompliant: Number(t.printWidthCm) <= 30.0,
+            isCompliant: Number(t.printWidthCm) <= 35.0,
           })),
         },
         order: dbOrder,

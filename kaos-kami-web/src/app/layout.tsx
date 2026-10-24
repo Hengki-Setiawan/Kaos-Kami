@@ -6,7 +6,6 @@ import { DesignSyncProvider } from "@/components/providers/DesignSyncProvider";
 import { AppDownloadBanner } from "@/components/ui/AppDownloadBanner";
 import { NotificationGpsPrompt } from "@/components/ui/NotificationGpsPrompt";
 import { KamitoChatWidget } from "@/components/chat/KamitoChatWidget";
-import { SecretPinModal } from "@/components/ui/SecretPinModal";
 import Script from "next/script";
 import "./globals.css";
 
@@ -35,9 +34,6 @@ const cfAnalyticsToken = process.env.NEXT_PUBLIC_CF_WEB_ANALYTICS_TOKEN;
 
 export const metadata: Metadata = {
   metadataBase: new URL(siteUrl),
-  alternates: {
-    canonical: "/",
-  },
   title: {
     default: "Kaos Kami | Sablon Kaos & Streetwear Makassar",
     template: "%s | Kaos Kami",
@@ -169,7 +165,6 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             <AppDownloadBanner />
             <NotificationGpsPrompt />
             <KamitoChatWidget />
-            <SecretPinModal />
           </DesignSyncProvider>
         </QueryProvider>
       </body>

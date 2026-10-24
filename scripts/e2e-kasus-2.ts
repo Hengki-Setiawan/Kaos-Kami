@@ -18,7 +18,7 @@ const OUTPUT_DIR = "d:/Vibe coding Semester 7/Kaos Kami/Blueprint/hasil-pengujia
 async function runKasus2() {
   console.log("=================================================================");
   console.log("🚀 MEMULAI EKSEKUSI NYATA KASUS 2: HOODIE FLEECE WORKSHOP PICKUP");
-  console.log("   (Uji Kritis Batas Printhead DTF Clamped Maksimal 30.0 cm)");
+  console.log("   (Uji Kritis Batas Printhead DTF Clamped Maksimal 35.0 cm)");
   console.log("=================================================================\n");
 
   // 1. Login Resmi Pelanggan (hengkivibecoding@gmail.com)
@@ -48,7 +48,7 @@ async function runKasus2() {
   console.log(`   - Nama: ${custUser.name}`);
   console.log(`   - No. WhatsApp: ${custUser.phoneNumber} (phoneVerified: ${custUser.phoneVerified})`);
 
-  // 2. Siapkan Payload Hoodie dengan Desain Jumbo (Uji Clamping 30.0 cm)
+  // 2. Siapkan Payload Hoodie dengan Desain Jumbo (Uji Clamping 35.0 cm)
   // Back: /mascot/mascot-sablon.png (skala besar 0.85 -> fisik > 35 cm)
   // Front Crest: /mascot/logo-emblem.png (9 cm x 9 cm)
   const itemsPayload = [
@@ -69,7 +69,7 @@ async function runKasus2() {
           url: "https://pub-5746f36a46904edc8425ecd721b0bfdc.r2.dev/mascot/mascot-sablon.png",
           x: 0,
           y: 0.05,
-          scale: 0.85, // Skala ditarik sangat besar (menguji apakah terkunci ketat 30.0 cm)
+          scale: 0.85, // Skala ditarik sangat besar (menguji apakah terkunci ketat 35.0 cm)
           rotation: 0,
           opacity: 1,
           printPx: { w: 3500, h: 4200 }
@@ -175,8 +175,8 @@ async function runKasus2() {
   }
   console.log(`   - Status Order Pasca Bayar: PAYMENT_CONFIRMED (asersi lunas LULUS)`);
 
-  // 5. Verifikasi UJI KRITIS CLAMPING 30.0 CM di Database ProductionTask
-  console.log("\n5. AUDIT KALIBRASI FISIK PRINTHEAD DTF (Maksimal 30.0 cm):");
+  // 5. Verifikasi UJI KRITIS CLAMPING 35.0 CM di Database ProductionTask
+  console.log("\n5. AUDIT KALIBRASI FISIK PRINTHEAD DTF (Maksimal 35.0 cm):");
   const taskRows = await db.query.ProductionTask.findMany({
     where: eq(ProductionTask.orderId, orderId)
   });
@@ -187,11 +187,11 @@ async function runKasus2() {
   }
   taskRows.forEach((t, i) => {
     console.log(`   [Task ${i+1}] Stage: ${t.stage}, Lebar: ${t.printWidthCm} cm, Tinggi: ${t.printHeightCm} cm`);
-    if (t.printWidthCm <= 30.0) {
-      console.log(`     ✓ Lebar ${t.printWidthCm} cm terkunci dalam batas aman printhead DTF (<= 30.0 cm).`);
+    if (t.printWidthCm <= 35.0) {
+      console.log(`     ✓ Lebar ${t.printWidthCm} cm terkunci dalam batas aman printhead DTF (<= 35.0 cm).`);
       clampingVerified = true;
     } else {
-      console.error(`     ❌ GAGAL: Lebar ${t.printWidthCm} cm melebihi batas printhead 30.0 cm!`);
+      console.error(`     ❌ GAGAL: Lebar ${t.printWidthCm} cm melebihi batas printhead 35.0 cm!`);
     }
   });
 
@@ -228,12 +228,12 @@ async function runKasus2() {
   fs.writeFileSync(orderJsonPath, JSON.stringify({
     kasus: "KASUS 2: HOODIE FLEECE WORKSHOP PICKUP",
     clampingAudit: {
-      isClampedTo30cm: clampingVerified,
+      isClampedTo35cm: clampingVerified,
       tasks: taskRows.map(t => ({
         printWidthCm: t.printWidthCm,
         printHeightCm: t.printHeightCm,
         offsetFromCollarCm: t.offsetFromCollarCm,
-        isCompliant: t.printWidthCm <= 30.0
+        isCompliant: t.printWidthCm <= 35.0
       }))
     },
     order: dbOrder,

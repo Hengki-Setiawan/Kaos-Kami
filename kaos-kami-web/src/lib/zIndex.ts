@@ -17,14 +17,15 @@
  *   Di atas drawer agar keranjang selalu terlihat saat checkout.
  * - L6 POPOVER/AUTH/CONFIRM = 70 → AuthModal, ConfirmDialog, dropdown,
  *   popover, UserNotificationBell. Di atas cart.
- * - L7 TOAST/QRIS = 80 → DirectQrisModal (pembayaran = prioritas tertinggi),
- *   toast/notifikasi. Tak boleh tertutup apa pun.
+ * - L7 TOAST/QRIS = 150/160 → DirectQrisModal (pembayaran, z-[150]) lalu
+ *   toast/notifikasi (z-[160]). Toast sengaja DI ATAS QRIS agar status
+ *   pembayaran tetap terlihat. Tak boleh tertutup apa pun.
  *
  * Aturan pakai:
  * - Import konstanta Z_CLASS_* di komponen dan interpolasi ke className,
  *   JANGAN hardcode `z-40` / `z-[110]` lagi.
  * - Nilai class ditulis literal di file ini agar Tailwind JIT (v3) tetap
- *   men-generate CSS (`z-[35]`, `z-[60]`, `z-[70]`, `z-[80]` + `z-50`).
+ *   men-generate CSS (`z-[35]`, `z-[60]`, `z-[70]`, `z-[150]`, `z-[160]` + `z-50`).
  * - Hanya ubah STACKING. Dilarang ubah logika kamera/decals/checkout.
  */
 

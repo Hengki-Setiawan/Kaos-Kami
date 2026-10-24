@@ -377,12 +377,21 @@ export const AuthModal: React.FC<AuthModalProps> = ({
         return;
       }
 
-      // Buat akun via Better Auth
+      // Buat akun via Better Auth. Tiket dari verify-email-otp WAJIB ikut:
+      // databaseHooks.user.create.before menolak signup tanpa tiket yang cocok.
       const cleanEmail = registerEmail.trim().toLowerCase();
+      const verificationTicket = String(verifyData.verificationTicket || "").trim();
+      if (!verificationTicket) {
+        setErrorMessage("Server tidak menerbitkan tiket verifikasi. Minta kode OTP baru lalu coba lagi.");
+        return;
+      }
       const signUpResult = await signUp.email({
         email: cleanEmail,
         password: registerPassword,
         name: registerName.trim(),
+        fetchOptions: {
+          headers: { "x-email-verification-ticket": verificationTicket },
+        },
       });
 
       if (signUpResult.error) {

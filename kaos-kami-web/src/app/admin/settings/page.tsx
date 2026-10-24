@@ -7,6 +7,7 @@ import { db } from "@/lib/db";
 import { auth } from "@/lib/auth";
 import { Order, ProductionTask, ProductVariant, ShopConfig } from "@/lib/drizzle-schema";
 import { EditShopConfigModal } from "@/components/admin/EditShopConfigModal";
+import { isDevOrTest } from "@/lib/envMode";
 import {
   SHOP_CONTACT_WHATSAPP,
   SHOP_LAT,
@@ -82,7 +83,7 @@ export default async function AdminSettingsPage({
     myRole = null;
   }
 
-  if (process.env.NODE_ENV !== "production" && myRole !== "CUSTOMER") {
+  if (isDevOrTest() && myRole !== "CUSTOMER") {
     myRole = "SUPER_ADMIN";
   }
 

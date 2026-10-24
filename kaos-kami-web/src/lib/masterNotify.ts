@@ -65,7 +65,7 @@ export function buildMasterNotifyNote(parts: {
 }): string {
   const bits: string[] = [];
   bits.push(parts.hasFile ? "Master film DTF 300 DPI dilampirkan operator." : "Data master diperbarui operator.");
-  if (parts.printWidthCm !== undefined) bits.push(`Lebar ${parts.printWidthCm.toFixed(1)} cm (maks 30.0).`);
+  if (parts.printWidthCm !== undefined) bits.push(`Lebar ${parts.printWidthCm.toFixed(1)} cm (maks ${MASTER_NOTIFY_MAX_WIDTH_CM.toFixed(1)}).`);
   if (parts.placementSide) bits.push(`Posisi: ${parts.placementSide}.`);
   if (parts.offsetFromCollarCm !== undefined) bits.push(`Kerah ↓${parts.offsetFromCollarCm} cm.`);
   if (parts.resi) bits.push(`Resi: ${parts.resi}.`);

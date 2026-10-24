@@ -34,6 +34,14 @@ describe("testOtpPeek: isOtpPeekAllowed fail-closed", () => {
       expect(r).toEqual({ ok: false, reason: "flag-mati" });
     }
   });
+  it("NODE_ENV kosong/asing DITOLAK (fail-closed, bukan hanya production)", () => {
+    for (const env of [undefined, "", "staging", "PRODUCTION"]) {
+      expect(isOtpPeekAllowed({ ...BASE, NODE_ENV: env }, "0895803463032")).toEqual({
+        ok: false,
+        reason: "tolak-prod",
+      });
+    }
+  });
   it("produksi DITOLAK dua lapis (NODE_ENV + IPAYMU_ENV)", () => {
     expect(isOtpPeekAllowed({ ...BASE, NODE_ENV: "production" }, "0895803463032")).toEqual({
       ok: false,

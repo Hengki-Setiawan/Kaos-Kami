@@ -2,6 +2,7 @@
  * Layanan Pengiriman Email Transaksional (OTP, Notifikasi) Kaos Kami
  * Menggunakan Resend REST API murni (tanpa npm package berat, kompatibel dengan Edge/Cloudflare Worker)
  */
+import { maskEmail } from "@/lib/mask";
 
 interface SendEmailParams {
   to: string;
@@ -45,6 +46,8 @@ export async function sendEmail({ to, subject, html }: SendEmailParams): Promise
         subject,
         html,
       }),
+      // Timeout agar OTP/checkout tidak menggantung saat Resend lambat.
+      signal: AbortSignal.timeout(10000),
     });
 
     if (!res.ok) {
@@ -74,15 +77,10 @@ export async function sendEmail({ to, subject, html }: SendEmailParams): Promise
  */
 export async function sendEmailOtp(toEmail: string, otpCode: string, name?: string): Promise<SendEmailResult> {
   const greeting = name ? `Halo ${name},` : "Halo Pelanggan Kaos Kami,";
-  const subject = `${otpCode} adalah Kode Verifikasi Pendaftaran Akun Kaos Kami`;
-
-  console.log(`\n=========================================================`);
-  console.log(`[EMAIL OTP VERIFIKASI KAOS KAMI]`);
-  console.log(`Kepada: ${toEmail}`);
-  console.log(`Nama: ${name || "-"}`);
-  console.log(`Kode OTP: ${otpCode}`);
-  console.log(`Berlaku: 10 Menit`);
-  console.log(`=========================================================\n`);
+  // Jangan taruh OTP di subject/log: subject mudah terlihat di preview,
+  // notifikasi lock-screen, dan log agregator. OTP hanya di body email.
+  const subject = "Kode Verifikasi Pendaftaran Akun Kaos Kami";
+  console.info(`[Email OTP] Verifikasi dikirim ke ${maskEmail(toEmail)} (berlaku 10 menit)`);
 
   const html = `
 <!DOCTYPE html>
@@ -124,7 +122,8 @@ export async function sendEmailOtp(toEmail: string, otpCode: string, name?: stri
   `.trim();
 
   const res = await sendEmail({ to: toEmail, subject, html });
-  return { ...res, code: otpCode };
+  // Jangan pernah mengembalikan OTP ke caller/response; cukup status kirim.
+  return res;
 }
 
 /**
@@ -132,15 +131,8 @@ export async function sendEmailOtp(toEmail: string, otpCode: string, name?: stri
  */
 export async function sendEmailPasswordResetOtp(toEmail: string, otpCode: string, name?: string): Promise<SendEmailResult> {
   const greeting = name ? `Halo ${name},` : "Halo Pelanggan Kaos Kami,";
-  const subject = `${otpCode} adalah Kode Verifikasi Reset Password Akun Kaos Kami`;
-
-  console.log(`\n=========================================================`);
-  console.log(`[EMAIL OTP RESET PASSWORD KAOS KAMI]`);
-  console.log(`Kepada: ${toEmail}`);
-  console.log(`Nama: ${name || "-"}`);
-  console.log(`Kode OTP: ${otpCode}`);
-  console.log(`Berlaku: 10 Menit`);
-  console.log(`=========================================================\n`);
+  const subject = "Kode Verifikasi Reset Password Akun Kaos Kami";
+  console.info(`[Email OTP] Reset password dikirim ke ${maskEmail(toEmail)} (berlaku 10 menit)`);
 
   const html = `
 <!DOCTYPE html>
@@ -182,6 +174,6 @@ export async function sendEmailPasswordResetOtp(toEmail: string, otpCode: string
   `.trim();
 
   const res = await sendEmail({ to: toEmail, subject, html });
-  return { ...res, code: otpCode };
+  return res;
 }
 

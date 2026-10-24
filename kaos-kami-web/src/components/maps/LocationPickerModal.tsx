@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useEffect, useRef, useState, useCallback } from "react";
+import { createPortal } from "react-dom";
 import {
   MapPin,
   Search,
@@ -13,6 +14,7 @@ import {
   ExternalLink,
 } from "lucide-react";
 import "leaflet/dist/leaflet.css";
+import { Z_CLASS_POPOVER } from "@/lib/zIndex";
 
 export interface PickedLocation {
   lat: number;
@@ -59,6 +61,11 @@ export const LocationPickerModal: React.FC<LocationPickerModalProps> = ({
   const [isLoadingAddress, setIsLoadingAddress] = useState(false);
   const [gpsLoading, setGpsLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   // Reverse Geocode helper
   const reverseGeocode = useCallback(async (lat: number, lng: number) => {
@@ -291,14 +298,14 @@ export const LocationPickerModal: React.FC<LocationPickerModalProps> = ({
     onClose();
   };
 
-  if (!isOpen) return null;
+  if (!isOpen || !mounted) return null;
 
-  return (
+  return createPortal(
     <div
       role="dialog"
       aria-modal="true"
       aria-labelledby="location-picker-title"
-      className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-5 bg-black/80 backdrop-blur-md animate-fadeIn"
+      className={`fixed inset-0 ${Z_CLASS_POPOVER} flex items-center justify-center p-3 sm:p-5 bg-black/80 backdrop-blur-md animate-fadeIn`}
     >
       <div className="relative w-full max-w-4xl h-[90vh] max-h-[720px] rounded-3xl bg-surface border border-border-subtle shadow-2xl flex flex-col overflow-hidden text-text-primary">
         {/* Header Bar */}
@@ -454,6 +461,7 @@ export const LocationPickerModal: React.FC<LocationPickerModalProps> = ({
           </div>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 };

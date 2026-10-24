@@ -37,7 +37,7 @@ export interface PricingBreakdown6Var {
   // 3. Sleeve type surcharge (short vs longsleeve)
   isLongsleeve: boolean;
   sleeveSurchargeIdr: number;
-  // 4. Per-decal print area tier (A6, A5, A4, A3 max 30cm)
+  // 4. Per-decal print area tier (A6, A5, A4, A3 max 35cm)
   decalLayers: {
     id: string;
     name: string;
@@ -81,7 +81,7 @@ export interface CalculatePricingInput {
  * 1. Base Apparel
  * 2. Fabric GSM Thickness (30s 0k, 24s +10k, 20s +15k, 16s +25k)
  * 3. Sleeve Type (Longsleeve +20k)
- * 4. Print Area Tier (A6 +10k, A5 +15k, A4 +25k, A3 max 30cm +35k)
+ * 4. Print Area Tier (A6 +10k, A5 +20k, A4 +30k, A3 max 35cm +30k)
  * 5. Size Surcharge (XXL +10k, XXXL +20k)
  * 6. Volume Wholesale Discounts (6-12 pcs -5%, 13-50 pcs -12%, >50 pcs -20%)
  */
@@ -117,7 +117,7 @@ export function calculate6VariablePrice(input: CalculatePricingInput): PricingBr
   const isLongsleeve = apparelSlug === "longsleeve";
   const sleeveSurchargeIdr = 0;
 
-  // 4. Per-Decal Print Area Tier (SSOT printTiers.ts, terkalibrasi Maks 30cm DTF)
+  // 4. Per-Decal Print Area Tier (SSOT printTiers.ts, terkalibrasi Maks 35cm DTF)
   // Aspek RIIL dari printPx bila ada (audit: aspect 1.0 hardcoded = undercharge
   // artwork portrait + dimensi workshop salah).
   const aspectOf = (d: any): number => {

@@ -60,7 +60,7 @@ export function AdminJobTicketModal({
       return '';
     }
   })();
-  const overMax = data.printWidthCm > 30.0;
+  const overMax = data.printWidthCm > 35.0;
   const hasDims = data.printWidthCm > 0 && data.printHeightCm > 0;
   const dpiLabel = data.decalDpi && data.decalDpi > 0 ? `${data.decalDpi} DPI (aktual)` : 'menunggu info workshop';
 
@@ -70,7 +70,7 @@ export function AdminJobTicketModal({
     `Order: ${data.orderNumber}`,
     `Pelanggan: ${data.customerName || 'Pelanggan'}`,
     `Apparel: ${data.apparelTitle} (${data.colorName} - Size ${data.size} x ${data.quantity} pcs)`,
-    `Ukuran Cetak DTF: ${hasDims ? `${data.printWidthCm} x ${data.printHeightCm} cm (Maks 30.0 cm)` : 'menunggu info workshop'}${overMax ? ' — ⚠️ MELEBIHI BATAS, kecilkan sebelum cetak' : ''}`,
+    `Ukuran Cetak DTF: ${hasDims ? `${data.printWidthCm} x ${data.printHeightCm} cm (Maks 35.0 cm)` : 'menunggu info workshop'}${overMax ? ' — ⚠️ MELEBIHI BATAS, kecilkan sebelum cetak' : ''}`,
     `DPI master: ${dpiLabel}`,
     `Kirim: ${data.deliveryMethod || '-'}`,
     `Workshop: ${WORKSHOP_LOCATION.address}`,
@@ -171,7 +171,7 @@ export function AdminJobTicketModal({
                 {hasDims ? `${data.printWidthCm} cm x ${data.printHeightCm} cm` : 'menunggu info workshop'}
               </span>
               {overMax && (
-                <span className="block text-[10px] text-red-300 font-bold">Melebihi batas DTF 30.0 cm — kecilkan dulu!</span>
+                <span className="block text-[10px] text-red-300 font-bold">Melebihi batas DTF 35.0 cm — kecilkan dulu!</span>
               )}
             </div>
             <div>

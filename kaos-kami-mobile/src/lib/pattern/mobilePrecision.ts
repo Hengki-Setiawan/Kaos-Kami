@@ -46,8 +46,8 @@ export function validSidesFor(apparel: ApparelType): MobilePatternSide[] {
   return validSidesForMobile(apparel);
 }
 
-/** Global clamp batas DTF 30.0cm (cermin web REAL_WORLD_PRINT_LIMITS). */
-export const DTF_MAX_WIDTH_CM = 30.0;
+/** Global clamp batas DTF 35.0cm (cermin web REAL_WORLD_PRINT_LIMITS). */
+export const DTF_MAX_WIDTH_CM = 35.0;
 
 export function clampWidthToDtf(w: number): number {
   if (!Number.isFinite(w)) return 0;
@@ -100,7 +100,7 @@ export interface PrecisionInput {
 
 /**
  * Validasi angka presisi (murni, tanpa efek samping).
- * - lebar/tinggi finite, 1–42cm, lebar ≤30 global + ≤ batas sisi.
+ * - lebar/tinggi finite, 1–42cm, lebar ≤35 global + ≤ batas sisi.
  * - offset 0–30cm (jarak dari kerah).
  */
 export function validatePrecisionInput(

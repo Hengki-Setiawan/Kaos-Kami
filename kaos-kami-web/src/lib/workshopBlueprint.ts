@@ -88,10 +88,10 @@ export function computeFlatWorkshopPlacement(
   // Standar industri kedalaman kerah dari puncak bahu
   const collarDropCm = targetSide === "back" ? 3.5 : isSleeve || isSide ? 0 : 8.5;
 
-  // Ukuran cetak film DTF (clamped maks 30.0 cm sesuai standar A3 heat press)
+  // Ukuran cetak film DTF (clamped maks 35.0 cm — SSOT REAL_WORLD_PRINT_LIMITS)
   const printWidthCm = Math.max(
     3.0,
-    Math.min(isSleeve ? 10.0 : isSide ? 14.0 : 30.0, Math.round((params.printWidthCm ?? (isSleeve ? 8.0 : isSide ? 12.0 : 28.0)) * 10) / 10)
+    Math.min(isSleeve ? 10.0 : isSide ? 14.0 : 35.0, Math.round((params.printWidthCm ?? (isSleeve ? 8.0 : isSide ? 12.0 : 28.0)) * 10) / 10)
   );
   const printHeightCm = Math.max(
     3.0,

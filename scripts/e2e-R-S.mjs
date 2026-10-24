@@ -308,7 +308,7 @@ try {
     rec("S-031", s31 === 400 ? "PASS" : "FAIL", `decals-11â†’${s31} (guard checkout:94)`);
   }
   { // S-024 live-down + eksplisit + S-025 batas total (batas dicek SEBELUM gerbang OTP)
-    rec("S-024", "SKIP", "butuh mock awRatesâ†’null / cabut AGENWEBSITE_RATE_API_KEY sementara di dev + catat (guard checkout:401-410; JANGAN di prod!)");
+    rec("S-024", "SKIP", "AgenWebsite DICABUT (#20=A): live-down tak relevan; verifikasi manual quote = source master-tariff/zone tanpa live API (checkout resolve master 514 → zona)");
     const p = basePayload("0895803463032", "S-025");
     p.items[0].quantity = 500; p.turnaroundTier = "EXPRESS_24H";
     const s25 = await checkoutPost(p, `TEST-${STAMP}-S025-${crypto.randomUUID().slice(0, 8)}`, { id: "S-025", cookie: VC });

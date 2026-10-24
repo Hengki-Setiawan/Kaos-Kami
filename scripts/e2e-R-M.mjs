@@ -55,7 +55,7 @@ const MANUAL = [
   "M-004 re-quote saat buka sheet (visual) + M-011 cart utuh saat gagal + M-012 clearCart",
   "M-010 jalur R2-vs-base64 + M-013 modal Duitku vs tunggu-ACC (butuh order PENDING ber-URL)",
   "M-016 push re-register (butuh FCM Play Services) + M-017 BackButton lapis + M-018 logout bersih",
-  "M-019 badge biometrik + M-021 clamp 30cm store + M-022 PrintZoneGuide + M-023 sleeve/collar wire",
+  "M-019 badge biometrik + M-021 clamp 35cm store + M-022 PrintZoneGuide + M-023 sleeve/collar wire",
   "M-024 SPK nama+DPI + M-025 telemetri ASTM + M-026 invoice tab + M-028 QC foto + M-029 gang + M-030 admin HP",
 ];
 const PLAN = ["M-001 katalog ETag/304", "M-002 capâ†’400", "M-003 harga server (sync)", "M-005 slug asing failed[]",

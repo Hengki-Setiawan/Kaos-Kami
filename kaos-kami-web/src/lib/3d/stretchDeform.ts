@@ -117,7 +117,7 @@ export function ensureStretchWeights(
  * `aStretchW` apa adanya — selalu panggil `ensureStretchWeights` dulu
  * (atau `ensureWindAndStretchWeights` di `geometryPrep.ts`).
  */
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
+// Tipe longgar disengaja: properti shader Three.js bervariasi antar-material.
 type ShaderLike = any;
 
 export function applyStretchToMaterial(

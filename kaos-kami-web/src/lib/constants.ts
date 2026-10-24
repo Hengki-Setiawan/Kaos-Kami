@@ -447,8 +447,10 @@ export const PRODUCT_DETAILS = {
   name: "Kaos Kami | Sablon Kaos & Streetwear Makassar",
   productTitle: "T-Shirt Cotton Combed 24s",
   sku: "KK-TEE-01",
-  priceIdr: 79000,
-  formattedPrice: "Rp 79.000",
+  // P0 keputusan owner #2 (23 Okt 2026): Rp 59.000 = SSOT APPAREL_CATALOG.tshirt.basePriceIdr.
+  // Nilai lama 79.000 tidak boleh lagi dipakai untuk produk yang sama (JSON-LD vs katalog konflik).
+  priceIdr: 59000,
+  formattedPrice: "Rp 59.000",
   currency: "IDR",
   brand: "Kaos Kami",
   availability: "InStock",

@@ -429,7 +429,7 @@ export function ThermalShippingLabelModal({ order, onClose }: ThermalShippingLab
               {order.courierNotes && (
                 <div className="border-2 border-dashed border-black p-1.5 text-xs font-bold text-black">
                   <span className="font-black text-[10px] uppercase block">CATATAN KHUSUS:</span>
-                  <p className="italic">"{order.courierNotes}"</p>
+                  <p className="italic">&quot;{order.courierNotes}&quot;</p>
                 </div>
               )}
 
@@ -527,7 +527,7 @@ export function ThermalShippingLabelModal({ order, onClose }: ThermalShippingLab
               {order.courierNotes && (
                 <div className="p-2 border border-black text-[10px] text-black">
                   <strong className="uppercase font-sans font-black block">CATATAN KHUSUS KURIR:</strong>
-                  <p className="italic font-bold">"{order.courierNotes}"</p>
+                  <p className="italic font-bold">&quot;{order.courierNotes}&quot;</p>
                 </div>
               )}
 

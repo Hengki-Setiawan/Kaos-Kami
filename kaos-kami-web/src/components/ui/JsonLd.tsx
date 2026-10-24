@@ -17,7 +17,8 @@ export function JsonLd() {
     sku: PRODUCT_DETAILS.sku,
     offers: {
       "@type": "Offer",
-      url: "https://kaoskami.biz.id",
+      // Sumber URL tunggal via env (fallback domain produksi) — bukan hardcode.
+      url: process.env.NEXT_PUBLIC_SITE_URL || "https://kaoskami.biz.id",
       priceCurrency: PRODUCT_DETAILS.currency,
       price: PRODUCT_DETAILS.priceIdr,
       availability: "https://schema.org/InStock",

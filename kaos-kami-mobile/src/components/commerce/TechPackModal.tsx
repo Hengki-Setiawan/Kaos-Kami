@@ -82,7 +82,7 @@ export function TechPackModal({
         <div className="p-4 rounded-2xl bg-zinc-900 border border-zinc-800 space-y-2.5 text-xs">
           <div className="flex items-center justify-between border-b border-zinc-800 pb-2">
             <span className="font-mono font-bold text-white">{data.orderId}</span>
-            <Badge variant="production">Batas 30cm Terkalibrasi</Badge>
+            <Badge variant="production">Batas 35cm Terkalibrasi</Badge>
           </div>
 
           <div className="grid grid-cols-2 gap-2 text-zinc-400">

@@ -180,8 +180,22 @@ export function AdminBell({ pollMs = 60000 }: { pollMs?: number }) {
 
   useEffect(() => {
     void load();
-    const id = setInterval(() => void load(), Math.max(15000, pollMs));
-    return () => clearInterval(id);
+    const id = setInterval(() => {
+      if (typeof document !== "undefined" && document.visibilityState === "hidden") return;
+      void load();
+    }, Math.max(15000, pollMs));
+
+    const handleVisibility = () => {
+      if (typeof document !== "undefined" && document.visibilityState === "visible") {
+        void load();
+      }
+    };
+    document.addEventListener("visibilitychange", handleVisibility);
+
+    return () => {
+      clearInterval(id);
+      document.removeEventListener("visibilitychange", handleVisibility);
+    };
   }, [load, pollMs]);
 
   // Bunyi saat needsReview atau unreadChatCount NAIK dan > 0 (bukan tiap poll).

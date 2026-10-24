@@ -111,7 +111,7 @@ export default function TermsPage() {
             </h2>
             <ul className="list-disc pl-5 space-y-1.5 marker:text-brand-accent">
               <li>
-                <strong>Skala Cetak Maksimal:</strong> Sesuai anatomi dada kaos dan ukuran mesin heat press komersial kami, lebar area sablon maksimal dibatasi hingga <strong>30.0 cm (standar A3)</strong>.
+                <strong>Skala Cetak Maksimal:</strong> Sesuai anatomi dada kaos dan ukuran mesin heat press komersial kami, lebar area sablon maksimal dibatasi hingga <strong>35.0 cm</strong>.
               </li>
               <li>
                 <strong>Akurasi Warna:</strong> Representasi warna pada layar monitor/smartphone (RGB) dapat memiliki perbedaan saturasi dan tone sebesar 5% - 10% dibanding hasil fisik tinta DTF tekstil (CMYK + White).

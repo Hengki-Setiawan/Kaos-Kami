@@ -44,7 +44,7 @@ describe("printTiers SSOT", () => {
 });
 
 describe("printTiers batas R5", () => {
-  it("di atas 30cm tetap A3 (clamp hilir, bukan dead-code)", () => {
+  it("di atas 25cm tetap A3 (clamp hilir 35cm, bukan dead-code)", () => {
     expect(classifyPrintTierByCm(30.1)).toBe("A3");
     expect(classifyPrintTierByCm(35)).toBe("A3");
     expect(classifyPrintTierByCm(100)).toBe("A3");

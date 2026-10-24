@@ -240,9 +240,11 @@ export function AdminChatManager() {
     }
   }, []);
 
+  // Polling threads & messages: abaikan jika tab admin di latar belakang (hemat kuota & query DB)
   useEffect(() => {
     void loadThreads();
     const interval = setInterval(() => {
+      if (typeof document !== "undefined" && document.visibilityState === "hidden") return;
       void loadThreads();
     }, 15000);
     return () => clearInterval(interval);
@@ -252,11 +254,26 @@ export function AdminChatManager() {
     if (selectedUserId) {
       void loadMessages(selectedUserId);
       const interval = setInterval(() => {
+        if (typeof document !== "undefined" && document.visibilityState === "hidden") return;
         void loadMessages(selectedUserId);
       }, 8000);
       return () => clearInterval(interval);
     }
   }, [selectedUserId, loadMessages]);
+
+  // Seketika admin kembali ke tab, langsung ambil pembaruan percakapan
+  useEffect(() => {
+    const handleVisibility = () => {
+      if (typeof document !== "undefined" && document.visibilityState === "visible") {
+        void loadThreads();
+        if (selectedUserId) {
+          void loadMessages(selectedUserId);
+        }
+      }
+    };
+    document.addEventListener("visibilitychange", handleVisibility);
+    return () => document.removeEventListener("visibilitychange", handleVisibility);
+  }, [loadThreads, loadMessages, selectedUserId]);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });

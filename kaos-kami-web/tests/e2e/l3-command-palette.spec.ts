@@ -16,9 +16,6 @@ test.use({ storageState: HAS_ADMIN_AUTH ? ADMIN_AUTH : undefined });
 
 test.beforeEach(async ({ page }) => {
   test.skip(!HAS_ADMIN_AUTH, "butuh tests/e2e/.auth/admin.json — jalankan auth.setup.ts dulu");
-  await page.route(/api\.agenwebsite\.com|api-sandbox\.agenwebsite\.com/, (r) =>
-    r.fulfill({ status: 200, body: JSON.stringify({ data: [] }) }),
-  );
   await page.route(/api\.fonnte\.com/, (r) => r.fulfill({ status: 200, body: "{}" }));
   await page.route(/google-analytics\.com|googletagmanager\.com/, (r) => r.abort());
 });

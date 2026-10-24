@@ -83,7 +83,7 @@ const SingleDecalItem: React.FC<{
     uploaded.needsUpdate = true;
   }
 
-  // Presisi Rasio Aspek Alami & Normalisasi Skala Fisik Nyata (Maksimal 30.0 cm DTF)
+  // Presisi Rasio Aspek Alami & Normalisasi Skala Fisik Nyata (Maksimal 35.0 cm DTF)
   const imgWidth = (uploaded.image as any)?.width || 1;
   const imgHeight = (uploaded.image as any)?.height || 1;
   const aspect = imgWidth > 0 && imgHeight > 0 ? imgWidth / imgHeight : 1;
@@ -93,7 +93,7 @@ const SingleDecalItem: React.FC<{
 
   let normalizedScale = decal.scale;
   // Kunci keras pada batas fisik printhead roll DTF workshop Makassar —
-  // batas UNIT dihitung dari multiplier terukur agar 30cm benar-benar tercapai.
+  // batas UNIT dihitung dari multiplier terukur agar 35cm benar-benar tercapai.
   const maxScale = maxDecalScaleUnits(
     useConfiguratorStore.getState().activeApparel,
     decal.targetSide

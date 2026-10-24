@@ -23,9 +23,9 @@ CLOUDFLARE_TURNSTILE_SECRET_KEY=""
 BETTER_AUTH_SECRET="isi-minimal-32-char-random"
 FONNTE_TOKEN=""
 CRON_SECRET=""
-AGENWEBSITE_RATE_API_KEY=""
+# AGENWEBSITE_RATE_API_KEY DIHAPUS 23 Okt 2026 (keputusan owner #20=A) — ongkir master 514 + zona.
 GOOGLE_CLIENT_ID=""
 GOOGLE_CLIENT_SECRET=""
 # Feature flags UI (default true bila unset/kosong; "false"=rollback darurat)
 NEXT_PUBLIC_GIZMO_SVG=""
-NEXT_PUBLIC_CHECKOUT_V2=""
+# NEXT_PUBLIC_CHECKOUT_V2 DIHAPUS 23 Okt 2026 (keputusan owner #16)

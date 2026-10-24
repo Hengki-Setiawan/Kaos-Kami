@@ -132,9 +132,11 @@ export async function GET(req: NextRequest) {
     offset: cursor,
     with: {
       items: true,
-      user: true,
+      // Ekspor hanya butuh nama+telepon. Jangan muat passwordHash/email ke
+      // memori proses CSV (least privilege; error log tak boleh membocorkannya).
+      user: { columns: { id: true, name: true, phoneNumber: true } },
       shippingAddress: true,
-      payment: true,
+      payment: { columns: { status: true, method: true, provider: true } },
     },
   });
   const hasMore = fetched.length > limit;
@@ -160,12 +162,22 @@ export async function GET(req: NextRequest) {
     "Status Pembayaran",
   ];
 
+// CWE-1236: Cegah CSV Formula Injection jika nilai string diawali =, +, -, @, dsb.
+function sanitizeCsvValue(val: string): string {
+  const clean = String(val || "").replace(/"/g, '""');
+  if (/^[=+\-@\t\r]/.test(clean)) {
+    return `'${clean}`;
+  }
+  return clean;
+}
+
   const rows = orders.map((o) => {
-    const cleanAddress = (o.shippingAddress?.fullAddress || "Workshop Pick-up").replace(/"/g, '""');
-    const recipient = (o.shippingAddress?.recipientName || o.user?.name || "Pelanggan").replace(/"/g, '""');
+    const cleanAddress = sanitizeCsvValue(o.shippingAddress?.fullAddress || "Workshop Pick-up");
+    const recipient = sanitizeCsvValue(o.shippingAddress?.recipientName || o.user?.name || "Pelanggan");
     const waRaw: string = o.user?.phoneNumber || o.shippingAddress?.phoneNumber || "-";
-    const wa = maskPhone(waRaw);
-    const city = (o.shippingAddress?.city || "Makassar").replace(/"/g, '""');
+    const wa = sanitizeCsvValue(maskPhone(waRaw));
+    const city = sanitizeCsvValue(o.shippingAddress?.city || "Makassar");
+    const tracking = sanitizeCsvValue(o.trackingNumber || "-");
 
     return [
       `"${o.orderNumber}"`,
@@ -176,14 +188,14 @@ export async function GET(req: NextRequest) {
       `"${cleanAddress}"`,
       `"${city}"`,
       `"${o.status}"`,
-      `"${o.trackingNumber || "-"}"`,
+      `"${tracking}"`,
       o.items.length,
       o.subtotalIdr,
       o.shippingCostIdr,
       o.discountIdr,
       o.totalIdr,
-      `"${o.payment?.method || "-"}"`,
-      `"${o.payment?.status || "-"}"`,
+      `"${sanitizeCsvValue(o.payment?.method || "-")}"`,
+      `"${sanitizeCsvValue(o.payment?.status || "-")}"`,
     ].join(",");
   });
 

@@ -106,9 +106,14 @@ export function KamitoChatWidget() {
   const [guestId, setGuestId] = useState<string>("");
   useEffect(() => {
     try {
-      let g = localStorage.getItem("kaoskami_guest_chat_id");
-      if (!g) {
-        g = "guest_" + Math.random().toString(36).slice(2, 10);
+      let g = localStorage.getItem("kaoskami_guest_chat_id") || "";
+      // Server hanya menerima `guest_<8-32 alfanumerik>`; ID lama/rusak
+      // dibuat ulang. CSPRNG (bukan Math.random) mempersulit tebak ID tamu.
+      if (!/^guest_[a-z0-9]{8,32}$/.test(g)) {
+        const bytes = crypto.getRandomValues(new Uint8Array(16));
+        g =
+          "guest_" +
+          Array.from(bytes, (b) => b.toString(16).padStart(2, "0")).join("");
         localStorage.setItem("kaoskami_guest_chat_id", g);
       }
       setGuestId(g);
@@ -120,10 +125,11 @@ export function KamitoChatWidget() {
   const isAdmin = ["ADMIN", "SUPER_ADMIN", "PRODUCTION_STAFF"].includes(userRole);
   const effectiveId = userId || guestId;
 
-  // Kirim detak kehadiran (heartbeat)
+  // Kirim detak kehadiran (heartbeat) — abaikan jika tab sedang di latar belakang
   useEffect(() => {
     if (!effectiveId) return;
     const sendHeartbeat = async () => {
+      if (typeof document !== "undefined" && document.visibilityState === "hidden") return;
       try {
         await fetch("/api/chat/presence", { method: "POST" });
       } catch {}
@@ -133,8 +139,9 @@ export function KamitoChatWidget() {
     return () => clearInterval(intervalPresence);
   }, [effectiveId]);
 
-  // Muat status kehadiran admin dan Kamito
+  // Muat status kehadiran admin dan Kamito (hanya saat tab aktif)
   const fetchPresence = useCallback(async () => {
+    if (typeof document !== "undefined" && document.visibilityState === "hidden") return;
     try {
       const res = await fetch("/api/chat/presence", { cache: "no-store" });
       const data = await res.json().catch(() => null);
@@ -147,8 +154,9 @@ export function KamitoChatWidget() {
   const isOnlineNow = mounted && (isAdmin || Boolean(presence?.isAdminOnline));
   const statusText = isOnlineNow ? "Online Sekarang" : "Workshop Siap Melayani";
 
-  // Muat riwayat pesan (mendukung akun login & tamu via guestId)
+  // Muat riwayat pesan (mendukung akun login & tamu via guestId; dihentikan saat tab tidak terlihat)
   const fetchMessages = useCallback(async () => {
+    if (typeof document !== "undefined" && document.visibilityState === "hidden") return;
     const idToUse = userId || guestId;
     if (!idToUse) return;
     try {
@@ -171,7 +179,7 @@ export function KamitoChatWidget() {
     } catch {}
   }, [userId, guestId, isOpen]);
 
-  // Polling pesan & presence
+  // Polling pesan & presence: terbuka = 8 dtk, tertutup = 60 dtk (hemat beban DB Turso)
   useEffect(() => {
     void fetchPresence();
     const intervalPresence = setInterval(() => {
@@ -184,11 +192,24 @@ export function KamitoChatWidget() {
     const idToUse = userId || guestId;
     if (!idToUse) return;
     void fetchMessages();
+    const pollInterval = isOpen ? 8000 : 60000;
     const intervalMsg = setInterval(() => {
       void fetchMessages();
-    }, isOpen ? 8000 : 30000);
+    }, pollInterval);
     return () => clearInterval(intervalMsg);
   }, [userId, guestId, isOpen, fetchMessages]);
+
+  // VisibilityChange listener: seketika tab kembali aktif (fokus), ambil pesan & presence terbaru
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (typeof document !== "undefined" && document.visibilityState === "visible") {
+        void fetchPresence();
+        void fetchMessages();
+      }
+    };
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    return () => document.removeEventListener("visibilitychange", handleVisibilityChange);
+  }, [fetchPresence, fetchMessages]);
 
   // Listener untuk membuka widget dari tombol eksternal
   useEffect(() => {
@@ -475,7 +496,7 @@ export function KamitoChatWidget() {
   return (
     <div
       suppressHydrationWarning
-      className={`fixed ${isStudioMode ? Z_CLASS_CHAT : "z-50"} font-sans select-none ${studioDockPosition} ${
+      className={`fixed ${Z_CLASS_CHAT} font-sans select-none ${studioDockPosition} ${
         isDragging ? "transition-none pointer-events-auto" : "transition-transform duration-200"
       }`}
       style={{

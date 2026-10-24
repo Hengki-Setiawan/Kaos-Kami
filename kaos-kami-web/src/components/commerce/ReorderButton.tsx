@@ -7,6 +7,11 @@ interface ReorderItem {
   productVariantId?: string | null;
   designId?: string | null;
   quantity: number;
+  unitPriceIdr?: number;
+  name?: string;
+  size?: string;
+  colorName?: string;
+  image?: string | null;
 }
 
 /** Pesan lagi: 1 request batch → harga 100% server (audit #24). */
@@ -45,6 +50,28 @@ export function ReorderButton({ userId, items }: { userId: string; items: Reorde
         (data as any)?.message ||
           (data.skipped > 0 ? `${data.added} masuk, ${data.skipped} tak tersedia` : `${data.added} item masuk keranjang`)
       );
+
+      // Hydrate ke useCartStore agar cart drawer langsung berisi item yang dipesan lagi
+      if (data.added > 0) {
+        const cartStore = useCartStore.getState();
+        for (const it of items) {
+          if (it.productVariantId || it.designId) {
+            cartStore.addItem({
+              id: it.productVariantId || it.designId || `item-${Date.now()}`,
+              name: it.name || "Produk Kaos Kami",
+              priceIdr: it.unitPriceIdr || 0,
+              size: it.size || "All Size",
+              colorName: it.colorName || "Standar",
+              colorHex: "#121214",
+              image: it.image || "/images/placeholder-tee.png",
+              quantity: it.quantity || 1,
+              productVariantId: it.productVariantId || undefined,
+              isCustom: !it.productVariantId && !!it.designId,
+            });
+          }
+        }
+      }
+
       setState("done");
     } catch (e: any) {
       setDetail(e?.message || "Gagal");

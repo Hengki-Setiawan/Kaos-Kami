@@ -31,8 +31,10 @@ const DELIVERY_TO_SERVER: Record<string, 'PICKUP' | 'FREE_MAKASSAR' | 'EXPEDITIO
   EXPEDITION: 'EXPEDITION_MANUAL',
 };
 
-// P0-2: Idempotency-Key UNIK per klik bayar (zero-dep). Format UUID lolos regex
-// server /^[A-Za-z0-9\-_.:]{8,128}$/ (mobile checkout baca header "idempotency-key").
+// P0-2: Idempotency-Key UNIK per NIAT checkout, bukan per klik. Key dipegang
+// ref sampai order berhasil/terdeteksi, sehingga double-tap dan retry timeout
+// memakai key SAMA (server 409 + order lama, bukan dua order).
+// Format UUID lolos regex server /^[A-Za-z0-9\-_.:]{8,128}$/.
 function newIdempotencyKey(): string {
   try {
     const u = (globalThis as any)?.crypto?.randomUUID?.();
@@ -69,6 +71,8 @@ export function CheckoutSheet({ open, onOpenChange, onOrderSuccess, onNotify }: 
     useShallow((s) => ({ items: s.items, getSubtotal: s.getSubtotal, clearCart: s.clearCart }))
   );
   const [step, setStep] = useState<1 | 2 | 3>(1);
+  // Satu key per niat checkout; di-reset hanya setelah order terdeteksi.
+  const checkoutIdemKeyRef = useRef<string | null>(null);
 
   // Form states (kosong default — JANGAN hardcode data pribadi dev di sini;
   // insiden Sep 2026: nama/alamat dev tampil ke semua pengguna).
@@ -204,9 +208,9 @@ export function CheckoutSheet({ open, onOpenChange, onOrderSuccess, onNotify }: 
       const weightGrams = Math.max(250, items.reduce((a, it) => a + (it.quantity || 0), 0) * 250);
       const data = await quoteShipping(destCity.trim(), /^\d{5}$/.test(destPostal) ? destPostal : undefined, weightGrams);
       let opts: ShipOption[] = [];
-      if (data.source === 'live' && Array.isArray(data.rates)) {
+      if (data.source === 'master-tariff' && Array.isArray(data.rates)) {
         opts = data.rates.map((r: any) => ({
-          key: `live:${r.courierCode}:${r.serviceCode}`,
+          key: `master:${r.courierCode}:${r.serviceCode}`,
           courier: r.courierName, service: r.serviceName, cost: r.costIdr, etd: r.etdText,
           courierCode: r.courierCode, serviceCode: r.serviceCode,
         }));
@@ -401,25 +405,87 @@ export function CheckoutSheet({ open, onOpenChange, onOrderSuccess, onNotify }: 
       // UPLOAD R2 DULU (audit HIGH): base64 mentah 5–8MB JANGAN dikirim
       // langsung — buat DRAFT via POST /api/designs (akun login, server
       // hosting decal → R2) lalu pakai URL R2 di payload checkout.
-      // Gagal → fallback base64 lama + peringatan (checkout tetap jalan).
+      // P0.7 B8 (audit 08-MOBILE #3): N-decal — SEMUA lapis `it.decals[]`
+      // (maks 10, sisi yang diterima server) ikut diunggah & dikirim, bukan
+      // hanya 1 front/back. Gagal → fallback base64 + peringatan.
+      const { buildMobileCheckoutItems, partitionDecalsForServer, toServerDecal } =
+        await import('@/lib/checkoutParity');
+      type SourceDecal = {
+        id: string;
+        url: string;
+        targetSide: string;
+        x: number;
+        y: number;
+        scale: number;
+        rotation: number;
+        opacity: number;
+      };
+      const sourceDecalsFor = (it: (typeof items)[number]): SourceDecal[] => {
+        const raw: SourceDecal[] = Array.isArray(it.decals)
+          ? it.decals.slice(0, 10).map((d) => ({
+              id: d.id,
+              url: d.url,
+              targetSide: d.targetSide,
+              x: d.x,
+              y: d.y,
+              scale: d.scale,
+              rotation: d.rotation,
+              opacity: d.opacity,
+            }))
+          : [];
+        if (raw.length > 0) return raw;
+        // Kompat cache lama: decalUrl tunggal tanpa decals[].
+        if (it.decalUrl) {
+          const per = getDecalForItem(it);
+          return [{ id: `decal-${it.id}`, url: it.decalUrl, ...per }];
+        }
+        return [];
+      };
       setUploadProgress('Menyiapkan gambar sablon…');
       setR2Warning(null);
-      const resolvedDecalUrls: (string | null)[] = [];
       let r2Failed = false;
       let lastDraftError: string | null = null;
+      const totalUploads = items.reduce(
+        (n, it) =>
+          n +
+          partitionDecalsForServer(sourceDecalsFor(it)).accepted.filter((d) =>
+            d.url.startsWith('data:image')
+          ).length,
+        0
+      );
+      let uploadDone = 0;
+      const resolvedDecalsByItem: SourceDecal[][] = [];
       for (let idx = 0; idx < items.length; idx++) {
         const it = items[idx];
-        if (!it.decalUrl || !it.decalUrl.startsWith('data:image')) {
-          resolvedDecalUrls.push(it.decalUrl);
+        const source = sourceDecalsFor(it);
+        const { accepted } = partitionDecalsForServer(source);
+        const base64Count = accepted.filter((d) => d.url.startsWith('data:image')).length;
+        if (base64Count === 0) {
+          resolvedDecalsByItem.push(source);
           continue;
         }
+        const draftDecals = [];
+        const acceptedResolved: SourceDecal[] = [];
+        for (const d of accepted) {
+          let url = d.url;
+          if (url.startsWith('data:image')) {
+            uploadDone++;
+            try {
+              setUploadProgress(`Mengompres gambar ${uploadDone}/${totalUploads}…`);
+              const { compressedUrl } = await compressDecalForUpload(url, {
+                maxDimension: 1600,
+                onProgress: (s) => setUploadProgress(`${s} (${uploadDone}/${totalUploads})`),
+              });
+              url = compressedUrl;
+            } catch {
+              // Biarkan base64 asli — server tetap bisa hosting (lebih lambat).
+            }
+          }
+          draftDecals.push(toServerDecal({ ...d, url }, `decal-${it.id}-${draftDecals.length}`));
+          acceptedResolved.push({ ...d, url });
+        }
         try {
-          setUploadProgress(`Mengompres gambar ${idx + 1}/${items.length}…`);
-          const { compressedUrl } = await compressDecalForUpload(it.decalUrl, {
-            maxDimension: 1600,
-            onProgress: (s) => setUploadProgress(`${s} (${idx + 1}/${items.length})`),
-          });
-          setUploadProgress(`Mengunggah gambar ${idx + 1}/${items.length} ke server…`);
+          setUploadProgress(`Mengunggah ${draftDecals.length} gambar ke server…`);
           const draft = await createDesignDraft(
             {
               title: (it.apparelTitle || 'Custom Mobile').slice(0, 60),
@@ -427,37 +493,27 @@ export function CheckoutSheet({ open, onOpenChange, onOrderSuccess, onNotify }: 
               colorHex: it.colorHex,
               colorName: it.colorName || 'Custom',
               size: it.size,
-              decals: [
-                (() => {
-                  const per = getDecalForItem(it);
-                  return {
-                    id: `decal-${it.id}`.slice(0, 64),
-                    url: compressedUrl,
-                    name: per.targetSide === 'back' ? 'Belakang' : 'Depan',
-                    targetSide: per.targetSide,
-                    x: per.x,
-                    y: per.y,
-                    scale: per.scale,
-                    rotation: per.rotation,
-                    opacity: per.opacity,
-                  };
-                })(),
-              ],
+              decals: draftDecals,
             },
-            (s) => setUploadProgress(`${s} (${idx + 1}/${items.length})`)
+            (s) => setUploadProgress(s)
           );
-          if (draft.ok && draft.decalUrls?.[0]) {
-            resolvedDecalUrls.push(draft.decalUrls[0]);
+          if (draft.ok && Array.isArray(draft.decalUrls) && draft.decalUrls.length === acceptedResolved.length) {
+            acceptedResolved.forEach((d, i) => {
+              const hosted = draft.decalUrls?.[i];
+              if (hosted) d.url = hosted;
+            });
           } else {
             r2Failed = true;
-            lastDraftError = draft.error || `draft gagal (${items.length ? 'tanpa URL R2' : 'unknown'})`;
-            resolvedDecalUrls.push(it.decalUrl);
+            lastDraftError = draft.error || 'draft tanpa URL R2';
           }
         } catch (e: any) {
           r2Failed = true;
           lastDraftError = e?.message || 'jaringan bermasalah saat upload decal';
-          resolvedDecalUrls.push(it.decalUrl);
         }
+        // Sisi rusuk (side_left/right) disimpan agar builder bisa memperingatkan;
+        // ia TIDAK ikut POST karena DecalLayerSchema server menolaknya.
+        const dropped = source.filter((d) => !accepted.includes(d));
+        resolvedDecalsByItem.push([...acceptedResolved, ...dropped]);
       }
       setUploadProgress(null);
       if (r2Failed) {
@@ -473,6 +529,30 @@ export function CheckoutSheet({ open, onOpenChange, onOrderSuccess, onNotify }: 
         setR2Warning(warn);
         onNotify?.(warn);
       }
+
+      // Fail-closed HANYA untuk kasus terburuk: item yang sablonnya tak ada
+      // satu pun lolos validasi server (akan tercetak kosong). Sisi rusuk yang
+      // dipartisi keluar tetap diberi peringatan jujur, bukan memblokir seluruh
+      // checkout (studio mobile memang menawarkan 7 sisi).
+      const built = buildMobileCheckoutItems(
+        items.map((it, i) => ({ ...it, decals: resolvedDecalsByItem[i] }))
+      );
+      const blockingWarnings = built.warnings.filter((w) => w.includes('item terkirim tanpa gambar'));
+      const advisoryWarnings = built.warnings.filter((w) => !blockingWarnings.includes(w));
+      if (advisoryWarnings.length > 0) {
+        const msg = advisoryWarnings.join(' ');
+        setR2Warning((prev) => (prev ? `${prev} ${msg}` : msg));
+        onNotify?.(msg);
+      }
+      if (blockingWarnings.length > 0) {
+        const msg = blockingWarnings.join(' ');
+        setIsSubmitting(false);
+        setFormError(msg);
+        onNotify?.(msg);
+        return;
+      }
+      const idemKey = checkoutIdemKeyRef.current || newIdempotencyKey();
+      checkoutIdemKeyRef.current = idemKey;
       const res = await mobileApiClient.checkout({
         recipientName: customerName.trim(),
         phoneNumber: normalizedPhone,
@@ -495,40 +575,18 @@ export function CheckoutSheet({ open, onOpenChange, onOrderSuccess, onNotify }: 
         paymentMethod: 'QRIS',
         couponCode: couponCode.trim() || undefined,
         turnaroundTier,
-        items: items.map((it, mapIdx) => {
-          const decalUrl = resolvedDecalUrls[mapIdx] ?? it.decalUrl;
-          const per = getDecalForItem(it);
-          return {
-            apparelSlug: it.apparelType,
-            colorHex: it.colorHex,
-            colorName: it.colorName,
-            size: it.size,
-            quantity: it.quantity,
-            title: it.apparelTitle,
-            decals: decalUrl
-              ? [{
-                  id: `decal-${it.id}`,
-                  url: decalUrl,
-                  name: per.targetSide === 'back' ? 'Belakang' : 'Depan',
-                  targetSide: per.targetSide,
-                  x: per.x,
-                  y: per.y,
-                  scale: per.scale,
-                  rotation: per.rotation,
-                  opacity: per.opacity,
-                }]
-              : [],
-          };
-        }),
-      // P0-2: Idempotency-Key UNIK per klik pesan — double-tap / retry timeout
-      // dengan key SAMA dibalas server 409 + order lama (tanpa dobel).
-      }, { idempotencyKey: newIdempotencyKey() });
+        // P0.7 B8: N-decal penuh dari builder paritas (bukan 1 front/back).
+        items: built.items,
+      // P0-2: key stabil per niat checkout — double-tap / retry timeout
+      // memakai key SAMA, server balas 409 + order lama (tanpa dobel).
+      }, { idempotencyKey: idemKey });
 
       if (!res.success) {
         // 502 fail-closed & 409 replay: order tetap tersimpan di server.
         // JANGAN hapus keranjang diam-diam; arahkan ke invoice agar user bisa
         // bayar manual (WA) — bukan dead-end tanpa paymentUrl.
         if (res.orderId) {
+          checkoutIdemKeyRef.current = null;
           onOpenChange(false);
           onOrderSuccess(res.orderId, { invoiceUrl: res.invoiceUrl });
           // Pesan JUJUR: pakai error server (409 = "sudah diproses, tak ada
@@ -567,6 +625,7 @@ export function CheckoutSheet({ open, onOpenChange, onOrderSuccess, onNotify }: 
         } catch {}
       }
       if (res.orderId) {
+        checkoutIdemKeyRef.current = null;
         try {
           const historyRaw = localStorage.getItem('kaoskami_order_history') || '[]';
           const history = JSON.parse(historyRaw);

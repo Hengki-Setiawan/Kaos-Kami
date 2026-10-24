@@ -9,6 +9,7 @@ import { ShoppingBag, Eye, ArrowRight, X, Check, ShieldCheck, Truck, RotateCw, S
 import { useCartStore } from "@/store/useCartStore";
 import { APPAREL_CATALOG, type ApparelType } from "@/lib/constants";
 import { isSafeImageUrl } from "@/lib/safeUrl";
+import { Z_CLASS_MODAL } from "@/lib/zIndex";
 
 const Showcase3DOrbitViewer = dynamic(
   () => import("@/components/3d/Showcase3DOrbitViewer").then((m) => m.Showcase3DOrbitViewer),
@@ -634,7 +635,7 @@ export const StoreShowcaseSection: React.FC = () => {
       {/* ─── E-COMMERCE 3D ORBIT & DETAIL MODAL (PORTAL KE BODY) ─── */}
       {mounted && activeModalProduct && createPortal(
         <div
-          className="fixed inset-0 z-[100] flex items-center justify-center p-3 sm:p-5 md:p-6 bg-black/80 backdrop-blur-md animate-in fade-in duration-200"
+          className={`fixed inset-0 ${Z_CLASS_MODAL} flex items-center justify-center p-3 sm:p-5 md:p-6 bg-black/80 backdrop-blur-md animate-in fade-in duration-200`}
           data-lenis-prevent="true"
           onClick={closeDetailModal}
         >

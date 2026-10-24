@@ -9,6 +9,7 @@ import {
   SHOP_HOURS,
   SHOP_SUPPORT_EMAIL,
 } from "@/lib/shop";
+import { isDevOrTest } from "@/lib/envMode";
 
 export const dynamic = "force-dynamic";
 
@@ -17,7 +18,7 @@ async function requireAdmin() {
     const { auth } = await import("@/lib/auth");
     const session = await auth.api.getSession({ headers: (await headers()) as any });
     const role = (session?.user as any)?.role;
-    if (process.env.NODE_ENV !== "production") {
+    if (isDevOrTest()) {
       return { role: "SUPER_ADMIN" };
     }
     if (!session?.user || !["ADMIN", "SUPER_ADMIN"].includes(role)) {
@@ -25,7 +26,7 @@ async function requireAdmin() {
     }
     return { role };
   } catch {
-    if (process.env.NODE_ENV !== "production") return { role: "SUPER_ADMIN" };
+    if (isDevOrTest()) return { role: "SUPER_ADMIN" };
     return { error: NextResponse.json({ error: "Unauthorized" }, { status: 401 }) };
   }
 }

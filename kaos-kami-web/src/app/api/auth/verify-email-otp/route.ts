@@ -61,15 +61,22 @@ export async function POST(req: NextRequest) {
     // Hapus OTP yang sudah dipakai
     await db.delete(Verification).where(eq(Verification.identifier, `email-otp:${cleanEmail}`)).catch(() => {});
 
-    // Buat token sementara kepemilikan terverifikasi untuk pendaftaran (berlaku 15 menit)
+    // Buat token sementara kepemilikan terverifikasi untuk pendaftaran (berlaku 15 menit).
+    // Upsert: identifier sudah UNIQUE; dua verifikasi paralel tidak boleh 500.
     const verificationTicket = hashOtp(`verified:${cleanEmail}:${Date.now()}`);
-    await db.delete(Verification).where(eq(Verification.identifier, `email-verified:${cleanEmail}`)).catch(() => {});
-    await db.insert(Verification).values({
-      id: crypto.randomUUID(),
-      identifier: `email-verified:${cleanEmail}`,
-      value: verificationTicket,
-      expiresAt: new Date(Date.now() + 15 * 60 * 1000),
-    });
+    const ticketExpiresAt = new Date(Date.now() + 15 * 60 * 1000);
+    await db
+      .insert(Verification)
+      .values({
+        id: crypto.randomUUID(),
+        identifier: `email-verified:${cleanEmail}`,
+        value: verificationTicket,
+        expiresAt: ticketExpiresAt,
+      })
+      .onConflictDoUpdate({
+        target: Verification.identifier,
+        set: { value: verificationTicket, expiresAt: ticketExpiresAt },
+      });
 
     return NextResponse.json({
       success: true,
