@@ -56,7 +56,7 @@ export const ClothLabModal: React.FC = () => {
 
   return (
     <aside
-      aria-label="Panel Uji Fisika Kain"
+      aria-label="Panel Pengaturan Bahan Kain"
       className={`fixed top-[68px] bottom-4 ${
         drawerPosition === "left" ? "left-4 sm:left-5 right-auto" : "right-4 sm:right-5 left-auto"
       } z-[55] max-w-[385px] w-[calc(100%-2rem)] sm:w-[385px] flex flex-col rounded-3xl bg-surface/95 border border-border-subtle shadow-2xl overflow-hidden backdrop-blur-2xl animate-in fade-in slide-in-from-left-4 duration-300 pointer-events-auto`}
@@ -69,10 +69,10 @@ export const ClothLabModal: React.FC = () => {
           className="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl bg-surface hover:bg-brand-accent hover:text-white border border-border-subtle text-text-primary text-xs font-bold transition-all cursor-pointer shadow-xs active:scale-95 group"
         >
           <ArrowLeft size={14} className="transition-transform group-hover:-translate-x-0.5 text-brand-accent group-hover:text-white" />
-          <span>Kembali ke Menu Utama</span>
+          <span>Kembali</span>
         </button>
         <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-text-muted">
-          Mode Lab
+          Bahan Kain
         </span>
       </div>
 
@@ -84,7 +84,7 @@ export const ClothLabModal: React.FC = () => {
           </div>
           <div className="min-w-0">
             <h3 className="text-xs sm:text-sm font-bold text-text-primary font-sans truncate">
-              Laboratorium Fisika Kain
+              Bahan & Tampilan Kain
             </h3>
             <p className="text-[10px] text-text-muted font-sans truncate">
               {APPAREL_CATALOG[activeApparel]?.name ?? "Pakaian 3D"} · {activeColorName}
@@ -96,7 +96,7 @@ export const ClothLabModal: React.FC = () => {
           type="button"
           onClick={() => setIsClothLabOpen(false)}
           className="w-7 h-7 rounded-full bg-surface border border-border-subtle text-text-muted hover:text-text-primary hover:bg-surface/80 flex items-center justify-center transition-all cursor-pointer shadow-sm shrink-0"
-          aria-label="Tutup Panel Lab Kain"
+          aria-label="Tutup Panel Bahan Kain"
         >
           <X size={14} />
         </button>
@@ -114,7 +114,7 @@ export const ClothLabModal: React.FC = () => {
           }`}
         >
           <Sparkles size={12} />
-          <span>Simulasi Fisika</span>
+          <span>Kelenturan & Gerak</span>
         </button>
         <button
           type="button"

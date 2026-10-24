@@ -423,7 +423,7 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
     const norm = normalizePhoneId(phoneNumber);
     if (norm) setPhoneNumber(norm);
     if (!norm || norm.replace(/[^0-9]/g, "").length < 9) {
-      setOtpMsg("Isi nomor WhatsApp yang aktif (contoh: 081234567890)");
+      setOtpMsg("Nomor WhatsApp tidak valid atau belum lengkap.");
       return;
     }
     setIsSendingOtp(true);
@@ -637,7 +637,7 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
     const normPhone = normalizePhoneId(phoneNumber);
     if (!recipientName.trim()) return "Nama lengkap penerima wajib diisi.";
     if (!normPhone || normPhone.replace(/[^0-9]/g, "").length < 9)
-      return "Nomor WhatsApp tidak valid (contoh: 081234567890).";
+      return "Nomor WhatsApp tidak valid.";
     if (deliveryMethod !== "PICKUP" && !fullAddress.trim())
       return "Alamat lengkap pengiriman wajib diisi.";
     if (deliveryMethod === "EXPEDITION_MANUAL" && !selectedQuote)
@@ -1262,7 +1262,7 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
                           required
                           value={recipientName}
                           onChange={(e) => setRecipientName(e.target.value)}
-                          placeholder="Contoh: Muhammad Fadil"
+                          placeholder="Nama penerima"
                           className="w-full px-3.5 py-2.5 rounded-xl bg-surface border border-border-subtle focus:border-brand-accent text-sm text-text-primary focus:outline-none transition-colors"
                         />
                       </div>
@@ -1289,7 +1289,7 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
                               setOtpSent(false);
                               setOtpCode("");
                             }}
-                            placeholder="081234567890"
+                            placeholder="08..."
                             aria-label="Nomor WhatsApp"
                             className="flex-1 min-w-0 px-3.5 py-2.5 rounded-xl bg-surface border border-border-subtle focus:border-brand-accent text-sm text-text-primary font-sans focus:outline-none transition-colors"
                           />
@@ -1342,7 +1342,7 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
                                     setIsPhoneVerified(false);
                                   }
                                 }}
-                                placeholder="Ketik 6 digit kode OTP"
+                                placeholder="6 digit OTP"
                                 aria-label="Kode OTP 6 digit dari WhatsApp"
                                 className="w-full px-3.5 py-2 rounded-xl bg-surface border border-brand-accent/60 text-sm text-text-primary font-sans tabular-nums tracking-widest focus:outline-none"
                                 maxLength={6}
@@ -1630,7 +1630,7 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
                         type="text"
                         value={courierNotes}
                         onChange={(e) => setCourierNotes(e.target.value)}
-                        placeholder="Contoh: Rumah pagar hitam, depan warkop"
+                        placeholder="Patokan alamat (opsional)"
                         className="w-full px-3.5 py-2 rounded-xl bg-surface border border-border-subtle focus:border-brand-accent text-xs font-sans text-text-primary focus:outline-none"
                       />
                     </div>
@@ -1648,7 +1648,7 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
                           type="text"
                           value={destQuery}
                           onChange={(e) => handleDestSearch(e.target.value)}
-                          placeholder="cth: Gowa, Maros, Jakarta, Surabaya"
+                          placeholder="Cari nama kota atau kabupaten..."
                           className="flex-1 px-3 py-2 rounded-xl bg-surface border border-border-subtle focus:border-brand-accent text-sm text-text-primary focus:outline-none"
                         />
                         <button
@@ -2005,7 +2005,7 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
                     id="coupon-input"
                     value={couponCode}
                     onChange={(e) => setCouponCode(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 32))}
-                    placeholder="Contoh: PROMO10"
+                    placeholder="Masukkan kode kupon"
                     autoComplete="off"
                     className="w-full px-3 py-2 rounded-xl bg-surface border border-border-subtle text-text-primary uppercase placeholder:normal-case placeholder:text-text-muted text-xs focus:border-brand-accent focus:outline-none font-sans tabular-nums"
                   />

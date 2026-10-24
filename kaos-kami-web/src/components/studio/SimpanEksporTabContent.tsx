@@ -364,7 +364,7 @@ export const SimpanEksporTabContent: React.FC<SimpanEksporTabContentProps> = ({
                     type="text"
                     value={designTitleInput}
                     onChange={(e) => setDesignTitleInput(e.target.value)}
-                    placeholder="mis. Kaos Komunitas Makassar 01"
+                    placeholder="Nama desain"
                     maxLength={60}
                     className="flex-1 px-3 py-2 rounded-xl bg-surface border border-border-subtle text-xs font-mono text-text-primary focus:outline-none focus:border-brand-accent"
                   />

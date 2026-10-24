@@ -35,10 +35,7 @@ export const BackGraphicOverlay: React.FC = () => {
     >
       <div className="max-w-md lg:max-w-lg space-y-4 text-left md:text-right z-20">
         <div>
-          <span className="font-sans text-[10px] sm:text-xs text-brand-accent tracking-widest uppercase font-bold">
-            SIMULASI CETAK · PRATINJAU 360°
-          </span>
-          <h2 className="text-2xl sm:text-3xl md:text-[34px] font-sans font-extrabold uppercase leading-[1.08] tracking-tight text-text-primary mt-1.5 whitespace-pre-line">
+          <h2 className="text-2xl sm:text-3xl md:text-[34px] font-sans font-extrabold uppercase leading-[1.08] tracking-tight text-text-primary whitespace-pre-line">
             {titleLines.join("\n")}
           </h2>
         </div>
@@ -48,25 +45,25 @@ export const BackGraphicOverlay: React.FC = () => {
           <div className="flex items-center justify-between py-1 border-b border-border-subtle">
             <div className="flex items-center gap-2 text-text-muted">
               <RotateCw size={13} className="text-brand-accent" />
-              <span>PRATINJAU REALISTIS:</span>
+              <span>Pratinjau</span>
             </div>
-            <strong className="text-text-primary">Inspeksi Depan & Punggung 360°</strong>
+            <strong className="text-text-primary">Depan & Belakang 360°</strong>
           </div>
 
           <div className="flex items-center justify-between py-1 border-b border-border-subtle">
             <div className="flex items-center gap-2 text-text-muted">
               <Maximize2 size={13} className="text-brand-accent" />
-              <span>SKALA SENTIMETER NYATA:</span>
+              <span>Area Cetak</span>
             </div>
-            <strong className="text-brand-accent">{maxW} × {maxH} cm (Terkalibrasi 1:1)</strong>
+            <strong className="text-brand-accent font-mono">{maxW} × {maxH} cm</strong>
           </div>
 
           <div className="flex items-center justify-between py-1">
             <div className="flex items-center gap-2 text-text-muted">
               <Layers size={13} className="text-brand-accent" />
-              <span>STANDAR PRODUKSI:</span>
+              <span>Hasil Cetak</span>
             </div>
-            <strong className="text-text-primary">Sesuai Mockup Terkalibrasi</strong>
+            <strong className="text-text-primary">DTF Presisi Tinggi</strong>
           </div>
         </div>
       </div>

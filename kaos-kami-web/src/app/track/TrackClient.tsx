@@ -188,7 +188,7 @@ export function TrackClient() {
     const norm = normalizePhoneId(phone);
     if (norm) setPhone(norm);
     if (norm.replace(/[^0-9]/g, "").length < 9) {
-      say("err", "Nomor WA tidak valid (contoh: 081234567890).");
+      say("err", "Nomor WhatsApp tidak valid.");
       return;
     }
     setBusy(true);
@@ -296,14 +296,11 @@ export function TrackClient() {
             <input
               value={phone}
               onChange={(e) => setPhone(e.target.value)}
-              placeholder="Contoh: 081234567890"
+              placeholder="08..."
               inputMode="tel"
               autoComplete="tel"
               className="w-full px-4 py-3 rounded-2xl bg-surface/90 dark:bg-white/5 border border-border-subtle/80 dark:border-white/10 font-mono text-sm text-text-primary focus:outline-none focus:border-brand-accent transition-colors"
             />
-            <span className="font-sans text-[11px] text-text-muted block">
-              Gunakan nomor WhatsApp aktif yang Anda daftarkan saat checkout pesanan.
-            </span>
           </label>
           <button
             type="submit"

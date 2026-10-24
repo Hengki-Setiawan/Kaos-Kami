@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
-import { User, Phone, Mail, ShieldCheck, Edit3, Check, X, Loader2 } from "lucide-react";
+import { User, Phone, Mail, Edit3, Check, X, Loader2 } from "lucide-react";
 
 interface UserProfileProps {
   user: {
@@ -204,7 +204,7 @@ export function UserProfileCard({ user, onProfileUpdated }: UserProfileProps) {
                   required
                   value={name}
                   onChange={(e) => setName(e.target.value)}
-                  placeholder="Nama Lengkap Anda"
+                  placeholder="Nama lengkap"
                   className="w-full pl-9 pr-3 py-2.5 rounded-xl bg-surface-elevated border border-border-subtle focus:border-brand-accent text-text-primary focus:outline-none transition-all text-xs"
                 />
               </div>
@@ -224,14 +224,14 @@ export function UserProfileCard({ user, onProfileUpdated }: UserProfileProps) {
                     setOtpSent(false);
                     setOtpCode("");
                   }}
-                  placeholder="08123456789 atau +628123456789"
+                  placeholder="08..."
                   className="w-full pl-9 pr-3 py-2.5 rounded-xl bg-surface-elevated border border-border-subtle focus:border-brand-accent text-text-primary focus:outline-none transition-all text-xs"
                 />
               </div>
               {phoneChanged && (
                 <div className="mt-2 space-y-2 p-3 rounded-xl bg-amber-500/10 border border-amber-500/30">
                   <p className="text-[10px] text-amber-300">
-                    Nomor berubah — verifikasi OTP milik nomor BARU (sekali, gratis seterusnya).
+                    Verifikasi nomor baru via kode OTP WhatsApp.
                   </p>
                   <div className="flex gap-2">
                     <button
@@ -370,7 +370,7 @@ export function UserProfileCard({ user, onProfileUpdated }: UserProfileProps) {
                 {user?.email || "—"}
               </span>
               <span title="Terverifikasi" className="inline-flex items-center">
-                <ShieldCheck size={13} className="text-emerald-400 shrink-0" />
+                <Check size={13} className="text-emerald-400 shrink-0" />
               </span>
             </div>
           </div>

@@ -48,7 +48,7 @@ export function validateRosterRow(row: RosterRow, sizes: readonly string[]): str
   const nama = row.nama.trim();
   if (!nama) return "Nama wajib diisi.";
   if (nama.length > TEAMWEAR_MAX_NAME_LEN) return `Nama maks ${TEAMWEAR_MAX_NAME_LEN} huruf.`;
-  if (!NOMOR_REGEX.test(row.nomor.trim())) return "Nomor wajib 1–2 digit angka (mis. 7, 10).";
+  if (!NOMOR_REGEX.test(row.nomor.trim())) return "Nomor wajib 1–2 digit angka (1–99).";
   if (!sizes.includes(row.size)) return `Ukuran ${row.size} tak tersedia untuk apparel ini.`;
   return null;
 }

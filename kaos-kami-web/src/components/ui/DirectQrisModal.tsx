@@ -10,7 +10,6 @@ import {
   Loader2,
   Copy,
   Check,
-  ShieldCheck,
   Clock,
   ExternalLink,
   RefreshCw,
@@ -235,11 +234,6 @@ export const DirectQrisModal: React.FC<DirectQrisModalProps> = ({
             <div className="px-2 py-0.5 rounded bg-[#EE2E24] text-white font-black text-[11px] tracking-tight font-sans leading-none">
               QRIS
             </div>
-            {/* iPaymu Partner Badge */}
-            <div className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-blue-50 border border-blue-200 text-blue-700 font-bold text-[9px] tracking-wide">
-              <ShieldCheck size={10} className="text-blue-600" />
-              <span>iPaymu Gateway</span>
-            </div>
             <div className="leading-tight">
               <h3 className="font-sans text-xs font-bold text-zinc-800">
                 Pembayaran QRIS
@@ -434,9 +428,8 @@ export const DirectQrisModal: React.FC<DirectQrisModalProps> = ({
 
             {/* Supported m-Banking & e-Wallets Note */}
             <div className="p-2.5 rounded-xl bg-zinc-50 border border-zinc-100 text-center">
-              <p className="font-sans text-[10px] text-zinc-500 leading-relaxed flex items-center justify-center gap-1">
-                <ShieldCheck size={12} className="text-emerald-600 shrink-0" />
-                <span>Scan via BCA, Mandiri, BRI, BNI, GoPay, OVO, Dana, ShopeePay</span>
+              <p className="font-sans text-[10px] text-zinc-500 leading-relaxed">
+                BCA · Mandiri · BRI · BNI · GoPay · OVO · DANA · ShopeePay
               </p>
             </div>
 

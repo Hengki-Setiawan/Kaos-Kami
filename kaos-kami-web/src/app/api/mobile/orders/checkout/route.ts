@@ -73,7 +73,7 @@ const MobileCheckoutSchema = z.object({
     .string()
     .min(10)
     .max(16)
-    .regex(/^(\+62|62|0)8[1-9][0-9]{6,10}$/, "Nomor WhatsApp tidak valid (contoh: 081234567890)"),
+    .regex(/^(\+62|62|0)8[1-9][0-9]{6,10}$/, "Nomor WhatsApp tidak valid"),
   email: z.string().email().optional().or(z.literal("")),
   deliveryMethod: z.enum(["PICKUP", "FREE_MAKASSAR", "EXPEDITION_MANUAL"]),
   district: z.string().max(80).optional(),

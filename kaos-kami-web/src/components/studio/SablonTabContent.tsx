@@ -14,7 +14,6 @@ import {
   FlaskConical,
   Type,
   Sparkles,
-  ShieldCheck,
   Wand2,
   Loader2,
   Sliders,
@@ -209,7 +208,7 @@ export const SablonTabContent: React.FC<SablonTabContentProps> = ({
                 type="text"
                 value={customTextString}
                 onChange={(e) => setCustomTextString(e.target.value)}
-                placeholder="mis. MAKASSAR NEVER DIES"
+                placeholder="Ketik teks sablon"
                 className="w-full px-3 py-2 rounded-xl bg-canvas border border-border-subtle text-text-primary focus:outline-none focus:border-brand-accent text-xs font-bold"
               />
             </div>
@@ -481,7 +480,7 @@ export const SablonTabContent: React.FC<SablonTabContentProps> = ({
               {/* Enhancement Message Notification */}
               {enhancementMessage && (
                 <div className="p-2.5 rounded-xl bg-brand-accent/15 border border-brand-accent/30 text-brand-accent text-xs font-mono flex items-center gap-1.5 animate-fadeIn">
-                  <ShieldCheck size={14} />
+                  <Sparkles size={14} />
                   <span>{enhancementMessage}</span>
                 </div>
               )}

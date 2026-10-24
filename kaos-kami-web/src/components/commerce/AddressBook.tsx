@@ -797,7 +797,7 @@ export function AddressBook({
                   required
                   value={label}
                   onChange={(e) => setLabel(e.target.value)}
-                  placeholder="Misal: Rumah Utama, Kantor Cabang"
+                  placeholder="Label (Rumah / Kantor)"
                   className="w-full px-3 py-2 rounded-xl bg-surface-elevated border border-border-subtle focus:border-brand-accent text-text-primary focus:outline-none transition-all text-xs"
                 />
               </div>
@@ -815,7 +815,7 @@ export function AddressBook({
                       required
                       value={recipientName}
                       onChange={(e) => setRecipientName(e.target.value)}
-                      placeholder="Nama orang yang menerima"
+                      placeholder="Nama lengkap penerima"
                       className="w-full pl-8 pr-3 py-2 rounded-xl bg-surface-elevated border border-border-subtle focus:border-brand-accent text-text-primary focus:outline-none transition-all text-xs"
                     />
                   </div>
@@ -832,7 +832,7 @@ export function AddressBook({
                       required
                       value={phoneNumber}
                       onChange={(e) => setPhoneNumber(e.target.value)}
-                      placeholder="08123456789"
+                      placeholder="08..."
                       className="w-full pl-8 pr-3 py-2 rounded-xl bg-surface-elevated border border-border-subtle focus:border-brand-accent text-text-primary focus:outline-none transition-all text-xs"
                     />
                   </div>
@@ -853,7 +853,7 @@ export function AddressBook({
                   required
                   value={fullAddress}
                   onChange={(e) => setFullAddress(e.target.value)}
-                  placeholder="Jl. Perintis Kemerdekaan KM 10 No. 45, RT 02 / RW 04, Samping Apotek"
+                  placeholder="Nama jalan, nomor rumah, RT/RW"
                   className="w-full px-3 py-2 rounded-xl bg-surface-elevated border border-border-subtle focus:border-brand-accent text-text-primary focus:outline-none transition-all text-xs font-sans leading-relaxed"
                 />
               </div>
@@ -883,7 +883,7 @@ export function AddressBook({
                     list="makassar-districts-list"
                     value={district}
                     onChange={(e) => setDistrict(e.target.value)}
-                    placeholder="Mis. Tamalanrea"
+                    placeholder="Kecamatan"
                     className="w-full px-3 py-2 rounded-xl bg-surface-elevated border border-border-subtle focus:border-brand-accent text-text-primary focus:outline-none transition-all text-xs"
                   />
                   <datalist id="makassar-districts-list">
@@ -901,7 +901,7 @@ export function AddressBook({
                     type="text"
                     value={postalCode}
                     onChange={(e) => setPostalCode(e.target.value)}
-                    placeholder="90245"
+                    placeholder="Kode pos"
                     className="w-full px-3 py-2 rounded-xl bg-surface-elevated border border-border-subtle focus:border-brand-accent text-text-primary focus:outline-none transition-all text-xs"
                   />
                 </div>
@@ -916,7 +916,7 @@ export function AddressBook({
                   type="text"
                   value={notes}
                   onChange={(e) => setNotes(e.target.value)}
-                  placeholder="Misal: Pagar hitam, dekat warung Bu Ani, titip satpam"
+                  placeholder="Patokan alamat (opsional)"
                   className="w-full px-3 py-2 rounded-xl bg-surface-elevated border border-border-subtle focus:border-brand-accent text-text-primary focus:outline-none transition-all text-xs font-sans"
                 />
               </div>

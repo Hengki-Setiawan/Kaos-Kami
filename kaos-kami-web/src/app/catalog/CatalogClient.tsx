@@ -22,7 +22,7 @@ import {
   ArrowRight,
   Minus,
   Plus,
-  ShieldCheck,
+  Shirt,
   SlidersHorizontal,
 } from "lucide-react";
 
@@ -845,11 +845,11 @@ export function CatalogClient() {
                   return (
                     <div className="p-3 rounded-xl bg-canvas border border-border-subtle space-y-1.5 text-xs font-sans">
                       <div className="flex items-start gap-2 text-text-muted">
-                        <Sparkles size={13} className="text-brand-accent shrink-0 mt-0.5" />
+                        <Shirt size={13} className="text-brand-accent shrink-0 mt-0.5" />
                         <span>Kain: <strong className="text-text-primary">{specs.fabric}</strong></span>
                       </div>
                       <div className="flex items-start gap-2 text-text-muted">
-                        <ShieldCheck size={13} className="text-emerald-400 shrink-0 mt-0.5" />
+                        <Check size={13} className="text-emerald-400 shrink-0 mt-0.5" />
                         <span>Sablon: <strong className="text-text-primary">{specs.curing}</strong></span>
                       </div>
                       <div className="flex items-start gap-2 text-text-muted">

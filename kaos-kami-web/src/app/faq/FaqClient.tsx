@@ -81,7 +81,7 @@ export function FaqClient() {
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Cari pertanyaan (misal: ukuran, satuan, ongkir, cuci)..."
+            placeholder="Cari pertanyaan seputar sablon, ukuran, pengiriman..."
             className="w-full pl-11 pr-4 py-3 rounded-full bg-surface/80 dark:bg-white/5 border border-border-subtle/80 dark:border-white/10 text-xs text-text-primary focus:outline-none focus:border-brand-accent placeholder:text-text-muted transition-colors font-sans backdrop-blur-md"
           />
         </div>

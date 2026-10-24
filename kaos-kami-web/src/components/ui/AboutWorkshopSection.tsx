@@ -18,7 +18,6 @@ import {
   Clock,
   ArrowUpRight,
   CheckCircle2,
-  Compass,
   MessageCircle,
 } from "lucide-react";
 
@@ -51,11 +50,6 @@ export const AboutWorkshopSection: React.FC = () => {
       <div className="max-w-6xl mx-auto space-y-12 sm:space-y-16">
         {/* ─── 1. EDITORIAL BRAND MANIFESTO ─── */}
         <div className="max-w-3xl space-y-4">
-          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-brand-accent/10 border border-brand-accent/25 text-brand-accent text-[11px] font-sans font-bold tracking-wider uppercase">
-            <Compass size={13} className="text-brand-accent" />
-            <span>{cms.aboutBadge || "TENTANG WORKSHOP KAOS KAMI · MAKASSAR"}</span>
-          </div>
-
           <h2 className="text-3xl sm:text-4xl md:text-5xl font-sans font-black tracking-tight text-text-primary leading-[1.08] uppercase">
             {titleLines.length > 1 ? (
               titleLines.map((line, idx) => (
@@ -81,15 +75,15 @@ export const AboutWorkshopSection: React.FC = () => {
         {/* ─── 2. ARCHITECTURAL CRAFT METRICS FRAME (MONOLITHIC STREETWEAR GRID) ─── */}
         <div className="rounded-2xl sm:rounded-3xl bg-surface/70 dark:bg-black/40 border border-border-subtle/80 dark:border-white/10 backdrop-blur-xl overflow-hidden shadow-sm">
           <div className="grid grid-cols-2 lg:grid-cols-4 divide-y sm:divide-y-0 sm:divide-x divide-border-subtle/80">
-            {/* Metric 1 */}
+            {/* Metric 1: DTF Print Craft */}
             <div className="p-5 sm:p-6 space-y-1.5 hover:bg-surface/50 transition-colors">
               <div className="flex items-baseline gap-1.5">
-                <span className="text-3xl sm:text-4xl font-mono font-black text-brand-accent">4.9</span>
-                <span className="text-sm font-mono text-amber-500 font-bold">★</span>
+                <span className="text-3xl sm:text-4xl font-mono font-black text-brand-accent">DTF</span>
+                <span className="text-xs font-mono text-brand-accent font-bold">HD</span>
               </div>
-              <h4 className="text-xs font-bold text-text-primary uppercase tracking-wide">Rating Kepuasan</h4>
+              <h4 className="text-xs font-bold text-text-primary uppercase tracking-wide">Sablon Digital DTF</h4>
               <p className="text-[11px] text-text-muted leading-relaxed">
-                Ratusan ulasan positif pembeli komunitas dan distro di seluruh Indonesia.
+                Cetak transfer film beresolusi tajam, warna pekat, dan daya rekat tahan cuci.
               </p>
             </div>
 

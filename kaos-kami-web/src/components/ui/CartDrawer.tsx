@@ -4,7 +4,7 @@ import React, { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import Image from "next/image";
 import Link from "next/link";
-import { X, ShoppingBag, Trash2, Plus, Minus, ArrowRight, ShieldCheck, Sparkles } from "lucide-react";
+import { X, ShoppingBag, Trash2, Plus, Minus, ArrowRight, Sparkles } from "lucide-react";
 import { useCartStore } from "@/store/useCartStore";
 import { useShallow } from "zustand/shallow";
 import { CheckoutModal } from "./CheckoutModal";
@@ -468,9 +468,8 @@ export const CartDrawer: React.FC = () => {
                 </span>
               </div>
 
-              <p className="text-[10px] text-text-muted flex items-center gap-1">
-                <ShieldCheck size={13} className="text-emerald-700 dark:text-emerald-400" />
-                <span>Harga final dihitung server. Diantar gratis se-Makassar / ambil di workshop.</span>
+              <p className="text-[10px] text-text-muted">
+                Gratis pengiriman se-Makassar atau ambil langsung di workshop.
               </p>
 
               <button
@@ -480,7 +479,7 @@ export const CartDrawer: React.FC = () => {
                 }}
                 className="w-full py-3.5 rounded-xl bg-brand-accent text-canvas font-sans font-semibold text-sm tracking-wide hover:brightness-110 active:scale-95 transition-all shadow-[0_0_20px_rgba(37,99,235,0.4)] flex items-center justify-center space-x-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-accent focus-visible:ring-offset-2 focus-visible:ring-offset-canvas"
               >
-                <span>Proses Checkout (Bayar QRIS)</span>
+                <span>Lanjut ke Checkout</span>
                 <ArrowRight size={15} />
               </button>
             </div>

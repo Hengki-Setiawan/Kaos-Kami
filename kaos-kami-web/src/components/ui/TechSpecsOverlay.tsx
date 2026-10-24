@@ -1,13 +1,13 @@
 "use client";
 
 import React from "react";
-import { ShieldCheck, Layers, Headphones, Truck } from "lucide-react";
+import { Shirt, Layers, Headphones, Truck } from "lucide-react";
 import { useConfiguratorStore } from "@/store/useConfiguratorStore";
 import { useShallow } from "zustand/shallow";
 
 const HIGHLIGHT_SPECS = [
   {
-    icon: ShieldCheck,
+    icon: Shirt,
     label: "BAHAN UTAMA",
     title: "Katun Combed Premium",
     desc: "100% serat alami sejuk, lembut & menyerap keringat",

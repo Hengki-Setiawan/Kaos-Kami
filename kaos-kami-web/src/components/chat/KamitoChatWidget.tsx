@@ -13,7 +13,6 @@ import {
   CheckCheck,
   Sparkles,
   ChevronDown,
-  ShieldCheck,
   AlertCircle,
   Bug,
   Image as ImageIcon,
@@ -707,7 +706,7 @@ export function KamitoChatWidget() {
                         onChange={(e) => setReportMessage(e.target.value)}
                         rows={3}
                         maxLength={1000}
-                        placeholder="Jelaskan apa yang terjadi (misal: saat klik tombol konfirmasi, halaman stuck dan tidak muncul opsi bayar)..."
+                        placeholder="Jelaskan kendala yang dialami..."
                         className="w-full px-3 py-2 rounded-xl bg-surface border border-border-subtle text-xs text-text-primary focus:outline-none focus:border-amber-500 resize-none leading-relaxed placeholder:text-neutral-500 font-sans"
                       />
                     </div>
@@ -767,18 +766,11 @@ export function KamitoChatWidget() {
                       </p>
                     </div>
 
-                    {/* Anti Spam & Rate Limit notice */}
-                    <div className="flex items-center justify-between text-[10px] text-text-muted pt-1">
-                      <span className="flex items-center gap-1">
-                        <ShieldCheck size={11} className="text-emerald-500" />
-                        <span>Batas 5 laporan/menit (Anti-Spam)</span>
-                      </span>
-                      {reportCooldownSeconds > 0 && (
-                        <span className="text-amber-400 font-mono font-bold">
-                          Jeda {reportCooldownSeconds}s
-                        </span>
-                      )}
-                    </div>
+                    {reportCooldownSeconds > 0 && (
+                      <div className="flex items-center justify-end text-[10px] text-amber-400 font-mono font-bold pt-1">
+                        <span>Tunggu {reportCooldownSeconds}s</span>
+                      </div>
+                    )}
 
                     {/* Tombol Kirim Laporan */}
                     <button
@@ -953,7 +945,7 @@ export function KamitoChatWidget() {
                         onKeyDown={handleKeyDown}
                         rows={1}
                         maxLength={2000}
-                        placeholder="Tulis pesan untuk CS Kamito..."
+                        placeholder="Tulis pesan..."
                         className="flex-1 px-3 py-2 rounded-xl bg-canvas/60 border border-border-subtle text-xs text-text-primary focus:outline-none focus:border-brand-accent resize-none max-h-24 leading-relaxed font-sans placeholder:text-text-muted/60"
                       />
 
@@ -970,9 +962,9 @@ export function KamitoChatWidget() {
 
                     {!userId && (
                       <div className="flex items-center justify-between mt-1 px-1 text-[10px] text-text-muted">
-                        <span className="flex items-center gap-1">
-                          <ShieldCheck size={11} className="text-emerald-500" />
-                          <span>Mode Tamu · Chat terhubung</span>
+                        <span className="flex items-center gap-1.5">
+                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 inline-block" />
+                          <span>Mode Tamu</span>
                         </span>
                         <button
                           type="button"

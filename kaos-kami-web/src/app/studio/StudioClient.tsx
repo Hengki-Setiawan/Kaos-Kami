@@ -315,11 +315,11 @@ export function StudioClient() {
             id="studio-btn-labkain"
             onClick={toggleClothLab}
             className="flex items-center space-x-1.5 px-3 py-1.5 rounded-full bg-surface border border-border-subtle text-text-muted hover:text-text-primary hover:border-brand-accent transition-all font-sans text-xs font-semibold cursor-pointer shadow-sm active:scale-95"
-            title="Laboratorium Uji Kain 3D & Simulasi Fisika"
-            aria-label="Buka Laboratorium Kain 3D"
+            title="Simulasi Bahan & Tekstur Kain"
+            aria-label="Bahan & Tekstur Kain"
           >
             <FlaskConical size={14} className="text-brand-accent" />
-            <span className="hidden md:inline">Lab Kain</span>
+            <span className="hidden md:inline">Bahan Kain</span>
           </button>
 
           {/* Tombol Simpan ke Gang Sheet (Bila dibuka dari mode Gang Sheet atau Admin) */}

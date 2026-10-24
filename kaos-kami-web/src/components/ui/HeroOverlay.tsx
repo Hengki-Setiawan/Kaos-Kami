@@ -95,13 +95,7 @@ export const HeroOverlay: React.FC = () => {
       <div className="h-1 sm:h-2 shrink-0" aria-hidden="true" />
 
       {/* Main Editorial Title: Strict Left Column, balanced modern typography */}
-      <div className="my-auto max-w-xl lg:max-w-2xl space-y-3 sm:space-y-3.5 z-20 pt-1 sm:pt-2">
-        {/* Kicker badge highlighting 3D Studio Mockup Capability */}
-        <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-brand-accent/10 border border-brand-accent/25 text-brand-accent text-[11px] font-sans font-bold tracking-wider uppercase">
-          <Box size={13} className="text-brand-accent" />
-          <span>STUDIO KUSTOM 3D &middot; SABLON DTF MAKASSAR</span>
-        </div>
-
+      <div className="my-auto max-w-xl lg:max-w-2xl space-y-3 sm:space-y-4 z-20 pt-1 sm:pt-2">
         {/* CWV: min-h cadangkan slot judul agar swap teks CMS tak menggeser layout */}
         <h1 suppressHydrationWarning className="text-3xl sm:text-4xl md:text-[42px] lg:text-[44px] font-sans font-extrabold uppercase tracking-tight leading-[1.08] text-text-primary min-h-[4rem] sm:min-h-[5rem]">
           {titleLines.map((line, i) => (
@@ -113,9 +107,6 @@ export const HeroOverlay: React.FC = () => {
         </h1>
         <p className="font-sans text-xs sm:text-sm text-text-muted leading-relaxed max-w-md pt-0.5">
           {subtitle}
-        </p>
-        <p className="font-sans tabular-nums text-xs text-brand-accent tracking-wider uppercase font-bold pt-0.5">
-          {`KAOS PREMIUM · SIMULATOR 3D · BEBAS SATUAN · MULAI ${apparel.formattedPrice} · MAKASSAR`}
         </p>
 
         {/* Action Buttons: Clean, Confident, Zero Gimmick */}

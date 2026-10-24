@@ -6,7 +6,7 @@ export const RegisterPhoneSchema = z.object({
     .string()
     .min(10, "Nomor WhatsApp minimal 10 digit")
     .max(15, "Nomor WhatsApp maksimal 15 digit")
-    .regex(/^(\+62|62|0)8[1-9][0-9]{6,10}$/, "Format nomor WhatsApp tidak valid (contoh: 081234567890)"),
+    .regex(/^(\+62|62|0)8[1-9][0-9]{6,10}$/, "Format nomor WhatsApp tidak valid"),
   password: z.string().min(6, "Password minimal 6 karakter"),
   email: z.string().email("Format email tidak valid").optional().or(z.literal("")),
 });

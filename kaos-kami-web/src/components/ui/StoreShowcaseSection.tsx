@@ -439,9 +439,6 @@ export const StoreShowcaseSection: React.FC = () => {
         {/* Section Header (Minimalist & Premium Streetwear) */}
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-end gap-6 pb-4 border-b border-border-subtle/60">
           <div>
-            <span className="block text-[10px] font-sans text-brand-accent uppercase tracking-widest mb-1 font-bold">
-              {cms.showcaseBadge || "KATALOG READY STOCK · MAKASSAR"}
-            </span>
             <h2 className="text-3xl sm:text-4xl md:text-5xl font-sans font-extrabold uppercase text-text-primary">
               {cms.showcaseTitle || "KOLEKSI SIAP PAKAI"}
             </h2>

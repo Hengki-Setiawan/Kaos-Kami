@@ -73,9 +73,9 @@ export const StudioTour: React.FC = () => {
           {
             element: "#studio-btn-labkain",
             popover: {
-              title: "Lab Pengujian Kain",
+              title: "Bahan & Karakter Kain",
               description:
-                "Buka Lab Kain untuk menguji elastisitas sablon terhadap tarikan kain, simulasi hembusan angin dinamis, serta pratinjau efek tinta khusus (Glow-in-the-dark & 3M Reflective).",
+                "Buka menu Bahan Kain untuk melihat kelenturan sablon terhadap tarikan kain, simulasi hembusan angin dinamis, serta pratinjau efek tinta khusus (Glow-in-the-dark & 3M Reflective).",
               side: "bottom",
               align: "end",
             },

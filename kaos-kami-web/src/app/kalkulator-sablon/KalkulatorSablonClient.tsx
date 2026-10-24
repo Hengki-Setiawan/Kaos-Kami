@@ -123,8 +123,8 @@ export const KalkulatorSablonClient: React.FC = () => {
         <section aria-label="Kalkulator ukuran print" className="p-5 sm:p-6 rounded-3xl bg-surface/75 dark:bg-black/40 backdrop-blur-2xl border border-border-subtle/80 dark:border-white/10 space-y-4 shadow-sm">
           {/* Quick Size Preset Pills (1-tap cepat di HP atau desktop) */}
           <div>
-            <span className="text-[10px] font-sans text-text-muted font-bold uppercase tracking-wider block mb-1.5">
-              PILIH CEPAT PRESET UKURAN SABLON:
+            <span className="text-[11px] font-sans text-text-muted font-semibold block mb-1.5">
+              Preset Ukuran:
             </span>
             <div className="flex items-center gap-2 overflow-x-auto pb-1 no-scrollbar">
               {[

@@ -18,7 +18,6 @@ import {
   Check,
   RotateCcw,
   Palette,
-  ShieldCheck,
   Printer,
   MessageSquare,
   ShoppingBag,
@@ -431,41 +430,6 @@ export function CustomerDashboardView({
           </div>
         </div>
       </section>
-
-      {/* Floating Developer Persona Indicator */}
-      {canSeeAll && (
-        <aside
-          aria-label="Mode Pengujian Persona"
-          className="fixed bottom-4 left-4 z-40 flex items-center gap-2 p-1.5 px-3 rounded-full bg-surface/90 border border-amber-500/40 backdrop-blur-xl shadow-2xl text-[11px] font-sans"
-        >
-          <span className="flex items-center gap-1.5 font-semibold text-amber-400">
-            <span className="w-2 h-2 rounded-full bg-amber-400 animate-pulse" />
-            <span>Mode Persona:</span>
-          </span>
-          <div className="flex items-center gap-1">
-            <Link
-              href="/dashboard/orders?scope=mine"
-              className={`px-2 py-0.5 rounded-full font-bold transition-all ${
-                scope !== "all"
-                  ? "bg-amber-500 text-black shadow-sm"
-                  : "text-text-muted hover:text-text-primary"
-              }`}
-            >
-              Pesanan Saya
-            </Link>
-            <Link
-              href="/dashboard/orders?scope=all"
-              className={`px-2 py-0.5 rounded-full font-bold transition-all ${
-                scope === "all"
-                  ? "bg-amber-500 text-black shadow-sm"
-                  : "text-text-muted hover:text-text-primary"
-              }`}
-            >
-              Semua Toko
-            </Link>
-          </div>
-        </aside>
-      )}
 
       {/* ============================================================== */}
       {/* 3. TABS NAVIGASI FRAMELESS SEGMENTED PILL                      */}

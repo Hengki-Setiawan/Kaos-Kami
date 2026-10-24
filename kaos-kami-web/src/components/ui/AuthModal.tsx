@@ -779,14 +779,14 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                   </h2>
                   <p className="font-sans text-xs text-text-muted mt-0.5">
                     {mode === "login"
-                      ? "Masuk dengan Email, Username, atau No. WhatsApp Anda."
+                      ? "Masuk untuk simpan desain dan lacak pesanan Anda."
                       : mode === "forgot-password"
                       ? forgotStep === 1
-                        ? "Masukkan email terdaftar untuk menerima kode verifikasi OTP pemulihan."
-                        : `Kode verifikasi 6-digit telah dikirim ke ${forgotEmail}. Silakan buat password baru.`
+                        ? "Masukkan email terdaftar untuk menerima kode OTP."
+                        : `Kode OTP telah dikirim ke ${forgotEmail}.`
                       : registerStep === 2
-                      ? `Masukkan 6-digit kode verifikasi yang dikirim ke ${registerEmail}.`
-                      : "Daftar dengan Email utama Anda untuk verifikasi aman dan cepat."}
+                      ? `Masukkan kode OTP yang dikirim ke ${registerEmail}.`
+                      : "Buat akun untuk simpan desain kustom Anda."}
                   </p>
                 </div>
 
@@ -829,8 +829,8 @@ export const AuthModal: React.FC<AuthModalProps> = ({
 
                     <div className="flex items-center gap-3 my-2">
                       <div className="h-px flex-1 bg-border-subtle" />
-                      <span className="text-[10px] font-sans text-text-muted uppercase">
-                        ATAU KREDENSIAL AKUN
+                      <span className="text-[10px] font-sans text-text-muted uppercase tracking-wider">
+                        atau
                       </span>
                       <div className="h-px flex-1 bg-border-subtle" />
                     </div>
@@ -890,7 +890,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                   <form onSubmit={handleLogin} className="space-y-3">
                     <div>
                       <label className="block font-sans text-[11px] uppercase tracking-wider text-text-muted mb-1">
-                        Email, Username, atau No. WhatsApp
+                        Email atau No. WhatsApp
                       </label>
                       <div className="relative">
                         <User size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-text-muted" />
@@ -899,7 +899,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                           required
                           value={loginIdentifier}
                           onChange={(e) => setLoginIdentifier(e.target.value)}
-                          placeholder="Contoh: nama@email.com / 0812... / username"
+                          placeholder="nama@email.com atau 08..."
                           className="w-full pl-10 pr-4 py-2 rounded-xl bg-surface border border-border-subtle focus:border-brand-accent text-sm text-text-primary placeholder:text-neutral-600 focus:outline-none transition-all font-sans"
                         />
                       </div>
@@ -916,7 +916,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                           required
                           value={loginPassword}
                           onChange={(e) => setLoginPassword(e.target.value)}
-                          placeholder="Masukkan password Anda"
+                          placeholder="••••••••"
                           autoComplete="current-password"
                           className="w-full pl-10 pr-11 py-2 rounded-xl bg-surface border border-border-subtle focus:border-brand-accent text-sm text-text-primary placeholder:text-neutral-600 focus:outline-none transition-all font-sans"
                         />
@@ -929,7 +929,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                           {showLoginPassword ? <EyeOff size={15} /> : <Eye size={15} />}
                         </button>
                       </div>
-                      <div className="flex items-center justify-between mt-1.5 font-sans text-[11px]">
+                      <div className="flex items-center justify-end mt-1.5 font-sans text-[11px]">
                         <button
                           type="button"
                           onClick={() => {
@@ -940,12 +940,10 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                             }
                             resetMessages();
                           }}
-                          className="text-brand-accent hover:underline font-semibold flex items-center gap-1 cursor-pointer"
+                          className="text-text-muted hover:text-brand-accent transition-colors cursor-pointer"
                         >
-                          <KeyRound size={12} className="shrink-0" />
-                          <span>Lupa password?</span>
+                          Lupa password?
                         </button>
-                        <span className="text-text-muted text-[10px]">Reset via Email OTP</span>
                       </div>
                     </div>
 
@@ -987,7 +985,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                   <form onSubmit={handleSendRegisterOtp} className="space-y-3">
                     <div>
                       <label className="block font-sans text-[11px] uppercase tracking-wider text-text-muted mb-1">
-                        Nama Lengkap <span className="text-brand-accent">*</span>
+                        Nama Lengkap
                       </label>
                       <div className="relative">
                         <User size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-text-muted" />
@@ -996,7 +994,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                           required
                           value={registerName}
                           onChange={(e) => setRegisterName(e.target.value)}
-                          placeholder="Contoh: Andi Muhammad"
+                          placeholder="Nama lengkap"
                           className="w-full pl-10 pr-4 py-2 rounded-xl bg-surface border border-border-subtle focus:border-brand-accent text-sm text-text-primary placeholder:text-neutral-600 focus:outline-none transition-all font-sans"
                         />
                       </div>
@@ -1004,7 +1002,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
 
                     <div>
                       <label className="block font-sans text-[11px] uppercase tracking-wider text-text-muted mb-1">
-                        Email Utama <span className="text-brand-accent">*</span>
+                        Email
                       </label>
                       <div className="relative">
                         <Mail size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-brand-accent" />
@@ -1021,7 +1019,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
 
                     <div>
                       <label className="block font-sans text-[11px] uppercase tracking-wider text-text-muted mb-1">
-                        Nomor WhatsApp <span className="text-brand-accent">*</span>
+                        Nomor WhatsApp
                       </label>
                       <div className="relative">
                         <Phone size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-text-muted" />
@@ -1030,7 +1028,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                           required
                           value={registerPhone}
                           onChange={(e) => setRegisterPhone(e.target.value)}
-                          placeholder="081234567890"
+                          placeholder="08..."
                           className="w-full pl-10 pr-4 py-2 rounded-xl bg-surface border border-border-subtle focus:border-brand-accent text-sm text-text-primary placeholder:text-neutral-600 focus:outline-none transition-all font-sans"
                         />
                       </div>
@@ -1039,7 +1037,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
                       <div>
                         <label className="block font-sans text-[11px] uppercase tracking-wider text-text-muted mb-1">
-                          Password <span className="text-brand-accent">*</span>
+                          Password
                         </label>
                         <div className="relative">
                           <Lock size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-text-muted" />
@@ -1049,7 +1047,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                             minLength={6}
                             value={registerPassword}
                             onChange={(e) => setRegisterPassword(e.target.value)}
-                            placeholder="Min. 6 char"
+                            placeholder="Minimal 6 karakter"
                             className="w-full pl-10 pr-10 py-2 rounded-xl bg-surface border border-border-subtle focus:border-brand-accent text-sm text-text-primary placeholder:text-neutral-600 focus:outline-none transition-all font-sans"
                           />
                           <button
@@ -1064,7 +1062,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
 
                       <div>
                         <label className="block font-sans text-[11px] uppercase tracking-wider text-text-muted mb-1">
-                          Konfirmasi <span className="text-brand-accent">*</span>
+                          Konfirmasi Password
                         </label>
                         <div className="relative">
                           <Lock size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-text-muted" />
@@ -1424,12 +1422,6 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                     </button>
                   </form>
                 )}
-
-                {/* Security Guarantee */}
-                <div className="mt-4 pt-3 border-t border-border-subtle flex items-center justify-center gap-1.5 text-center">
-                  <ShieldCheck size={12} className="text-emerald-500 shrink-0" />
-                  <span className="text-[10px] text-text-muted">Enkripsi 256-bit · Keamanan Data Terjamin</span>
-                </div>
               </>
             )}
           </div>
