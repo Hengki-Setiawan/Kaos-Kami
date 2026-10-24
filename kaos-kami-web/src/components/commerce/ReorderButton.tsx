@@ -66,6 +66,7 @@ export function ReorderButton({ userId, items }: { userId: string; items: Reorde
               image: it.image || "/images/placeholder-tee.png",
               quantity: it.quantity || 1,
               productVariantId: it.productVariantId || undefined,
+              designId: it.designId || undefined,
               isCustom: !it.productVariantId && !!it.designId,
             });
           }

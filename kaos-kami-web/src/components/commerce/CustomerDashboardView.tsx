@@ -1211,6 +1211,7 @@ export function CustomerDashboardView({
                     quantity: orderDesignQty,
                     isCustom: true,
                     apparelSlug: orderingDesign.category?.slug || "tshirt",
+                    designId: orderingDesign.id,
                   });
                   setOrderingDesign(null);
                   openCart();

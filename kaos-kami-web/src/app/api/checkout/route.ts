@@ -49,7 +49,7 @@ async function archiveDecalsToR2(decals: any[], tag: string): Promise<any[]> {
 const CheckoutItemSchema = z.object({
   apparelSlug: ApparelSlugSchema,
   productVariantId: z.string().min(1).max(64).optional(),
-  designId: z.string().cuid().optional(),
+  designId: z.string().min(1).max(64).optional(),
   fabricThicknessSlug: z.enum(["combed-30s", "combed-24s", "combed-20s", "combed-16s", "french-terry-380"]).optional(),
   // K-F: finish visual studio → server turunkan kain fail-closed
   // (client tak dipercaya meniadakan surcharge).
@@ -361,6 +361,34 @@ export async function POST(req: NextRequest) {
         }
 
         return NextResponse.json({ error: "Varian produk tidak tersedia" }, { status: 400 });
+      }
+
+      // Desain kustom tersimpan dari lemari (wardrobe) / reorder: bila decals kosong, muat dari DB
+      if (item.designId && (!Array.isArray(item.decals) || item.decals.length === 0)) {
+        try {
+          const savedDesign = await db.query.Design.findFirst({
+            where: (t, { eq: eqD }) => eqD(t.id, item.designId!),
+            with: { category: { columns: { slug: true } } },
+          });
+          if (savedDesign) {
+            item.decals = JSON.parse(savedDesign.decals || "[]");
+            if (savedDesign.category?.slug) {
+              item.apparelSlug = savedDesign.category.slug as any;
+            }
+            if (savedDesign.colorHex) item.colorHex = savedDesign.colorHex;
+            if (savedDesign.colorName) item.colorName = savedDesign.colorName;
+            if (savedDesign.size && !item.size) item.size = savedDesign.size;
+            if (savedDesign.masterAssetUrl && !item.masterAssetUrl) {
+              try {
+                item.masterAssetUrl = JSON.parse(savedDesign.masterAssetUrl);
+              } catch {
+                item.masterAssetUrl = savedDesign.masterAssetUrl as any;
+              }
+            }
+          }
+        } catch (e: any) {
+          console.warn("Gagal memuat detail designId saat checkout:", item.designId, e?.message);
+        }
       }
 
       const pricing = calculate6VariablePrice({

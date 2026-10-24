@@ -18,6 +18,8 @@ export interface CartProductItem {
   apparelSlug?: string;
   /** Varian katalog — server pakai harga varian (sudah termasuk sablon/size). */
   productVariantId?: string;
+  /** ID baris server Design (/api/designs) bila item adalah desain kustom tersimpan. */
+  designId?: string;
   /** Stok varian saat dimasukkan (stok jujur: kunci tombol + di drawer). */
   stockQty?: number;
   /** M4.1 teamwear: lapis sablon per item (desain dasar + teks personal).

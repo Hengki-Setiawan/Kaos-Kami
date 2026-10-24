@@ -776,6 +776,7 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
         ? cartItems.map((item) => ({
             apparelSlug: (item.apparelSlug as any) || "tshirt",
             productVariantId: item.productVariantId,
+            designId: item.designId,
             colorHex: item.colorHex || "#121214",
             colorName: item.colorName || "Obsidian Black",
             size: item.size || "L",
